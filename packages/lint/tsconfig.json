@@ -1,0 +1,12 @@
+{
+  "extends": "@total-typescript/tsconfig/bundler/no-dom/library-monorepo",
+  "exclude": ["dist", "node_modules"],
+  "include": [
+    "src/eslint-config/eslint.config.ts",
+    "src/eslint-config/scripts"
+  ],
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+    "skipLibCheck": true
+  }
+}

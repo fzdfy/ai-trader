@@ -1,0 +1,59 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxc": "explicit",
+    "source.fixAll.eslint": "never",
+  },
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.quickSuggestions": {
+    "other": "on",
+    "comments": "off",
+    "strings": "off"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss",
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+  },
+  "[css]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+  },
+  "files.watcherExclude": {
+    "**/routeTree.gen.ts": true,
+  },
+  "search.exclude": {
+    "**/routeTree.gen.ts": true,
+  },
+  "files.readonlyInclude": {
+    "**/routeTree.gen.ts": true,
+  },
+  "cSpell.words": [
+    "duckdb",
+    "openai",
+    "orpc",
+    "oxlint",
+    "pentest",
+    "tsgo"
+  ],
+  "js/ts.experimental.useTsgo": true,
+  "[sql]": {
+    "editor.defaultFormatter": "adpyke.vscode-sql-formatter"
+  },
+  "js/ts.tsdk.path": "node_modules/@typescript/native-preview",
+}

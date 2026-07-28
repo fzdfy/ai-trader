@@ -1,0 +1,21 @@
+{
+  "name": "@ai-trader/eslint-config",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/eslint-config/eslint.config.ts",
+    "./oxlint": "./src/eslint-config/oxlint-config.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check-types": "tsgo -b --noEmit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^9.38.0",
+    "eslint-plugin-unicorn": "^64.0.0",
+    "oxlint": "^0.15.10",
+    "typescript-eslint": "^8.62.0"
+  }
+}

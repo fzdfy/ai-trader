@@ -1,0 +1,43 @@
+{
+  "name": "@ai-trader/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import @oxc-node/core/register --watch ./src/index.ts",
+    "start": "node --import @oxc-node/core/register ./src/index.ts",
+    "check-types": "tsgo -b --noEmit",
+    "lint": "eslint .",
+    "format": "oxfmt",
+    "db:pull": "drizzle-kit pull",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push --verbose",
+    "sync:instruments": "node --import @oxc-node/core/register scripts/sync-instruments.ts",
+    "sync:boards": "node --import @oxc-node/core/register scripts/sync-boards.ts",
+    "sync:kline": "node --import @oxc-node/core/register scripts/sync-kline.ts",
+    "worker:sync": "node --import @oxc-node/core/register src/workers/sync-worker/index.ts",
+    "worker:feature": "node --import @oxc-node/core/register src/workers/feature-worker/index.ts",
+    "worker:kline": "node --import @oxc-node/core/register src/workers/kline-worker/index.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "dayjs": "^1.11.21",
+    "drizzle-orm": "^0.38.3",
+    "hono": "^4.6.18",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.1",
+    "pg-boss": "^10.1.7",
+    "pgvector": "^0.2.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@ai-trader/eslint-config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.30.4",
+    "eslint": "^9.38.0"
+  }
+}

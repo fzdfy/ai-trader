@@ -1,0 +1,10 @@
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "@astryxdesign/theme-neutral/theme.css";
+
+body {
+  font-family: "PingFang SC", system-ui, -apple-system, sans-serif;
+  background: var(--ax-color-bg);
+  color: var(--ax-color-text);
+  min-height: 100vh;
+}

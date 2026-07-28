@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  postgres:
+    build: .
+    container_name: postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: aitrader123   # 设置数据库超级用户密码
+      POSTGRES_DB: aitrader
+      POSTGRES_USER: ai-trader
+    ports:
+      - "5432:5432"                         # 宿主机端口:容器端口
+    volumes:
+      # 宿主机绝对路径 : 容器内数据目录
+      - /Users/fengyunpeng/Documents/study/ai-trader/pgdata:/var/lib/postgresql

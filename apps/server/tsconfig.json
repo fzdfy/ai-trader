@@ -1,0 +1,12 @@
+{
+  "extends": "@total-typescript/tsconfig/bundler/no-dom/app",
+  "exclude": ["dist", "node_modules"],
+  "include": ["src"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
+  }
+}

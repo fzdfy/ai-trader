@@ -1,0 +1,21 @@
+{
+  "servers": {
+    "mastra": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mastra/mcp-docs-server@beta"
+      ],
+      "type": "stdio"
+    },
+    "stock-sdk": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "stock-sdk",
+        "mcp"
+      ],
+      "type": "stdio"
+    }
+  }
+}
