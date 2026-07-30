@@ -10,3 +10,4 @@ coverage/
 .next/
 .astro/
 routeTree.gen.ts
+pgdata/
