@@ -115,6 +115,9 @@ importers:
       better-auth:
         specifier: ^1.1.21
         version: 1.6.23(pg@8.22.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(solid-js@1.9.14)
+      hono:
+        specifier: ^4.6.18
+        version: 4.12.31
       klinecharts:
         specifier: ^10.0.0
         version: 10.0.0

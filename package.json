@@ -2,7 +2,7 @@
   "name": "ai-trader",
   "private": true,
   "scripts": {
-    "dev": "dotenvx run -f .env.local -- turbo dev",
+    "dev": "dotenvx run -f .env.local -- turbo dev & pnpm run quant:dev",
     "build": "turbo build",
     "lint": "oxlint . && turbo lint",
     "format": "oxfmt",
@@ -12,7 +12,9 @@
     "db:migrate": "turbo db:migrate",
     "db:studio": "turbo db:studio",
     "sync-instruments": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-instruments.ts",
-    "sync-kline1d": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline1d.ts"
+    "sync-kline1d": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline1d.ts",
+    "quant:dev": "cd apps/quant && uv run uvicorn main:app --host 0.0.0.0 --port 3002 --reload",
+    "quant:start": "cd apps/quant && uv run uvicorn main:app --host 0.0.0.0 --port 3002"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",

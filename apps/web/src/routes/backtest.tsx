@@ -35,7 +35,7 @@ interface BacktestResult {
 }
 
 const STRATEGY_OPTIONS = [
-  { value: "maCross", label: "MA 双均线交叉" },
+  { value: "ma_cross", label: "MA 双均线交叉" },
   { value: "rsi", label: "RSI 超买超卖" },
   { value: "macd", label: "MACD 信号交叉" },
   { value: "bollinger", label: "布林带突破" },
@@ -52,20 +52,20 @@ const TRADE_COLUMNS = [
     width: proportional(1),
     renderCell: (row: Trade) => {
       const color = row.pnlPct > 0 ? "var(--color-text-positive)" : "var(--color-text-negative)";
-      return <Text style={{ color }}>{((row.pnlPct as number) * 100).toFixed(2)}%</Text>;
+      return <Text style={{ color }}>{(row.pnlPct as number).toFixed(2)}%</Text>;
     },
   },
 ];
 
 const STRATEGY_DEFAULTS: Record<string, Record<string, number>> = {
-  maCross: { fast: 5, slow: 20 },
+  ma_cross: { fast: 5, slow: 20 },
   rsi: { period: 14, oversold: 30, overbought: 70 },
   macd: { fast: 12, slow: 26, signal: 9 },
   bollinger: { period: 20, multiplier: 2 },
 };
 
 const PARAM_DEFS: Record<string, { key: string; label: string; defaultValue: number }[]> = {
-  maCross: [
+  ma_cross: [
     { key: "fast", label: "快线周期", defaultValue: 5 },
     { key: "slow", label: "慢线周期", defaultValue: 20 },
   ],
@@ -111,9 +111,11 @@ export const Route = createFileRoute("/backtest")({
 });
 
 function BacktestPage() {
-  const [symbol, setSymbol] = useState("");
-  const [strategy, setStrategy] = useState<string>("maCross");
+  const [symbol, setSymbol] = useState("002594.SZ");
+  const [strategy, setStrategy] = useState<string>("ma_cross");
   const [params, setParams] = useState<Record<string, number>>({});
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [tab, setTab] = useState("metrics");
@@ -132,12 +134,16 @@ function BacktestPage() {
     const res = await fetch("/api/v1/backtests/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol, strategy: { type: strategy, params: resolved } }),
+      body: JSON.stringify({
+        symbol, strategy, params: resolved,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
     });
     const json = await res.json();
     setResult(json.success ? json.data : null);
     setLoading(false);
-  }, [symbol, strategy, params]);
+  }, [symbol, strategy, params, startDate, endDate]);
 
   return (
     <VStack gap={6}>
@@ -152,6 +158,20 @@ function BacktestPage() {
               value={symbol}
               onChange={setSymbol}
               style={{ width: 160 }}
+            />
+            <TextInput
+              label="开始日期"
+              placeholder="2024-01-01"
+              value={startDate}
+              onChange={setStartDate}
+              style={{ width: 130 }}
+            />
+            <TextInput
+              label="结束日期"
+              placeholder="2026-07-29"
+              value={endDate}
+              onChange={setEndDate}
+              style={{ width: 130 }}
             />
             <VStack gap={1}>
               <Text type="supporting" size="sm">策略</Text>

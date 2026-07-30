@@ -1,48 +1,46 @@
 import { Hono } from "hono";
-import { db } from "../db";
-import { bar1dAdj } from "../db/schema";
-import { eq, lte, gte } from "drizzle-orm";
-import { runBacktest, type StrategyConfig } from "../engine";
-import type { Bar } from "../engine";
 import { ok, badRequest } from "../lib/response";
 
+const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
+
 const backtestsRoute = new Hono();
+
+// GET /api/v1/backtests/strategies
+backtestsRoute.get("/strategies", async (c) => {
+  const res = await fetch(`${QUANT_URL}/api/v1/strategies`);
+  const json = await res.json();
+  return ok(c, json.strategies ?? []);
+});
 
 // POST /api/v1/backtests/run
 backtestsRoute.post("/run", async (c) => {
   const body = await c.req.json();
-  const { symbol, startDate, endDate, strategy } = body as {
+  const { symbol, strategy, params, startDate, endDate } = body as {
     symbol?: string;
+    strategy?: string;
+    params?: Record<string, number>;
     startDate?: string;
     endDate?: string;
-    strategy?: StrategyConfig;
   };
 
   if (!symbol) return badRequest(c, "symbol is required");
   if (!strategy) return badRequest(c, "strategy is required");
 
-  const conditions = [eq(bar1dAdj.symbol, symbol)];
-  if (startDate) conditions.push(gte(bar1dAdj.time, new Date(startDate)));
-  if (endDate) conditions.push(lte(bar1dAdj.time, new Date(endDate)));
+  const res = await fetch(`${QUANT_URL}/api/v1/backtests/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbol, strategy, params: params ?? {}, startDate, endDate }),
+  });
+  const json = await res.json();
 
-  const rows = await db
-    .select()
-    .from(bar1dAdj)
-    .where(eq(bar1dAdj.symbol, symbol))
-    .orderBy(bar1dAdj.time);
+  if (!res.ok) {
+    return c.json(
+      { success: false, error: json.detail ?? "Backtest failed" },
+      res.status as 400 | 404 | 500,
+    );
+  }
 
-  const bars: Bar[] = rows.map((r) => ({
-    time: r.time.toISOString().split("T")[0] ?? "",
-    open: Number.parseFloat(r.open),
-    high: Number.parseFloat(r.high),
-    low: Number.parseFloat(r.low),
-    close: Number.parseFloat(r.close),
-    volume: Number.parseFloat(r.volume),
-  }));
-
-  const result = runBacktest(bars, strategy);
-
-  return ok(c, result);
+  return ok(c, json);
 });
 
 export { backtestsRoute };
