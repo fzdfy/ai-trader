@@ -53,8 +53,11 @@ def run_backtest(req: BacktestRequest) -> dict[str, Any]:
     print(f"[main] strategy={strategy_cls.__name__} params={req.params}")
 
     result = run(df, strategy_cls)
-    result["symbol"] = req.symbol
-    result["strategy"] = req.strategy
+
+    # 注入 symbol / strategy 到 report 块
+    result.setdefault("report", {})
+    result["report"]["symbol"] = req.symbol
+    result["report"]["strategy"] = req.strategy
     return result
 
 

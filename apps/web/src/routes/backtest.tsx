@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -9,30 +9,69 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Section } from "@astryxdesign/core/Section";
+import { Card } from "@astryxdesign/core/Card";
+import { EquityChart } from "../components/charts/EquityChart";
+import { TradeChart } from "../components/charts/TradeChart";
 
-interface BacktestMetrics {
-  totalReturn: number;
-  annualReturn: number;
-  maxDrawdown: number;
-  sharpeRatio: number;
-  winRate: number;
-  totalTrades: number;
-  avgPnlPct: number;
+// ==============================
+// Types — 对齐 AKQuant 原生 report 结构
+// ==============================
+
+/** AKQuant report 概览 */
+interface ReportInfo {
+  symbol: string;
+  strategy: string;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  initialCapital: number;
+  finalEquity: number;
 }
 
+/** AKQuant 核心指标（12 项） */
+interface BacktestMetrics {
+  totalReturn: number;
+  cagr: number;
+  avgPnl: number;
+  sharpeRatio: number;
+  sortinoRatio: number | null;
+  calmarRatio: number | null;
+  maxDrawdown: number;
+  volatility: number | null;
+  winRate: number;
+  profitFactor: number | null;
+  kelly: number | null;
+  totalTrades: number;
+}
+
+/** AKQuant 权益点 */
+interface EquityPoint {
+  time: string;
+  equity: number;
+  drawdown: number;
+}
+
+/** AKQuant 交易记录 */
 type Trade = Record<string, unknown> & {
   entryTime: string;
   exitTime: string;
   entryPrice: number;
   exitPrice: number;
+  pnl: number;
   pnlPct: number;
 };
 
+/** Quant 服务返回的完整回测结果 */
 interface BacktestResult {
+  report: ReportInfo;
   metrics: BacktestMetrics;
-  equity: { time: string; value: number }[];
+  equity: EquityPoint[];
   trades: Trade[];
 }
+
+// ==============================
+// Constants
+// ==============================
 
 const STRATEGY_OPTIONS = [
   { value: "ma_cross", label: "MA 双均线交叉" },
@@ -41,18 +80,35 @@ const STRATEGY_OPTIONS = [
   { value: "bollinger", label: "布林带突破" },
 ] as const;
 
+const STRATEGY_LABEL_MAP: Record<string, string> = Object.fromEntries(
+  STRATEGY_OPTIONS.map((s) => [s.value, s.label]),
+);
+
 const TRADE_COLUMNS = [
   { key: "entryTime" as const, header: "买入日", width: proportional(1.5) },
   { key: "exitTime" as const, header: "卖出日", width: proportional(1.5) },
   { key: "entryPrice" as const, header: "买入价", width: proportional(1) },
   { key: "exitPrice" as const, header: "卖出价", width: proportional(1) },
   {
+    key: "pnl" as const,
+    header: "盈亏(元)",
+    width: proportional(1),
+    renderCell: (row: Trade) => {
+      const color =
+        row.pnl > 0 ? "var(--color-text-positive)" : "var(--color-text-negative)";
+      return <Text style={{ color, fontWeight: 600 }}>{row.pnl.toFixed(2)}</Text>;
+    },
+  },
+  {
     key: "pnlPct" as const,
     header: "收益率",
     width: proportional(1),
     renderCell: (row: Trade) => {
-      const color = row.pnlPct > 0 ? "var(--color-text-positive)" : "var(--color-text-negative)";
-      return <Text style={{ color }}>{(row.pnlPct as number).toFixed(2)}%</Text>;
+      const color =
+        row.pnlPct > 0
+          ? "var(--color-text-positive)"
+          : "var(--color-text-negative)";
+      return <Text style={{ color, fontWeight: 600 }}>{row.pnlPct.toFixed(2)}%</Text>;
     },
   },
 ];
@@ -85,7 +141,34 @@ const PARAM_DEFS: Record<string, { key: string; label: string; defaultValue: num
   ],
 };
 
-function ParamInputs({ strategy, params, onChange }: {
+// ==============================
+// Helper: 值格式化
+// ==============================
+
+function fmtPct(val: number | null | undefined): string {
+  if (val == null) return "-";
+  return `${val >= 0 ? "+" : ""}${val.toFixed(2)}%`;
+}
+
+function fmtNum(val: number | null | undefined, decimals = 2): string {
+  if (val == null) return "-";
+  return val.toFixed(decimals);
+}
+
+function fmtMoney(val: number): string {
+  return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+// ==============================
+// Sub-components
+// ==============================
+
+/** 策略参数输入行 */
+function ParamInputs({
+  strategy,
+  params,
+  onChange,
+}: {
   strategy: string;
   params: Record<string, number>;
   onChange: (key: string, value: number) => void;
@@ -106,6 +189,73 @@ function ParamInputs({ strategy, params, onChange }: {
   );
 }
 
+/** 单个指标卡片 */
+function MetricCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <VStack
+      gap={1}
+      style={{
+        padding: "var(--spacing-3)",
+        background: "var(--color-surface-secondary)",
+        borderRadius: "var(--radius-md)",
+        minWidth: 140,
+      }}
+    >
+      <Text type="supporting" size="sm">
+        {label}
+      </Text>
+      <Text size="lg" style={{ fontWeight: 700, color }}>
+        {value}
+      </Text>
+    </VStack>
+  );
+}
+
+/** 报告头部：回测概览（直接使用 AKQuant report 数据） */
+function ReportHeader({
+  report,
+  strategy,
+}: {
+  report: ReportInfo;
+  strategy: string;
+}) {
+  const headerItems = [
+    { label: "回测区间", value: `${report.startDate} ~ ${report.endDate}` },
+    { label: "回测时长", value: `${report.durationDays} 天` },
+    { label: "策略", value: STRATEGY_LABEL_MAP[strategy] ?? strategy },
+    { label: "标的", value: report.symbol },
+    { label: "初始资金", value: `${fmtMoney(report.initialCapital)} 元` },
+    { label: "最终权益", value: `${fmtMoney(report.finalEquity)} 元` },
+  ];
+
+  return (
+    <Card padding={5}>
+      <HStack gap={6} style={{ flexWrap: "wrap" }}>
+        {headerItems.map((item) => (
+          <VStack key={item.label} gap={2}>
+            <Text type="supporting" size="sm">
+              {item.label}
+            </Text>
+            <Text style={{ fontWeight: 600 }}>{item.value}</Text>
+          </VStack>
+        ))}
+      </HStack>
+    </Card>
+  );
+}
+
+// ==============================
+// Page
+// ==============================
+
 export const Route = createFileRoute("/backtest")({
   component: BacktestPage,
 });
@@ -118,7 +268,7 @@ function BacktestPage() {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
-  const [tab, setTab] = useState("metrics");
+  const [resultTab, setResultTab] = useState("overview");
 
   const runBacktest = useCallback(async () => {
     if (!symbol) return;
@@ -135,7 +285,9 @@ function BacktestPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        symbol, strategy, params: resolved,
+        symbol,
+        strategy,
+        params: resolved,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       }),
@@ -145,10 +297,33 @@ function BacktestPage() {
     setLoading(false);
   }, [symbol, strategy, params, startDate, endDate]);
 
+  /** 核心指标列表（对齐 AKQuant 12 项完整指标） */
+  const metricItems = useMemo(() => {
+    if (!result?.metrics) return [];
+    const m = result.metrics;
+    const posGreen = "var(--color-text-positive)";
+    const negRed = "var(--color-text-negative)";
+    return [
+      { label: "累计收益率", value: fmtPct(m.totalReturn), color: m.totalReturn >= 0 ? posGreen : negRed },
+      { label: "年化收益率(CAGR)", value: fmtPct(m.cagr), color: m.cagr >= 0 ? posGreen : negRed },
+      { label: "平均盈亏", value: fmtPct(m.avgPnl) },
+      { label: "夏普比率", value: fmtNum(m.sharpeRatio) },
+      { label: "索提诺比率", value: fmtNum(m.sortinoRatio) },
+      { label: "卡玛比率", value: fmtNum(m.calmarRatio) },
+      { label: "最大回撤", value: fmtPct(m.maxDrawdown), color: negRed },
+      { label: "波动率", value: fmtPct(m.volatility) },
+      { label: "胜率", value: fmtPct(m.winRate) },
+      { label: "盈亏比", value: fmtNum(m.profitFactor) },
+      { label: "凯利公式", value: fmtNum(m.kelly) },
+      { label: "交易次数", value: String(m.totalTrades) },
+    ];
+  }, [result]);
+
   return (
     <VStack gap={6}>
       <Heading level={2}>策略回测</Heading>
 
+      {/* 参数输入区 */}
       <Section>
         <VStack gap={4}>
           <HStack gap={3} align="end">
@@ -174,14 +349,25 @@ function BacktestPage() {
               style={{ width: 130 }}
             />
             <VStack gap={1}>
-              <Text type="supporting" size="sm">策略</Text>
+              <Text type="supporting" size="sm">
+                策略
+              </Text>
               <select
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value)}
-                style={{ height: 36, padding: "0 8px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-border)" }}
+                style={{
+                  height: 36,
+                  padding: "0 8px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-text)",
+                }}
               >
                 {STRATEGY_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
                 ))}
               </select>
             </VStack>
@@ -193,53 +379,79 @@ function BacktestPage() {
             />
           </HStack>
 
-          <ParamInputs strategy={strategy} params={params} onChange={(k, v) => setParams((p) => ({ ...p, [k]: v }))} />
+          <ParamInputs
+            strategy={strategy}
+            params={params}
+            onChange={(k, v) => setParams((p) => ({ ...p, [k]: v }))}
+          />
         </VStack>
       </Section>
 
-      {loading && <Spinner size="sm" label="回测计算中..." />}
+      {/* 加载状态 */}
+      {loading && <Spinner size="sm" label="回测计算中，请稍候..." />}
 
+      {/* 回测报告 */}
       {result && (
-        <Section>
-          <VStack gap={4}>
-            <TabList value={tab} onChange={setTab}>
-              <Tab value="metrics" label="指标" />
-              <Tab value="trades" label={`交易记录 (${result.trades.length})`} />
-            </TabList>
+        <VStack gap={5}>
+          {/* 报告头部 — 直接使用 AKQuant report */}
+          <ReportHeader report={result.report} strategy={strategy} />
 
-            {tab === "metrics" && (
-              <HStack gap={4}>
-                {[
-                  { label: "总收益率", value: `${result.metrics.totalReturn}%`, c: result.metrics.totalReturn > 0 ? "positive" as const : "negative" as const },
-                  { label: "年化收益", value: `${result.metrics.annualReturn}%`, c: undefined },
-                  { label: "最大回撤", value: `${result.metrics.maxDrawdown}%`, c: undefined },
-                  { label: "夏普比率", value: String(result.metrics.sharpeRatio), c: undefined },
-                  { label: "胜率", value: `${result.metrics.winRate}%`, c: undefined },
-                  { label: "交易次数", value: String(result.metrics.totalTrades), c: undefined },
-                  { label: "平均盈亏", value: `${result.metrics.avgPnlPct}%`, c: undefined },
-                ].map((m) => (
-                  <VStack key={m.label} gap={1} style={{ padding: "var(--spacing-3)", background: "var(--color-surface-secondary)", borderRadius: "var(--radius-md)", minWidth: 120 }}>
-                    <Text type="supporting" size="sm">{m.label}</Text>
-                    <Text size="lg" style={{ fontWeight: 600, color: (() => { if (m.c === "positive") return "var(--color-text-positive)"; if (m.c === "negative") return "var(--color-text-negative)"; return ""; })() }}>
-                      {m.value}
-                    </Text>
-                  </VStack>
+          {/* 核心指标 — AKQuant 12 项 */}
+          <Section>
+            <VStack gap={4}>
+              <Text style={{ fontWeight: 600 }}>核心指标 (Key Metrics)</Text>
+              <HStack gap={4} style={{ flexWrap: "wrap" }}>
+                {metricItems.map((m) => (
+                  <MetricCard
+                    key={m.label}
+                    label={m.label}
+                    value={m.value}
+                    color={m.color}
+                  />
                 ))}
               </HStack>
-            )}
+            </VStack>
+          </Section>
 
-            {tab === "trades" && (
-              <Table<Trade>
-                idKey="entryTime"
-                columns={TRADE_COLUMNS}
-                data={result.trades}
-                density="compact"
-                dividers="rows"
-                hasHover
+          {/* 标签页：图表 / 交易记录 */}
+          <TabList value={resultTab} onChange={setResultTab}>
+            <Tab value="overview" label="权益与回撤" />
+            <Tab value="trades_chart" label="交易盈亏分布" />
+            <Tab value="trades" label={`交易记录 (${result.trades.length})`} />
+          </TabList>
+
+          {resultTab === "overview" && (
+            <Card padding={4}>
+              <EquityChart
+                equity={result.equity}
+                initialCapital={result.report.initialCapital}
               />
-            )}
-          </VStack>
-        </Section>
+            </Card>
+          )}
+
+          {resultTab === "trades_chart" && (
+            <Card padding={4}>
+              {result.trades.length > 0 ? (
+                <TradeChart trades={result.trades} />
+              ) : (
+                <VStack gap={4} align="center" style={{ padding: "var(--spacing-6)" }}>
+                  <Text type="supporting">该回测期间未产生交易</Text>
+                </VStack>
+              )}
+            </Card>
+          )}
+
+          {resultTab === "trades" && (
+            <Table<Trade>
+              idKey="entryTime"
+              columns={TRADE_COLUMNS}
+              data={result.trades}
+              density="compact"
+              dividers="rows"
+              hasHover
+            />
+          )}
+        </VStack>
       )}
     </VStack>
   );

@@ -17,6 +17,7 @@
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.18",
     "better-auth": "^1.1.21",
+    "echarts": "^6.1.0",
     "hono": "^4.6.18",
     "klinecharts": "^10.0.0",
     "lucide-react": "^1.27.0",

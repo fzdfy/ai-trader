@@ -1,5 +1,16 @@
+"""量化策略注册表。
+
+定义所有可用策略的元数据列表 STRATEGIES，供 FastAPI 和前端使用。
+每个策略条目包含：
+  name   策略标识符，对应回测请求中的 strategy 参数
+  label  策略中文名称，前端展示用
+  cls    策略类引用，回测引擎通过 _apply_params 子类化后传入
+  params 可调参数列表（key/label/default），前端据此渲染参数输入控件
+"""
+
 from .strategies import MACrossStrategy, RSIStrategy, MACDStrategy, BollingerStrategy
 
+# 策略注册表：所有可用策略的元数据
 STRATEGIES = [
     {
         "name": "ma_cross",
