@@ -13,6 +13,7 @@
     "db:studio": "turbo db:studio",
     "sync-instruments": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-instruments.ts",
     "sync-kline1d": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline1d.ts",
+    "sync-kline-period": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline-period.ts",
     "quant:dev": "cd apps/quant && uv run uvicorn main:app --host 0.0.0.0 --port 3002 --reload",
     "quant:start": "cd apps/quant && uv run uvicorn main:app --host 0.0.0.0 --port 3002"
   },

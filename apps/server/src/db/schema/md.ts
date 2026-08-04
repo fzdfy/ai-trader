@@ -8,6 +8,7 @@ import {
   primaryKey,
   boolean,
   index,
+  integer,
 } from "drizzle-orm/pg-core";
 
 // ============================================================================
@@ -522,5 +523,69 @@ export const bar1dAdj = pgTable(
   (table) => [
     primaryKey({ columns: [table.time, table.symbol] }),
     index("bar1d_adj_symbol_time_idx").on(table.symbol, table.time),
+  ],
+);
+
+// ============================================================================
+
+/**
+ * bar_period_adj — 周期 K 线表（5日 / 周 / 月）
+ *
+ * 定位：由 bar1d_adj 日线聚合生成的派生周期线，属"物化视图"性质。
+ * 不在上游拉取，保证与日线复权口径（前复权）完全一致。
+ *
+ * 聚合规则：
+ *   open   = 周期内首根日线 open
+ *   high   = MAX(high)
+ *   low    = MIN(low)
+ *   close  = 周期内末根日线 close
+ *   volume = SUM(volume)
+ *   amount = SUM(amount)
+ *
+ * 周期归属：
+ *   - 5d  : 按交易序号每 5 根日线一组（滚动窗口）
+ *   - 1w  : 按自然周聚合（DATE_TRUNC('week')）
+ *   - 1mo : 按自然月聚合（DATE_TRUNC('month')）
+ *   time 取周期内最后一个交易日 00:00:00，PK 顺序与日线对齐。
+ *
+ * 写入策略：
+ *   - 增量：kline-1d 完成后只重算包含最新交易日的那个周期（ON CONFLICT UPDATE）
+ *   - 全量：scripts/sync-kline-period.ts 重建（DELETE + INSERT）
+ *
+ * 主要读者：前端 K 线页 5日/周/月 周期切换。
+ */
+export const barPeriodAdj = pgTable(
+  "bar_period_adj",
+  {
+    /** 周期类型：5d / 1w / 1mo */
+    period: text("period").notNull(),
+    /** 周期内最后一个交易日 00:00:00，PK 首列兼分区列 */
+    time: timestamp("time").notNull(),
+    /** 股票代码 */
+    symbol: text("symbol").notNull(),
+    /** 周期首根日线 open */
+    open: numeric("open").notNull(),
+    /** 周期内最高价 */
+    high: numeric("high").notNull(),
+    /** 周期内最低价 */
+    low: numeric("low").notNull(),
+    /** 周期末根日线 close */
+    close: numeric("close").notNull(),
+    /** 周期内成交量合计（股） */
+    volume: numeric("volume").notNull(),
+    /** 周期内成交额合计（元） */
+    amount: numeric("amount"),
+    /** 周期内日线数量（5d≈5, 1w≈5, 1mo≈20±，用于校验） */
+    barCount: integer("bar_count").notNull(),
+    /** 周期内首个交易日 */
+    firstDay: date("first_day").notNull(),
+    /** 周期内最新一根日线的上游更新时间 */
+    sourceUpdatedAt: timestamp("source_updated_at"),
+    /** 后端写入时间 */
+    ingestedAt: timestamp("ingested_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.period, table.time, table.symbol] }),
+    index("bar_period_adj_symbol_time_idx").on(table.period, table.symbol, table.time),
   ],
 );
