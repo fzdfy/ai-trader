@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
+import { echarts } from "../../lib/echarts";
+import type { ECharts } from "echarts";
+import { chartDown, chartFlat, chartUp, hexToRgba } from "../../lib/theme";
 
 export interface HeatmapItem {
   name: string;
@@ -22,14 +24,12 @@ interface HeatmapChartProps {
 
 /** 涨跌幅 → 颜色（红涨绿跌，随幅度加深） */
 function pctColor(pct: number | null): string {
-  if (pct == null) return "#6b7280";
+  if (pct == null) return chartFlat();
   const t = Math.min(Math.abs(pct) / 5, 1); // 5% 封顶
   if (pct >= 0) {
-    // 红：#fee2e2 → #ef4444
-    return `rgba(239, 68, 68, ${0.25 + 0.75 * t})`;
+    return hexToRgba(chartUp(), 0.25 + 0.75 * t);
   }
-  // 绿：#dcfce7 → #22c55e
-  return `rgba(34, 197, 94, ${0.25 + 0.75 * t})`;
+  return hexToRgba(chartDown(), 0.25 + 0.75 * t);
 }
 
 /** 格式化市值/成交额：万亿/亿 */
@@ -47,7 +47,7 @@ function fmtCap(v: number): string {
  */
 export function HeatmapChart({ data }: HeatmapChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<ECharts | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -162,7 +162,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
         width: "100%",
         height: 620,
         minHeight: 0,
-        background: "var(--color-surface, #fff)",
+        background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
       }}
     />

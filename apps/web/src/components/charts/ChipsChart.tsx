@@ -1,5 +1,14 @@
 import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
+import { echarts } from "../../lib/echarts";
+import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
+import {
+  chartAxisText,
+  chartCurrent,
+  chartGain,
+  chartLoss,
+  axisLabelStyle,
+  splitLineStyle,
+} from "../../lib/theme";
 
 export interface ChipPoint {
   price: number;
@@ -22,7 +31,7 @@ interface ChipsChartProps {
  */
 export function ChipsChart({ distribution, currentPrice }: ChipsChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<ECharts | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -55,7 +64,7 @@ export function ChipsChart({ distribution, currentPrice }: ChipsChartProps) {
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "line" },
-          formatter: (params: echarts.TooltipComponentFormatterCallbackParams) => {
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
             if (!Array.isArray(params) || !params[0]) return "";
             const idx = params[0].dataIndex;
             const d = distribution[idx];
@@ -73,17 +82,17 @@ export function ChipsChart({ distribution, currentPrice }: ChipsChartProps) {
         xAxis: {
           type: "value",
           name: "筹码占比(%)",
-          nameTextStyle: { color: "var(--color-text-secondary, #888)", fontSize: 11 },
+          nameTextStyle: axisLabelStyle,
           axisLabel: {
-            color: "var(--color-text-secondary, #888)",
+            color: chartAxisText(),
             formatter: "{value}%",
           },
-          splitLine: { lineStyle: { color: "var(--color-border, #e0e0e0)", type: "dashed" } },
+          ...splitLineStyle,
         },
         yAxis: {
           type: "category",
           data: prices.map((p) => p.toFixed(2)),
-          axisLabel: { color: "var(--color-text-secondary, #888)", fontSize: 10 },
+          axisLabel: { color: chartAxisText(), fontSize: 10 },
           axisTick: { show: false },
           splitLine: { show: false },
         },
@@ -93,17 +102,17 @@ export function ChipsChart({ distribution, currentPrice }: ChipsChartProps) {
             data: percents.map((v, i) => ({
               value: v,
               itemStyle: {
-                color: distribution[i]!.price <= currentPrice ? "#22c55e" : "#ef4444",
+                color: distribution[i]!.price <= currentPrice ? chartGain() : chartLoss(),
               },
             })),
             barWidth: "70%",
             markLine: {
               silent: true,
               symbol: "none",
-              lineStyle: { color: "#f59e0b", width: 2 },
+              lineStyle: { color: chartCurrent(), width: 2 },
               label: {
                 formatter: `当前价 ${currentPrice.toFixed(2)}`,
-                color: "#f59e0b",
+                color: chartCurrent(),
                 fontSize: 11,
                 position: "insideEndTop",
               },
@@ -123,7 +132,7 @@ export function ChipsChart({ distribution, currentPrice }: ChipsChartProps) {
         width: "100%",
         height: 420,
         minHeight: 0,
-        background: "var(--color-surface, #fff)",
+        background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
       }}
     />

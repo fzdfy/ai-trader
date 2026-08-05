@@ -1,5 +1,13 @@
 import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
+import { echarts } from "../../lib/echarts";
+import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
+import {
+  chartAxisText,
+  chartSeq,
+  axisLabelStyle,
+  axisLineStyle,
+  splitLineStyle,
+} from "../../lib/theme";
 
 export type FundFlowDaily = Record<string, unknown> & {
   date: string;
@@ -17,12 +25,12 @@ interface FundFlowChartProps {
   data: FundFlowDaily[];
 }
 
-/** 资金流向明细行：类型 + 颜色 */
+/** 资金流向明细行：类型 + 颜色（序列色板，超大单→小单） */
 const FLOW_TYPES = [
-  { key: "superLargeNetInflow", label: "超大单", color: "#ef4444" },
-  { key: "largeNetInflow", label: "大单", color: "#f97316" },
-  { key: "mediumNetInflow", label: "中单", color: "#eab308" },
-  { key: "smallNetInflow", label: "小单", color: "#22c55e" },
+  { key: "superLargeNetInflow", label: "超大单", color: chartSeq(1) },
+  { key: "largeNetInflow", label: "大单", color: chartSeq(2) },
+  { key: "mediumNetInflow", label: "中单", color: chartSeq(3) },
+  { key: "smallNetInflow", label: "小单", color: chartSeq(4) },
 ] as const;
 
 /**
@@ -31,7 +39,7 @@ const FLOW_TYPES = [
  */
 export function FundFlowChart({ data }: FundFlowChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<ECharts | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -50,6 +58,8 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
     if (!chartRef.current || data.length === 0) return;
 
     const dates = data.map((d) => d.date);
+    // 序列色板解构（避免索引断言）
+    const [c1, c2, c3, c4] = FLOW_TYPES.map((t) => t.color);
 
     chartRef.current.setOption(
       {
@@ -57,7 +67,7 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "shadow" },
-          formatter: (params: echarts.TooltipComponentFormatterCallbackParams) => {
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
             if (!Array.isArray(params) || !params[0]) return "";
             const idx = params[0].dataIndex;
             const d = data[idx];
@@ -68,32 +78,32 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
               `<strong>${d.date}</strong>`,
               `收盘：${d.close ?? "-"}`,
               `涨跌幅：${d.changePercent ?? "-"}%`,
-              `<span style="color:#ef4444">超大单净流入：${fmt(d.superLargeNetInflow, "元")}</span>`,
-              `<span style="color:#f97316">大单净流入：${fmt(d.largeNetInflow, "元")}</span>`,
-              `<span style="color:#eab308">中单净流入：${fmt(d.mediumNetInflow, "元")}</span>`,
-              `<span style="color:#22c55e">小单净流入：${fmt(d.smallNetInflow, "元")}</span>`,
+              `<span style="color:${c1}">超大单净流入：${fmt(d.superLargeNetInflow, "元")}</span>`,
+              `<span style="color:${c2}">大单净流入：${fmt(d.largeNetInflow, "元")}</span>`,
+              `<span style="color:${c3}">中单净流入：${fmt(d.mediumNetInflow, "元")}</span>`,
+              `<span style="color:${c4}">小单净流入：${fmt(d.smallNetInflow, "元")}</span>`,
             ].join("<br/>");
           },
         },
         legend: {
           data: FLOW_TYPES.map((t) => t.label),
           bottom: 0,
-          textStyle: { color: "var(--color-text-secondary, #888)" },
+          textStyle: { color: chartAxisText() },
         },
         grid: { left: 70, right: 20, top: 20, bottom: 40 },
         xAxis: {
           type: "category",
           data: dates,
-          axisLine: { lineStyle: { color: "var(--color-border, #e0e0e0)" } },
-          axisLabel: { color: "var(--color-text-secondary, #888)", fontSize: 10 },
+          ...axisLineStyle,
+          axisLabel: { color: chartAxisText(), fontSize: 10 },
           axisTick: { show: false },
         },
         yAxis: {
           type: "value",
           name: "净流入(元)",
-          nameTextStyle: { color: "var(--color-text-secondary, #888)", fontSize: 11 },
+          nameTextStyle: axisLabelStyle,
           axisLabel: {
-            color: "var(--color-text-secondary, #888)",
+            color: chartAxisText(),
             formatter: (v: number) => {
               const abs = Math.abs(v);
               if (abs >= 1e8) return `${(v / 1e8).toFixed(1)}亿`;
@@ -101,7 +111,7 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
               return String(v);
             },
           },
-          splitLine: { lineStyle: { color: "var(--color-border, #e0e0e0)", type: "dashed" } },
+          ...splitLineStyle,
         },
         series: FLOW_TYPES.map((t) => ({
           name: t.label,
@@ -122,7 +132,7 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
         width: "100%",
         height: 380,
         minHeight: 0,
-        background: "var(--color-surface, #fff)",
+        background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
       }}
     />

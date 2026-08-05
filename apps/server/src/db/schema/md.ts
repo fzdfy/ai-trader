@@ -89,6 +89,42 @@ export const boardHistory = pgTable(
   ],
 );
 
+/**
+ * board_constituent — 板块成分股关系表
+ *
+ * 定位：绑定板块与成分股的关系，并缓存成分股最新行情（涨跌幅/换手率/成交额），
+ * 供热力图二级（板块 → 成分股）直接从 DB 读取，避免每次都实时拉取上游。
+ *
+ * 写入策略：实时拉取成功后 upsert（board_code + symbol 主键，覆盖为最新快照）。
+ * 主要读者：热力图接口 /api/v1/heatmap 的二级节点。
+ */
+export const boardConstituent = pgTable(
+  "board_constituent",
+  {
+    /** 板块代码，如 BK1027 */
+    boardCode: text("board_code").notNull(),
+    /** 板块类型：industry / concept */
+    type: text("type").notNull(),
+    /** 成分股代码（东财原始格式，如 600519） */
+    symbol: text("symbol").notNull(),
+    /** 成分股名称 */
+    name: text("name").notNull(),
+    /** 涨跌幅(%)，热力图颜色用 */
+    changePercent: text("change_percent"),
+    /** 换手率(%) */
+    turnoverRate: text("turnover_rate"),
+    /** 成交额（元），热力图面积用 */
+    amount: text("amount"),
+    /** 数据更新时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.boardCode, table.symbol] }),
+    index("board_constituent_type_idx").on(table.type),
+    index("board_constituent_board_idx").on(table.boardCode),
+  ],
+);
+
 // ============================================================================
 
 /**

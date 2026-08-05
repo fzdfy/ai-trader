@@ -2,9 +2,50 @@
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-neutral/theme.css";
 
+/*
+ * ============================================================
+ * 全局视觉规范 — 交易终端美学
+ * 语义 token 层（叠加在 Astryx theme 之上）：
+ *   - 行情语义色：A 股红涨绿跌（--chart-up / --chart-down）
+ *   - 盈亏语义色：盈绿亏红（--chart-gain / --chart-loss）
+ *   - 图表框架：网格 / 轴文字 / 强调线
+ *   - 序列色板：资金流等多序列图用
+ * 所有图表组件与页面一律读取此处变量，禁止 raw hex。
+ * ============================================================
+ */
+:root {
+  /* 行情语义色（红涨绿跌） */
+  --chart-up: #e5484d;
+  --chart-down: #30a46c;
+  --chart-flat: #8a8f98;
+
+  /* 盈亏语义色（盈绿亏红，回测/交易记录用） */
+  --chart-gain: #30a46c;
+  --chart-loss: #e5484d;
+
+  /* 图表框架 */
+  --chart-grid: light-dark(#ececec, #2a2a2a);
+  --chart-axis-text: light-dark(#8a8f98, #a3a3a3);
+  --chart-current: #f5a623; /* 当前价 / 强调线 */
+
+  /* 序列色板（资金流：超大单→小单） */
+  --chart-seq-1: #e5484d;
+  --chart-seq-2: #f76b15;
+  --chart-seq-3: #f5a623;
+  --chart-seq-4: #30a46c;
+
+  /* 权益主色（回测） */
+  --chart-equity: light-dark(#0d4a3a, #4cc38a);
+}
+
 body {
   font-family: "PingFang SC", system-ui, -apple-system, sans-serif;
-  background: var(--ax-color-bg);
-  color: var(--ax-color-text);
+  background: var(--color-background-body);
+  color: var(--color-text-primary);
   min-height: 100vh;
+}
+
+/* 数据数字：等宽对齐（表格/指标卡） */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

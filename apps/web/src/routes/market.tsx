@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -8,13 +8,14 @@ import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { Section } from "@astryxdesign/core/Section";
 import { Card } from "@astryxdesign/core/Card";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { MinusIcon, PlusIcon } from "lucide-react";
 import { ChipsChart, type ChipPoint } from "../components/charts/ChipsChart";
 import { FundFlowChart, type FundFlowDaily } from "../components/charts/FundFlowChart";
 import { HeatmapChart, type HeatmapItem } from "../components/charts/HeatmapChart";
+import { MetricCard } from "../components/MetricCard";
+import { chartDown, chartGain, chartUp } from "../lib/theme";
 import {
   useInstrumentsQuery,
   useWatchlistQuery,
@@ -39,6 +40,8 @@ function getStockColumns(
   onAdd: (s: string) => void,
   onRemove: (s: string) => void,
 ) {
+  // Set 化避免 renderCell 内 O(n) 查找（js-index-maps）
+  const watchSet = new Set(watchlist);
   return [
     { key: "symbol" as const, header: "代码", width: proportional(1) },
     { key: "name" as const, header: "名称", width: proportional(1.5) },
@@ -48,7 +51,7 @@ function getStockColumns(
       header: "操作",
       width: proportional(0.5),
       renderCell: (row: Instrument) => {
-        const isWatched = watchlist.includes(row.symbol);
+        const isWatched = watchSet.has(row.symbol);
         return isWatched ? (
           <IconButton
             icon={<MinusIcon />}
@@ -75,30 +78,6 @@ function BoardsTab() {
   const [boardType, setBoardType] = useState<"industry" | "concept">("industry");
   const { data: boards = [], isLoading: boardsLoading } = useBoardsQuery(boardType);
 
-  /** 板块排行表列：红涨绿跌（A 股惯例） */
-  const boardColumns = [
-    { key: "rank" as const, header: "排名", width: proportional(0.6) },
-    { key: "code" as const, header: "代码", width: proportional(1) },
-    { key: "name" as const, header: "名称", width: proportional(1.5) },
-    {
-      key: "changePercent" as const,
-      header: "涨跌幅",
-      width: proportional(1),
-      renderCell: (row: BoardItem) => {
-        const v = Number.parseFloat(row.changePercent ?? "");
-        const color = v > 0 ? "#ef4444" : v < 0 ? "#22c55e" : undefined;
-        return <Text style={{ color, fontWeight: 600 }}>{Number.isNaN(v) ? "-" : `${v.toFixed(2)}%`}</Text>;
-      },
-    },
-    {
-      key: "popularity" as const,
-      header: "换手率",
-      width: proportional(0.8),
-      renderCell: (row: BoardItem) =>
-        row.popularity ? `${Number.parseFloat(row.popularity).toFixed(2)}%` : "-",
-    },
-  ];
-
   return (
     <VStack gap={3}>
       <TabList value={boardType} onChange={(v) => setBoardType(v as "industry" | "concept")}>
@@ -120,6 +99,30 @@ function BoardsTab() {
     </VStack>
   );
 }
+
+/** 板块排行表列（模块级静态）：红涨绿跌（A 股惯例） */
+const boardColumns = [
+  { key: "rank" as const, header: "排名", width: proportional(0.6) },
+  { key: "code" as const, header: "代码", width: proportional(1) },
+  { key: "name" as const, header: "名称", width: proportional(1.5) },
+  {
+    key: "changePercent" as const,
+    header: "涨跌幅",
+    width: proportional(1),
+    renderCell: (row: BoardItem) => {
+      const v = Number.parseFloat(row.changePercent ?? "");
+      const color = v > 0 ? chartUp() : v < 0 ? chartDown() : undefined;
+      return <Text style={{ color, fontWeight: 600 }}>{Number.isNaN(v) ? "-" : `${v.toFixed(2)}%`}</Text>;
+    },
+  },
+  {
+    key: "popularity" as const,
+    header: "换手率",
+    width: proportional(0.8),
+    renderCell: (row: BoardItem) =>
+      row.popularity ? `${Number.parseFloat(row.popularity).toFixed(2)}%` : "-",
+  },
+];
 
 // ==============================
 // Tab 2: 个股 — 股票搜索 + 自选管理（原 /sector 内容）
@@ -146,6 +149,12 @@ function StocksTab() {
     setSearchQ(inputValue);
   }, [inputValue]);
 
+  // 列定义仅在 watchlist 变化时重建（rerender-memo）
+  const columns = useMemo(
+    () => getStockColumns(watchlist, addWatchlist.mutate, removeWatchlist.mutate),
+    [watchlist, addWatchlist.mutate, removeWatchlist.mutate],
+  );
+
   return (
     <VStack gap={3}>
       <HStack gap={2}>
@@ -161,7 +170,7 @@ function StocksTab() {
       </HStack>
       <Table<Instrument>
         idKey="symbol"
-        columns={getStockColumns(watchlist, addWatchlist.mutate, removeWatchlist.mutate)}
+        columns={columns}
         data={allInstruments}
         density="compact"
         dividers="rows"
@@ -256,7 +265,7 @@ function ChipsTab() {
         {
           label: "获利盘",
           value: `${data.profitRatio.toFixed(1)}%`,
-          color: "var(--color-text-positive)",
+          color: chartGain(),
         },
         { label: "90%成本区间", value: `${data.cost90.low.toFixed(2)} ~ ${data.cost90.high.toFixed(2)}` },
         { label: "70%成本区间", value: `${data.cost70.low.toFixed(2)} ~ ${data.cost70.high.toFixed(2)}` },
@@ -293,8 +302,8 @@ function ChipsTab() {
                 padding: "0 8px",
                 borderRadius: "var(--radius-md)",
                 border: "1px solid var(--color-border)",
-                background: "var(--color-surface)",
-                color: "var(--color-text)",
+                background: "var(--color-background-surface)",
+                color: "var(--color-text-primary)",
                 minWidth: 200,
               }}
             >
@@ -320,23 +329,7 @@ function ChipsTab() {
         <>
           <HStack gap={4} style={{ flexWrap: "wrap" }}>
             {metrics.map((m) => (
-              <VStack
-                key={m.label}
-                gap={1}
-                style={{
-                  padding: "var(--spacing-3)",
-                  background: "var(--color-surface-secondary)",
-                  borderRadius: "var(--radius-md)",
-                  minWidth: 140,
-                }}
-              >
-                <Text type="supporting" size="sm">
-                  {m.label}
-                </Text>
-                <Text size="lg" style={{ fontWeight: 700, color: m.color }}>
-                  {m.value}
-                </Text>
-              </VStack>
+              <MetricCard key={m.label} label={m.label} value={m.value} color={m.color} />
             ))}
           </HStack>
           <Card padding={4}>
@@ -382,56 +375,6 @@ function FundFlowTab() {
 
   // 最新一天汇总（主力净流入等）
   const latest = data[data.length - 1];
-
-  const flowColumns = [
-    { key: "date" as const, header: "日期", width: proportional(1.2) },
-    { key: "close" as const, header: "收盘价", width: proportional(0.8) },
-    {
-      key: "changePercent" as const,
-      header: "涨跌幅",
-      width: proportional(0.8),
-      renderCell: (row: FundFlowDaily) => (
-        <Text
-          style={{
-            color: (row.changePercent ?? 0) >= 0 ? "var(--color-text-positive)" : "var(--color-text-negative)",
-            fontWeight: 600,
-          }}
-        >
-          {(row.changePercent ?? 0).toFixed(2)}%
-        </Text>
-      ),
-    },
-    {
-      key: "mainNetInflow" as const,
-      header: "主力净流入",
-      width: proportional(1),
-      renderCell: (row: FundFlowDaily) => fmtFlow(row.mainNetInflow),
-    },
-    {
-      key: "superLargeNetInflow" as const,
-      header: "超大单",
-      width: proportional(1),
-      renderCell: (row: FundFlowDaily) => fmtFlow(row.superLargeNetInflow),
-    },
-    {
-      key: "largeNetInflow" as const,
-      header: "大单",
-      width: proportional(1),
-      renderCell: (row: FundFlowDaily) => fmtFlow(row.largeNetInflow),
-    },
-    {
-      key: "mediumNetInflow" as const,
-      header: "中单",
-      width: proportional(1),
-      renderCell: (row: FundFlowDaily) => fmtFlow(row.mediumNetInflow),
-    },
-    {
-      key: "smallNetInflow" as const,
-      header: "小单",
-      width: proportional(1),
-      renderCell: (row: FundFlowDaily) => fmtFlow(row.smallNetInflow),
-    },
-  ];
 
   return (
     <VStack gap={4}>
@@ -485,32 +428,10 @@ function FundFlowTab() {
   );
 }
 
-/** 资金流指标卡 */
+/** 资金流指标卡：流入红 / 流出绿（A 股资金流向惯例） */
 function FlowMetric({ label, value }: { label: string; value: number | null }) {
-  const color =
-    value == null
-      ? undefined
-      : value >= 0
-        ? "var(--color-text-positive)"
-        : "var(--color-text-negative)";
-  return (
-    <VStack
-      gap={1}
-      style={{
-        padding: "var(--spacing-3)",
-        background: "var(--color-surface-secondary)",
-        borderRadius: "var(--radius-md)",
-        minWidth: 140,
-      }}
-    >
-      <Text type="supporting" size="sm">
-        {label}
-      </Text>
-      <Text size="lg" style={{ fontWeight: 700, color }}>
-        {value == null ? "-" : fmtFlow(value)}
-      </Text>
-    </VStack>
-  );
+  const color = value == null ? undefined : value >= 0 ? chartUp() : chartDown();
+  return <MetricCard label={label} value={value == null ? "-" : fmtFlow(value)} color={color} />;
 }
 
 /** 格式化资金额：亿 / 万 / 元 */
@@ -522,6 +443,57 @@ function fmtFlow(v: number | null): string {
   if (abs >= 1e4) return `${sign}${(abs / 1e4).toFixed(1)}万`;
   return `${sign}${abs.toFixed(0)}`;
 }
+
+/** 资金流明细表列（模块级静态，避免每次渲染重建） */
+const flowColumns = [
+  { key: "date" as const, header: "日期", width: proportional(1.2) },
+  { key: "close" as const, header: "收盘价", width: proportional(0.8) },
+  {
+    key: "changePercent" as const,
+    header: "涨跌幅",
+    width: proportional(0.8),
+    renderCell: (row: FundFlowDaily) => (
+      <Text
+        style={{
+          color: (row.changePercent ?? 0) >= 0 ? chartUp() : chartDown(),
+          fontWeight: 600,
+        }}
+      >
+        {(row.changePercent ?? 0).toFixed(2)}%
+      </Text>
+    ),
+  },
+  {
+    key: "mainNetInflow" as const,
+    header: "主力净流入",
+    width: proportional(1),
+    renderCell: (row: FundFlowDaily) => fmtFlow(row.mainNetInflow),
+  },
+  {
+    key: "superLargeNetInflow" as const,
+    header: "超大单",
+    width: proportional(1),
+    renderCell: (row: FundFlowDaily) => fmtFlow(row.superLargeNetInflow),
+  },
+  {
+    key: "largeNetInflow" as const,
+    header: "大单",
+    width: proportional(1),
+    renderCell: (row: FundFlowDaily) => fmtFlow(row.largeNetInflow),
+  },
+  {
+    key: "mediumNetInflow" as const,
+    header: "中单",
+    width: proportional(1),
+    renderCell: (row: FundFlowDaily) => fmtFlow(row.mediumNetInflow),
+  },
+  {
+    key: "smallNetInflow" as const,
+    header: "小单",
+    width: proportional(1),
+    renderCell: (row: FundFlowDaily) => fmtFlow(row.smallNetInflow),
+  },
+];
 
 // ==============================
 // Tab 5: 热力图（行业 / 概念）

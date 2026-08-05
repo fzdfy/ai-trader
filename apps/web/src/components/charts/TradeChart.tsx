@@ -1,5 +1,15 @@
 import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
+import { echarts } from "../../lib/echarts";
+import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
+import {
+  chartAxisText,
+  chartFlat,
+  chartGain,
+  chartGrid,
+  chartLoss,
+  axisLabelStyle,
+  splitLineStyle,
+} from "../../lib/theme";
 
 interface TradePoint {
   entryTime: string;
@@ -23,7 +33,7 @@ interface TradeChartProps {
  */
 export function TradeChart({ trades }: TradeChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<ECharts | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || trades.length === 0) return;
@@ -37,7 +47,7 @@ export function TradeChart({ trades }: TradeChartProps) {
     const avgPnl = pnlData.reduce((a, b) => a + b, 0) / pnlData.length;
 
     // 颜色：盈利为绿，亏损为红
-    const colors = pnlData.map((v) => (v >= 0 ? "#22c55e" : "#ef4444"));
+    const colors = pnlData.map((v) => (v >= 0 ? chartGain() : chartLoss()));
 
     chartRef.current.setOption(
       {
@@ -45,7 +55,7 @@ export function TradeChart({ trades }: TradeChartProps) {
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "shadow" },
-          formatter: (params: echarts.TooltipComponentFormatterCallbackParams) => {
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
             if (!Array.isArray(params) || !params[0]) return "";
             const idx = params[0].dataIndex;
             const t = trades[idx];
@@ -70,14 +80,12 @@ export function TradeChart({ trades }: TradeChartProps) {
         yAxis: {
           type: "value",
           name: "收益率(%)",
-          nameTextStyle: { color: "var(--color-text-secondary, #888)", fontSize: 11 },
+          nameTextStyle: axisLabelStyle,
           axisLabel: {
-            color: "var(--color-text-secondary, #888)",
+            color: chartAxisText(),
             formatter: "{value}%",
           },
-          splitLine: {
-            lineStyle: { color: "var(--color-border, #e0e0e0)", type: "dashed" },
-          },
+          ...splitLineStyle,
         },
         series: [
           {
@@ -89,19 +97,19 @@ export function TradeChart({ trades }: TradeChartProps) {
             markLine: {
               silent: true,
               symbol: "none",
-              lineStyle: { color: "#888", type: "dashed", width: 1 },
+              lineStyle: { color: chartFlat(), type: "dashed", width: 1 },
               data: [
                 {
                   yAxis: avgPnl,
                   label: {
                     formatter: `均 ${avgPnl.toFixed(2)}%`,
-                    color: "var(--color-text-secondary, #888)",
+                    color: chartAxisText(),
                     fontSize: 11,
                   },
                 },
                 {
                   yAxis: 0,
-                  lineStyle: { color: "var(--color-border, #e0e0e0)", width: 1 },
+                  lineStyle: { color: chartGrid(), width: 1 },
                   label: { show: false },
                 },
               ],
@@ -126,7 +134,7 @@ export function TradeChart({ trades }: TradeChartProps) {
         width: "100%",
         height: 300,
         minHeight: 0,
-        background: "var(--color-surface, #fff)",
+        background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
       }}
     />

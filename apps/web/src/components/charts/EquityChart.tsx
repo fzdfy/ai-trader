@@ -1,5 +1,15 @@
 import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
+import { echarts, graphic } from "../../lib/echarts";
+import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
+import {
+  chartAxisText,
+  chartEquity,
+  chartLoss,
+  hexToRgba,
+  axisLabelStyle,
+  axisLineStyle,
+  splitLineStyle,
+} from "../../lib/theme";
 
 interface EquityPoint {
   time: string;
@@ -23,7 +33,7 @@ interface EquityChartProps {
  */
 export function EquityChart({ equity, initialCapital }: EquityChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<ECharts | null>(null);
 
   // 初始化图表 + resize 监听（仅执行一次）
   useEffect(() => {
@@ -71,7 +81,7 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "cross" },
-          formatter: (params: echarts.TooltipComponentFormatterCallbackParams) => {
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
             if (!Array.isArray(params)) return "";
             const first = params[0] as { axisValue?: string; dataIndex?: number } | undefined;
             const date = first?.axisValue ?? "";
@@ -90,7 +100,7 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
         legend: {
           data: ["累计收益率", "回撤"],
           bottom: 0,
-          textStyle: { color: "var(--color-text-secondary, #888)" },
+          textStyle: { color: chartAxisText() },
         },
         grid: [
           { left: 60, right: 60, top: 20, height: "55%" },
@@ -101,15 +111,15 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
             type: "category",
             data: dates,
             gridIndex: 0,
-            axisLine: { lineStyle: { color: "var(--color-border, #e0e0e0)" } },
-            axisLabel: { color: "var(--color-text-secondary, #888)", fontSize: 11 },
+            ...axisLineStyle,
+            axisLabel: { ...axisLabelStyle },
             axisTick: { show: false },
           },
           {
             type: "category",
             data: dates,
             gridIndex: 1,
-            axisLine: { lineStyle: { color: "var(--color-border, #e0e0e0)" } },
+            ...axisLineStyle,
             axisLabel: { show: false },
             axisTick: { show: false },
           },
@@ -119,23 +129,23 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
             type: "value",
             gridIndex: 0,
             name: "收益率(%)",
-            nameTextStyle: { color: "var(--color-text-secondary, #888)", fontSize: 11 },
+            nameTextStyle: axisLabelStyle,
             axisLabel: {
-              color: "var(--color-text-secondary, #888)",
+              color: chartAxisText(),
               formatter: "{value}%",
             },
-            splitLine: { lineStyle: { color: "var(--color-border, #e0e0e0)", type: "dashed" } },
+            ...splitLineStyle,
           },
           {
             type: "value",
             gridIndex: 1,
             name: "回撤(%)",
-            nameTextStyle: { color: "var(--color-text-secondary, #888)", fontSize: 11 },
+            nameTextStyle: axisLabelStyle,
             axisLabel: {
-              color: "var(--color-text-secondary, #888)",
+              color: chartAxisText(),
               formatter: "{value}%",
             },
-            splitLine: { lineStyle: { color: "var(--color-border, #e0e0e0)", type: "dashed" } },
+            ...splitLineStyle,
           },
         ],
         series: [
@@ -147,11 +157,11 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
             yAxisIndex: 0,
             smooth: true,
             symbol: "none",
-            lineStyle: { color: "#0D4A3A", width: 2 },
+            lineStyle: { color: chartEquity(), width: 2 },
             areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: "rgba(13,74,58,0.15)" },
-                { offset: 1, color: "rgba(13,74,58,0.02)" },
+              color: new graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: hexToRgba(chartEquity(), 0.15) },
+                { offset: 1, color: hexToRgba(chartEquity(), 0.02) },
               ]),
             },
           },
@@ -163,8 +173,8 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
             yAxisIndex: 1,
             smooth: true,
             symbol: "none",
-            lineStyle: { color: "#e74c3c", width: 1.5 },
-            areaStyle: { color: "rgba(231,76,60,0.12)" },
+            lineStyle: { color: chartLoss(), width: 1.5 },
+            areaStyle: { color: hexToRgba(chartLoss(), 0.12) },
           },
         ],
       },
@@ -179,7 +189,7 @@ export function EquityChart({ equity, initialCapital }: EquityChartProps) {
         width: "100%",
         height: 420,
         minHeight: 0,
-        background: "var(--color-surface, #fff)",
+        background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
       }}
     />

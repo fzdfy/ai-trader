@@ -5,6 +5,7 @@ import { Button } from "@astryxdesign/core/Button";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { init, dispose, type Chart } from "klinecharts";
 import type { KlineTf } from "../../hooks/useInstruments";
+import { chartDown, chartFlat, chartUp } from "../../lib/theme";
 
 export const Route = createFileRoute("/stock/$symbol")({
   component: StockDetailPage,
@@ -50,9 +51,9 @@ function StockDetailPage() {
         grid: { horizontal: { color: "var(--color-border, #eee)" } },
         candle: {
           bar: {
-            upColor: "#ef4444",
-            downColor: "#22c55e",
-            noChangeColor: "#888",
+            upColor: chartUp(),
+            downColor: chartDown(),
+            noChangeColor: chartFlat(),
           },
         },
       },
