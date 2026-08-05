@@ -9,5 +9,6 @@ export const CRON_JOBS: CronJobConfig[] = [
   { name: "kline-1d",   cron: "*/5 * * * *",    enabled: true },
   { name: "gap-detect",  cron: "*/5 * * * *",    enabled: true },
   { name: "news",        cron: "*/30 * * * * *", enabled: true },
+  { name: "boards",      cron: "30 15 * * 1-5",  enabled: true },
   { name: "heartbeat",   cron: "0 * * * * *",    enabled: true },
 ];

@@ -4,14 +4,16 @@ import { kline1mPipe } from "./pipes/kline-1m";
 import { kline1dPipeRun } from "./pipes/kline-1d";
 import { gapDetectPipe } from "./pipes/gap-detect";
 import { newsPipe } from "./pipes/news";
+import { boardsPipeRun } from "./pipes/boards";
 
-type PipeName = "kline-1m" | "kline-1d" | "gap-detect" | "news";
+type PipeName = "kline-1m" | "kline-1d" | "gap-detect" | "news" | "boards";
 
 const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "kline-1m": () => kline1mPipe.run(),
   "kline-1d": () => kline1dPipeRun(),
   "gap-detect": () => gapDetectPipe.run(),
   news: () => newsPipe.run(),
+  boards: () => boardsPipeRun(),
 };
 
 const running = new Set<string>();

@@ -2,6 +2,7 @@
 
 Project-specific guidance for AI coding agents.
 
+## Astryx Design CLI
 <!-- ASTRYX:START -->
 Astryx v0.1.5 · 149 components
 CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
@@ -31,3 +32,9 @@ MORE CLI:
   swizzle <Name>     eject component source for deep customization
   upgrade --apply    run after any @astryxdesign/core bump
 <!-- ASTRYX:END -->
+
+## Frontend Design
+- **每次编写/修改前端界面时，必须调用 `frontend-design` skill**（包括页面布局、组件、图表展示等一切前端 UI 工作），确保设计质量。
+
+## React Best Practices
+- **编写/修改 React 代码时，必须调用 `vercel-react-best-practices` skill**（React/Next.js 性能优化规范），确保组件实现符合最佳实践。

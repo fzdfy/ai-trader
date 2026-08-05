@@ -34,7 +34,7 @@ function SignUpPage() {
       setError(signUpError.message ?? "注册失败");
       return;
     }
-    navigate({ to: "/sector" });
+    navigate({ to: "/market" });
   };
 
   return (

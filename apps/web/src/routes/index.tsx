@@ -2,6 +2,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
   loader: () => {
-    throw redirect({ to: "/sector" });
+    throw redirect({ to: "/market" });
   },
 });

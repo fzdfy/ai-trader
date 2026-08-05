@@ -20,7 +20,7 @@ export const Route = createRootRoute({
       throw redirect({ to: "/login" });
     }
     if (session && isPublic) {
-      throw redirect({ to: "/sector" });
+      throw redirect({ to: "/market" });
     }
   },
   component: RootLayout,
@@ -68,7 +68,7 @@ function RootLayout() {
           }
         >
           <SideNavSection title="导航">
-            <SideNavItem label="板块" icon="viewColumns" href="/sector" />
+            <SideNavItem label="行情" icon="viewColumns" href="/market" />
             <SideNavItem label="自选" icon="search" href="/watchlist" />
             <SideNavItem label="回测" icon="viewColumns" href="/backtest" />
             <SideNavItem label="智能分析" icon="info" href="/ai-analysis" />

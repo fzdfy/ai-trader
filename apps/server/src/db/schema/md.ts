@@ -37,9 +37,57 @@ export const board = pgTable("board", {
   changePercent: text("change_percent"),
   /** 热度指标（换手率） */
   popularity: text("popularity"),
+  /** 总市值（元），热力图面积用 */
+  totalMarketCap: numeric("total_market_cap"),
   /** 数据更新时间 */
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// ============================================================================
+
+/**
+ * board_history — 板块排行历史表（每日快照）
+ *
+ * 定位：记录每个交易日收盘后的板块排行快照，供板块轮动 / 历史涨幅回溯分析。
+ *
+ * 与 board 的关系：
+ *   board          = 最新快照（覆盖写），行情页展示用
+ *   board_history  = 每日追加快照（date + code 主键，同日覆盖为当天最后一次同步结果），
+ *                    用于时间维度查询。
+ *
+ * 写入策略：
+ *   - 每日收盘后定时同步（cron "30 15 * * 1-5"，沿用 sync-boards 逻辑）
+ *   - 同一天重复同步只保留当天最新一条（ON CONFLICT DO UPDATE）
+ *
+ * 主要读者：板块历史涨跌幅趋势 / 轮动分析接口。
+ */
+export const boardHistory = pgTable(
+  "board_history",
+  {
+    /** 快照日期（交易日） */
+    date: date("date").notNull(),
+    /** 板块代码，如 BK1027 */
+    code: text("code").notNull(),
+    /** 板块类型：industry / concept */
+    type: text("type").notNull(),
+    /** 板块名称 */
+    name: text("name").notNull(),
+    /** 排名 */
+    rank: text("rank").notNull(),
+    /** 涨幅(%) */
+    changePercent: text("change_percent"),
+    /** 热度指标（换手率） */
+    popularity: text("popularity"),
+    /** 总市值（元），热力图面积用 */
+    totalMarketCap: numeric("total_market_cap"),
+    /** 数据更新时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.code] }),
+    index("board_history_type_date_idx").on(table.type, table.date),
+  ],
+);
 
 // ============================================================================
 
