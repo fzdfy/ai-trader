@@ -11,6 +11,7 @@ coverage/
 .astro/
 routeTree.gen.ts
 pgdata/
+.tanstack
 
 # Python 缓存文件
 **/__pycache__/

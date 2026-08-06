@@ -26,7 +26,7 @@ api.route("/heatmap", heatmapRoute);
 // api.route("/signals", signalsRoute);
 // api.route("/news", newsRoute);
 // api.route("/backtests", backtestsRoute);
-// api.route("/ask", askRoute);
+api.route("/ask", askRoute);
 // api.route("/admin", adminRoute);
 
 export { api };

@@ -5,8 +5,8 @@
  * 作为 AI agent 的上下文。
  */
 
-import { db } from "../db";
-import { newsEmbedding } from "../db/schema";
+import { db } from "../../../db";
+import { newsEmbedding } from "../../../db/schema";
 import { sql, desc, and, eq } from "drizzle-orm";
 
 const VECTOR_DIM = 1536;

@@ -39,6 +39,7 @@ function RootLayout() {
       contentPadding={0}
       sideNav={
         <SideNav
+          style={{ width: 200 }}
           header={
             <SideNavHeading
               heading="AI Trader"
@@ -71,7 +72,7 @@ function RootLayout() {
             <SideNavItem label="行情" icon="viewColumns" href="/market" />
             <SideNavItem label="自选" icon="search" href="/watchlist" />
             <SideNavItem label="回测" icon="viewColumns" href="/backtest" />
-            <SideNavItem label="智能分析" icon="info" href="/ai-analysis" />
+            <SideNavItem label="问股" icon="info" href="/ai-chat" />
           </SideNavSection>
         </SideNav>
       }

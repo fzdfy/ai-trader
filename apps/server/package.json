@@ -23,9 +23,11 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@mastra/core": "^1.57.0",
     "dayjs": "^1.11.21",
     "drizzle-orm": "^0.38.3",
     "hono": "^4.6.18",
+    "mastra": "^1.23.0",
     "node-cron": "^3.0.3",
     "pg": "^8.13.1",
     "pg-boss": "^10.1.7",
