@@ -18,7 +18,7 @@ import { Hono } from "hono";
 import { StockSDK } from "stock-sdk";
 import { db } from "../db";
 import { board, boardConstituent } from "../db/schema";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 
 const heatmapRoute = new Hono();
@@ -77,10 +77,10 @@ function toBoardNode(row: typeof board.$inferSelect): BoardNode {
   };
 }
 
-// GET /api/v1/heatmap?type=industry|concept&top=100
+// GET /api/v1/heatmap?type=industry|concept&top=200
 heatmapRoute.get("/", async (c) => {
   const type = c.req.query("type") ?? "industry";
-  const top = Math.min(Math.max(Number(c.req.query("top") ?? "100"), 5), 300);
+  const top = Math.min(Math.max(Number(c.req.query("top") ?? "200"), 5), 300);
   if (type !== "industry" && type !== "concept") {
     return badRequest(c, "type must be industry|concept");
   }
@@ -245,6 +245,90 @@ heatmapRoute.get("/", async (c) => {
   }));
 
   return ok(c, { type, total: data.length, source, data });
+});
+
+/**
+ * GET /api/v1/heatmap/board?type=industry|concept&code=BK1027
+ *
+ * 单个板块的成分股热力图数据（点击板块下钻用）。
+ * 数据流与主接口一致：DB 优先 → 实时拉取并落库。
+ */
+heatmapRoute.get("/board", async (c) => {
+  const type = c.req.query("type") ?? "industry";
+  const code = c.req.query("code") ?? "";
+  if ((type !== "industry" && type !== "concept") || !code) {
+    return badRequest(c, "type must be industry|concept and code required");
+  }
+
+  const sdk = new StockSDK();
+
+  // 1. DB 优先
+  const dbRows = await db
+    .select()
+    .from(boardConstituent)
+    .where(and(eq(boardConstituent.type, type), eq(boardConstituent.boardCode, code)));
+  if (dbRows.length > 0) {
+    const stocks: StockNode[] = dbRows.map((r) => ({
+      name: r.name,
+      code: r.symbol,
+      value: r.amount != null ? Number.parseFloat(r.amount) : 0,
+      changePercent: r.changePercent != null ? Number.parseFloat(r.changePercent) : null,
+      turnoverRate: r.turnoverRate != null ? Number.parseFloat(r.turnoverRate) : null,
+    }));
+    return ok(c, { code, source: "db", data: stocks });
+  }
+
+  // 2. DB 无 → 实时拉取（冷却期内不重试，避免上游不可达时接口卡顿）
+  const lastFail = failedBoards.get(code);
+  if (lastFail !== undefined && Date.now() - lastFail < FAIL_RETRY_MS) {
+    return ok(c, { code, source: "eastmoney", data: [] });
+  }
+  try {
+    const rows =
+      type === "industry"
+        ? await sdk.board.industry.constituents(code)
+        : await sdk.board.concept.constituents(code);
+    const stocks: StockNode[] = rows.map((s) => ({
+      name: s.name,
+      code: s.code,
+      value: s.amount ?? 0,
+      changePercent: s.changePercent,
+      turnoverRate: s.turnoverRate,
+    }));
+    failedBoards.delete(code);
+
+    // 落库（绑定板块-成分股关系）
+    for (const s of stocks) {
+      await db
+        .insert(boardConstituent)
+        .values({
+          boardCode: code,
+          type,
+          symbol: s.code,
+          name: s.name,
+          changePercent: s.changePercent != null ? String(s.changePercent) : null,
+          turnoverRate: s.turnoverRate != null ? String(s.turnoverRate) : null,
+          amount: s.value != null && s.value > 0 ? String(s.value) : null,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [boardConstituent.boardCode, boardConstituent.symbol],
+          set: {
+            type,
+            name: s.name,
+            changePercent: s.changePercent != null ? String(s.changePercent) : null,
+            turnoverRate: s.turnoverRate != null ? String(s.turnoverRate) : null,
+            amount: s.value != null && s.value > 0 ? String(s.value) : null,
+            updatedAt: sql`now()`,
+          },
+        });
+    }
+    return ok(c, { code, source: stocks.length > 0 ? "eastmoney" : "db", data: stocks });
+  } catch (error) {
+    console.error(`[heatmap] board constituents ${code} failed:`, (error as Error).message ?? error);
+    failedBoards.set(code, Date.now());
+    return ok(c, { code, source: "eastmoney", data: [] });
+  }
 });
 
 export { heatmapRoute };
