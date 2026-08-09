@@ -10,8 +10,8 @@ import { Table, proportional } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Section } from "@astryxdesign/core/Section";
 import { Card } from "@astryxdesign/core/Card";
-import { EquityChart } from "../components/charts/EquityChart";
-import { TradeChart } from "../components/charts/TradeChart";
+import { EquityChart } from "../../components/charts/EquityChart";
+import { TradeChart } from "../../components/charts/TradeChart";
 
 // ==============================
 // Types — 对齐 AKQuant 原生 report 结构
@@ -256,7 +256,7 @@ function ReportHeader({
 // Page
 // ==============================
 
-export const Route = createFileRoute("/backtest")({
+export const Route = createFileRoute("/home/backtest")({
   component: BacktestPage,
 });
 

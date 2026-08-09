@@ -1,21 +1,49 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { IconButton } from "@astryxdesign/core/IconButton";
-import { Text } from "@astryxdesign/core/Text";
-import {
-  useWatchlistInstrumentsQuery,
-  useRemoveWatchlist,
-} from "../hooks/useInstruments";
-import type { Instrument } from "../hooks/useInstruments";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { StocksTab } from "../../market/-private/StocksTab";
+import { useWatchlistInstrumentsQuery, useRemoveWatchlist } from "../../../hooks/useInstruments";
+import type { Instrument } from "../../../hooks/useInstruments";
 import { MinusIcon } from "lucide-react";
 
-export const Route = createFileRoute("/watchlist")({
-  component: WatchlistPage,
+export const Route = createFileRoute("/home/market/stocks")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: (search.tab as string) ?? "search",
+  }),
+  component: StocksPage,
 });
 
-function WatchlistPage() {
+function StocksPage() {
+  const { tab } = Route.useSearch();
+  const [activeTab, setActiveTab] = useState(tab);
+  const navigate = Route.useNavigate();
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    navigate({ search: { tab: value }, replace: true });
+  };
+
+  return (
+    <VStack gap={4}>
+      <Heading level={2}>个股</Heading>
+      <TabList value={activeTab} onChange={handleTabChange}>
+        <Tab value="search" label="个股" />
+        <Tab value="watchlist" label="自选" />
+      </TabList>
+      {activeTab === "search" && <StocksTab />}
+      {activeTab === "watchlist" && <WatchlistContent />}
+    </VStack>
+  );
+}
+
+/** 自选 Tab 内容 */
+function WatchlistContent() {
   const { data: instruments = [], isFetching } = useWatchlistInstrumentsQuery();
   const removeWatchlist = useRemoveWatchlist();
 
@@ -69,15 +97,13 @@ function WatchlistPage() {
   }
 
   return (
-    <VStack gap={4}>
-      <Table<Instrument>
-        idKey="symbol"
-        columns={columns}
-        data={instruments}
-        density="compact"
-        dividers="rows"
-        hasHover
-      />
-    </VStack>
+    <Table<Instrument>
+      idKey="symbol"
+      columns={columns}
+      data={instruments}
+      density="compact"
+      dividers="rows"
+      hasHover
+    />
   );
 }

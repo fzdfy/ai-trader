@@ -34,7 +34,7 @@ function SignUpPage() {
       setError(signUpError.message ?? "注册失败");
       return;
     }
-    navigate({ to: "/market" });
+    navigate({ to: "/home/market/boards" });
   };
 
   return (

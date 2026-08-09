@@ -8,7 +8,10 @@
     "ASSET_DOMAIN",
     "AWS_*",
     "BETTER_*",
-    "DATABASE_URL"
+    "DATABASE_URL",
+    "DEEPSEEK_API_KEY",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL"
   ],
   "tasks": {
     "build": {
@@ -22,6 +25,10 @@
       ]
     },
     "dev": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
       "cache": false,
       "persistent": true
     },

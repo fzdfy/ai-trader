@@ -32,7 +32,7 @@ function LoginPage() {
       setError(signInError.message ?? "登录失败");
       return;
     }
-    navigate({ to: "/market" });
+    navigate({ to: "/home/market/boards" });
   };
 
   return (

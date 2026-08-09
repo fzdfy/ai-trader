@@ -106,7 +106,7 @@ function StockDetailPage() {
   return (
     <VStack gap={4} style={{ height: "100%" }}>
       <HStack gap={2} align="center">
-        <Link to="/watchlist" style={{ textDecoration: "none" }}>
+        <Link to="/home/market/stocks" search={{ tab: "search" }} style={{ textDecoration: "none" }}>
           <Button label="← 返回" variant="ghost" size="sm" />
         </Link>
         <TabList value={tf} onChange={(v) => setTf(v as KlineTf)}>

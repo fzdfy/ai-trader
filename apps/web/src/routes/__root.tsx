@@ -1,10 +1,8 @@
-import { Outlet, createRootRoute, useLocation, redirect } from "@tanstack/react-router";
-import { AppShell } from "@astryxdesign/core/AppShell";
-import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
+import { Outlet, createRootRoute, useLocation, redirect, Link } from "@tanstack/react-router";
+import { TopNav, TopNavItem } from "@astryxdesign/core/TopNav";
 import { NavIcon } from "@astryxdesign/core/NavIcon";
 import { Icon } from "@astryxdesign/core/Icon";
-import { Layout, LayoutContent } from "@astryxdesign/core/Layout";
-import { VStack } from "@astryxdesign/core/Stack";
+import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { authClient } from "../lib/auth-client";
@@ -20,7 +18,7 @@ export const Route = createRootRoute({
       throw redirect({ to: "/login" });
     }
     if (session && isPublic) {
-      throw redirect({ to: "/market" });
+      throw redirect({ to: "/home" });
     }
   },
   component: RootLayout,
@@ -30,58 +28,68 @@ function RootLayout() {
   const location = useLocation();
   const { data: session } = authClient.useSession();
 
+  // 公开页面（登录/注册）不展示导航
   if (PUBLIC_PATHS.has(location.pathname)) {
     return <Outlet />;
   }
 
+  // 当前选中的顶级导航
+  const isHome = location.pathname.startsWith("/home");
+  const isNews = location.pathname.startsWith("/news");
+  const isAIChat = location.pathname.startsWith("/ai-chat");
+
   return (
-    <AppShell
-      contentPadding={0}
-      sideNav={
-        <SideNav
-          style={{ width: 200 }}
-          header={
-            <SideNavHeading
-              heading="AI Trader"
-              icon={<NavIcon icon={<Icon icon="viewColumns" size="sm" />} />}
-            />
-          }
-          footer={
-            session ? (
-              <SideNavSection title="账户" isHeaderHidden>
-                <VStack gap={1} style={{ padding: "var(--spacing-2)" }}>
-                  <Text type="supporting" maxLines={1}>
-                    {session.user.email}
-                  </Text>
-                  <Button
-                    label="退出登录"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      authClient.signOut().then(() => {
-                        globalThis.location.href = "/login";
-                      });
-                    }}
-                  />
-                </VStack>
-              </SideNavSection>
-            ) : undefined
-          }
-        >
-          <SideNavSection title="导航">
-            <SideNavItem label="行情" icon="viewColumns" href="/market" />
-            <SideNavItem label="自选" icon="search" href="/watchlist" />
-            <SideNavItem label="回测" icon="viewColumns" href="/backtest" />
-            <SideNavItem label="问股" icon="info" href="/ai-chat" />
-          </SideNavSection>
-        </SideNav>
-      }
-    >
-      <Layout height="fill">
-        <LayoutContent padding={6}>
-          <Outlet />
-        </LayoutContent>
-      </Layout>
-    </AppShell>
+    <VStack gap={0} style={{ height: "100vh" }}>
+      {/* 顶部导航栏 */}
+      <TopNav
+        heading={
+          <Link
+            to="/"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--spacing-2)",
+            }}
+          >
+            <NavIcon icon={<Icon icon="viewColumns" size="sm" />} />
+            <Text weight="semibold">AI Trader</Text>
+          </Link>
+        }
+        startContent={null}
+        centerContent={
+          <>
+            <TopNavItem label="首页" href="/home" isSelected={isHome} />
+            <TopNavItem label="新闻" href="/news" isSelected={isNews} />
+            <TopNavItem label="问股" href="/ai-chat" isSelected={isAIChat} />
+          </>
+        }
+        endContent={
+          session ? (
+            <HStack gap={2} align="center">
+              <Text type="supporting" size="sm" maxLines={1}>
+                {session.user.email}
+              </Text>
+              <Button
+                label="退出"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  authClient.signOut().then(() => {
+                    globalThis.location.href = "/login";
+                  });
+                }}
+              />
+            </HStack>
+          ) : undefined
+        }
+      />
+
+      {/* 页面内容 */}
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        <Outlet />
+      </div>
+    </VStack>
   );
 }
