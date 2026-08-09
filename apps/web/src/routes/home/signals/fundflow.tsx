@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
-import { FundFlowTab } from "../../market/-private/FundFlowTab";
+import { FundFlowTab } from "./-private/FundFlowTab";
 
 export const Route = createFileRoute("/home/signals/fundflow")({
   component: FundFlowPage,

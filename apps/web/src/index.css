@@ -40,7 +40,7 @@
 
 body {
   font-family: "PingFang SC", system-ui, -apple-system, sans-serif;
-  background: var(--color-background-body);
+  background: #fff;
   color: var(--color-text-primary);
   min-height: 100vh;
 }

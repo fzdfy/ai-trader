@@ -6,11 +6,11 @@ import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { Card } from "@astryxdesign/core/Card";
-import { FundFlowChart, type FundFlowDaily } from "../../../components/charts/FundFlowChart";
+import { FundFlowChart, type FundFlowDaily } from "../../../../components/charts/FundFlowChart";
 import { MetricCard } from "./MetricCard";
-import { useFundFlowQuery } from "../../../hooks/useFundFlow";
-import { fmtFlow } from "../../../lib/format";
-import { chartDown, chartUp } from "../../../lib/theme";
+import { useFundFlowQuery } from "../../../../hooks/useFundFlow";
+import { fmtFlow } from "../../../../lib/format";
+import { chartDown, chartUp } from "../../../../lib/theme";
 
 /** 资金流明细表列（模块级静态，避免每次渲染重建） */
 const flowColumns = [

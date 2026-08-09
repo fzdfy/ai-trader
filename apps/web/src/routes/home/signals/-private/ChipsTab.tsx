@@ -6,10 +6,10 @@ import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Card } from "@astryxdesign/core/Card";
-import { ChipsChart } from "../../../components/charts/ChipsChart";
+import { ChipsChart } from "../../../../components/charts/ChipsChart";
 import { MetricCard } from "./MetricCard";
-import { useChipsQuery, useIndustryBoardsQuery } from "../../../hooks/useChips";
-import { chartGain } from "../../../lib/theme";
+import { useChipsQuery, useIndustryBoardsQuery } from "../../../../hooks/useChips";
+import { chartGain } from "../../../../lib/theme";
 
 /** Tab 3: 筹码分布（个股 / 行业板块） */
 export function ChipsTab() {
@@ -43,8 +43,14 @@ export function ChipsTab() {
         { label: "当前价", value: data.currentPrice.toFixed(2) },
         { label: "平均成本", value: data.avgCost.toFixed(2) },
         { label: "获利盘", value: `${data.profitRatio.toFixed(1)}%`, color: chartGain() },
-        { label: "90%成本区间", value: `${data.cost90.low.toFixed(2)} ~ ${data.cost90.high.toFixed(2)}` },
-        { label: "70%成本区间", value: `${data.cost70.low.toFixed(2)} ~ ${data.cost70.high.toFixed(2)}` },
+        {
+          label: "90%成本区间",
+          value: `${data.cost90.low.toFixed(2)} ~ ${data.cost90.high.toFixed(2)}`,
+        },
+        {
+          label: "70%成本区间",
+          value: `${data.cost70.low.toFixed(2)} ~ ${data.cost70.high.toFixed(2)}`,
+        },
       ]
     : [];
 
@@ -112,7 +118,8 @@ export function ChipsTab() {
             <ChipsChart distribution={data.distribution} currentPrice={data.currentPrice} />
           </Card>
           <Text type="supporting" size="sm">
-            绿色 = 获利筹码（价格低于当前价），红色 = 套牢筹码。历史筹码按三角形分布模型估算，仅作参考。
+            绿色 = 获利筹码（价格低于当前价），红色 =
+            套牢筹码。历史筹码按三角形分布模型估算，仅作参考。
           </Text>
         </>
       )}

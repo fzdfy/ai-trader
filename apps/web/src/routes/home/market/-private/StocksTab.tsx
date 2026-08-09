@@ -12,7 +12,7 @@ import {
   useAddWatchlist,
   useRemoveWatchlist,
   type Instrument,
-} from "../../../hooks/useInstruments";
+} from "../../../../hooks/useInstruments";
 
 function getStockColumns(
   watchlist: string[],

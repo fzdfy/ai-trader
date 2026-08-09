@@ -4,8 +4,8 @@ import { Text } from "@astryxdesign/core/Text";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { useBoardsQuery, type BoardItem } from "../../../hooks/useBoards";
-import { chartDown, chartUp } from "../../../lib/theme";
+import { useBoardsQuery, type BoardItem } from "../../../../hooks/useBoards";
+import { chartUp, chartDown } from "../../../../lib/theme";
 
 /** 板块排行表列（模块级静态）：红涨绿跌（A 股惯例） */
 const boardColumns = [

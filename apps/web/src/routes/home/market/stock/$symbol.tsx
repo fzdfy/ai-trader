@@ -4,10 +4,10 @@ import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Button } from "@astryxdesign/core/Button";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { init, dispose, type Chart } from "klinecharts";
-import type { KlineTf } from "../../hooks/useInstruments";
-import { chartDown, chartFlat, chartUp } from "../../lib/theme";
+import type { KlineTf } from "../../../../hooks/useInstruments";
+import { chartDown, chartFlat, chartUp } from "../../../../lib/theme";
 
-export const Route = createFileRoute("/stock/$symbol")({
+export const Route = createFileRoute("/home/market/stock/$symbol")({
   component: StockDetailPage,
 });
 
@@ -38,7 +38,7 @@ function periodForTf(tf: KlineTf): { span: number; type: "minute" | "day" | "wee
 }
 
 function StockDetailPage() {
-  const { symbol } = useParams({ from: "/stock/$symbol" });
+  const { symbol } = useParams({ from: "/home/market/stock/$symbol" });
   const [tf, setTf] = useState<KlineTf>("1d");
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
@@ -106,7 +106,7 @@ function StockDetailPage() {
   return (
     <VStack gap={4} style={{ height: "100%" }}>
       <HStack gap={2} align="center">
-        <Link to="/home/market/stocks" search={{ tab: "search" }} style={{ textDecoration: "none" }}>
+        <Link to="/home/market/stock" search={{ tab: "search" }} style={{ textDecoration: "none" }}>
           <Button label="← 返回" variant="ghost" size="sm" />
         </Link>
         <TabList value={tf} onChange={(v) => setTf(v as KlineTf)}>

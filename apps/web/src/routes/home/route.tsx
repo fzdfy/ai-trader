@@ -12,11 +12,8 @@ function HomeLayout() {
       {/* 侧边栏 */}
       <div
         style={{
-          width: 200,
           minWidth: 200,
           overflowY: "auto",
-          background: "var(--color-surface-elevated)",
-          borderRight: "2px solid var(--color-border)",
         }}
       >
         <SideNav>
@@ -33,18 +30,10 @@ function HomeLayout() {
               />
               <SideNavItem
                 label="个股"
-                href="/home/market/stocks"
+                href="/home/market/stock"
                 isSelected={
-                  location.pathname.startsWith("/home/market/stocks") &&
-                  !location.searchStr.includes("tab=watchlist")
-                }
-              />
-              <SideNavItem
-                label="自选"
-                href="/home/market/stocks?tab=watchlist"
-                isSelected={
-                  location.pathname.startsWith("/home/market/stocks") &&
-                  location.searchStr.includes("tab=watchlist")
+                  location.pathname.startsWith("/home/market/stock") &&
+                  location.searchStr.includes("tab=search")
                 }
               />
             </SideNavItem>

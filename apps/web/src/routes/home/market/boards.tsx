@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
-import { BoardsTab } from "../../market/-private/BoardsTab";
+import { BoardsTab } from "./-private/BoardsTab";
 
 export const Route = createFileRoute("/home/market/boards")({
   component: BoardsPage,

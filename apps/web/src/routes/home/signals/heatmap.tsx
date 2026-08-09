@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
-import { HeatmapTab } from "../../market/-private/HeatmapTab";
+import { HeatmapTab } from "./-private/HeatmapTab";
 
 export const Route = createFileRoute("/home/signals/heatmap")({
   component: HeatmapPage,

@@ -6,9 +6,9 @@ import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Card } from "@astryxdesign/core/Card";
-import { HeatmapChart, type HeatmapItem } from "../../../components/charts/HeatmapChart";
-import { useHeatmapQuery, useHeatmapBoardQuery } from "../../../hooks/useHeatmap";
-import { toSymbol } from "../../../lib/format";
+import { HeatmapChart, type HeatmapItem } from "../../../../components/charts/HeatmapChart";
+import { useHeatmapQuery, useHeatmapBoardQuery } from "../../../../hooks/useHeatmap";
+import { toSymbol } from "../../../../lib/format";
 
 /** Tab 5: 热力图（行业 / 概念）
  *
@@ -61,7 +61,8 @@ export function HeatmapTab() {
           <HStack gap={3} align="center">
             <Button label="← 返回全部板块" variant="ghost" onClick={() => setDrillBoard(null)} />
             <Text type="supporting" size="sm">
-              当前板块：{drillBoard.name}（{drillBoard.code}）· 成分股 {constituents.length} 只 · 点击成分股查看个股详情
+              当前板块：{drillBoard.name}（{drillBoard.code}）· 成分股 {constituents.length} 只 ·
+              点击成分股查看个股详情
             </Text>
           </HStack>
           {constituents.length > 0 ? (
@@ -83,7 +84,9 @@ export function HeatmapTab() {
       )}
 
       <Text type="supporting" size="sm">
-        热力图颜色按涨跌幅（红涨绿跌）：一级 = 行业/概念板块（面积=总市值），板块内嵌显示成分股（面积=成交额）；点击板块格子（任意位置）下钻查看该板块成分股热力图，再点击成分股可进入个股详情。默认展示涨幅榜前 200 个板块。A 股无官方 GICS 分类，按东财行业/概念分类呈现（GICS 风格热力图）。
+        热力图颜色按涨跌幅（红涨绿跌）：一级 =
+        行业/概念板块（面积=总市值），板块内嵌显示成分股（面积=成交额）；点击板块格子（任意位置）下钻查看该板块成分股热力图，再点击成分股可进入个股详情。默认展示涨幅榜前
+        200 个板块。A 股无官方 GICS 分类，按东财行业/概念分类呈现（GICS 风格热力图）。
       </Text>
     </VStack>
   );

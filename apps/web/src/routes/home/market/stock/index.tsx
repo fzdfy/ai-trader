@@ -7,12 +7,12 @@ import { Table, proportional } from "@astryxdesign/core/Table";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { StocksTab } from "../../market/-private/StocksTab";
-import { useWatchlistInstrumentsQuery, useRemoveWatchlist } from "../../../hooks/useInstruments";
-import type { Instrument } from "../../../hooks/useInstruments";
+import { StocksTab } from "../-private/StocksTab";
+import { useWatchlistInstrumentsQuery, useRemoveWatchlist } from "../../../../hooks/useInstruments";
+import type { Instrument } from "../../../../hooks/useInstruments";
 import { MinusIcon } from "lucide-react";
 
-export const Route = createFileRoute("/home/market/stocks")({
+export const Route = createFileRoute("/home/market/stock/")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab: (search.tab as string) ?? "search",
   }),
@@ -55,7 +55,7 @@ function WatchlistContent() {
       width: proportional(2),
       renderCell: (row: Instrument) => (
         <Link
-          to="/stock/$symbol"
+          to="/home/market/stock/$symbol"
           params={{ symbol: row.symbol }}
           style={{ textDecoration: "none" }}
         >
