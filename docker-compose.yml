@@ -6,11 +6,14 @@ services:
     container_name: postgres-dev
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: aitrader123   # 设置数据库超级用户密码
+      POSTGRES_PASSWORD: aitrader123
       POSTGRES_DB: aitrader
       POSTGRES_USER: ai-trader
     ports:
-      - "5432:5432"                         # 宿主机端口:容器端口
+      - "5432:5432"
     volumes:
-      # 宿主机绝对路径 : 容器内数据目录
-      - /Users/fengyunpeng/Documents/study/ai-trader/pgdata:/var/lib/postgresql
+      # 持久化数据卷 — 删除容器或重新构建不丢数据
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:
