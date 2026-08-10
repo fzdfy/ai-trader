@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { ok, badRequest, serverError } from "../lib/response";
 import { mastra } from "../agent/mastra";
+import { handleChatStream } from "@mastra/ai-sdk";
+import { createUIMessageStreamResponse } from "ai";
 
 const askRoute = new Hono();
 
@@ -23,6 +25,11 @@ askRoute.post("/", async (c) => {
       },
     });
 
+    console.log(
+      "[ask] toolNames:",
+      (response.toolResults ?? []).map((t: any) => t.payload?.toolName ?? t.toolName),
+    );
+
     // Mastra 的 toolResults 使用 chunk 格式：{ payload: { toolName, result } }
     const steps = (response.toolResults ?? []).map((t: any) => ({
       tool: t.payload?.toolName ?? t.toolName ?? "unknown",
@@ -40,6 +47,28 @@ askRoute.post("/", async (c) => {
   } catch (err) {
     console.error("[ask] agent error:", err);
     return serverError(c, "AI 分析服务暂时不可用，请稍后重试。");
+  }
+});
+
+// 流式对话（AI SDK 兼容格式，配合前端 useChat）
+askRoute.post("/stream", async (c) => {
+  try {
+    const params = await c.req.json();
+    const stream = await handleChatStream({
+      mastra,
+      agentId: "stockAnalyst",
+      params,
+      version: "v6",
+      onError: (err) => {
+        console.error("[ask] stream error:", err);
+        return "AI 分析服务暂时不可用，请稍后重试。";
+      },
+    });
+    // createUIMessageStreamResponse 返回原始 Response，Hono 直接透传
+    return createUIMessageStreamResponse({ stream });
+  } catch (err) {
+    console.error("[ask] stream error:", err);
+    return serverError(c, "流式对话服务暂时不可用");
   }
 });
 
