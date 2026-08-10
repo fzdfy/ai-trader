@@ -24,6 +24,8 @@
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "@mastra/core": "^1.57.0",
+    "@mastra/memory": "^1.26.0",
+    "@mastra/pg": "^1.19.0",
     "dayjs": "^1.11.21",
     "drizzle-orm": "^0.38.3",
     "hono": "^4.6.18",

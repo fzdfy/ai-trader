@@ -6,11 +6,13 @@
  */
 import { Agent } from "@mastra/core/agent";
 import { instrumentTool, quoteTool, klineTool, boardTool } from "../tools";
+import { memory } from "../memory";
 
 export const stockAnalyst = new Agent({
   id: "stock-analyst",
   name: "A股智能分析师",
   model: "deepseek/deepseek-v4-pro",
+  memory,
   instructions: `你是一位专业的 A 股智能分析师，拥有丰富的证券分析和量化研究经验。
 
 ## 核心能力

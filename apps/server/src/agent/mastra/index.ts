@@ -4,8 +4,11 @@
 import { Mastra } from "@mastra/core";
 import { stockAnalyst } from "./agents/stock-analyst";
 import { instrumentTool, quoteTool, klineTool, boardTool } from "./tools";
+import { storage } from "./storage";
 
 export const mastra = new Mastra({
   agents: { stockAnalyst },
-  tools: { instrumentTool, quoteTool, klineTool, boardTool },
+  storage: storage,
 });
+
+export { memory } from "./memory";

@@ -39,12 +39,14 @@ export async function similaritySearch(
     `,
   );
 
-  return (rows as unknown as {
-    chunk_text: string;
-    entity_type: string;
-    entity_id: number;
-    similarity: number;
-  }[]).map((r) => ({
+  return (
+    rows as unknown as {
+      chunk_text: string;
+      entity_type: string;
+      entity_id: number;
+      similarity: number;
+    }[]
+  ).map((r) => ({
     chunkText: r.chunk_text,
     entityType: r.entity_type,
     entityId: r.entity_id,
@@ -69,11 +71,13 @@ export async function keywordSearch(
     `,
   );
 
-  return (rows as unknown as {
-    chunk_text: string;
-    entity_type: string;
-    entity_id: number;
-  }[]).map((r) => ({
+  return (
+    rows as unknown as {
+      chunk_text: string;
+      entity_type: string;
+      entity_id: number;
+    }[]
+  ).map((r) => ({
     chunkText: r.chunk_text,
     entityType: r.entity_type,
     entityId: r.entity_id,
