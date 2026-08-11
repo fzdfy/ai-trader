@@ -11,16 +11,15 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
-COPY packages/ packages/
-COPY apps/web/package.json apps/web/
-RUN pnpm install --frozen-lockfile --filter @ai-trader/web
+# 一次性复制所有文件（避免 pnpm filter 丢失 workspace 依赖）
+COPY . .
 
-COPY apps/web/ apps/web/
-RUN pnpm --prefix apps/web build
+# 安装依赖 + 构建
+RUN pnpm install --frozen-lockfile \
+    && pnpm --prefix apps/web build
 
 # ---- Stage 2：Nginx 托管 ----
-FROM nginx:stable-alpine
+FROM nginx:alpine
 
 # 复制构建产物
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
