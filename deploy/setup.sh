@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 #  AI Trader — 一键部署脚本（在目标 Mac 机器上首次运行）
+#  访问：http://localhost:3001（前端 + API 单端口）
 # ============================================================
 set -euo pipefail
 
@@ -74,8 +75,12 @@ cd apps/quant && uv sync && cd ../..
 log "同步 A 股标的字典..."
 pnpm sync-instruments
 log "同步板块数据..."
-# 通过 worker 定时同步，首次手动触发一轮
 node --import @oxc-node/core/register --env-file=.env.local apps/server/src/workers/sync-worker/pipes/boards.ts 2>/dev/null || warn "板块数据同步跳过（可能网络不稳定）"
+
+# ---- 8. 构建前端 ----
+log "构建前端..."
+pnpm --prefix apps/web build
+log "前端构建完成 → apps/web/dist/"
 
 # ---- 完成 ----
 echo ""
@@ -84,10 +89,13 @@ echo -e "${GREEN}  部署完成！${NC}"
 echo "============================================"
 echo ""
 echo "  启动所有服务："
-echo "    ./scripts/start.sh"
+echo "    ./deploy/start.sh"
 echo ""
-echo "  注册账号："
-echo "    打开 http://localhost:5173/signup"
+echo "  访问地址："
+echo "    http://localhost:3001       前端页面"
+echo "    http://localhost:3001/signup  注册账号"
+echo "    http://localhost:3001/health  API 健康检查"
+echo "    http://localhost:3002/docs    quant API 文档"
 echo ""
 echo "  还需要在 .env.local 中填入："
 echo "    DEEPSEEK_API_KEY=sk-...  （DeepSeek API Key）"

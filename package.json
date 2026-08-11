@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "dotenvx run -f .env.local -- turbo dev & pnpm run quant:dev",
-    "build": "turbo build",
+    "build": "dotenvx run -f .env.local -- turbo build",
+    "build:web": "dotenvx run -f .env.local -- turbo build --filter=@ai-trader/web",
+    "start": "dotenvx run -f .env.local -- turbo start",
+    "start:server": "dotenvx run -f .env.local -- turbo start --filter @ai-trader/server",
     "lint": "oxlint . && turbo lint",
     "format": "oxfmt",
     "check-types": "turbo check-types",
@@ -15,6 +18,7 @@
     "sync-kline1d": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline1d.ts",
     "sync-kline-period": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline-period.ts",
     "sync-news": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-news.ts",
+    "worker:sync": "dotenvx run -f .env.local -- pnpm --filter @ai-trader/server run worker:sync",
     "quant:dev": "cd apps/quant && uv run uvicorn main:app --host 0.0.0.0 --port 3002 --reload",
     "quant:start": "cd apps/quant && uv run uvicorn main:app --host 0.0.0.0 --port 3002"
   },

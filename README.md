@@ -45,8 +45,8 @@ chmod +x deploy/*.sh
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:5173 | 前端页面 |
-| http://localhost:5173/signup | 注册账号 |
+| http://localhost:3001 | 前端页面（单端口，含 API） |
+| http://localhost:3001/signup | 注册账号 |
 | http://localhost:3001/health | API 健康检查 |
 | http://localhost:3002/docs | quant API 文档 |
 
