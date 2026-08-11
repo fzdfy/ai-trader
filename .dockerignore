@@ -1,0 +1,10 @@
+node_modules
+.git
+.env.local
+pgdata
+.trae
+**/dist
+**/.turbo
+**/.next
+*.log
+.DS_Store

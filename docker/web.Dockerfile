@@ -1,0 +1,31 @@
+# ============================================================
+#  Web + Nginx — 多阶段构建
+#  Stage 1：vite build → dist/
+#  Stage 2：nginx 托管静态文件 + /api 反向代理
+# ============================================================
+
+# ---- Stage 1：构建前端 ----
+FROM node:24.19.0-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+WORKDIR /app
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY packages/ packages/
+COPY apps/web/package.json apps/web/
+RUN pnpm install --frozen-lockfile --filter @ai-trader/web
+
+COPY apps/web/ apps/web/
+RUN pnpm --prefix apps/web build
+
+# ---- Stage 2：Nginx 托管 ----
+FROM nginx:stable-alpine
+
+# 复制构建产物
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+
+# 复制 nginx 配置
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

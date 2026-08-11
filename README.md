@@ -1,86 +1,78 @@
 # ai-trader
 
-智能 A 股分析与策略平台。
+智能 A 股分析与策略平台（Docker Compose 全容器部署）。
 
-## 技术栈
+## 架构
 
-| 服务 | 技术 | 端口 |
-|------|------|------|
-| web 前端 | React 19 + Vite + TanStack Router | 5173 |
-| server API | Hono + Drizzle + PostgreSQL | 3001 |
-| quant 回测 | FastAPI + AKQuant (Python/uv) | 3002 |
-| database | PostgreSQL 18 + pgvector | 5432 |
+```
+浏览器 → :80 (nginx)
+           ├── /*         → dist/ 静态文件（SPA fallback）
+           └── /api/*     → server:3001 (Hono API)
+                              ├── postgres:5432 (数据库)
+                              └── quant:3002 (回测)
+
+worker       — 定时数据同步 → postgres:5432
+```
 
 ## 部署到新机器
 
 ### 前置依赖
 
-确保已安装：
-
 ```bash
 # macOS
-brew install node@20 pnpm docker uv
-
+brew install docker
 # 启动 Docker Desktop 后再继续
 ```
 
 ### 一键部署
 
 ```bash
-# 1. 克隆项目
 git clone <repo-url> ai-trader && cd ai-trader
-
-# 2. 运行部署脚本
 chmod +x deploy/*.sh
 ./deploy/setup.sh
 
-# 3. 编辑 .env.local，填入 DeepSeek API Key
-#    DEEPSEEK_API_KEY=sk-...
+# 编辑 .env.local，填入：
+#   DEEPSEEK_API_KEY=sk-...
+#   BETTER_AUTH_SECRET=<随机64字符>
 
-# 4. 启动所有服务
-./deploy/start.sh
+# 重启使环境变量生效
+docker compose up -d
 ```
 
 ### 访问
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:3001 | 前端页面（单端口，含 API） |
-| http://localhost:3001/signup | 注册账号 |
-| http://localhost:3001/health | API 健康检查 |
+| http://localhost | 前端页面 |
+| http://localhost/signup | 注册账号 |
+| http://localhost/health | API 健康检查 |
 | http://localhost:3002/docs | quant API 文档 |
 
-### 日常操作
+### 容器管理
 
 ```bash
-./deploy/start.sh    # 启动所有服务
-./deploy/stop.sh     # 停止所有服务
-
-# 数据库迁移（修改 schema 后）
-pnpm db:generate      # 生成迁移文件
-pnpm db:migrate       # 执行迁移
-
-# 同步数据
-pnpm sync-instruments  # A 股标的字典
+docker compose up -d        # 启动
+docker compose down         # 停止
+docker compose logs -f      # 查看日志
+docker compose up -d --build  # 重新构建
+docker compose restart server # 重启单个服务
 ```
 
-### 环境变量
+## 环境变量
 
 | 变量 | 说明 | 必填 |
 |------|------|------|
-| `DATABASE_URL` | PostgreSQL 连接串 | 是 |
+| `DATABASE_URL` | PostgreSQL 连接串（Docker 自动覆盖） | 是 |
 | `BETTER_AUTH_SECRET` | 认证加密密钥 | 是 |
-| `BETTER_AUTH_URL` | 认证服务地址 | 是 |
+| `BETTER_AUTH_URL` | 认证服务地址（Docker 自动覆盖） | 是 |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key（AI Agent） | 是 |
-| `QUANT_URL` | 回测服务地址 | 否 |
+| `QUANT_URL` | 回测服务地址（Docker 自动覆盖） | 否 |
 
-完整清单见 `apps/server/.env.example`。
-
-## 开发
+## 本地开发（非 Docker）
 
 ```bash
-pnpm install          # 安装依赖
-docker compose up -d  # 启动 PostgreSQL
-pnpm db:migrate       # 初始化数据库
-pnpm dev              # 启动开发模式（server + web + quant）
+pnpm install
+docker compose up -d postgres  # 仅启动数据库
+pnpm db:migrate
+pnpm dev                       # turbo dev + quant:dev
 ```

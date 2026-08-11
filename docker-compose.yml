@@ -1,10 +1,79 @@
-version: '3.8'
+# ============================================================
+#  AI Trader — 全容器部署
+#
+#  启动: docker compose up -d
+#  停止: docker compose down
+#  查看: docker compose logs -f
+#  重建: docker compose up -d --build
+# ============================================================
 
 services:
-  postgres:
-    build: .
-    container_name: postgres-dev
+  # ---- 前端 + 反向代理 ----
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    container_name: aitrader-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - server
     restart: unless-stopped
+
+  # ---- API 服务 ----
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    container_name: aitrader-server
+    env_file:
+      - .env.local
+    environment:
+      # 容器网络地址覆盖（localhost → 容器名）
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+      - BETTER_AUTH_URL=http://localhost:80
+      - QUANT_URL=http://quant:3002
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ---- 数据同步 Worker ----
+  worker:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    container_name: aitrader-worker
+    command: pnpm --prefix apps/server worker:sync
+    env_file:
+      - .env.local
+    environment:
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+      - BETTER_AUTH_URL=http://localhost:80
+      - QUANT_URL=http://quant:3002
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ---- 回测微服务 ----
+  quant:
+    build:
+      context: .
+      dockerfile: docker/quant.Dockerfile
+    container_name: aitrader-quant
+    ports:
+      - "3002:3002"
+    environment:
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ---- PostgreSQL + pgvector ----
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aitrader-postgres
     environment:
       POSTGRES_PASSWORD: aitrader123
       POSTGRES_DB: aitrader
@@ -12,8 +81,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # 持久化数据卷 — 删除容器或重新构建不丢数据
       - pgdata:/var/lib/postgresql
+    restart: unless-stopped
 
 volumes:
   pgdata:
