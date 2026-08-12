@@ -5,10 +5,13 @@ import { api } from "./api";
 import { auth } from "./auth";
 
 const app = new Hono();
-app.use("*", cors({
-  origin: (origin) => origin ?? "http://localhost:5173",
-  credentials: true,
-}));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => origin ?? "http://localhost:8080",
+    credentials: true,
+  }),
+);
 
 // Mount auth routes
 app.all("/api/auth/*", (c) => auth.handler(c.req.raw));

@@ -14,5 +14,7 @@ COPY . .
 # 安装全部依赖
 RUN pnpm install --frozen-lockfile
 
+EXPOSE 3001
+
 # 默认命令：API server（docker-compose 中 worker 会覆盖）
 CMD ["pnpm", "--prefix", "apps/server", "start"]

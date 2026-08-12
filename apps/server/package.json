@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --import @oxc-node/core/register --watch ./src/index.ts",
-    "start": "node --import @oxc-node/core/register ./src/index.ts",
+    "dev": "node --import @oxc-node/core/register --watch ./src/main.ts",
+    "start": "node --import @oxc-node/core/register ./src/main.ts",
     "check-types": "tsgo -b --noEmit",
     "lint": "eslint .",
     "format": "oxfmt",

@@ -6,5 +6,8 @@ pgdata
 **/dist
 **/.turbo
 **/.next
+**/.venv
+**/__pycache__
+*.pyc
 *.log
 .DS_Store

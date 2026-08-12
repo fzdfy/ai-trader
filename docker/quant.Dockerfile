@@ -8,13 +8,11 @@ RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-# 复制并安装 Python 依赖
-COPY apps/quant/pyproject.toml apps/quant/
-COPY apps/quant/uv.lock apps/quant/
-RUN cd apps/quant && uv sync --frozen
-
-# 复制源码
+# 复制源码 + 依赖文件（.dockerignore 已排除 .venv/__pycache__）
 COPY apps/quant/ apps/quant/
+
+# 安装依赖
+RUN cd apps/quant && uv sync --frozen
 
 EXPOSE 3002
 

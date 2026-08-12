@@ -5,7 +5,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 export default defineConfig({
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react()],
   server: {
-    port: 5173,
+    port: 8080,
     proxy: {
       "/api": "http://localhost:3001",
     },

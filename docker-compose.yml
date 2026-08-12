@@ -15,7 +15,7 @@ services:
       dockerfile: docker/web.Dockerfile
     container_name: aitrader-nginx
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - server
     restart: unless-stopped
@@ -26,6 +26,8 @@ services:
       context: .
       dockerfile: docker/server.Dockerfile
     container_name: aitrader-server
+    ports:
+      - "3001:3001"
     env_file:
       - .env.local
     environment:
