@@ -9,6 +9,10 @@ from typing import Any
 import pandas as pd
 from akquant import run_backtest, Strategy
 
+from logger import get_logger
+
+log = get_logger("engine")
+
 INITIAL_CASH = 100_000
 
 
@@ -162,7 +166,7 @@ def _build_equity(result, initial_cash: float) -> list[dict[str, Any]]:
             })
         return points
     except Exception as e:
-        print(f"[engine] _build_equity error: {e}")
+        log.error("构建权益曲线失败", exc_info=True)
         return _empty_equity(initial_cash)
 
 
@@ -198,7 +202,7 @@ def _build_trades(result) -> list[dict[str, Any]]:
             for _, t in trades_df.iterrows()
         ]
     except Exception as e:
-        print(f"[engine] _build_trades error: {e}")
+        log.error("构建交易明细失败", exc_info=True)
         return []
 
 

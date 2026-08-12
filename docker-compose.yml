@@ -7,6 +7,13 @@
 #  重建: docker compose up -d --build
 # ============================================================
 
+# 日志轮转策略（复用配置）
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # ---- 前端 + 反向代理 ----
   nginx:
@@ -19,6 +26,7 @@ services:
     depends_on:
       - server
     restart: unless-stopped
+    logging: *logging
 
   # ---- API 服务 ----
   server:
@@ -33,11 +41,15 @@ services:
     environment:
       # 容器网络地址覆盖（localhost → 容器名）
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
-      - BETTER_AUTH_URL=http://localhost:80
+      - BETTER_AUTH_URL=http://localhost:8080
       - QUANT_URL=http://quant:3002
+      # 日志
+      - SERVICE_NAME=server
+      - LOG_FORMAT=json
     depends_on:
       - postgres
     restart: unless-stopped
+    logging: *logging
 
   # ---- 数据同步 Worker ----
   worker:
@@ -50,11 +62,15 @@ services:
       - .env.local
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
-      - BETTER_AUTH_URL=http://localhost:80
+      - BETTER_AUTH_URL=http://localhost:8080
       - QUANT_URL=http://quant:3002
+      # 日志
+      - SERVICE_NAME=worker
+      - LOG_FORMAT=json
     depends_on:
       - postgres
     restart: unless-stopped
+    logging: *logging
 
   # ---- 回测微服务 ----
   quant:
@@ -66,15 +82,19 @@ services:
       - "3002:3002"
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+      # 日志
+      - SERVICE_NAME=quant
+      - LOG_FORMAT=json
     depends_on:
       - postgres
     restart: unless-stopped
+    logging: *logging
 
   # ---- PostgreSQL + pgvector ----
   postgres:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/postgres.Dockerfile
     container_name: aitrader-postgres
     environment:
       POSTGRES_PASSWORD: aitrader123

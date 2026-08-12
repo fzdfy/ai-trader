@@ -1,0 +1,29 @@
+# ============================================================
+#  AI Trader — 开发环境（仅启动 PostgreSQL）
+#
+#  前端和服务端通过 pnpm dev 直接在宿主机运行。
+#  启动: docker compose -f docker-compose.dev.yml up -d
+#  停止: docker compose -f docker-compose.dev.yml down
+#
+#  注意：不可与生产 docker-compose.yml 同时运行，
+#        切换前先 docker compose down。
+# ============================================================
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres.Dockerfile
+    container_name: aitrader-postgres-dev
+    environment:
+      POSTGRES_PASSWORD: aitrader123
+      POSTGRES_DB: aitrader
+      POSTGRES_USER: ai-trader
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    restart: unless-stopped
+
+volumes:
+  pgdata:
