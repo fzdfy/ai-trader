@@ -43,6 +43,13 @@
       "when": 1786278288100,
       "tag": "0005_gorgeous_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786548361647,
+      "tag": "0006_busy_rattler",
+      "breakpoints": true
     }
   ]
 }

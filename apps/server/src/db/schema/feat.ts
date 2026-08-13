@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   bigserial,
+  boolean,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -43,3 +44,32 @@ export const featureValueRelations = relations(featureValue, ({ one }) => ({
     references: [featureSet.id],
   }),
 }));
+
+/**
+ * 因子注册表
+ * 定义系统中所有可用的因子元数据，前端因子选择器从此表读取。
+ */
+export const factorRegistry = pgTable("factor_registry", {
+  name: text("name").primaryKey(),
+  label: text("label").notNull(),
+  category: text("category").notNull(),
+  direction: integer("direction").notNull().default(1), // 1=正向 -1=反向
+  defaultParams: jsonb("default_params"),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/**
+ * 用户自定义策略配置表
+ * 一行 = 一个用户创建的多因子策略 JSON。
+ */
+export const strategyConfig = pgTable("strategy_config", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  configJson: jsonb("config_json").notNull(),
+  isSystem: boolean("is_system").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

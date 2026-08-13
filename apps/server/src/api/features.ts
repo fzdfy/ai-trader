@@ -16,7 +16,7 @@ featuresRoute.get("/", async (c) => {
   if (!symbol) return badRequest(c, "symbol is required");
 
   let query = db.select().from(featureValue).where(eq(featureValue.symbol, symbol)).$dynamic();
-  if (featureSetId) query = query.where(eq(featureValue.featureSetId, BigInt(featureSetId)));
+  if (featureSetId) query = query.where(eq(featureValue.featureSetId, Number(featureSetId)));
   if (start) query = query.where(gte(featureValue.time, new Date(start)));
   if (end) query = query.where(lte(featureValue.time, new Date(end)));
   query = query.orderBy(featureValue.time).limit(limit);

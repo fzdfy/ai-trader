@@ -45,6 +45,35 @@ body {
   min-height: 100vh;
 }
 
+/* TopNav 选中项：只保留加粗，去掉背景色（覆盖 Astryx selected 的 --color-neutral 背景） */
+.astryx-top-nav-item[data-selected="selected"],
+.astryx-top-nav-item[data-selected="selected"]:hover,
+.astryx-top-nav-item[data-selected="selected"]:active {
+  background-color: transparent !important;
+}
+
+.astryx-top-nav-item:hover {
+  background-color: light-dark(#0536590c, #ffffff0c) !important;
+}
+/*
+ * 侧边栏选中/悬停颜色：对齐官网 core 默认的蓝色调
+ * （theme-neutral 会把 --color-neutral/--color-overlay-hover 覆盖成中性灰，
+ *   这里按官网 astryx 主题的蓝色调显式指定，仅影响侧边栏项）
+ */
+.astryx-side-nav-item[data-selected="selected"],
+.astryx-side-nav-item[data-selected="selected"]:hover,
+.astryx-side-nav-item[data-selected="selected"]:active {
+  background-color: light-dark(rgba(5, 54, 89, 0.1), rgba(223, 226, 229, 0.2)) !important;
+}
+
+.astryx-side-nav-item:hover {
+  background-color: light-dark(#0536590c, #ffffff0c) !important;
+}
+
+.astryx-side-nav-item:active {
+  background-color: light-dark(#05365919, #ffffff19) !important;
+}
+
 /* 数据数字：等宽对齐（表格/指标卡） */
 .tabular-nums {
   font-variant-numeric: tabular-nums;

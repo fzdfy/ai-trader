@@ -8,17 +8,25 @@ const backtestsRoute = new Hono();
 // GET /api/v1/backtests/strategies
 backtestsRoute.get("/strategies", async (c) => {
   const res = await fetch(`${QUANT_URL}/api/v1/strategies`);
-  const json = await res.json();
+  const json = (await res.json()) as { strategies?: unknown[] };
   return ok(c, json.strategies ?? []);
+});
+
+// GET /api/v1/backtests/factors
+backtestsRoute.get("/factors", async (c) => {
+  const res = await fetch(`${QUANT_URL}/api/v1/factors`);
+  const json = (await res.json()) as { factors?: unknown[] };
+  return ok(c, json.factors ?? []);
 });
 
 // POST /api/v1/backtests/run
 backtestsRoute.post("/run", async (c) => {
   const body = await c.req.json();
-  const { symbol, strategy, params, startDate, endDate } = body as {
+  const { symbol, strategy, params, config, startDate, endDate } = body as {
     symbol?: string;
     strategy?: string;
     params?: Record<string, number>;
+    config?: Record<string, unknown>;
     startDate?: string;
     endDate?: string;
   };
@@ -29,9 +37,16 @@ backtestsRoute.post("/run", async (c) => {
   const res = await fetch(`${QUANT_URL}/api/v1/backtests/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symbol, strategy, params: params ?? {}, startDate, endDate }),
+    body: JSON.stringify({
+      symbol,
+      strategy,
+      params: params ?? {},
+      config,
+      startDate,
+      endDate,
+    }),
   });
-  const json = await res.json();
+  const json = (await res.json()) as { detail?: string } & Record<string, unknown>;
 
   if (!res.ok) {
     return c.json(

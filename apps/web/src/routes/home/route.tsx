@@ -18,11 +18,7 @@ function HomeLayout() {
       >
         <SideNav>
           <SideNavSection title="行情" isHeaderHidden>
-            <SideNavItem
-              label="行情"
-              href="/home/market"
-              isSelected={location.pathname.startsWith("/home/market")}
-            >
+            <SideNavItem label="行情">
               <SideNavItem
                 label="板块"
                 href="/home/market/boards"
@@ -40,11 +36,7 @@ function HomeLayout() {
           </SideNavSection>
 
           <SideNavSection title="信号" isHeaderHidden>
-            <SideNavItem
-              label="信号"
-              href="/home/signals"
-              isSelected={location.pathname.startsWith("/home/signals")}
-            >
+            <SideNavItem label="信号">
               <SideNavItem
                 label="筹码分布"
                 href="/home/signals/chips"

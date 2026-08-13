@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -10,8 +10,10 @@ import { Table, proportional } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Section } from "@astryxdesign/core/Section";
 import { Card } from "@astryxdesign/core/Card";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { EquityChart } from "../../components/charts/EquityChart";
 import { TradeChart } from "../../components/charts/TradeChart";
+import { StrategyBuilder, type FactorMeta } from "../../components/StrategyBuilder";
 
 // ==============================
 // Types — 对齐 AKQuant 原生 report 结构
@@ -80,9 +82,10 @@ const STRATEGY_OPTIONS = [
   { value: "bollinger", label: "布林带突破" },
 ] as const;
 
-const STRATEGY_LABEL_MAP: Record<string, string> = Object.fromEntries(
-  STRATEGY_OPTIONS.map((s) => [s.value, s.label]),
-);
+const STRATEGY_LABEL_MAP: Record<string, string> = {
+  ...Object.fromEntries(STRATEGY_OPTIONS.map((s) => [s.value, s.label])),
+  composite: "自定义多因子",
+};
 
 const TRADE_COLUMNS = [
   { key: "entryTime" as const, header: "买入日", width: proportional(1.5) },
@@ -262,6 +265,8 @@ export const Route = createFileRoute("/home/backtest")({
 
 function BacktestPage() {
   const [symbol, setSymbol] = useState("002594.SZ");
+  // 策略模式：preset = 预设策略，composite = 自定义多因子
+  const [mode, setMode] = useState<"preset" | "composite">("preset");
   const [strategy, setStrategy] = useState<string>("ma_cross");
   const [params, setParams] = useState<Record<string, number>>({});
   const [startDate, setStartDate] = useState("");
@@ -270,32 +275,129 @@ function BacktestPage() {
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [resultTab, setResultTab] = useState("overview");
 
+  // ---- 自定义多因子配置 ----
+  const [factors, setFactors] = useState<FactorMeta[]>([]);
+  const [factorWeights, setFactorWeights] = useState<Record<string, number>>({
+    ma_trend_20: 30,
+    roc_20: 25,
+    rsi_14: 20,
+    volume_ratio_5: 25,
+  });
+  const [entryThreshold, setEntryThreshold] = useState(65);
+  const [exitThreshold, setExitThreshold] = useState(30);
+  const [positionSize, setPositionSize] = useState(95);
+  const [stopLoss, setStopLoss] = useState(8);
+  const [takeProfit, setTakeProfit] = useState(20);
+
+  // 拉取因子注册表（仅在首次进入自定义模式时加载）
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/v1/backtests/factors")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled) setFactors(json.data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setFactors([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleFactor = useCallback((name: string) => {
+    setFactorWeights((prev) => {
+      const next = { ...prev };
+      if ((prev[name] ?? 0) > 0) {
+        delete next[name];
+      } else {
+        next[name] = 10; // 新勾选因子默认 10%
+      }
+      return next;
+    });
+  }, []);
+
+  const changeWeight = useCallback((name: string, weight: number) => {
+    setFactorWeights((prev) => ({ ...prev, [name]: weight }));
+  }, []);
+
+  const selectedFactorCount = useMemo(
+    () => Object.values(factorWeights).filter((w) => w > 0).length,
+    [factorWeights],
+  );
+
   const runBacktest = useCallback(async () => {
     if (!symbol) return;
+    if (mode === "composite" && selectedFactorCount === 0) return;
     setLoading(true);
     setResult(null);
 
-    const resolved: Record<string, number> = {};
-    const defs = STRATEGY_DEFAULTS[strategy] ?? {};
-    for (const [k, dv] of Object.entries(defs)) {
-      resolved[k] = params[k] ?? dv;
-    }
+    let body: Record<string, unknown>;
 
-    const res = await fetch("/api/v1/backtests/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    if (mode === "composite") {
+      // 归一化权重：百分比 → 合计为 1.0 的分数
+      const selected = Object.entries(factorWeights)
+        .filter(([, w]) => w > 0)
+        .map(([name, weight]) => ({ name, weight }));
+      const total = selected.reduce((sum, f) => sum + f.weight, 0);
+      body = {
+        symbol,
+        strategy: "composite",
+        config: {
+          factors: selected.map((f) => ({
+            name: f.name,
+            weight: total > 0 ? f.weight / total : 0,
+          })),
+          combine: "weighted_sum",
+          entry: { type: "threshold", value: entryThreshold / 100 },
+          exit: { type: "threshold", value: exitThreshold / 100 },
+          risk: {
+            positionSize: positionSize / 100,
+            stopLoss: stopLoss / 100,
+            takeProfit: takeProfit / 100,
+          },
+        },
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      };
+    } else {
+      const resolved: Record<string, number> = {};
+      const defs = STRATEGY_DEFAULTS[strategy] ?? {};
+      for (const [k, dv] of Object.entries(defs)) {
+        resolved[k] = params[k] ?? dv;
+      }
+      body = {
         symbol,
         strategy,
         params: resolved,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-      }),
+      };
+    }
+
+    const res = await fetch("/api/v1/backtests/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
     const json = await res.json();
     setResult(json.success ? json.data : null);
     setLoading(false);
-  }, [symbol, strategy, params, startDate, endDate]);
+  }, [
+    symbol,
+    strategy,
+    params,
+    startDate,
+    endDate,
+    mode,
+    factorWeights,
+    entryThreshold,
+    exitThreshold,
+    positionSize,
+    stopLoss,
+    takeProfit,
+    selectedFactorCount,
+  ]);
 
   /** 核心指标列表（对齐 AKQuant 12 项完整指标） */
   const metricItems = useMemo(() => {
@@ -326,6 +428,17 @@ function BacktestPage() {
       {/* 参数输入区 */}
       <Section>
         <VStack gap={4}>
+          {/* 策略模式切换 */}
+          <SegmentedControl
+            value={mode}
+            onChange={(v) => setMode(v as "preset" | "composite")}
+            label="策略模式"
+            layout="hug"
+          >
+            <SegmentedControlItem value="preset" label="预设策略" />
+            <SegmentedControlItem value="composite" label="自定义多因子" />
+          </SegmentedControl>
+
           <HStack gap={3} align="end">
             <TextInput
               label="股票代码"
@@ -348,44 +461,70 @@ function BacktestPage() {
               onChange={setEndDate}
               style={{ width: 130 }}
             />
-            <VStack gap={1}>
-              <Text type="supporting" size="sm">
-                策略
-              </Text>
-              <select
-                value={strategy}
-                onChange={(e) => setStrategy(e.target.value)}
-                style={{
-                  height: 36,
-                  padding: "0 8px",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--color-border)",
-                  background: "var(--color-surface)",
-                  color: "var(--color-text)",
-                }}
-              >
-                {STRATEGY_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </VStack>
+            {mode === "preset" && (
+              <VStack gap={1}>
+                <Text type="supporting" size="sm">
+                  策略
+                </Text>
+                <select
+                  value={strategy}
+                  onChange={(e) => setStrategy(e.target.value)}
+                  style={{
+                    height: 36,
+                    padding: "0 8px",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-surface)",
+                    color: "var(--color-text)",
+                  }}
+                >
+                  {STRATEGY_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </VStack>
+            )}
             <Button
               label={loading ? "运行中..." : "开始回测"}
               variant="primary"
-              isDisabled={!symbol || loading}
+              isDisabled={
+                !symbol || loading || (mode === "composite" && selectedFactorCount === 0)
+              }
               onClick={runBacktest}
             />
           </HStack>
 
-          <ParamInputs
-            strategy={strategy}
-            params={params}
-            onChange={(k, v) => setParams((p) => ({ ...p, [k]: v }))}
-          />
+          {mode === "preset" && (
+            <ParamInputs
+              strategy={strategy}
+              params={params}
+              onChange={(k, v) => setParams((p) => ({ ...p, [k]: v }))}
+            />
+          )}
         </VStack>
       </Section>
+
+      {/* 自定义多因子策略构建器 */}
+      {mode === "composite" && (
+        <StrategyBuilder
+          factors={factors}
+          weights={factorWeights}
+          onToggleFactor={toggleFactor}
+          onWeightChange={changeWeight}
+          entryThreshold={entryThreshold}
+          onEntryThresholdChange={setEntryThreshold}
+          exitThreshold={exitThreshold}
+          onExitThresholdChange={setExitThreshold}
+          positionSize={positionSize}
+          onPositionSizeChange={setPositionSize}
+          stopLoss={stopLoss}
+          onStopLossChange={setStopLoss}
+          takeProfit={takeProfit}
+          onTakeProfitChange={setTakeProfit}
+        />
+      )}
 
       {/* 加载状态 */}
       {loading && <Spinner size="sm" label="回测计算中，请稍候..." />}
@@ -394,7 +533,10 @@ function BacktestPage() {
       {result && (
         <VStack gap={5}>
           {/* 报告头部 — 直接使用 AKQuant report */}
-          <ReportHeader report={result.report} strategy={strategy} />
+          <ReportHeader
+            report={result.report}
+            strategy={mode === "composite" ? "composite" : strategy}
+          />
 
           {/* 核心指标 — AKQuant 12 项 */}
           <Section>
