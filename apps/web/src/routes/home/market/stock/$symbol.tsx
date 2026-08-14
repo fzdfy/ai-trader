@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createFileRoute, useParams, Link } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Button } from "@astryxdesign/core/Button";
@@ -8,6 +8,9 @@ import type { KlineTf } from "../../../../hooks/useInstruments";
 import { chartDown, chartFlat, chartUp } from "../../../../lib/theme";
 
 export const Route = createFileRoute("/home/market/stock/$symbol")({
+  validateSearch: (search: Record<string, unknown>): { tf?: KlineTf } => ({
+    tf: (search.tf as KlineTf) ?? "1d",
+  }),
   component: StockDetailPage,
 });
 
@@ -39,7 +42,8 @@ function periodForTf(tf: KlineTf): { span: number; type: "minute" | "day" | "wee
 
 function StockDetailPage() {
   const { symbol } = useParams({ from: "/home/market/stock/$symbol" });
-  const [tf, setTf] = useState<KlineTf>("1d");
+  const tf = Route.useSearch().tf ?? "1d";
+  const navigate = Route.useNavigate();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
@@ -106,10 +110,10 @@ function StockDetailPage() {
   return (
     <VStack gap={4} style={{ height: "100%" }}>
       <HStack gap={2} align="center">
-        <Link to="/home/market/stock" search={{ tab: "search" }} style={{ textDecoration: "none" }}>
+        <Link to="/home/market/stock" search={{ tab: "stock" }} style={{ textDecoration: "none" }}>
           <Button label="← 返回" variant="ghost" size="sm" />
         </Link>
-        <TabList value={tf} onChange={(v) => setTf(v as KlineTf)}>
+        <TabList value={tf} onChange={(v) => navigate({ search: { tf: v as KlineTf }, replace: true })}>
           {PERIOD_OPTIONS.map((p) => (
             <Tab key={p.value} value={p.value} label={p.label} />
           ))}

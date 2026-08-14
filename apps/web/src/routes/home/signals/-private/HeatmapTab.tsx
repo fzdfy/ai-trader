@@ -16,10 +16,15 @@ import { toSymbol } from "../../../../lib/format";
  *   1. 板块层（level="board"）→ 点击板块任意位置 → 下钻该板块成分股热力图
  *   2. 成分股层（level="stock"）→ 点击成分股 → 跳转个股详情
  */
-export function HeatmapTab() {
+export function HeatmapTab({
+  value,
+  onChange,
+}: {
+  value: "industry" | "concept";
+  onChange: (v: "industry" | "concept") => void;
+}) {
   const navigate = useNavigate();
-  const [heatType, setHeatType] = useState<"industry" | "concept">("industry");
-  const { data = [], isFetching } = useHeatmapQuery(heatType);
+  const { data = [], isFetching } = useHeatmapQuery(value);
   const loading = isFetching;
   // 下钻目标板块：null = 板块层；非空 = 该板块成分股热力图
   const [drillBoard, setDrillBoard] = useState<HeatmapItem | null>(null);
@@ -27,14 +32,14 @@ export function HeatmapTab() {
   // 切换行业/概念时回到板块层
   useEffect(() => {
     setDrillBoard(null);
-  }, [heatType]);
+  }, [value]);
 
   // 下钻数据：优先复用上层 children（板块接口已带成分股缓存）；
   // children 为空时查询数据库/实时拉取（仅此时发请求）
   const boardCode = drillBoard?.code ?? "";
   const drillChildren = drillBoard?.children ?? [];
   const { data: boardStocks = [], isFetching: boardLoading } = useHeatmapBoardQuery(
-    heatType,
+    value,
     boardCode,
     drillChildren.length === 0,
   );
@@ -43,13 +48,13 @@ export function HeatmapTab() {
   // 点击成分股格子 → 跳转个股详情页
   const handleStockClick = (item: HeatmapItem) => {
     const symbol = toSymbol(item.code);
-    navigate({ to: "/stock/$symbol", params: { symbol } });
+    navigate({ to: "/home/market/stock/$symbol", params: { symbol } });
   };
 
   return (
     <VStack gap={3}>
       <HStack gap={3} align="center">
-        <TabList value={heatType} onChange={(v) => setHeatType(v as "industry" | "concept")}>
+        <TabList value={value} onChange={(v) => onChange(v as "industry" | "concept")}>
           <Tab value="industry" label="行业热力图" />
           <Tab value="concept" label="概念热力图" />
         </TabList>

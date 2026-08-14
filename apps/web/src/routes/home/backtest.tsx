@@ -260,13 +260,16 @@ function ReportHeader({
 // ==============================
 
 export const Route = createFileRoute("/home/backtest")({
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: (search.tab as string) ?? "preset",
+  }),
   component: BacktestPage,
 });
 
 function BacktestPage() {
+  const mode = (Route.useSearch().tab ?? "preset") as "preset" | "custom";
+  const navigate = Route.useNavigate();
   const [symbol, setSymbol] = useState("002594.SZ");
-  // 策略模式：preset = 预设策略，composite = 自定义多因子
-  const [mode, setMode] = useState<"preset" | "composite">("preset");
   const [strategy, setStrategy] = useState<string>("ma_cross");
   const [params, setParams] = useState<Record<string, number>>({});
   const [startDate, setStartDate] = useState("");
@@ -328,13 +331,13 @@ function BacktestPage() {
 
   const runBacktest = useCallback(async () => {
     if (!symbol) return;
-    if (mode === "composite" && selectedFactorCount === 0) return;
+    if (mode === "custom" && selectedFactorCount === 0) return;
     setLoading(true);
     setResult(null);
 
     let body: Record<string, unknown>;
 
-    if (mode === "composite") {
+    if (mode === "custom") {
       // 归一化权重：百分比 → 合计为 1.0 的分数
       const selected = Object.entries(factorWeights)
         .filter(([, w]) => w > 0)
@@ -431,12 +434,14 @@ function BacktestPage() {
           {/* 策略模式切换 */}
           <SegmentedControl
             value={mode}
-            onChange={(v) => setMode(v as "preset" | "composite")}
+            onChange={(v) =>
+              navigate({ search: { tab: v as "preset" | "custom" }, replace: true })
+            }
             label="策略模式"
             layout="hug"
           >
             <SegmentedControlItem value="preset" label="预设策略" />
-            <SegmentedControlItem value="composite" label="自定义多因子" />
+            <SegmentedControlItem value="custom" label="自定义多因子" />
           </SegmentedControl>
 
           <HStack gap={3} align="end">
@@ -490,7 +495,7 @@ function BacktestPage() {
               label={loading ? "运行中..." : "开始回测"}
               variant="primary"
               isDisabled={
-                !symbol || loading || (mode === "composite" && selectedFactorCount === 0)
+                !symbol || loading || (mode === "custom" && selectedFactorCount === 0)
               }
               onClick={runBacktest}
             />
@@ -507,7 +512,7 @@ function BacktestPage() {
       </Section>
 
       {/* 自定义多因子策略构建器 */}
-      {mode === "composite" && (
+      {mode === "custom" && (
         <StrategyBuilder
           factors={factors}
           weights={factorWeights}
@@ -535,7 +540,7 @@ function BacktestPage() {
           {/* 报告头部 — 直接使用 AKQuant report */}
           <ReportHeader
             report={result.report}
-            strategy={mode === "composite" ? "composite" : strategy}
+            strategy={mode === "custom" ? "composite" : strategy}
           />
 
           {/* 核心指标 — AKQuant 12 项 */}

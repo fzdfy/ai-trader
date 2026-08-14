@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { VStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { Spinner } from "@astryxdesign/core/Spinner";
@@ -34,13 +33,18 @@ const boardColumns = [
 ];
 
 /** Tab 1: 板块 — 行业/概念板块排行 */
-export function BoardsTab() {
-  const [boardType, setBoardType] = useState<"industry" | "concept">("industry");
-  const { data: boards = [], isLoading: boardsLoading } = useBoardsQuery(boardType);
+export function BoardsTab({
+  value,
+  onChange,
+}: {
+  value: "industry" | "concept";
+  onChange: (v: "industry" | "concept") => void;
+}) {
+  const { data: boards = [], isLoading: boardsLoading } = useBoardsQuery(value);
 
   return (
     <VStack gap={3}>
-      <TabList value={boardType} onChange={(v) => setBoardType(v as "industry" | "concept")}>
+      <TabList value={value} onChange={(v) => onChange(v as "industry" | "concept")}>
         <Tab value="industry" label="行业板块" />
         <Tab value="concept" label="概念板块" />
       </TabList>

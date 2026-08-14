@@ -13,15 +13,15 @@ import type { Instrument } from "../../../../hooks/useInstruments";
 import { MinusIcon } from "lucide-react";
 
 export const Route = createFileRoute("/home/market/stock/")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: (search.tab as string) ?? "search",
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: (search.tab as string) ?? "stock",
   }),
   component: StocksPage,
 });
 
 function StocksPage() {
   const { tab } = Route.useSearch();
-  const [activeTab, setActiveTab] = useState(tab);
+  const [activeTab, setActiveTab] = useState(tab ?? "stock");
   const navigate = Route.useNavigate();
 
   const handleTabChange = (value: string) => {
@@ -33,10 +33,10 @@ function StocksPage() {
     <VStack gap={4}>
       <Heading level={2}>个股</Heading>
       <TabList value={activeTab} onChange={handleTabChange}>
-        <Tab value="search" label="个股" />
+        <Tab value="stock" label="个股" />
         <Tab value="watchlist" label="自选" />
       </TabList>
-      {activeTab === "search" && <StocksTab />}
+      {activeTab === "stock" && <StocksTab />}
       {activeTab === "watchlist" && <WatchlistContent />}
     </VStack>
   );

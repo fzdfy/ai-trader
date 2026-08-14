@@ -12,28 +12,33 @@ import { useChipsQuery, useIndustryBoardsQuery } from "../../../../hooks/useChip
 import { chartGain } from "../../../../lib/theme";
 
 /** Tab 3: 筹码分布（个股 / 行业板块） */
-export function ChipsTab() {
-  const [mode, setMode] = useState<"stock" | "board">("stock");
+export function ChipsTab({
+  value,
+  onChange,
+}: {
+  value: "stock" | "board";
+  onChange: (v: "stock" | "board") => void;
+}) {
   const [symbol, setSymbol] = useState("002594.SZ");
   const [boardCode, setBoardCode] = useState("");
   const [submitted, setSubmitted] = useState("");
 
   // 行业模式：拉取行业板块列表（下拉框选项），TanStack Query 管理
-  const { data: boards = [] } = useIndustryBoardsQuery(mode === "board");
+  const { data: boards = [] } = useIndustryBoardsQuery(value === "board");
   useEffect(() => {
     const first = boards[0];
-    if (mode === "board" && boardCode === "" && first) {
+    if (value === "board" && boardCode === "" && first) {
       setBoardCode(first.code);
     }
-  }, [mode, boards, boardCode]);
+  }, [value, boards, boardCode]);
 
   // 筹码分布查询（点击"计算筹码"提交 key 后触发）
   const chipsKey = submitted;
-  const { data, isFetching } = useChipsQuery(mode, chipsKey);
+  const { data, isFetching } = useChipsQuery(value, chipsKey);
   const loading = isFetching;
 
   const handleCalc = () => {
-    const key = mode === "stock" ? symbol : boardCode;
+    const key = value === "stock" ? symbol : boardCode;
     if (!key) return;
     setSubmitted(key);
   };
@@ -56,13 +61,13 @@ export function ChipsTab() {
 
   return (
     <VStack gap={4}>
-      <TabList value={mode} onChange={(v) => setMode(v as "stock" | "board")}>
+      <TabList value={value} onChange={(v) => onChange(v as "stock" | "board")}>
         <Tab value="stock" label="个股" />
         <Tab value="board" label="行业" />
       </TabList>
 
       <HStack gap={2} align="end">
-        {mode === "stock" ? (
+        {value === "stock" ? (
           <TextInput
             label="股票代码"
             placeholder="如 000001.SZ"
@@ -100,7 +105,7 @@ export function ChipsTab() {
         <Button
           label={loading ? "计算中..." : "计算筹码"}
           variant="primary"
-          isDisabled={loading || (mode === "stock" ? !symbol : !boardCode)}
+          isDisabled={loading || (value === "stock" ? !symbol : !boardCode)}
           onClick={handleCalc}
         />
       </HStack>
