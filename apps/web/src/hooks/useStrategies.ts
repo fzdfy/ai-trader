@@ -16,6 +16,7 @@ export interface Strategy {
   description: string | null;
   configJson: { factors: StrategyFactor[] };
   isSystem: boolean;
+  creator: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "factor_registry" ADD COLUMN "created_by" text DEFAULT 'system' NOT NULL;

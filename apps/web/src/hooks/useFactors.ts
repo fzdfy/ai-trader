@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { authClient } from "../lib/auth-client";
 
 // ---------- types ----------
 
@@ -8,6 +9,8 @@ export interface Factor {
   category: string;
   direction: number;
   description: string | null;
+  createdBy: string;
+  creator: string;
   createdAt: string;
 }
 
@@ -55,9 +58,10 @@ export function useCreateFactor() {
 
   return useMutation({
     mutationFn: async (input: { name: string; description: string }) => {
+      const userId = authClient.useSession().data?.user.id;
       const res = await fetch("/api/v1/factors", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
         body: JSON.stringify(input),
       });
       const json = (await res.json()) as ApiResponse<Factor>;

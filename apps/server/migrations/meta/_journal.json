@@ -50,6 +50,13 @@
       "when": 1786548361647,
       "tag": "0006_busy_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787045710363,
+      "tag": "0007_quick_scourge",
+      "breakpoints": true
     }
   ]
 }

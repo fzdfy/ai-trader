@@ -3,6 +3,7 @@ import { db } from "../db";
 import { strategyConfig } from "../db/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { ok, created, badRequest, notFound } from "../lib/response";
+import { resolveCreatorNames } from "../lib/creators";
 import { ensureStrategiesSeeded } from "../db/seed";
 
 const strategiesRoute = new Hono();
@@ -27,7 +28,11 @@ strategiesRoute.get("/", async (c) => {
     .from(strategyConfig)
     .where(or(...conditions))
     .orderBy(desc(strategyConfig.createdAt));
-  return ok(c, rows);
+  const creators = await resolveCreatorNames(rows.map((r) => r.userId));
+  return ok(
+    c,
+    rows.map((r) => ({ ...r, creator: creators[r.userId] ?? r.userId })),
+  );
 });
 
 // GET /api/v1/strategies/:id — 策略详情

@@ -56,6 +56,7 @@ export const factorRegistry = pgTable("factor_registry", {
   direction: integer("direction").notNull().default(1), // 1=正向 -1=反向
   defaultParams: jsonb("default_params"),
   description: text("description"),
+  createdBy: text("created_by").notNull().default("system"), // 创建者（system=内置，否则为用户 ID）
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
