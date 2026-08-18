@@ -57,6 +57,20 @@
       "when": 1787045710363,
       "tag": "0007_quick_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787046463775,
+      "tag": "0008_natural_human_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787049325244,
+      "tag": "0009_loose_snowbird",
+      "breakpoints": true
     }
   ]
 }

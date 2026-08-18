@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, useParams, Link } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -6,9 +6,12 @@ import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Card } from "@astryxdesign/core/Card";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Table, proportional } from "@astryxdesign/core/Table";
-import { useStrategyQuery } from "../../../hooks/useStrategies";
+import { authClient } from "../../../lib/auth-client";
+import { useStrategyQuery, useUpdateStrategyVisibility, useUpdateStrategy } from "../../../hooks/useStrategies";
 import { useFactorsQuery } from "../../../hooks/useFactors";
+import { StrategyEditDialog } from "../../../components/StrategyEditDialog";
 
 type FactorRow = Record<string, unknown> & {
   label: string;
@@ -36,6 +39,10 @@ function StrategyDetailPage() {
   const id = Number(strategyId);
   const { data: strategy, isLoading } = useStrategyQuery(id);
   const { data: factors = [] } = useFactorsQuery();
+  const updateVisibility = useUpdateStrategyVisibility();
+  const updateStrategy = useUpdateStrategy();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const userId = authClient.useSession().data?.user.id;
 
   // 因子名 → 显示名 的映射
   const labelMap = useMemo(() => new Map(factors.map((f) => [f.name, f.label])), [factors]);
@@ -57,12 +64,18 @@ function StrategyDetailPage() {
     return <Text type="supporting">策略不存在</Text>;
   }
 
+  // 仅创建者本人可修改公开状态
+  const canEdit = strategy.userId === userId;
+
   return (
     <VStack gap={4}>
-      <HStack gap={2} align="center">
+      <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
         <Link to="/home/strategies" style={{ textDecoration: "none" }}>
           <Button label="← 返回" variant="ghost" size="sm" />
         </Link>
+        {canEdit ? (
+          <Button label="编辑" variant="primary" size="sm" onClick={() => setIsEditOpen(true)} />
+        ) : null}
       </HStack>
 
       <VStack gap={1}>
@@ -89,6 +102,25 @@ function StrategyDetailPage() {
           )}
         </VStack>
       </Card>
+
+      <Card padding={5}>
+        <Switch
+          label="公开"
+          description={canEdit ? "开启后其他用户也能看到该策略" : "仅创建者可修改公开状态"}
+          value={strategy.isPublic}
+          isDisabled={!canEdit}
+          isLoading={updateVisibility.isPending}
+          onChange={(checked) => updateVisibility.mutate({ id: strategy.id, isPublic: checked })}
+        />
+      </Card>
+
+      <StrategyEditDialog
+        strategy={strategy}
+        factors={factors}
+        isOpen={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        onSubmit={(input) => updateStrategy.mutate(input)}
+      />
     </VStack>
   );
 }

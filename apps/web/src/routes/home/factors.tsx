@@ -9,10 +9,22 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Code } from "@astryxdesign/core/Code";
 import { HoverCard } from "@astryxdesign/core/HoverCard";
 import { Table, proportional } from "@astryxdesign/core/Table";
+import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Pencil, Trash2 } from "lucide-react";
 import { FactorCreateDialog } from "../../components/FactorCreateDialog";
+import { FactorEditDialog } from "../../components/FactorEditDialog";
+import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog";
 import { FactorExpressionReference } from "../../components/FactorExpressionReference";
 import { AKQUANT_FACTOR_EXPRESSIONS } from "../../lib/akquantFactors";
-import { useFactorsQuery, useCreateFactor, FACTOR_CATEGORY_LABELS } from "../../hooks/useFactors";
+import { authClient } from "../../lib/auth-client";
+import {
+  useFactorsQuery,
+  useCreateFactor,
+  useUpdateFactor,
+  useDeleteFactor,
+  FACTOR_CATEGORY_LABELS,
+} from "../../hooks/useFactors";
 
 type FactorRow = Record<string, unknown> & {
   name: string;
@@ -20,6 +32,8 @@ type FactorRow = Record<string, unknown> & {
   category: string;
   expression: string;
   creator: string;
+  createdBy: string;
+  isPublic: boolean;
 };
 
 const FACTOR_COLUMNS = [
@@ -53,6 +67,14 @@ const FACTOR_COLUMNS = [
     ),
   },
   { key: "creator", header: "创建者", width: proportional(1) },
+  {
+    key: "isPublic",
+    header: "公开",
+    width: proportional(1),
+    renderCell: (row: FactorRow) => (
+      <Badge label={row.isPublic ? "公开" : "私有"} variant={row.isPublic ? "success" : "neutral"} />
+    ),
+  },
 ];
 
 export const Route = createFileRoute("/home/factors")({
@@ -62,7 +84,22 @@ export const Route = createFileRoute("/home/factors")({
 function FactorsPage() {
   const { data: factors = [], isLoading } = useFactorsQuery();
   const createFactor = useCreateFactor();
+  const updateFactor = useUpdateFactor();
+  const deleteFactor = useDeleteFactor();
+  const userId = authClient.useSession().data?.user.id;
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingFactorName, setEditingFactorName] = useState<string | null>(null);
+  const [deletingFactorName, setDeletingFactorName] = useState<string | null>(null);
+
+  const editingFactor = useMemo(
+    () => factors.find((f) => f.name === editingFactorName) ?? null,
+    [factors, editingFactorName],
+  );
+  const deletingFactor = useMemo(
+    () => factors.find((f) => f.name === deletingFactorName) ?? null,
+    [factors, deletingFactorName],
+  );
 
   const rows: FactorRow[] = useMemo(
     () =>
@@ -70,10 +107,42 @@ function FactorsPage() {
         name: f.name,
         label: f.label,
         category: f.category,
-        expression: AKQUANT_FACTOR_EXPRESSIONS[f.name] ?? "",
+        expression: f.expression ?? AKQUANT_FACTOR_EXPRESSIONS[f.name] ?? "",
         creator: f.creator,
+        createdBy: f.createdBy,
+        isPublic: f.isPublic,
       })),
     [factors],
+  );
+
+  // 操作列：仅对当前用户创建的因子展示编辑/删除
+  const columns = useMemo(
+    () => [
+      ...FACTOR_COLUMNS,
+      {
+        key: "actions",
+        header: "操作",
+        width: proportional(1),
+        renderCell: (row: FactorRow) =>
+          row.createdBy === userId ? (
+            <DropdownMenu
+              button={{
+                label: "操作",
+                icon: <Icon icon="moreHorizontal" />,
+                variant: "ghost",
+                size: "sm",
+                isIconOnly: true,
+              }}
+              hasChevron={false}
+              items={[
+                { label: "编辑", icon: Pencil, onClick: () => setEditingFactorName(row.name) },
+                { label: "删除", icon: Trash2, onClick: () => setDeletingFactorName(row.name) },
+              ]}
+            />
+          ) : null,
+      },
+    ],
+    [userId],
   );
 
   return (
@@ -102,7 +171,7 @@ function FactorsPage() {
       ) : (
         <Table<FactorRow>
           idKey="name"
-          columns={FACTOR_COLUMNS}
+          columns={columns}
           data={rows}
           density="balanced"
           dividers="rows"
@@ -115,6 +184,28 @@ function FactorsPage() {
         isOpen={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         onSubmit={(input) => createFactor.mutate(input)}
+      />
+
+      <FactorEditDialog
+        factor={editingFactor}
+        isOpen={editingFactor != null}
+        onOpenChange={(open) => !open && setEditingFactorName(null)}
+        onSubmit={(input) => updateFactor.mutate(input)}
+      />
+
+      <ConfirmDeleteDialog
+        isOpen={deletingFactor != null}
+        title="删除因子"
+        message={deletingFactor ? `确认删除因子「${deletingFactor.label}」？` : undefined}
+        isLoading={deleteFactor.isPending}
+        onOpenChange={(open) => !open && setDeletingFactorName(null)}
+        onConfirm={() => {
+          if (deletingFactor) {
+            deleteFactor.mutate(deletingFactor.name, {
+              onSuccess: () => setDeletingFactorName(null),
+            });
+          }
+        }}
       />
     </VStack>
   );

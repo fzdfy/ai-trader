@@ -1,17 +1,27 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { factorRegistry } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { ok, created, badRequest, notFound } from "../lib/response";
 import { resolveCreatorNames } from "../lib/creators";
 import { ensureFactorsSeeded } from "../db/seed";
 
 const factorsRoute = new Hono();
 
-// GET /api/v1/factors — 因子列表（首次访问时幂等初始化内置因子）
+// GET /api/v1/factors — 因子列表（公开的 + 当前用户创建的）
 factorsRoute.get("/", async (c) => {
   await ensureFactorsSeeded();
-  const rows = await db.select().from(factorRegistry);
+  const userId = c.req.header("X-User-Id");
+
+  // 用户只能看到「公开的」和「自己创建的」因子
+  const conditions = [eq(factorRegistry.isPublic, true)];
+  if (userId) conditions.push(eq(factorRegistry.createdBy, userId));
+
+  const rows = await db
+    .select()
+    .from(factorRegistry)
+    .where(or(...conditions))
+    .orderBy(factorRegistry.createdAt);
   const creators = await resolveCreatorNames(rows.map((r) => r.createdBy));
   return ok(
     c,
@@ -19,19 +29,29 @@ factorsRoute.get("/", async (c) => {
   );
 });
 
-// GET /api/v1/factors/:name — 因子详情
+// GET /api/v1/factors/:name — 因子详情（仅公开的或自己的可见）
 factorsRoute.get("/:name", async (c) => {
   const name = c.req.param("name");
+  const userId = c.req.header("X-User-Id");
   const rows = await db.select().from(factorRegistry).where(eq(factorRegistry.name, name));
   const row = rows[0];
   if (!row) return notFound(c, "Factor not found");
+
+  // 私有且非本人创建的因子，对他人隐藏
+  if (!row.isPublic && row.createdBy !== userId) return notFound(c, "Factor not found");
+
   const creators = await resolveCreatorNames([row.createdBy]);
   return ok(c, { ...row, creator: creators[row.createdBy] ?? row.createdBy });
 });
 
-// POST /api/v1/factors — 创建因子（name + description）
+// POST /api/v1/factors — 创建因子（name + description + expression + isPublic）
 factorsRoute.post("/", async (c) => {
-  const body = (await c.req.json()) as { name?: string; description?: string };
+  const body = (await c.req.json()) as {
+    name?: string;
+    description?: string;
+    expression?: string;
+    isPublic?: boolean;
+  };
   const name = body.name?.trim();
   if (!name) return badRequest(c, "name is required");
 
@@ -47,7 +67,9 @@ factorsRoute.post("/", async (c) => {
       category: "custom",
       direction: 1,
       description: body.description?.trim() ?? "",
+      expression: body.expression?.trim() ?? null,
       createdBy,
+      isPublic: body.isPublic ?? false, // 用户自定义因子默认私有
     })
     .onConflictDoNothing()
     .returning();
@@ -62,6 +84,59 @@ factorsRoute.post("/", async (c) => {
   const creators = await resolveCreatorNames([row.createdBy]);
   const result = { ...row, creator: creators[row.createdBy] ?? row.createdBy };
   return inserted[0] ? created(c, result) : ok(c, result);
+});
+
+// PATCH /api/v1/factors/:name — 编辑因子（仅创建者本人可改）
+factorsRoute.patch("/:name", async (c) => {
+  const name = c.req.param("name");
+  const userId = c.req.header("X-User-Id");
+  if (!userId) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as {
+    label?: string;
+    expression?: string;
+    description?: string;
+    isPublic?: boolean;
+  };
+
+  const row = (await db.select().from(factorRegistry).where(eq(factorRegistry.name, name)))[0];
+  if (!row) return notFound(c, "Factor not found");
+
+  // 仅创建者本人可编辑
+  if (row.createdBy !== userId) return c.json({ success: false, error: "Forbidden" }, 403);
+
+  const updated = (
+    await db
+      .update(factorRegistry)
+      .set({
+        ...(body.label?.trim() ? { label: body.label.trim() } : {}),
+        ...(body.expression !== undefined ? { expression: body.expression.trim() || null } : {}),
+        ...(body.description !== undefined ? { description: body.description.trim() || null } : {}),
+        ...(typeof body.isPublic === "boolean" ? { isPublic: body.isPublic } : {}),
+      })
+      .where(eq(factorRegistry.name, name))
+      .returning()
+  )[0];
+  if (!updated) return notFound(c, "Factor not found");
+
+  const creators = await resolveCreatorNames([updated.createdBy]);
+  return ok(c, { ...updated, creator: creators[updated.createdBy] ?? updated.createdBy });
+});
+
+// DELETE /api/v1/factors/:name — 删除因子（仅创建者本人可删，系统因子不可删）
+factorsRoute.delete("/:name", async (c) => {
+  const name = c.req.param("name");
+  const userId = c.req.header("X-User-Id");
+  if (!userId) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+  const row = (await db.select().from(factorRegistry).where(eq(factorRegistry.name, name)))[0];
+  if (!row) return notFound(c, "Factor not found");
+
+  // 仅创建者本人可删除；系统内置因子不允许删除
+  if (row.createdBy !== userId) return c.json({ success: false, error: "Forbidden" }, 403);
+
+  await db.delete(factorRegistry).where(eq(factorRegistry.name, name));
+  return ok(c, { name });
 });
 
 export { factorsRoute };

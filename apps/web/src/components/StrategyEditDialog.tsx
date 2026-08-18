@@ -9,40 +9,46 @@ import { Text } from "@astryxdesign/core/Text";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Section } from "@astryxdesign/core/Section";
 import type { Factor } from "../hooks/useFactors";
-import type { CreateStrategyInput } from "../hooks/useStrategies";
+import type { Strategy, UpdateStrategyInput } from "../hooks/useStrategies";
 import { FactorSelectRow, type FactorSelection } from "./FactorSelectRow";
 
-interface StrategyCreateDialogProps {
-  isOpen: boolean;
+interface StrategyEditDialogProps {
+  strategy: Strategy | null;
   factors: Factor[];
+  isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: CreateStrategyInput) => void;
+  onSubmit: (input: UpdateStrategyInput) => void;
 }
 
 /**
- * 创建策略弹框：name + description + 是否公开 + 自由组合因子（值、权重）。
+ * 编辑策略弹框：name + description + 是否公开 + 自由组合因子（值、权重）。
  */
-export function StrategyCreateDialog({
-  isOpen,
+export function StrategyEditDialog({
+  strategy,
   factors,
+  isOpen,
   onOpenChange,
   onSubmit,
-}: StrategyCreateDialogProps) {
+}: StrategyEditDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   // 因子名 → { value, weight }
   const [selected, setSelected] = useState<Record<string, FactorSelection>>({});
 
-  // 每次打开时重置表单
+  // 每次打开时用当前策略数据预填表单
   useEffect(() => {
-    if (isOpen) {
-      setName("");
-      setDescription("");
-      setIsPublic(false);
-      setSelected({});
+    if (isOpen && strategy) {
+      setName(strategy.name);
+      setDescription(strategy.description ?? "");
+      setIsPublic(strategy.isPublic);
+      const next: Record<string, FactorSelection> = {};
+      for (const f of strategy.configJson?.factors ?? []) {
+        next[f.name] = { value: f.value, weight: f.weight };
+      }
+      setSelected(next);
     }
-  }, [isOpen]);
+  }, [isOpen, strategy]);
 
   const toggleFactor = (factorName: string) => {
     setSelected((prev) => {
@@ -68,8 +74,9 @@ export function StrategyCreateDialog({
   const selectedCount = Object.keys(selected).length;
 
   const handleSubmit = () => {
-    if (!name.trim() || selectedCount === 0) return;
+    if (!strategy || !name.trim() || selectedCount === 0) return;
     onSubmit({
+      id: strategy.id,
       name: name.trim(),
       description: description.trim(),
       factors: Object.entries(selected).map(([factorName, sel]) => ({
@@ -85,7 +92,7 @@ export function StrategyCreateDialog({
   return (
     <Dialog isOpen={isOpen} onOpenChange={onOpenChange} purpose="form" width={640} maxHeight="85vh">
       <Layout
-        header={<DialogHeader title="创建策略" subtitle="组合因子并分配值、权重" onOpenChange={onOpenChange} />}
+        header={<DialogHeader title="编辑策略" subtitle="修改名称、描述、因子组合与可见性" onOpenChange={onOpenChange} />}
         content={
           <LayoutContent>
             <VStack gap={4}>
@@ -144,7 +151,7 @@ export function StrategyCreateDialog({
             <HStack gap={2} align="center" style={{ justifyContent: "flex-end" }}>
               <Button label="取消" variant="ghost" onClick={() => onOpenChange(false)} />
               <Button
-                label="创建"
+                label="保存"
                 variant="primary"
                 isDisabled={!name.trim() || selectedCount === 0}
                 onClick={handleSubmit}

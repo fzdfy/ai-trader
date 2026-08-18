@@ -80,6 +80,7 @@ export async function ensureStrategiesSeeded() {
       description: s.description,
       configJson: { factors: s.factors },
       isSystem: true,
+      isPublic: true, // 系统策略默认公开
     })),
   );
 }

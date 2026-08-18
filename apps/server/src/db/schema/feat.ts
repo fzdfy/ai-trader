@@ -56,7 +56,9 @@ export const factorRegistry = pgTable("factor_registry", {
   direction: integer("direction").notNull().default(1), // 1=正向 -1=反向
   defaultParams: jsonb("default_params"),
   description: text("description"),
+  expression: text("expression"), // AKQuant 因子表达式（内置因子由 seed 写入，自定义因子由用户输入）
   createdBy: text("created_by").notNull().default("system"), // 创建者（system=内置，否则为用户 ID）
+  isPublic: boolean("is_public").notNull().default(true), // 是否公开（系统因子默认公开）
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -71,6 +73,7 @@ export const strategyConfig = pgTable("strategy_config", {
   description: text("description"),
   configJson: jsonb("config_json").notNull(),
   isSystem: boolean("is_system").notNull().default(false),
+  isPublic: boolean("is_public").notNull().default(false), // 是否公开（用户策略默认私有）
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

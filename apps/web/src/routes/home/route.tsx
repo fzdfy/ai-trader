@@ -83,6 +83,12 @@ function HomeLayout() {
                 isSelected={location.pathname === "/home/backtest"}
               />
               <SideNavItem
+                label="选股"
+                href="/home/screens"
+                icon={<Target size={16} />}
+                isSelected={location.pathname.startsWith("/home/screens")}
+              />
+              <SideNavItem
                 label="策略"
                 href="/home/strategies"
                 icon={<Workflow size={16} />}
@@ -93,12 +99,6 @@ function HomeLayout() {
                 href="/home/factors"
                 icon={<SlidersHorizontal size={16} />}
                 isSelected={location.pathname.startsWith("/home/factors")}
-              />
-              <SideNavItem
-                label="选股"
-                href="/home/screens"
-                icon={<Target size={16} />}
-                isSelected={location.pathname.startsWith("/home/screens")}
               />
             </SideNavItem>
           </SideNavSection>
