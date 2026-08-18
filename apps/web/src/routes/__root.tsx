@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet, createRootRoute, useLocation, redirect, Link } from "@tanstack/react-router";
 import { TopNav, TopNavItem } from "@astryxdesign/core/TopNav";
 import { NavIcon } from "@astryxdesign/core/NavIcon";
@@ -5,6 +6,8 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
+import { Avatar } from "@astryxdesign/core/Avatar";
+import { ProfileDialog } from "../components/ProfileDialog";
 import { authClient } from "../lib/auth-client";
 
 const PUBLIC_PATHS = new Set(["/login", "/signup"]);
@@ -27,6 +30,7 @@ export const Route = createRootRoute({
 function RootLayout() {
   const location = useLocation();
   const { data: session } = authClient.useSession();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // 公开页面（登录/注册）不展示导航
   if (PUBLIC_PATHS.has(location.pathname)) {
@@ -68,9 +72,20 @@ function RootLayout() {
         endContent={
           session ? (
             <HStack gap={2} align="center">
-              <Text type="supporting" size="sm" maxLines={1}>
-                {session.user.email}
+              <Avatar
+                src={session.user.image ?? undefined}
+                name={session.user.name}
+                size={24}
+              />
+              <Text size="sm" maxLines={1}>
+                {session.user.name}
               </Text>
+              <Button
+                label="编辑资料"
+                variant="ghost"
+                size="sm"
+                onClick={() => setProfileOpen(true)}
+              />
               <Button
                 label="退出"
                 variant="ghost"
@@ -80,6 +95,12 @@ function RootLayout() {
                     globalThis.location.href = "/login";
                   });
                 }}
+              />
+              <ProfileDialog
+                isOpen={profileOpen}
+                onOpenChange={setProfileOpen}
+                name={session.user.name}
+                image={session.user.image}
               />
             </HStack>
           ) : undefined

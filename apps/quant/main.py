@@ -11,6 +11,7 @@ from factors import get_factor_list
 from feature_store import compute_features
 from logger import get_logger
 from middleware.request_id import RequestIdMiddleware
+from screener import screen
 from strategies import STRATEGIES
 from strategies.composite import build_composite_strategy
 
@@ -25,6 +26,12 @@ class BacktestRequest(BaseModel):
     config: dict[str, Any] | None = None
     startDate: str | None = None
     endDate: str | None = None
+
+
+class ScreenRequest(BaseModel):
+    factors: list[dict[str, Any]] = []
+    topN: int = 20
+    symbols: list[str] | None = None
 
 
 app = FastAPI(title="AI Trader Quant", version="0.1.0")
@@ -104,6 +111,24 @@ def compute_features_endpoint(request: Request) -> dict[str, Any]:
     except Exception as e:
         log.error("因子计算失败", request_id=request_id, error=str(e))
         raise HTTPException(500, f"Feature computation failed: {e}")
+
+
+@app.post("/api/v1/screens/run")
+def run_screen(req: ScreenRequest, request: Request) -> dict[str, Any]:
+    """选股：按策略因子对股票池打分并返回 Top N。"""
+    request_id = getattr(request.state, "request_id", "-")
+    log.info(
+        "选股开始",
+        request_id=request_id,
+        factors=[f.get("name") for f in req.factors],
+        top_n=req.topN,
+    )
+    try:
+        result = screen(req.factors, req.topN, req.symbols)
+        return {"success": True, **result}
+    except Exception as e:
+        log.error("选股失败", request_id=request_id, error=str(e))
+        raise HTTPException(500, f"Screen failed: {e}")
 
 
 @app.get("/health")

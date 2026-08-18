@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { api } from "./api";
 import { auth } from "./auth";
 import { requestId } from "./middleware/request-id";
@@ -19,6 +20,9 @@ app.use("*", cors({
 
 // Mount auth routes
 app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
+
+// 静态资源：头像等上传文件（root 相对服务进程 cwd，即 apps/server）
+app.use("/uploads/*", serveStatic({ root: "./" }));
 
 // Mount API v1 routes
 app.route("/api/v1", api);

@@ -9,6 +9,10 @@ import {
   ArrowLeftRight,
   Grid2x2,
   History,
+  Gauge,
+  Workflow,
+  SlidersHorizontal,
+  Target,
 } from "lucide-react";
 
 export const Route = createFileRoute("/home")({
@@ -70,12 +74,34 @@ function HomeLayout() {
             </SideNavItem>
           </SideNavSection>
 
-          <SideNavItem
-            label="回测"
-            href="/home/backtest"
-            icon={<History size={16} />}
-            isSelected={location.pathname === "/home/backtest"}
-          />
+          <SideNavSection title="量化" isHeaderHidden>
+            <SideNavItem label="量化" icon={<Gauge size={16} />}>
+              <SideNavItem
+                label="回测"
+                href="/home/backtest"
+                icon={<History size={16} />}
+                isSelected={location.pathname === "/home/backtest"}
+              />
+              <SideNavItem
+                label="策略"
+                href="/home/strategies"
+                icon={<Workflow size={16} />}
+                isSelected={location.pathname.startsWith("/home/strategies")}
+              />
+              <SideNavItem
+                label="因子"
+                href="/home/factors"
+                icon={<SlidersHorizontal size={16} />}
+                isSelected={location.pathname.startsWith("/home/factors")}
+              />
+              <SideNavItem
+                label="选股"
+                href="/home/screens"
+                icon={<Target size={16} />}
+                isSelected={location.pathname.startsWith("/home/screens")}
+              />
+            </SideNavItem>
+          </SideNavSection>
         </SideNav>
       </div>
 
