@@ -11,17 +11,13 @@ import { Table, proportional } from "@astryxdesign/core/Table";
 import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Pencil, Trash2 } from "lucide-react";
-import { StrategyForm } from "../../../components/StrategyForm";
 import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog";
 import { authClient } from "../../../lib/auth-client";
 import {
   useStrategyQuery,
   useUpdateStrategyVisibility,
-  useUpdateStrategy,
   useDeleteStrategy,
   COMBINE_LABELS,
-  type Strategy,
-  type CreateStrategyInput,
 } from "../../../hooks/useStrategies";
 import { useFactorsQuery } from "../../../hooks/useFactors";
 
@@ -43,47 +39,18 @@ const FACTOR_COLUMNS = [
 ];
 
 export const Route = createFileRoute("/home/strategies/$strategyId")({
-  // 支持 ?edit=true 直接进入编辑态（列表页「编辑」跳转使用）
-  validateSearch: (search: Record<string, unknown>): { edit?: boolean } => ({
-    edit: search.edit === "true" || search.edit === true,
-  }),
   component: StrategyDetailPage,
 });
-
-/** 将策略 configJson 转为表单预填值（历史字段缺失时回退默认值） */
-function toFormValues(strategy: Strategy): CreateStrategyInput {
-  const cfg = strategy.configJson;
-  return {
-    name: strategy.name,
-    description: strategy.description ?? "",
-    isPublic: strategy.isPublic,
-    factors: cfg?.factors ?? [],
-    combine: cfg?.combine ?? "weighted_sum",
-    entry: cfg?.entry?.value ?? 65,
-    exit: cfg?.exit?.value ?? 30,
-    positionSize: cfg?.risk?.positionSize ?? 95,
-    stopLoss: cfg?.risk?.stopLoss ?? 8,
-    takeProfit: cfg?.risk?.takeProfit ?? 20,
-    entryType: cfg?.entry?.type ?? "threshold",
-    volumeConfirm: cfg?.entry?.volumeConfirm ?? false,
-    limitFilter: cfg?.entry?.limitFilter ?? false,
-    stFilter: cfg?.entry?.stFilter ?? false,
-    marketFilter: cfg?.entry?.marketFilter ?? false,
-  };
-}
 
 function StrategyDetailPage() {
   const { strategyId } = useParams({ from: "/home/strategies/$strategyId" });
   const id = Number(strategyId);
   const navigate = useNavigate();
-  const { edit } = Route.useSearch();
-  const [isEditing, setIsEditing] = useState(edit ?? false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const { data: strategy, isLoading } = useStrategyQuery(id);
   const { data: factors = [] } = useFactorsQuery();
   const updateVisibility = useUpdateStrategyVisibility();
-  const updateStrategy = useUpdateStrategy();
   const deleteStrategy = useDeleteStrategy();
   const userId = authClient.useSession().data?.user.id;
 
@@ -131,24 +98,6 @@ function StrategyDetailPage() {
   // 仅创建者本人可编辑 / 修改公开状态
   const canEdit = strategy.userId === userId;
 
-  // 编辑态：渲染表单，保存/取消后回到详情
-  if (isEditing && canEdit) {
-    return (
-      <StrategyForm
-        title="编辑策略"
-        subtitle="修改名称、描述、因子组合、入场/出场与风控参数"
-        submitLabel="保存"
-        factors={factors}
-        initialValues={toFormValues(strategy)}
-        isSubmitting={updateStrategy.isPending}
-        onCancel={() => setIsEditing(false)}
-        onSubmit={(values) =>
-          updateStrategy.mutate({ ...values, id }, { onSuccess: () => setIsEditing(false) })
-        }
-      />
-    );
-  }
-
   return (
     <VStack gap={4}>
       <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
@@ -166,7 +115,12 @@ function StrategyDetailPage() {
             }}
             hasChevron={false}
             items={[
-              { label: "编辑", icon: Pencil, onClick: () => setIsEditing(true) },
+              {
+                label: "编辑",
+                icon: Pencil,
+                onClick: () =>
+                  navigate({ to: "/home/strategies/save", search: { id: strategy.id } }),
+              },
               { label: "删除", icon: Trash2, onClick: () => setIsDeleteOpen(true) },
             ]}
           />

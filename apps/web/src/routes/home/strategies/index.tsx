@@ -136,7 +136,7 @@ function StrategiesPage() {
         <Button
           label="创建策略"
           variant="primary"
-          onClick={() => navigate({ to: "/home/strategies/create" })}
+          onClick={() => navigate({ to: "/home/strategies/save" })}
         />
       </HStack>
 
