@@ -5,12 +5,19 @@ CompositeStrategy 通过 JSON 配置驱动，将多个因子加权求和得到�
 
 配置 JSON 结构：
   {
-    "factors": [{ "name": "ma_trend_20", "weight": 0.35 }, ...],
-    "combine": "weighted_sum",          # 目前仅支持 weighted_sum
+    "factors": [
+      { "name": "ma_trend_20", "weight": 0.35, "value": 0.5, "direction": 1 }, ...
+    ],
+    "combine": "weighted_sum",          # weighted_sum/equal_weight/voting/rank/and/or
     "entry": { "type": "threshold", "value": 0.65 },
     "exit":  { "type": "threshold", "value": 0.30 },
     "risk": { "positionSize": 0.95, "stopLoss": 0.08, "takeProfit": 0.20 }
   }
+
+说明：
+  - weight / value / entry / exit / risk 均为 0-1 小数（回测页提交前已 /100 归一化）。
+  - value 为每因子信号阈值（voting 模式使用），默认 0.5。
+  - direction 为方向覆盖：-1 时反转该因子得分（1 - score）。
 
 使用方式：通过 build_composite_strategy(config) 动态子类化，
 将配置写入类属性（与 AKQuant 参数机制保持一致）。
@@ -22,6 +29,7 @@ import numpy as np
 from akquant import Strategy
 
 from factors import FACTOR_REGISTRY
+from factors.combine import apply_direction, combine_scores, normalize_combine
 
 # 历史数据回溯长度（需覆盖最长因子周期，且 <= 引擎 history_depth=100）
 HISTORY_COUNT = 61
@@ -36,6 +44,9 @@ class CompositeStrategy(Strategy):
     # ---- 配置类属性（由 build_composite_strategy 子类化时覆盖）----
     factor_names: list[str] = []
     factor_weights: list[float] = []
+    factor_values: list[float] = []  # 每因子信号阈值（voting 模式使用），0-1
+    factor_directions: list[int] = []  # 每因子方向覆盖（1=正向，-1=反向）
+    combine_mode: str = "weighted_sum"  # 信号合成方式
     entry_threshold: float = 0.65
     exit_threshold: float = 0.30
     position_size: float = 0.95
@@ -60,14 +71,28 @@ class CompositeStrategy(Strategy):
         }
 
     def _score(self, data: dict[str, np.ndarray]) -> float:
-        """计算加权综合得分。"""
-        total = 0.0
-        for name, weight in zip(self.factor_names, self.factor_weights):
+        """计算综合得分。
+
+        先对每个因子应用方向覆盖，再按 combine_mode 合成，
+        返回 [0, 1] 的综合得分（0.5 中性、>0.5 看多、<0.5 看空）。
+        """
+        scores: list[float] = []
+        weights: list[float] = []
+        thresholds: list[float] = []
+        for name, weight, value, direction in zip(
+            self.factor_names,
+            self.factor_weights,
+            self.factor_values,
+            self.factor_directions,
+        ):
             factor = FACTOR_REGISTRY.get(name)
             if factor is None:
                 continue
-            total += factor.compute(data) * weight
-        return total
+            scores.append(apply_direction(float(factor.compute(data)), direction))
+            weights.append(float(weight))
+            thresholds.append(float(value))
+
+        return combine_scores(scores, weights, thresholds, self.combine_mode)
 
     def on_bar(self, bar) -> None:
         """每根 K 线触发，根据综合得分执行交易。"""
@@ -108,13 +133,29 @@ def build_composite_strategy(config: dict[str, Any]) -> type[CompositeStrategy]:
         配置注入后的 CompositeStrategy 子类（可直接传给 engine.run）
     """
     factors = config.get("factors", [])
+    combine = normalize_combine(config.get("combine"))
     entry = config.get("entry", {})
     exit_cfg = config.get("exit", {})
     risk = config.get("risk", {})
 
+    n = len(factors)
+    default_weight = 1.0 / n if n else 0.0
+    names: list[str] = []
+    weights: list[float] = []
+    values: list[float] = []
+    directions: list[int] = []
+    for f in factors:
+        names.append(f["name"])
+        weights.append(float(f.get("weight", default_weight)))
+        values.append(float(f.get("value", 0.5)))  # 0-1 阈值
+        directions.append(-1 if int(f.get("direction", 1)) < 0 else 1)
+
     overrides: dict[str, Any] = {
-        "factor_names": [f["name"] for f in factors],
-        "factor_weights": [float(f.get("weight", 1.0 / len(factors))) for f in factors],
+        "factor_names": names,
+        "factor_weights": weights,
+        "factor_values": values,
+        "factor_directions": directions,
+        "combine_mode": combine,
         "entry_threshold": float(entry.get("value", 0.65)),
         "exit_threshold": float(exit_cfg.get("value", 0.30)),
         "position_size": float(risk.get("positionSize", 0.95)),

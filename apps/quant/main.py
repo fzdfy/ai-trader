@@ -32,6 +32,7 @@ class ScreenRequest(BaseModel):
     factors: list[dict[str, Any]] = []
     topN: int = 20
     symbols: list[str] | None = None
+    combine: str = "weighted_sum"
 
 
 app = FastAPI(title="AI Trader Quant", version="0.1.0")
@@ -124,7 +125,7 @@ def run_screen(req: ScreenRequest, request: Request) -> dict[str, Any]:
         top_n=req.topN,
     )
     try:
-        result = screen(req.factors, req.topN, req.symbols)
+        result = screen(req.factors, req.topN, req.symbols, req.combine)
         return {"success": True, **result}
     except Exception as e:
         log.error("选股失败", request_id=request_id, error=str(e))

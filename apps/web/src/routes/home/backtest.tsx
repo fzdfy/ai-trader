@@ -14,6 +14,11 @@ import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/Segme
 import { EquityChart } from "../../components/charts/EquityChart";
 import { TradeChart } from "../../components/charts/TradeChart";
 import { StrategyBuilder, type FactorMeta } from "../../components/StrategyBuilder";
+import {
+  COMBINE_MODES,
+  COMBINE_LABELS,
+  type CombineMode,
+} from "../../hooks/useStrategies";
 
 // ==============================
 // Types — 对齐 AKQuant 原生 report 结构
@@ -291,6 +296,7 @@ function BacktestPage() {
   const [positionSize, setPositionSize] = useState(95);
   const [stopLoss, setStopLoss] = useState(8);
   const [takeProfit, setTakeProfit] = useState(20);
+  const [combine, setCombine] = useState<CombineMode>("weighted_sum");
 
   // 拉取因子注册表（仅在首次进入自定义模式时加载）
   useEffect(() => {
@@ -351,7 +357,7 @@ function BacktestPage() {
             name: f.name,
             weight: total > 0 ? f.weight / total : 0,
           })),
-          combine: "weighted_sum",
+          combine,
           entry: { type: "threshold", value: entryThreshold / 100 },
           exit: { type: "threshold", value: exitThreshold / 100 },
           risk: {
@@ -399,6 +405,7 @@ function BacktestPage() {
     positionSize,
     stopLoss,
     takeProfit,
+    combine,
     selectedFactorCount,
   ]);
 
@@ -513,22 +520,50 @@ function BacktestPage() {
 
       {/* 自定义多因子策略构建器 */}
       {mode === "custom" && (
-        <StrategyBuilder
-          factors={factors}
-          weights={factorWeights}
-          onToggleFactor={toggleFactor}
-          onWeightChange={changeWeight}
-          entryThreshold={entryThreshold}
-          onEntryThresholdChange={setEntryThreshold}
-          exitThreshold={exitThreshold}
-          onExitThresholdChange={setExitThreshold}
-          positionSize={positionSize}
-          onPositionSizeChange={setPositionSize}
-          stopLoss={stopLoss}
-          onStopLossChange={setStopLoss}
-          takeProfit={takeProfit}
-          onTakeProfitChange={setTakeProfit}
-        />
+        <VStack gap={5}>
+          <Section>
+            <VStack gap={2}>
+              <Text type="supporting" size="sm">
+                信号合成方式
+              </Text>
+              <select
+                value={combine}
+                onChange={(e) => setCombine(e.target.value as CombineMode)}
+                style={{
+                  height: 36,
+                  padding: "0 8px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-text)",
+                  width: 240,
+                }}
+              >
+                {COMBINE_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {COMBINE_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+            </VStack>
+          </Section>
+          <StrategyBuilder
+            factors={factors}
+            weights={factorWeights}
+            onToggleFactor={toggleFactor}
+            onWeightChange={changeWeight}
+            entryThreshold={entryThreshold}
+            onEntryThresholdChange={setEntryThreshold}
+            exitThreshold={exitThreshold}
+            onExitThresholdChange={setExitThreshold}
+            positionSize={positionSize}
+            onPositionSizeChange={setPositionSize}
+            stopLoss={stopLoss}
+            onStopLossChange={setStopLoss}
+            takeProfit={takeProfit}
+            onTakeProfitChange={setTakeProfit}
+          />
+        </VStack>
       )}
 
       {/* 加载状态 */}

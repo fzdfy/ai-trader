@@ -13,6 +13,62 @@ interface StrategyFactorInput {
   name: string;
   value: number; // 信号阈值 / 参数值 0-100
   weight: number; // 权重 0-100
+  direction?: 1 | -1; // 方向覆盖：-1 反转因子得分
+}
+
+// 风控参数（0-100 百分比，与前端 StrategyRiskInput 对齐）
+interface StrategyRiskInput {
+  entry?: number; // 入场阈值
+  exit?: number; // 出场阈值
+  positionSize?: number; // 单票仓位
+  stopLoss?: number; // 止损线
+  takeProfit?: number; // 止盈线
+}
+
+// 信号层合成方式（对齐 quant factors/combine.py 的 COMBINE_MODES）
+const COMBINE_MODES = ["weighted_sum", "equal_weight", "voting", "rank", "and", "or"] as const;
+type CombineMode = (typeof COMBINE_MODES)[number];
+
+// 将输入 combine 归一化为合法值，非法回退 weighted_sum
+function normalizeCombine(v: unknown): CombineMode {
+  return (COMBINE_MODES as readonly string[]).includes(v as string)
+    ? (v as CombineMode)
+    : "weighted_sum";
+}
+
+// 默认风控参数（对齐 quant composite 引擎 / backtest 页默认值）
+const RISK_DEFAULTS = { entry: 65, exit: 30, positionSize: 95, stopLoss: 8, takeProfit: 20 };
+
+// 将输入值钳制到 0-100 百分比，非法值回退默认
+function clampPct(v: number | undefined, def: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.min(100, Math.max(0, n));
+}
+
+// 组装对齐 quant composite 引擎的 configJson（factors + combine + entry/exit/risk）
+function buildConfigJson(
+  factors: { name: string; value: number; weight: number; direction: 1 | -1 }[],
+  risk: StrategyRiskInput,
+  combine: CombineMode,
+): {
+  factors: { name: string; value: number; weight: number; direction: 1 | -1 }[];
+  combine: CombineMode;
+  entry: { type: "threshold"; value: number };
+  exit: { type: "threshold"; value: number };
+  risk: { positionSize: number; stopLoss: number; takeProfit: number };
+} {
+  return {
+    factors,
+    combine,
+    entry: { type: "threshold", value: clampPct(risk.entry, RISK_DEFAULTS.entry) },
+    exit: { type: "threshold", value: clampPct(risk.exit, RISK_DEFAULTS.exit) },
+    risk: {
+      positionSize: clampPct(risk.positionSize, RISK_DEFAULTS.positionSize),
+      stopLoss: clampPct(risk.stopLoss, RISK_DEFAULTS.stopLoss),
+      takeProfit: clampPct(risk.takeProfit, RISK_DEFAULTS.takeProfit),
+    },
+  };
 }
 
 // GET /api/v1/strategies — 公开策略 + 当前用户策略
@@ -62,8 +118,9 @@ strategiesRoute.post("/", async (c) => {
     name?: string;
     description?: string;
     factors?: StrategyFactorInput[];
+    combine?: string;
     isPublic?: boolean;
-  };
+  } & StrategyRiskInput;
   const name = body.name?.trim();
   if (!name) return badRequest(c, "name is required");
   if (!Array.isArray(body.factors) || body.factors.length === 0) {
@@ -76,6 +133,7 @@ strategiesRoute.post("/", async (c) => {
       name: f.name,
       value: Number(f.value) || 0,
       weight: Number(f.weight) || 0,
+      direction: f.direction === -1 ? (-1 as const) : (1 as const),
     }));
 
   if (factors.length === 0) return badRequest(c, "至少需要选择一个因子");
@@ -86,7 +144,7 @@ strategiesRoute.post("/", async (c) => {
       userId,
       name,
       description: body.description?.trim() ?? "",
-      configJson: { factors },
+      configJson: buildConfigJson(factors, body, normalizeCombine(body.combine)),
       isSystem: false,
       isPublic: body.isPublic ?? false, // 用户策略默认私有
     })
@@ -107,8 +165,9 @@ strategiesRoute.patch("/:id", async (c) => {
     name?: string;
     description?: string;
     factors?: StrategyFactorInput[];
+    combine?: string;
     isPublic?: boolean;
-  };
+  } & StrategyRiskInput;
 
   const row = (await db.select().from(strategyConfig).where(eq(strategyConfig.id, id)))[0];
   if (!row) return notFound(c, "Strategy not found");
@@ -117,12 +176,44 @@ strategiesRoute.patch("/:id", async (c) => {
   if (row.userId !== userId) return c.json({ success: false, error: "Forbidden" }, 403);
 
   // 规范化因子列表（过滤无名字或权重为 0 的项）
-  let factors: { name: string; value: number; weight: number }[] | undefined;
+  let factors: { name: string; value: number; weight: number; direction: 1 | -1 }[] | undefined;
   if (Array.isArray(body.factors)) {
     factors = body.factors
       .filter((f) => f?.name && f.weight > 0)
-      .map((f) => ({ name: f.name, value: Number(f.value) || 0, weight: Number(f.weight) || 0 }));
+      .map((f) => ({
+        name: f.name,
+        value: Number(f.value) || 0,
+        weight: Number(f.weight) || 0,
+        direction: f.direction === -1 ? (-1 as const) : (1 as const),
+      }));
   }
+
+  // 合并风控参数：未提供的字段沿用已有 configJson（历史数据缺失时由 buildConfigJson 兜底默认值）
+  const prev = (row.configJson ?? {}) as {
+    factors?: { name: string; value: number; weight: number; direction?: 1 | -1 }[];
+    combine?: string;
+    entry?: { value: number };
+    exit?: { value: number };
+    risk?: { positionSize?: number; stopLoss?: number; takeProfit?: number };
+  };
+  const nextFactors = (factors && factors.length > 0 ? factors : (prev.factors ?? [])).map(
+    (f) => ({ ...f, direction: f.direction === -1 ? (-1 as const) : (1 as const) }),
+  );
+  const nextCombine = normalizeCombine(body.combine ?? prev.combine);
+  const hasRiskUpdate =
+    body.entry !== undefined ||
+    body.exit !== undefined ||
+    body.positionSize !== undefined ||
+    body.stopLoss !== undefined ||
+    body.takeProfit !== undefined;
+  const hasConfigUpdate = Array.isArray(body.factors) || body.combine !== undefined || hasRiskUpdate;
+  const configJson = buildConfigJson(nextFactors, {
+    entry: body.entry ?? prev.entry?.value,
+    exit: body.exit ?? prev.exit?.value,
+    positionSize: body.positionSize ?? prev.risk?.positionSize,
+    stopLoss: body.stopLoss ?? prev.risk?.stopLoss,
+    takeProfit: body.takeProfit ?? prev.risk?.takeProfit,
+  }, nextCombine);
 
   const updated = (
     await db
@@ -131,7 +222,7 @@ strategiesRoute.patch("/:id", async (c) => {
         ...(body.name?.trim() ? { name: body.name.trim() } : {}),
         ...(body.description !== undefined ? { description: body.description.trim() || null } : {}),
         ...(typeof body.isPublic === "boolean" ? { isPublic: body.isPublic } : {}),
-        ...(factors && factors.length > 0 ? { configJson: { factors } } : {}),
+        ...(hasConfigUpdate ? { configJson } : {}),
         updatedAt: new Date(),
       })
       .where(eq(strategyConfig.id, id))

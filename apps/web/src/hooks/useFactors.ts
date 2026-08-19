@@ -166,3 +166,21 @@ export function useUpdateFactorVisibility() {
     },
   });
 }
+
+/** AI 根据描述生成因子表达式（返回表达式字符串，无法表达时返回「无法生成」） */
+export function useGenerateFactorExpression() {
+  const userId = authClient.useSession().data?.user.id;
+
+  return useMutation({
+    mutationFn: async (description: string) => {
+      const res = await fetch("/api/v1/factors/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
+        body: JSON.stringify({ description }),
+      });
+      const json = (await res.json()) as ApiResponse<{ expression: string }>;
+      if (!json.success) throw new Error((json as unknown as { error: string }).error);
+      return json.data.expression;
+    },
+  });
+}

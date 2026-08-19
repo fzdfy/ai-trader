@@ -64,6 +64,14 @@ export async function ensureFactorsSeeded() {
   await db.insert(factorRegistry).values(SEED_FACTORS).onConflictDoNothing();
 }
 
+/** 内置策略默认风控参数（0-100 百分比，对齐 quant composite 引擎默认值） */
+const DEFAULT_TRADE_CONFIG = {
+  combine: "weighted_sum",
+  entry: { type: "threshold", value: 65 },
+  exit: { type: "threshold", value: 30 },
+  risk: { positionSize: 95, stopLoss: 8, takeProfit: 20 },
+};
+
 /** 幂等地初始化系统策略（仅在无系统策略时写入）。 */
 export async function ensureStrategiesSeeded() {
   const existing = await db
@@ -78,7 +86,7 @@ export async function ensureStrategiesSeeded() {
       userId: "system",
       name: s.name,
       description: s.description,
-      configJson: { factors: s.factors },
+      configJson: { factors: s.factors, ...DEFAULT_TRADE_CONFIG },
       isSystem: true,
       isPublic: true, // 系统策略默认公开
     })),

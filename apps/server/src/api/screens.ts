@@ -23,14 +23,23 @@ screensRoute.post("/run", async (c) => {
   const strategy = rows[0];
   if (!strategy) return notFound(c, "Strategy not found");
 
-  // 策略 = 因子集合，取出 { name, weight } 交给 quant 打分（weight 0-100）
-  const cfg = strategy.configJson as { factors?: { name: string; weight: number }[] };
-  const factors = (cfg.factors ?? []).map((f) => ({ name: f.name, weight: f.weight }));
+  // 策略 = 因子集合，取出 { name, value, weight, direction } 交给 quant 打分（weight/value 0-100）
+  const cfg = strategy.configJson as {
+    factors?: { name: string; value?: number; weight: number; direction?: number }[];
+    combine?: string;
+  };
+  const factors = (cfg.factors ?? []).map((f) => ({
+    name: f.name,
+    value: f.value ?? 50,
+    weight: f.weight,
+    direction: f.direction === -1 ? -1 : 1,
+  }));
+  const combine = cfg.combine ?? "weighted_sum";
 
   const res = await fetch(`${QUANT_URL}/api/v1/screens/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ factors, topN }),
+    body: JSON.stringify({ factors, topN, combine }),
   });
   const json = (await res.json()) as {
     items?: unknown[];

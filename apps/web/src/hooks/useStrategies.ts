@@ -7,6 +7,50 @@ export interface StrategyFactor {
   name: string;
   value: number; // 信号阈值 / 参数值 0-100
   weight: number; // 权重 0-100
+  direction?: 1 | -1; // 方向覆盖：-1 反转因子得分
+}
+
+/** 信号层合成方式（对齐 quant factors/combine.py 的 COMBINE_MODES） */
+export const COMBINE_MODES = [
+  "weighted_sum",
+  "equal_weight",
+  "voting",
+  "rank",
+  "and",
+  "or",
+] as const;
+export type CombineMode = (typeof COMBINE_MODES)[number];
+
+/** 合成方式中文名 */
+export const COMBINE_LABELS: Record<CombineMode, string> = {
+  weighted_sum: "加权求和",
+  equal_weight: "等权平均",
+  voting: "多数投票",
+  rank: "排名打分",
+  and: "全部看多 (AND)",
+  or: "任一看多 (OR)",
+};
+
+/** 阈值配置（0-100 百分比，对齐 quant composite 引擎的 entry/exit） */
+export interface StrategyThreshold {
+  type: "threshold";
+  value: number;
+}
+
+/** 风险管理配置（0-100 百分比） */
+export interface StrategyRisk {
+  positionSize: number; // 单票仓位 0-100
+  stopLoss: number; // 止损线 0-100
+  takeProfit: number; // 止盈线 0-100
+}
+
+/** 策略配置 JSON（对齐 quant composite 引擎结构；entry/exit/risk 为历史数据兼容可选） */
+export interface StrategyConfig {
+  factors: StrategyFactor[];
+  combine?: CombineMode;
+  entry?: StrategyThreshold;
+  exit?: StrategyThreshold;
+  risk?: StrategyRisk;
 }
 
 export interface Strategy {
@@ -14,7 +58,7 @@ export interface Strategy {
   userId: string;
   name: string;
   description: string | null;
-  configJson: { factors: StrategyFactor[] };
+  configJson: StrategyConfig;
   isSystem: boolean;
   isPublic: boolean;
   creator: string;
@@ -27,18 +71,29 @@ interface ApiResponse<T> {
   data: T;
 }
 
-export interface CreateStrategyInput {
+/** 创建/编辑策略共用的一组风控参数（0-100 百分比） */
+export interface StrategyRiskInput {
+  entry: number; // 入场阈值
+  exit: number; // 出场阈值
+  positionSize: number; // 单票仓位
+  stopLoss: number; // 止损线
+  takeProfit: number; // 止盈线
+}
+
+export interface CreateStrategyInput extends StrategyRiskInput {
   name: string;
   description: string;
   factors: StrategyFactor[];
+  combine: CombineMode;
   isPublic: boolean;
 }
 
-export interface UpdateStrategyInput {
+export interface UpdateStrategyInput extends StrategyRiskInput {
   id: number;
   name: string;
   description: string;
   factors: StrategyFactor[];
+  combine: CombineMode;
   isPublic: boolean;
 }
 
@@ -114,6 +169,12 @@ export function useUpdateStrategy() {
           name: input.name,
           description: input.description,
           factors: input.factors,
+          combine: input.combine,
+          entry: input.entry,
+          exit: input.exit,
+          positionSize: input.positionSize,
+          stopLoss: input.stopLoss,
+          takeProfit: input.takeProfit,
           isPublic: input.isPublic,
         }),
       });

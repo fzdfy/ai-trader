@@ -9,7 +9,7 @@ import { Card } from "@astryxdesign/core/Card";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { authClient } from "../../../lib/auth-client";
-import { useStrategyQuery, useUpdateStrategyVisibility, useUpdateStrategy } from "../../../hooks/useStrategies";
+import { useStrategyQuery, useUpdateStrategyVisibility, useUpdateStrategy, COMBINE_LABELS } from "../../../hooks/useStrategies";
 import { useFactorsQuery } from "../../../hooks/useFactors";
 import { StrategyEditDialog } from "../../../components/StrategyEditDialog";
 
@@ -56,6 +56,18 @@ function StrategyDetailPage() {
     }));
   }, [strategy, labelMap]);
 
+  // 交易参数（历史策略缺失时回退默认值）
+  const tradeParams = useMemo(() => {
+    const cfg = strategy?.configJson;
+    return [
+      { label: "入场阈值", value: `${cfg?.entry?.value ?? 65}%` },
+      { label: "出场阈值", value: `${cfg?.exit?.value ?? 30}%` },
+      { label: "仓位比例", value: `${cfg?.risk?.positionSize ?? 95}%` },
+      { label: "止损线", value: `${cfg?.risk?.stopLoss ?? 8}%` },
+      { label: "止盈线", value: `${cfg?.risk?.takeProfit ?? 20}%` },
+    ];
+  }, [strategy]);
+
   if (isLoading) {
     return <Spinner size="sm" label="加载中..." />;
   }
@@ -87,7 +99,12 @@ function StrategyDetailPage() {
 
       <Card padding={5}>
         <VStack gap={4}>
-          <Text style={{ fontWeight: 600 }}>因子构成</Text>
+          <HStack gap={2} align="center">
+            <Text style={{ fontWeight: 600 }}>因子构成</Text>
+            <Text type="supporting" size="sm">
+              · 合成方式 {COMBINE_LABELS[strategy.configJson?.combine ?? "weighted_sum"]}
+            </Text>
+          </HStack>
           {rows.length === 0 ? (
             <Text type="supporting">该策略未包含因子</Text>
           ) : (
@@ -100,6 +117,22 @@ function StrategyDetailPage() {
               hasHover
             />
           )}
+        </VStack>
+      </Card>
+
+      <Card padding={5}>
+        <VStack gap={4}>
+          <Text style={{ fontWeight: 600 }}>交易参数</Text>
+          <HStack gap={6} style={{ flexWrap: "wrap" }}>
+            {tradeParams.map((p) => (
+              <VStack key={p.label} gap={1}>
+                <Text type="supporting" size="sm">
+                  {p.label}
+                </Text>
+                <Text style={{ fontWeight: 600 }}>{p.value}</Text>
+              </VStack>
+            ))}
+          </HStack>
         </VStack>
       </Card>
 

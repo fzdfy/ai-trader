@@ -5,10 +5,11 @@ import { Slider } from "@astryxdesign/core/Slider";
 import { Switch } from "@astryxdesign/core/Switch";
 import type { Factor } from "../hooks/useFactors";
 
-/** 单个因子的可编辑配置（值 + 权重） */
+/** 单个因子的可编辑配置（值 + 权重 + 方向） */
 export interface FactorSelection {
   value: number;
   weight: number;
+  direction?: 1 | -1; // 方向覆盖：-1 反转因子得分
 }
 
 /** 因子选择行：开关 + 值 + 权重，用于创建/编辑策略时自由组合因子 */
@@ -26,6 +27,7 @@ export function FactorSelectRow({
   const enabled = selection != null;
   const value = selection?.value ?? 50;
   const weight = selection?.weight ?? 0;
+  const direction = selection?.direction ?? 1;
 
   const hint = useMemo(() => (factor.description ? factor.description : factor.name), [factor]);
 
@@ -87,6 +89,20 @@ export function FactorSelectRow({
               step={1}
               valueDisplay="none"
             />
+          </VStack>
+
+          <VStack gap={1} style={{ width: 160 }}>
+            <Text type="supporting" size="sm">
+              方向
+            </Text>
+            <Switch
+              label="反向信号"
+              value={direction === -1}
+              onChange={(reversed: boolean) => onChange({ direction: reversed ? -1 : 1 })}
+            />
+            <Text type="supporting" size="sm">
+              {direction === -1 ? "已反转" : "正向"}
+            </Text>
           </VStack>
         </HStack>
       )}

@@ -45,8 +45,8 @@ interface StrategyBuilderProps {
   onTakeProfitChange: (value: number) => void;
 }
 
-/** 阈值 / 风险滑杆行 */
-function ConfigSlider({
+/** 阈值 / 风险滑杆行（供回测构建器与策略创建/编辑弹框复用） */
+export function ConfigSlider({
   label,
   value,
   onChange,

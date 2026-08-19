@@ -2,9 +2,10 @@ import { Hono } from "hono";
 import { db } from "../db";
 import { factorRegistry } from "../db/schema";
 import { eq, or } from "drizzle-orm";
-import { ok, created, badRequest, notFound } from "../lib/response";
+import { ok, created, badRequest, notFound, serverError } from "../lib/response";
 import { resolveCreatorNames } from "../lib/creators";
 import { ensureFactorsSeeded } from "../db/seed";
+import { mastra } from "../agent/mastra";
 
 const factorsRoute = new Hono();
 
@@ -137,6 +138,23 @@ factorsRoute.delete("/:name", async (c) => {
 
   await db.delete(factorRegistry).where(eq(factorRegistry.name, name));
   return ok(c, { name });
+});
+
+// POST /api/v1/factors/generate — AI 根据描述生成因子表达式
+factorsRoute.post("/generate", async (c) => {
+  const body = (await c.req.json()) as { description?: string };
+  const description = body.description?.trim();
+  if (!description) return badRequest(c, "description is required");
+
+  try {
+    const agent = mastra.getAgent("factorGenerator");
+    const response = await agent.generate(description);
+    const expression = response.text.trim();
+    return ok(c, { expression });
+  } catch (err) {
+    console.error("[factors] generate expression error:", err);
+    return serverError(c, "AI 生成服务暂时不可用，请稍后重试。");
+  }
 });
 
 export { factorsRoute };
