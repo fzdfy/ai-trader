@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
@@ -9,18 +9,10 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
 import { Icon } from "@astryxdesign/core/Icon";
-import { Pencil, Trash2 } from "lucide-react";
-import { StrategyCreateDialog } from "../../components/StrategyCreateDialog";
-import { StrategyEditDialog } from "../../components/StrategyEditDialog";
-import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog";
-import {
-  useStrategiesQuery,
-  useCreateStrategy,
-  useUpdateStrategy,
-  useDeleteStrategy,
-} from "../../hooks/useStrategies";
-import { useFactorsQuery } from "../../hooks/useFactors";
-import { authClient } from "../../lib/auth-client";
+import { ReceiptText, ReceiptTextIcon, Trash2 } from "lucide-react";
+import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog";
+import { useStrategiesQuery, useDeleteStrategy } from "../../../hooks/useStrategies";
+import { authClient } from "../../../lib/auth-client";
 
 type StrategyRow = Record<string, unknown> & {
   id: number;
@@ -60,31 +52,26 @@ const STRATEGY_COLUMNS = [
     header: "公开",
     width: proportional(1),
     renderCell: (row: StrategyRow) => (
-      <Badge label={row.isPublic ? "公开" : "私有"} variant={row.isPublic ? "success" : "neutral"} />
+      <Badge
+        label={row.isPublic ? "公开" : "私有"}
+        variant={row.isPublic ? "success" : "neutral"}
+      />
     ),
   },
 ];
 
-export const Route = createFileRoute("/home/strategies")({
+export const Route = createFileRoute("/home/strategies/")({
   component: StrategiesPage,
 });
 
 function StrategiesPage() {
+  const navigate = useNavigate();
   const { data: strategies = [], isLoading } = useStrategiesQuery();
-  const { data: factors = [] } = useFactorsQuery();
-  const createStrategy = useCreateStrategy();
-  const updateStrategy = useUpdateStrategy();
   const deleteStrategy = useDeleteStrategy();
   const userId = authClient.useSession().data?.user.id;
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingStrategyId, setEditingStrategyId] = useState<number | null>(null);
   const [deletingStrategyId, setDeletingStrategyId] = useState<number | null>(null);
 
-  const editingStrategy = useMemo(
-    () => strategies.find((s) => s.id === editingStrategyId) ?? null,
-    [strategies, editingStrategyId],
-  );
   const deletingStrategy = useMemo(
     () => strategies.find((s) => s.id === deletingStrategyId) ?? null,
     [strategies, deletingStrategyId],
@@ -124,21 +111,33 @@ function StrategiesPage() {
               }}
               hasChevron={false}
               items={[
-                { label: "编辑", icon: Pencil, onClick: () => setEditingStrategyId(row.id) },
+                {
+                  label: "详情",
+                  icon: ReceiptText,
+                  onClick: () =>
+                    navigate({
+                      to: "/home/strategies/$strategyId",
+                      params: { strategyId: String(row.id) },
+                    }),
+                },
                 { label: "删除", icon: Trash2, onClick: () => setDeletingStrategyId(row.id) },
               ]}
             />
           ) : null,
       },
     ],
-    [userId],
+    [userId, navigate],
   );
 
   return (
     <VStack gap={4}>
       <HStack gap={3} align="center" style={{ justifyContent: "space-between" }}>
         <Heading level={2}>策略</Heading>
-        <Button label="创建策略" variant="primary" onClick={() => setIsCreateOpen(true)} />
+        <Button
+          label="创建策略"
+          variant="primary"
+          onClick={() => navigate({ to: "/home/strategies/create" })}
+        />
       </HStack>
 
       {isLoading ? (
@@ -156,21 +155,6 @@ function StrategiesPage() {
           textOverflow="truncate"
         />
       )}
-
-      <StrategyCreateDialog
-        isOpen={isCreateOpen}
-        factors={factors}
-        onOpenChange={setIsCreateOpen}
-        onSubmit={(input) => createStrategy.mutate(input)}
-      />
-
-      <StrategyEditDialog
-        strategy={editingStrategy}
-        factors={factors}
-        isOpen={editingStrategy != null}
-        onOpenChange={(open) => !open && setEditingStrategyId(null)}
-        onSubmit={(input) => updateStrategy.mutate(input)}
-      />
 
       <ConfirmDeleteDialog
         isOpen={deletingStrategy != null}

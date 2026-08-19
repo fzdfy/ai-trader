@@ -4,6 +4,8 @@ import { Text } from "@astryxdesign/core/Text";
 import { Slider } from "@astryxdesign/core/Slider";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Section } from "@astryxdesign/core/Section";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import type { EntryType } from "../hooks/useStrategies";
 
 // 因子元数据（对齐 quant 服务 GET /api/v1/factors 返回结构）
 export interface FactorMeta {
@@ -43,6 +45,21 @@ interface StrategyBuilderProps {
   /** 止盈线（0-100） */
   takeProfit: number;
   onTakeProfitChange: (value: number) => void;
+  /** 入场方式 */
+  entryType: EntryType;
+  onEntryTypeChange: (value: EntryType) => void;
+  /** 量能确认 */
+  volumeConfirm: boolean;
+  onVolumeConfirmChange: (value: boolean) => void;
+  /** 涨跌停过滤 */
+  limitFilter: boolean;
+  onLimitFilterChange: (value: boolean) => void;
+  /** ST 过滤 */
+  stFilter: boolean;
+  onStFilterChange: (value: boolean) => void;
+  /** 大盘过滤 */
+  marketFilter: boolean;
+  onMarketFilterChange: (value: boolean) => void;
 }
 
 /** 阈值 / 风险滑杆行（供回测构建器与策略创建/编辑弹框复用） */
@@ -165,6 +182,16 @@ export function StrategyBuilder(props: StrategyBuilderProps) {
     onStopLossChange,
     takeProfit,
     onTakeProfitChange,
+    entryType,
+    onEntryTypeChange,
+    volumeConfirm,
+    onVolumeConfirmChange,
+    limitFilter,
+    onLimitFilterChange,
+    stFilter,
+    onStFilterChange,
+    marketFilter,
+    onMarketFilterChange,
   } = props;
 
   // 按分类分组因子（保持 quant 注册表返回顺序）
@@ -235,6 +262,48 @@ export function StrategyBuilder(props: StrategyBuilderProps) {
               value={exitThreshold}
               onChange={onExitThresholdChange}
               hint="综合得分 ≤ 此值时卖出"
+            />
+          </HStack>
+        </VStack>
+      </Section>
+
+      {/* 入场过滤 */}
+      <Section>
+        <VStack gap={4}>
+          <Text style={{ fontWeight: 600 }}>入场过滤</Text>
+          <SegmentedControl
+            value={entryType}
+            onChange={(v) => onEntryTypeChange(v as EntryType)}
+            label="入场方式"
+            layout="hug"
+          >
+            <SegmentedControlItem value="threshold" label="阈值触发" />
+            <SegmentedControlItem value="cross" label="上穿触发" />
+          </SegmentedControl>
+          <HStack gap={5} style={{ flexWrap: "wrap" }}>
+            <Switch
+              label="量能确认"
+              description="当前量 ≥ 前5日均量×1.5"
+              value={volumeConfirm}
+              onChange={onVolumeConfirmChange}
+            />
+            <Switch
+              label="涨跌停过滤"
+              description="涨停/跌停当日不买入"
+              value={limitFilter}
+              onChange={onLimitFilterChange}
+            />
+            <Switch
+              label="ST 过滤"
+              description="过滤 ST/*ST 标的"
+              value={stFilter}
+              onChange={onStFilterChange}
+            />
+            <Switch
+              label="大盘过滤"
+              description="大盘走弱时不买入"
+              value={marketFilter}
+              onChange={onMarketFilterChange}
             />
           </HStack>
         </VStack>

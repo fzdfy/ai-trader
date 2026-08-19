@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from data_loader import load_kline
+from data_loader import compute_market_trend, is_st_symbol, load_kline
 from engine import get_strategy_list, run
 from factors import get_factor_list
 from feature_store import compute_features
@@ -16,6 +16,9 @@ from strategies import STRATEGIES
 from strategies.composite import build_composite_strategy
 
 log = get_logger("main")
+
+# 大盘过滤使用的基准指数（上证指数），bar1d_adj 中有其日线数据
+MARKET_INDEX_SYMBOL = "000001.SH"
 
 
 class BacktestRequest(BaseModel):
@@ -79,7 +82,17 @@ def run_backtest(req: BacktestRequest, request: Request) -> dict[str, Any]:
     if req.strategy == "composite":
         if not req.config:
             raise HTTPException(400, "config is required for composite strategy")
-        strategy_cls = build_composite_strategy(req.config)
+        # 解析入场过滤所需的运行时上下文：ST 状态 + 大盘趋势
+        entry = req.config.get("entry", {})
+        # ST 状态在 ST 过滤或涨跌停过滤时都需要（涨跌停比例依赖是否 ST）
+        need_st = bool(entry.get("stFilter") or entry.get("limitFilter"))
+        is_st = is_st_symbol(req.symbol) if need_st else False
+        market_trend: dict[str, bool] = {}
+        if entry.get("marketFilter"):
+            market_trend = compute_market_trend(MARKET_INDEX_SYMBOL, req.startDate, req.endDate)
+        strategy_cls = build_composite_strategy(
+            req.config, is_st=is_st, market_trend=market_trend
+        )
     else:
         base_cls = _get_strategy_cls(req.strategy)
         strategy_cls = _apply_params(base_cls, req.params)

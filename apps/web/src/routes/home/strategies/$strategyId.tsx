@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, useParams, Link } from "@tanstack/react-router";
+import { createFileRoute, useParams, Link, useNavigate } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
@@ -8,10 +8,22 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Card } from "@astryxdesign/core/Card";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Table, proportional } from "@astryxdesign/core/Table";
+import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Pencil, Trash2 } from "lucide-react";
+import { StrategyForm } from "../../../components/StrategyForm";
+import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog";
 import { authClient } from "../../../lib/auth-client";
-import { useStrategyQuery, useUpdateStrategyVisibility, useUpdateStrategy, COMBINE_LABELS } from "../../../hooks/useStrategies";
+import {
+  useStrategyQuery,
+  useUpdateStrategyVisibility,
+  useUpdateStrategy,
+  useDeleteStrategy,
+  COMBINE_LABELS,
+  type Strategy,
+  type CreateStrategyInput,
+} from "../../../hooks/useStrategies";
 import { useFactorsQuery } from "../../../hooks/useFactors";
-import { StrategyEditDialog } from "../../../components/StrategyEditDialog";
 
 type FactorRow = Record<string, unknown> & {
   label: string;
@@ -31,17 +43,48 @@ const FACTOR_COLUMNS = [
 ];
 
 export const Route = createFileRoute("/home/strategies/$strategyId")({
+  // 支持 ?edit=true 直接进入编辑态（列表页「编辑」跳转使用）
+  validateSearch: (search: Record<string, unknown>): { edit?: boolean } => ({
+    edit: search.edit === "true" || search.edit === true,
+  }),
   component: StrategyDetailPage,
 });
+
+/** 将策略 configJson 转为表单预填值（历史字段缺失时回退默认值） */
+function toFormValues(strategy: Strategy): CreateStrategyInput {
+  const cfg = strategy.configJson;
+  return {
+    name: strategy.name,
+    description: strategy.description ?? "",
+    isPublic: strategy.isPublic,
+    factors: cfg?.factors ?? [],
+    combine: cfg?.combine ?? "weighted_sum",
+    entry: cfg?.entry?.value ?? 65,
+    exit: cfg?.exit?.value ?? 30,
+    positionSize: cfg?.risk?.positionSize ?? 95,
+    stopLoss: cfg?.risk?.stopLoss ?? 8,
+    takeProfit: cfg?.risk?.takeProfit ?? 20,
+    entryType: cfg?.entry?.type ?? "threshold",
+    volumeConfirm: cfg?.entry?.volumeConfirm ?? false,
+    limitFilter: cfg?.entry?.limitFilter ?? false,
+    stFilter: cfg?.entry?.stFilter ?? false,
+    marketFilter: cfg?.entry?.marketFilter ?? false,
+  };
+}
 
 function StrategyDetailPage() {
   const { strategyId } = useParams({ from: "/home/strategies/$strategyId" });
   const id = Number(strategyId);
+  const navigate = useNavigate();
+  const { edit } = Route.useSearch();
+  const [isEditing, setIsEditing] = useState(edit ?? false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
   const { data: strategy, isLoading } = useStrategyQuery(id);
   const { data: factors = [] } = useFactorsQuery();
   const updateVisibility = useUpdateStrategyVisibility();
   const updateStrategy = useUpdateStrategy();
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const deleteStrategy = useDeleteStrategy();
   const userId = authClient.useSession().data?.user.id;
 
   // 因子名 → 显示名 的映射
@@ -59,12 +102,21 @@ function StrategyDetailPage() {
   // 交易参数（历史策略缺失时回退默认值）
   const tradeParams = useMemo(() => {
     const cfg = strategy?.configJson;
+    const entry = cfg?.entry;
+    const entryType = entry?.type === "cross" ? "上穿触发" : "阈值触发";
+    const filters: string[] = [];
+    if (entry?.volumeConfirm) filters.push("量能确认");
+    if (entry?.limitFilter) filters.push("涨跌停");
+    if (entry?.stFilter) filters.push("ST");
+    if (entry?.marketFilter) filters.push("大盘");
     return [
+      { label: "入场方式", value: entryType },
       { label: "入场阈值", value: `${cfg?.entry?.value ?? 65}%` },
       { label: "出场阈值", value: `${cfg?.exit?.value ?? 30}%` },
       { label: "仓位比例", value: `${cfg?.risk?.positionSize ?? 95}%` },
       { label: "止损线", value: `${cfg?.risk?.stopLoss ?? 8}%` },
       { label: "止盈线", value: `${cfg?.risk?.takeProfit ?? 20}%` },
+      { label: "入场过滤", value: filters.length ? filters.join("、") : "无" },
     ];
   }, [strategy]);
 
@@ -76,8 +128,26 @@ function StrategyDetailPage() {
     return <Text type="supporting">策略不存在</Text>;
   }
 
-  // 仅创建者本人可修改公开状态
+  // 仅创建者本人可编辑 / 修改公开状态
   const canEdit = strategy.userId === userId;
+
+  // 编辑态：渲染表单，保存/取消后回到详情
+  if (isEditing && canEdit) {
+    return (
+      <StrategyForm
+        title="编辑策略"
+        subtitle="修改名称、描述、因子组合、入场/出场与风控参数"
+        submitLabel="保存"
+        factors={factors}
+        initialValues={toFormValues(strategy)}
+        isSubmitting={updateStrategy.isPending}
+        onCancel={() => setIsEditing(false)}
+        onSubmit={(values) =>
+          updateStrategy.mutate({ ...values, id }, { onSuccess: () => setIsEditing(false) })
+        }
+      />
+    );
+  }
 
   return (
     <VStack gap={4}>
@@ -86,15 +156,26 @@ function StrategyDetailPage() {
           <Button label="← 返回" variant="ghost" size="sm" />
         </Link>
         {canEdit ? (
-          <Button label="编辑" variant="primary" size="sm" onClick={() => setIsEditOpen(true)} />
+          <DropdownMenu
+            button={{
+              label: "操作",
+              icon: <Icon icon="moreHorizontal" />,
+              variant: "ghost",
+              size: "sm",
+              isIconOnly: true,
+            }}
+            hasChevron={false}
+            items={[
+              { label: "编辑", icon: Pencil, onClick: () => setIsEditing(true) },
+              { label: "删除", icon: Trash2, onClick: () => setIsDeleteOpen(true) },
+            ]}
+          />
         ) : null}
       </HStack>
 
       <VStack gap={1}>
         <Heading level={2}>{strategy.name}</Heading>
-        {strategy.description ? (
-          <Text type="supporting">{strategy.description}</Text>
-        ) : null}
+        {strategy.description ? <Text type="supporting">{strategy.description}</Text> : null}
       </VStack>
 
       <Card padding={5}>
@@ -146,13 +227,17 @@ function StrategyDetailPage() {
           onChange={(checked) => updateVisibility.mutate({ id: strategy.id, isPublic: checked })}
         />
       </Card>
-
-      <StrategyEditDialog
-        strategy={strategy}
-        factors={factors}
-        isOpen={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        onSubmit={(input) => updateStrategy.mutate(input)}
+      <ConfirmDeleteDialog
+        isOpen={isDeleteOpen}
+        title="删除策略"
+        message={`确认删除策略「${strategy.name}」？`}
+        isLoading={deleteStrategy.isPending}
+        onOpenChange={(open) => !open && setIsDeleteOpen(false)}
+        onConfirm={() => {
+          deleteStrategy.mutate(strategy.id, {
+            onSuccess: () => navigate({ to: "/home/strategies" }),
+          });
+        }}
       />
     </VStack>
   );

@@ -25,6 +25,15 @@ interface StrategyRiskInput {
   takeProfit?: number; // 止盈线
 }
 
+// 入场层配置（入场方式 + 过滤开关，对齐 quant composite 引擎 entry 结构）
+interface StrategyEntryInput {
+  entryType?: string; // threshold=得分达标触发 / cross=得分上穿阈值触发
+  volumeConfirm?: boolean; // 量能确认
+  limitFilter?: boolean; // 涨跌停过滤
+  stFilter?: boolean; // ST 过滤
+  marketFilter?: boolean; // 大盘过滤
+}
+
 // 信号层合成方式（对齐 quant factors/combine.py 的 COMBINE_MODES）
 const COMBINE_MODES = ["weighted_sum", "equal_weight", "voting", "rank", "and", "or"] as const;
 type CombineMode = (typeof COMBINE_MODES)[number];
@@ -34,6 +43,11 @@ function normalizeCombine(v: unknown): CombineMode {
   return (COMBINE_MODES as readonly string[]).includes(v as string)
     ? (v as CombineMode)
     : "weighted_sum";
+}
+
+// 将入场方式归一化为 threshold/cross，非法回退 threshold
+function normalizeEntryType(v: unknown): "threshold" | "cross" {
+  return v === "cross" ? "cross" : "threshold";
 }
 
 // 默认风控参数（对齐 quant composite 引擎 / backtest 页默认值）
@@ -50,18 +64,33 @@ function clampPct(v: number | undefined, def: number): number {
 function buildConfigJson(
   factors: { name: string; value: number; weight: number; direction: 1 | -1 }[],
   risk: StrategyRiskInput,
+  entry: StrategyEntryInput,
   combine: CombineMode,
 ): {
   factors: { name: string; value: number; weight: number; direction: 1 | -1 }[];
   combine: CombineMode;
-  entry: { type: "threshold"; value: number };
+  entry: {
+    type: "threshold" | "cross";
+    value: number;
+    volumeConfirm: boolean;
+    limitFilter: boolean;
+    stFilter: boolean;
+    marketFilter: boolean;
+  };
   exit: { type: "threshold"; value: number };
   risk: { positionSize: number; stopLoss: number; takeProfit: number };
 } {
   return {
     factors,
     combine,
-    entry: { type: "threshold", value: clampPct(risk.entry, RISK_DEFAULTS.entry) },
+    entry: {
+      type: normalizeEntryType(entry.entryType),
+      value: clampPct(risk.entry, RISK_DEFAULTS.entry),
+      volumeConfirm: !!entry.volumeConfirm,
+      limitFilter: !!entry.limitFilter,
+      stFilter: !!entry.stFilter,
+      marketFilter: !!entry.marketFilter,
+    },
     exit: { type: "threshold", value: clampPct(risk.exit, RISK_DEFAULTS.exit) },
     risk: {
       positionSize: clampPct(risk.positionSize, RISK_DEFAULTS.positionSize),
@@ -120,7 +149,8 @@ strategiesRoute.post("/", async (c) => {
     factors?: StrategyFactorInput[];
     combine?: string;
     isPublic?: boolean;
-  } & StrategyRiskInput;
+  } & StrategyRiskInput &
+    StrategyEntryInput;
   const name = body.name?.trim();
   if (!name) return badRequest(c, "name is required");
   if (!Array.isArray(body.factors) || body.factors.length === 0) {
@@ -144,7 +174,7 @@ strategiesRoute.post("/", async (c) => {
       userId,
       name,
       description: body.description?.trim() ?? "",
-      configJson: buildConfigJson(factors, body, normalizeCombine(body.combine)),
+      configJson: buildConfigJson(factors, body, body, normalizeCombine(body.combine)),
       isSystem: false,
       isPublic: body.isPublic ?? false, // 用户策略默认私有
     })
@@ -167,7 +197,8 @@ strategiesRoute.patch("/:id", async (c) => {
     factors?: StrategyFactorInput[];
     combine?: string;
     isPublic?: boolean;
-  } & StrategyRiskInput;
+  } & StrategyRiskInput &
+    StrategyEntryInput;
 
   const row = (await db.select().from(strategyConfig).where(eq(strategyConfig.id, id)))[0];
   if (!row) return notFound(c, "Strategy not found");
@@ -192,7 +223,14 @@ strategiesRoute.patch("/:id", async (c) => {
   const prev = (row.configJson ?? {}) as {
     factors?: { name: string; value: number; weight: number; direction?: 1 | -1 }[];
     combine?: string;
-    entry?: { value: number };
+    entry?: {
+      type?: "threshold" | "cross";
+      value?: number;
+      volumeConfirm?: boolean;
+      limitFilter?: boolean;
+      stFilter?: boolean;
+      marketFilter?: boolean;
+    };
     exit?: { value: number };
     risk?: { positionSize?: number; stopLoss?: number; takeProfit?: number };
   };
@@ -200,20 +238,39 @@ strategiesRoute.patch("/:id", async (c) => {
     (f) => ({ ...f, direction: f.direction === -1 ? (-1 as const) : (1 as const) }),
   );
   const nextCombine = normalizeCombine(body.combine ?? prev.combine);
+  const nextEntry: StrategyEntryInput = {
+    entryType: body.entryType ?? prev.entry?.type,
+    volumeConfirm: body.volumeConfirm ?? prev.entry?.volumeConfirm,
+    limitFilter: body.limitFilter ?? prev.entry?.limitFilter,
+    stFilter: body.stFilter ?? prev.entry?.stFilter,
+    marketFilter: body.marketFilter ?? prev.entry?.marketFilter,
+  };
   const hasRiskUpdate =
     body.entry !== undefined ||
     body.exit !== undefined ||
     body.positionSize !== undefined ||
     body.stopLoss !== undefined ||
     body.takeProfit !== undefined;
-  const hasConfigUpdate = Array.isArray(body.factors) || body.combine !== undefined || hasRiskUpdate;
-  const configJson = buildConfigJson(nextFactors, {
-    entry: body.entry ?? prev.entry?.value,
-    exit: body.exit ?? prev.exit?.value,
-    positionSize: body.positionSize ?? prev.risk?.positionSize,
-    stopLoss: body.stopLoss ?? prev.risk?.stopLoss,
-    takeProfit: body.takeProfit ?? prev.risk?.takeProfit,
-  }, nextCombine);
+  const hasEntryUpdate =
+    body.entryType !== undefined ||
+    body.volumeConfirm !== undefined ||
+    body.limitFilter !== undefined ||
+    body.stFilter !== undefined ||
+    body.marketFilter !== undefined;
+  const hasConfigUpdate =
+    Array.isArray(body.factors) || body.combine !== undefined || hasRiskUpdate || hasEntryUpdate;
+  const configJson = buildConfigJson(
+    nextFactors,
+    {
+      entry: body.entry ?? prev.entry?.value,
+      exit: body.exit ?? prev.exit?.value,
+      positionSize: body.positionSize ?? prev.risk?.positionSize,
+      stopLoss: body.stopLoss ?? prev.risk?.stopLoss,
+      takeProfit: body.takeProfit ?? prev.risk?.takeProfit,
+    },
+    nextEntry,
+    nextCombine,
+  );
 
   const updated = (
     await db

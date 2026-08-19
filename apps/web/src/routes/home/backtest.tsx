@@ -18,6 +18,7 @@ import {
   COMBINE_MODES,
   COMBINE_LABELS,
   type CombineMode,
+  type EntryType,
 } from "../../hooks/useStrategies";
 
 // ==============================
@@ -297,6 +298,11 @@ function BacktestPage() {
   const [stopLoss, setStopLoss] = useState(8);
   const [takeProfit, setTakeProfit] = useState(20);
   const [combine, setCombine] = useState<CombineMode>("weighted_sum");
+  const [entryType, setEntryType] = useState<EntryType>("threshold");
+  const [volumeConfirm, setVolumeConfirm] = useState(false);
+  const [limitFilter, setLimitFilter] = useState(false);
+  const [stFilter, setStFilter] = useState(false);
+  const [marketFilter, setMarketFilter] = useState(false);
 
   // 拉取因子注册表（仅在首次进入自定义模式时加载）
   useEffect(() => {
@@ -358,7 +364,14 @@ function BacktestPage() {
             weight: total > 0 ? f.weight / total : 0,
           })),
           combine,
-          entry: { type: "threshold", value: entryThreshold / 100 },
+          entry: {
+            type: entryType,
+            value: entryThreshold / 100,
+            volumeConfirm,
+            limitFilter,
+            stFilter,
+            marketFilter,
+          },
           exit: { type: "threshold", value: exitThreshold / 100 },
           risk: {
             positionSize: positionSize / 100,
@@ -406,6 +419,11 @@ function BacktestPage() {
     stopLoss,
     takeProfit,
     combine,
+    entryType,
+    volumeConfirm,
+    limitFilter,
+    stFilter,
+    marketFilter,
     selectedFactorCount,
   ]);
 
@@ -562,6 +580,16 @@ function BacktestPage() {
             onStopLossChange={setStopLoss}
             takeProfit={takeProfit}
             onTakeProfitChange={setTakeProfit}
+            entryType={entryType}
+            onEntryTypeChange={setEntryType}
+            volumeConfirm={volumeConfirm}
+            onVolumeConfirmChange={setVolumeConfirm}
+            limitFilter={limitFilter}
+            onLimitFilterChange={setLimitFilter}
+            stFilter={stFilter}
+            onStFilterChange={setStFilter}
+            marketFilter={marketFilter}
+            onMarketFilterChange={setMarketFilter}
           />
         </VStack>
       )}

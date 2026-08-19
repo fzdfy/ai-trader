@@ -31,10 +31,21 @@ export const COMBINE_LABELS: Record<CombineMode, string> = {
   or: "任一看多 (OR)",
 };
 
+/** 入场方式：threshold=得分达标触发 / cross=得分上穿阈值触发 */
+export type EntryType = "threshold" | "cross";
+
 /** 阈值配置（0-100 百分比，对齐 quant composite 引擎的 entry/exit） */
 export interface StrategyThreshold {
-  type: "threshold";
+  type: EntryType;
   value: number;
+}
+
+/** 入场层配置（0-100 百分比 + 过滤开关，对齐 quant composite 引擎 entry 结构） */
+export interface StrategyEntry extends StrategyThreshold {
+  volumeConfirm?: boolean; // 量能确认
+  limitFilter?: boolean; // 涨跌停过滤
+  stFilter?: boolean; // ST 过滤
+  marketFilter?: boolean; // 大盘过滤
 }
 
 /** 风险管理配置（0-100 百分比） */
@@ -48,7 +59,7 @@ export interface StrategyRisk {
 export interface StrategyConfig {
   factors: StrategyFactor[];
   combine?: CombineMode;
-  entry?: StrategyThreshold;
+  entry?: StrategyEntry;
   exit?: StrategyThreshold;
   risk?: StrategyRisk;
 }
@@ -80,7 +91,16 @@ export interface StrategyRiskInput {
   takeProfit: number; // 止盈线
 }
 
-export interface CreateStrategyInput extends StrategyRiskInput {
+/** 入场层配置输入（创建/编辑策略共用：入场方式 + 过滤开关） */
+export interface StrategyEntryInput {
+  entryType: EntryType; // 入场方式
+  volumeConfirm: boolean; // 量能确认
+  limitFilter: boolean; // 涨跌停过滤
+  stFilter: boolean; // ST 过滤
+  marketFilter: boolean; // 大盘过滤
+}
+
+export interface CreateStrategyInput extends StrategyRiskInput, StrategyEntryInput {
   name: string;
   description: string;
   factors: StrategyFactor[];
@@ -88,7 +108,7 @@ export interface CreateStrategyInput extends StrategyRiskInput {
   isPublic: boolean;
 }
 
-export interface UpdateStrategyInput extends StrategyRiskInput {
+export interface UpdateStrategyInput extends StrategyRiskInput, StrategyEntryInput {
   id: number;
   name: string;
   description: string;
@@ -175,6 +195,11 @@ export function useUpdateStrategy() {
           positionSize: input.positionSize,
           stopLoss: input.stopLoss,
           takeProfit: input.takeProfit,
+          entryType: input.entryType,
+          volumeConfirm: input.volumeConfirm,
+          limitFilter: input.limitFilter,
+          stFilter: input.stFilter,
+          marketFilter: input.marketFilter,
           isPublic: input.isPublic,
         }),
       });
