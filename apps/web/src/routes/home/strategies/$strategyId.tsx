@@ -18,6 +18,10 @@ import {
   useUpdateStrategyVisibility,
   useDeleteStrategy,
   COMBINE_LABELS,
+  POSITION_SIZING_LABELS,
+  STOP_TYPE_LABELS,
+  TAKE_TYPE_LABELS,
+  SLIPPAGE_TYPE_LABELS,
 } from "../../../hooks/useStrategies";
 import { useFactorsQuery } from "../../../hooks/useFactors";
 
@@ -71,6 +75,16 @@ function StrategyDetailPage() {
     const cfg = strategy?.configJson;
     const entry = cfg?.entry;
     const entryType = entry?.type === "cross" ? "上穿触发" : "阈值触发";
+    const exitType = cfg?.exit?.type === "cross" ? "下穿触发" : "阈值触发";
+    const maxHoldingDays = cfg?.exit?.maxHoldingDays ?? 0;
+    const pos = cfg?.position;
+    const sizingLabel = POSITION_SIZING_LABELS[pos?.sizing ?? "fixed"] ?? "固定比例";
+    const baseSize = pos?.baseSize ?? cfg?.risk?.positionSize ?? 95;
+    const risk = cfg?.risk;
+    const stopTypeLabel = STOP_TYPE_LABELS[risk?.stopType ?? "fixed"] ?? "固定百分比";
+    const takeTypeLabel = TAKE_TYPE_LABELS[risk?.takeType ?? "fixed"] ?? "固定百分比";
+    const cost = cfg?.cost;
+    const slippageTypeLabel = SLIPPAGE_TYPE_LABELS[cost?.slippageType ?? "percent"] ?? "按比例";
     const filters: string[] = [];
     if (entry?.volumeConfirm) filters.push("量能确认");
     if (entry?.limitFilter) filters.push("涨跌停");
@@ -79,11 +93,39 @@ function StrategyDetailPage() {
     return [
       { label: "入场方式", value: entryType },
       { label: "入场阈值", value: `${cfg?.entry?.value ?? 65}%` },
-      { label: "出场阈值", value: `${cfg?.exit?.value ?? 30}%` },
-      { label: "仓位比例", value: `${cfg?.risk?.positionSize ?? 95}%` },
-      { label: "止损线", value: `${cfg?.risk?.stopLoss ?? 8}%` },
-      { label: "止盈线", value: `${cfg?.risk?.takeProfit ?? 20}%` },
       { label: "入场过滤", value: filters.length ? filters.join("、") : "无" },
+      { label: "出场方式", value: exitType },
+      { label: "出场阈值", value: `${cfg?.exit?.value ?? 30}%` },
+      { label: "持仓时间上限", value: maxHoldingDays > 0 ? `${maxHoldingDays} 天` : "不限" },
+      { label: "仓位计算方式", value: sizingLabel },
+      { label: "基础仓位", value: `${baseSize}%` },
+      { label: "单票上限", value: `${pos?.maxSize ?? 95}%` },
+      { label: "总仓位上限", value: `${pos?.totalCap ?? 100}%` },
+      { label: "分批建仓", value: pos?.pyramiding ? "开启" : "关闭" },
+      { label: "分批止盈", value: pos?.partialExit ? "开启" : "关闭" },
+      { label: "止损方式", value: stopTypeLabel },
+      { label: "止损线", value: `${risk?.stopLoss ?? 8}%` },
+      { label: "止盈方式", value: takeTypeLabel },
+      { label: "止盈线", value: `${risk?.takeProfit ?? 20}%` },
+      {
+        label: "单笔最大亏损",
+        value: (risk?.maxLossPerTrade ?? 0) > 0 ? `${risk?.maxLossPerTrade}%` : "不限",
+      },
+      {
+        label: "连续亏损熔断",
+        value: (risk?.maxConsecutiveLosses ?? 0) > 0 ? `${risk?.maxConsecutiveLosses} 次` : "不限",
+      },
+      { label: "佣金费率", value: `万分之${cost?.commissionRate ?? 3}` },
+      { label: "印花税", value: `万分之${cost?.stampTaxRate ?? 10}` },
+      { label: "过户费", value: `万分之${cost?.transferFeeRate ?? 0.1}` },
+      { label: "最低佣金", value: `${cost?.minCommission ?? 5} 元` },
+      {
+        label: "滑点",
+        value:
+          (cost?.slippageType ?? "percent") === "percent"
+            ? `${slippageTypeLabel} 万分之${cost?.slippageValue ?? 2}`
+            : `${slippageTypeLabel} ${cost?.slippageValue ?? 0.2} 元`,
+      },
     ];
   }, [strategy]);
 

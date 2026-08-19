@@ -105,7 +105,7 @@ def run_backtest(req: BacktestRequest, request: Request) -> dict[str, Any]:
         params=req.params,
     )
 
-    result = run(df, strategy_cls)
+    result = run(df, strategy_cls, cost=req.config.get("cost") if req.config else None)
 
     # 注入 symbol / strategy 到 report 块
     result.setdefault("report", {})

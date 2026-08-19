@@ -71,6 +71,8 @@ export function ConfigSlider({
   max = 100,
   step = 1,
   hint,
+  unit = "%",
+  valueFormatter,
 }: {
   label: string;
   value: number;
@@ -79,6 +81,8 @@ export function ConfigSlider({
   max?: number;
   step?: number;
   hint?: string;
+  unit?: string;
+  valueFormatter?: (value: number) => string;
 }) {
   return (
     <VStack gap={2} style={{ flex: 1, minWidth: 200 }}>
@@ -87,7 +91,7 @@ export function ConfigSlider({
           {label}
         </Text>
         <Text type="supporting" size="sm">
-          {value}%
+          {valueFormatter ? valueFormatter(value) : `${value}${unit}`}
         </Text>
       </HStack>
       <Slider

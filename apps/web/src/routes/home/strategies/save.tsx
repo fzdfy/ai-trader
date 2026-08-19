@@ -41,11 +41,41 @@ function toFormValues(strategy: Strategy): CreateStrategyInput {
     positionSize: cfg?.risk?.positionSize ?? 95,
     stopLoss: cfg?.risk?.stopLoss ?? 8,
     takeProfit: cfg?.risk?.takeProfit ?? 20,
+    stopType: cfg?.risk?.stopType ?? "fixed",
+    trailingStop: cfg?.risk?.trailingStop ?? 10,
+    atrStopMultiple: cfg?.risk?.atrStopMultiple ?? 2,
+    takeType: cfg?.risk?.takeType ?? "fixed",
+    trailingTake: cfg?.risk?.trailingTake ?? 10,
+    maxLossPerTrade: cfg?.risk?.maxLossPerTrade ?? 0,
+    maxConsecutiveLosses: cfg?.risk?.maxConsecutiveLosses ?? 0,
     entryType: cfg?.entry?.type ?? "threshold",
     volumeConfirm: cfg?.entry?.volumeConfirm ?? false,
     limitFilter: cfg?.entry?.limitFilter ?? false,
     stFilter: cfg?.entry?.stFilter ?? false,
     marketFilter: cfg?.entry?.marketFilter ?? false,
+    exitType: cfg?.exit?.type ?? "threshold",
+    maxHoldingDays: cfg?.exit?.maxHoldingDays ?? 0,
+    sizing: cfg?.position?.sizing ?? "fixed",
+    baseSize: cfg?.position?.baseSize ?? cfg?.risk?.positionSize ?? 95,
+    maxSize: cfg?.position?.maxSize ?? 95,
+    totalCap: cfg?.position?.totalCap ?? 100,
+    maxPositions: cfg?.position?.maxPositions ?? 1,
+    kellyFraction: cfg?.position?.kellyFraction ?? 50,
+    atrPeriod: cfg?.position?.atrPeriod ?? 14,
+    atrRiskBudget: cfg?.position?.atrRiskBudget ?? 2,
+    pyramiding: cfg?.position?.pyramiding ?? false,
+    firstEntry: cfg?.position?.firstEntry ?? 50,
+    addOnProfit: cfg?.position?.addOnProfit ?? 5,
+    addSize: cfg?.position?.addSize ?? 25,
+    maxAdds: cfg?.position?.maxAdds ?? 2,
+    partialExit: cfg?.position?.partialExit ?? false,
+    partialExitRatio: cfg?.position?.partialExitRatio ?? 50,
+    commissionRate: cfg?.cost?.commissionRate ?? 3,
+    stampTaxRate: cfg?.cost?.stampTaxRate ?? 10,
+    transferFeeRate: cfg?.cost?.transferFeeRate ?? 0.1,
+    minCommission: cfg?.cost?.minCommission ?? 5,
+    slippageType: cfg?.cost?.slippageType ?? "percent",
+    slippageValue: cfg?.cost?.slippageValue ?? 2,
   };
 }
 
@@ -73,9 +103,19 @@ function StrategySavePage() {
 
   return (
     <VStack gap={4}>
-      <Link to="/home/strategies" style={{ textDecoration: "none" }}>
-        <Button label="← 返回" variant="ghost" size="sm" />
-      </Link>
+      {isEdit ? (
+        <Link
+          to="/home/strategies/$strategyId"
+          params={{ strategyId: String(strategyId) }}
+          style={{ textDecoration: "none" }}
+        >
+          <Button label="← 返回" variant="ghost" size="sm" />
+        </Link>
+      ) : (
+        <Link to="/home/strategies" style={{ textDecoration: "none" }}>
+          <Button label="← 返回" variant="ghost" size="sm" />
+        </Link>
+      )}
       <StrategyForm
         title={isEdit ? "编辑策略" : "创建策略"}
         subtitle={

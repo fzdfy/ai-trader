@@ -12,9 +12,15 @@ import type { Factor } from "../hooks/useFactors";
 import {
   COMBINE_MODES,
   COMBINE_LABELS,
+  POSITION_SIZING_LABELS,
   type CreateStrategyInput,
   type CombineMode,
   type EntryType,
+  type ExitType,
+  type PositionSizing,
+  type StopType,
+  type TakeType,
+  type SlippageType,
 } from "../hooks/useStrategies";
 import { FactorSelectRow, type FactorSelection } from "./FactorSelectRow";
 import { ConfigSlider } from "./StrategyBuilder";
@@ -31,11 +37,41 @@ const DEFAULT_VALUES: CreateStrategyInput = {
   positionSize: 95,
   stopLoss: 8,
   takeProfit: 20,
+  stopType: "fixed",
+  trailingStop: 10,
+  atrStopMultiple: 2,
+  takeType: "fixed",
+  trailingTake: 10,
+  maxLossPerTrade: 0,
+  maxConsecutiveLosses: 0,
   entryType: "threshold",
   volumeConfirm: false,
   limitFilter: false,
   stFilter: false,
   marketFilter: false,
+  exitType: "threshold",
+  maxHoldingDays: 0,
+  sizing: "fixed",
+  baseSize: 95,
+  maxSize: 95,
+  totalCap: 100,
+  maxPositions: 1,
+  kellyFraction: 50,
+  atrPeriod: 14,
+  atrRiskBudget: 2,
+  pyramiding: false,
+  firstEntry: 50,
+  addOnProfit: 5,
+  addSize: 25,
+  maxAdds: 2,
+  partialExit: false,
+  partialExitRatio: 50,
+  commissionRate: 3,
+  stampTaxRate: 10,
+  transferFeeRate: 0.1,
+  minCommission: 5,
+  slippageType: "percent",
+  slippageValue: 2,
 };
 
 interface StrategyFormProps {
@@ -85,12 +121,46 @@ export function StrategyForm({
   const [positionSize, setPositionSize] = useState(iv.positionSize);
   const [stopLoss, setStopLoss] = useState(iv.stopLoss);
   const [takeProfit, setTakeProfit] = useState(iv.takeProfit);
+  // 风控层：止损/止盈方式 + 移动止损/止盈 + 单笔最大亏损 + 连续亏损熔断
+  const [stopType, setStopType] = useState<StopType>(iv.stopType);
+  const [trailingStop, setTrailingStop] = useState(iv.trailingStop);
+  const [atrStopMultiple, setAtrStopMultiple] = useState(iv.atrStopMultiple);
+  const [takeType, setTakeType] = useState<TakeType>(iv.takeType);
+  const [trailingTake, setTrailingTake] = useState(iv.trailingTake);
+  const [maxLossPerTrade, setMaxLossPerTrade] = useState(iv.maxLossPerTrade);
+  const [maxConsecutiveLosses, setMaxConsecutiveLosses] = useState(iv.maxConsecutiveLosses);
   // 入场层：入场方式 + 过滤开关
   const [entryType, setEntryType] = useState<EntryType>(iv.entryType);
   const [volumeConfirm, setVolumeConfirm] = useState(iv.volumeConfirm);
   const [limitFilter, setLimitFilter] = useState(iv.limitFilter);
   const [stFilter, setStFilter] = useState(iv.stFilter);
   const [marketFilter, setMarketFilter] = useState(iv.marketFilter);
+  // 出场层：出场方式 + 持仓时间上限
+  const [exitType, setExitType] = useState<ExitType>(iv.exitType);
+  const [maxHoldingDays, setMaxHoldingDays] = useState(iv.maxHoldingDays);
+  // 仓位层：计算方式 + 上限 + 凯利/ATR + 分批建仓/止盈
+  const [sizing, setSizing] = useState<PositionSizing>(iv.sizing);
+  const [baseSize, setBaseSize] = useState(iv.baseSize);
+  const [maxSize, setMaxSize] = useState(iv.maxSize);
+  const [totalCap, setTotalCap] = useState(iv.totalCap);
+  const [maxPositions, setMaxPositions] = useState(iv.maxPositions);
+  const [kellyFraction, setKellyFraction] = useState(iv.kellyFraction);
+  const [atrPeriod, setAtrPeriod] = useState(iv.atrPeriod);
+  const [atrRiskBudget, setAtrRiskBudget] = useState(iv.atrRiskBudget);
+  const [pyramiding, setPyramiding] = useState(iv.pyramiding);
+  const [firstEntry, setFirstEntry] = useState(iv.firstEntry);
+  const [addOnProfit, setAddOnProfit] = useState(iv.addOnProfit);
+  const [addSize, setAddSize] = useState(iv.addSize);
+  const [maxAdds, setMaxAdds] = useState(iv.maxAdds);
+  const [partialExit, setPartialExit] = useState(iv.partialExit);
+  const [partialExitRatio, setPartialExitRatio] = useState(iv.partialExitRatio);
+  // 成本层：佣金/印花税/过户费/最低佣金/滑点（费率为万分比，最低佣金与固定滑点为元）
+  const [commissionRate, setCommissionRate] = useState(iv.commissionRate);
+  const [stampTaxRate, setStampTaxRate] = useState(iv.stampTaxRate);
+  const [transferFeeRate, setTransferFeeRate] = useState(iv.transferFeeRate);
+  const [minCommission, setMinCommission] = useState(iv.minCommission);
+  const [slippageType, setSlippageType] = useState<SlippageType>(iv.slippageType);
+  const [slippageValue, setSlippageValue] = useState(iv.slippageValue);
 
   const toggleFactor = (factorName: string) => {
     setSelected((prev) => {
@@ -137,11 +207,41 @@ export function StrategyForm({
       positionSize,
       stopLoss,
       takeProfit,
+      stopType,
+      trailingStop,
+      atrStopMultiple,
+      takeType,
+      trailingTake,
+      maxLossPerTrade,
+      maxConsecutiveLosses,
       entryType,
       volumeConfirm,
       limitFilter,
       stFilter,
       marketFilter,
+      exitType,
+      maxHoldingDays,
+      sizing,
+      baseSize,
+      maxSize,
+      totalCap,
+      maxPositions,
+      kellyFraction,
+      atrPeriod,
+      atrRiskBudget,
+      pyramiding,
+      firstEntry,
+      addOnProfit,
+      addSize,
+      maxAdds,
+      partialExit,
+      partialExitRatio,
+      commissionRate,
+      stampTaxRate,
+      transferFeeRate,
+      minCommission,
+      slippageType,
+      slippageValue,
     });
   };
 
@@ -231,27 +331,7 @@ export function StrategyForm({
 
       <Section>
         <VStack gap={3}>
-          <Text style={{ fontWeight: 600 }}>信号阈值</Text>
-          <HStack gap={5} style={{ flexWrap: "wrap" }}>
-            <ConfigSlider
-              label="入场阈值"
-              value={entryThreshold}
-              onChange={setEntryThreshold}
-              hint="综合得分 ≥ 此值时买入"
-            />
-            <ConfigSlider
-              label="出场阈值"
-              value={exitThreshold}
-              onChange={setExitThreshold}
-              hint="综合得分 ≤ 此值时卖出"
-            />
-          </HStack>
-        </VStack>
-      </Section>
-
-      <Section>
-        <VStack gap={3}>
-          <Text style={{ fontWeight: 600 }}>入场过滤</Text>
+          <Text style={{ fontWeight: 600 }}>入场层</Text>
           <SegmentedControl
             value={entryType}
             onChange={(v) => setEntryType(v as EntryType)}
@@ -261,6 +341,14 @@ export function StrategyForm({
             <SegmentedControlItem value="threshold" label="阈值触发" />
             <SegmentedControlItem value="cross" label="上穿触发" />
           </SegmentedControl>
+          <HStack gap={5} style={{ flexWrap: "wrap" }}>
+            <ConfigSlider
+              label="入场阈值"
+              value={entryThreshold}
+              onChange={setEntryThreshold}
+              hint="综合得分 ≥ 此值时买入"
+            />
+          </HStack>
           <HStack gap={5} style={{ flexWrap: "wrap" }}>
             <Switch
               label="量能确认"
@@ -292,6 +380,175 @@ export function StrategyForm({
 
       <Section>
         <VStack gap={3}>
+          <Text style={{ fontWeight: 600 }}>出场层</Text>
+          <SegmentedControl
+            value={exitType}
+            onChange={(v) => setExitType(v as ExitType)}
+            label="出场方式"
+            layout="hug"
+          >
+            <SegmentedControlItem value="threshold" label="阈值触发" />
+            <SegmentedControlItem value="cross" label="下穿触发" />
+          </SegmentedControl>
+          <HStack gap={5} style={{ flexWrap: "wrap" }}>
+            <ConfigSlider
+              label="出场阈值"
+              value={exitThreshold}
+              onChange={setExitThreshold}
+              hint="综合得分 ≤ 此值时卖出"
+            />
+            <ConfigSlider
+              label="持仓时间上限"
+              value={maxHoldingDays}
+              onChange={setMaxHoldingDays}
+              min={0}
+              max={250}
+              step={1}
+              hint="超过此交易日数强制离场（0 表示不限）"
+              valueFormatter={(v) => (v === 0 ? "不限" : `${v} 天`)}
+            />
+          </HStack>
+        </VStack>
+      </Section>
+
+      <Section>
+        <VStack gap={3}>
+          <Text style={{ fontWeight: 600 }}>仓位层</Text>
+          <SegmentedControl
+            value={sizing}
+            onChange={(v) => setSizing(v as PositionSizing)}
+            label="仓位计算方式"
+            layout="hug"
+          >
+            <SegmentedControlItem value="fixed" label="固定比例" />
+            <SegmentedControlItem value="kelly" label="凯利公式" />
+            <SegmentedControlItem value="atr" label="ATR 波动率" />
+          </SegmentedControl>
+          <HStack gap={5} style={{ flexWrap: "wrap" }}>
+            <ConfigSlider
+              label="基础目标仓位"
+              value={baseSize}
+              onChange={setBaseSize}
+              hint="fixed 模式直接使用；kelly/atr 作为上限参考"
+            />
+            <ConfigSlider
+              label="单票仓位硬上限"
+              value={maxSize}
+              onChange={setMaxSize}
+              hint="限制单票最大暴露"
+            />
+            <ConfigSlider
+              label="总仓位上限"
+              value={totalCap}
+              onChange={setTotalCap}
+              hint="资金总投入比例上限"
+            />
+            <ConfigSlider
+              label="最大持仓数量"
+              value={maxPositions}
+              onChange={setMaxPositions}
+              min={1}
+              max={50}
+              step={1}
+              hint="组合回测生效，单标的回测恒为 1"
+              valueFormatter={(v) => `${v} 只`}
+            />
+          </HStack>
+
+          {sizing === "kelly" && (
+            <ConfigSlider
+              label="凯利分数系数"
+              value={kellyFraction}
+              onChange={setKellyFraction}
+              hint="半凯利=50，全凯利=100；基于历史交易胜率/盈亏比动态计算"
+            />
+          )}
+
+          {sizing === "atr" && (
+            <HStack gap={5} style={{ flexWrap: "wrap" }}>
+              <ConfigSlider
+                label="ATR 周期"
+                value={atrPeriod}
+                onChange={setAtrPeriod}
+                min={5}
+                max={60}
+                step={1}
+                hint="真实波幅均值窗口"
+                valueFormatter={(v) => `${v} 根`}
+              />
+              <ConfigSlider
+                label="ATR 风险预算"
+                value={atrRiskBudget}
+                onChange={setAtrRiskBudget}
+                max={10}
+                step={1}
+                hint="单笔风险预算占净值%，波动大自动减仓"
+              />
+            </HStack>
+          )}
+
+          <VStack gap={3}>
+            <Switch
+              label="分批建仓（加仓）"
+              description="浮盈后分批追加仓位，避免一次性满仓"
+              value={pyramiding}
+              onChange={setPyramiding}
+            />
+            {pyramiding && (
+              <HStack gap={5} style={{ flexWrap: "wrap" }}>
+                <ConfigSlider
+                  label="首仓比例"
+                  value={firstEntry}
+                  onChange={setFirstEntry}
+                  hint="首次买入占基础仓位的比例"
+                />
+                <ConfigSlider
+                  label="每次加仓比例"
+                  value={addSize}
+                  onChange={setAddSize}
+                  hint="每次加仓占基础仓位的比例"
+                />
+                <ConfigSlider
+                  label="加仓触发浮盈"
+                  value={addOnProfit}
+                  onChange={setAddOnProfit}
+                  max={50}
+                  hint="浮盈达到此比例后触发加仓"
+                />
+                <ConfigSlider
+                  label="最大加仓次数"
+                  value={maxAdds}
+                  onChange={setMaxAdds}
+                  min={1}
+                  max={10}
+                  step={1}
+                  valueFormatter={(v) => `${v} 次`}
+                />
+              </HStack>
+            )}
+          </VStack>
+
+          <VStack gap={3}>
+            <Switch
+              label="分批止盈（减仓）"
+              description="达到止盈线先部分减仓，剩余继续持有"
+              value={partialExit}
+              onChange={setPartialExit}
+            />
+            {partialExit && (
+              <ConfigSlider
+                label="止盈后保留比例"
+                value={partialExitRatio}
+                onChange={setPartialExitRatio}
+                hint="达到止盈线后保留的仓位比例，剩余清仓"
+              />
+            )}
+          </VStack>
+        </VStack>
+      </Section>
+
+      <Section>
+        <VStack gap={3}>
           <Text style={{ fontWeight: 600 }}>风险管理</Text>
           <HStack gap={5} style={{ flexWrap: "wrap" }}>
             <ConfigSlider
@@ -300,6 +557,22 @@ export function StrategyForm({
               onChange={setPositionSize}
               hint="单笔投入资金占比"
             />
+          </HStack>
+
+          <VStack gap={1}>
+            <SegmentedControl
+              value={stopType}
+              onChange={(v) => setStopType(v as StopType)}
+              label="止损方式"
+              layout="hug"
+            >
+              <SegmentedControlItem value="fixed" label="固定百分比" />
+              <SegmentedControlItem value="trailing" label="移动止损" />
+              <SegmentedControlItem value="atr" label="ATR 止损" />
+            </SegmentedControl>
+          </VStack>
+
+          {stopType === "fixed" && (
             <ConfigSlider
               label="止损线"
               value={stopLoss}
@@ -307,13 +580,159 @@ export function StrategyForm({
               max={50}
               hint="回撤超过此比例止损离场"
             />
+          )}
+          {stopType === "trailing" && (
+            <ConfigSlider
+              label="移动止损回撤"
+              value={trailingStop}
+              onChange={setTrailingStop}
+              max={50}
+              hint="从持仓最高价回撤此比例触发止损"
+            />
+          )}
+          {stopType === "atr" && (
+            <ConfigSlider
+              label="ATR 止损倍数"
+              value={atrStopMultiple}
+              onChange={setAtrStopMultiple}
+              min={1}
+              max={10}
+              step={1}
+              hint="止损价 = 入场价 - N × ATR"
+              valueFormatter={(v) => `${v} 倍`}
+            />
+          )}
+
+          <VStack gap={1}>
+            <SegmentedControl
+              value={takeType}
+              onChange={(v) => setTakeType(v as TakeType)}
+              label="止盈方式"
+              layout="hug"
+            >
+              <SegmentedControlItem value="fixed" label="固定百分比" />
+              <SegmentedControlItem value="trailing" label="移动止盈" />
+            </SegmentedControl>
+          </VStack>
+
+          {takeType === "fixed" && (
             <ConfigSlider
               label="止盈线"
               value={takeProfit}
               onChange={setTakeProfit}
               hint="盈利达到此比例止盈离场"
             />
+          )}
+          {takeType === "trailing" && (
+            <ConfigSlider
+              label="移动止盈回撤"
+              value={trailingTake}
+              onChange={setTrailingTake}
+              max={50}
+              hint="从持仓最高价回撤此比例触发止盈"
+            />
+          )}
+
+          <HStack gap={5} style={{ flexWrap: "wrap" }}>
+            <ConfigSlider
+              label="单笔最大亏损"
+              value={maxLossPerTrade}
+              onChange={setMaxLossPerTrade}
+              max={50}
+              hint="单笔亏损超此比例强制离场（0 表示不限）"
+              valueFormatter={(v) => (v === 0 ? "不限" : `${v}%`)}
+            />
+            <ConfigSlider
+              label="连续亏损熔断"
+              value={maxConsecutiveLosses}
+              onChange={setMaxConsecutiveLosses}
+              min={0}
+              max={20}
+              step={1}
+              hint="连续亏损达此次数后暂停开仓（0 表示不限）"
+              valueFormatter={(v) => (v === 0 ? "不限" : `${v} 次`)}
+            />
           </HStack>
+        </VStack>
+      </Section>
+
+      <Section>
+        <VStack gap={3}>
+          <Text style={{ fontWeight: 600 }}>成本层</Text>
+          <HStack gap={5} style={{ flexWrap: "wrap" }}>
+            <ConfigSlider
+              label="佣金费率"
+              value={commissionRate}
+              onChange={setCommissionRate}
+              min={0}
+              max={20}
+              step={0.5}
+              hint="按成交金额收取的佣金"
+              valueFormatter={(v) => `万分之${v}`}
+            />
+            <ConfigSlider
+              label="印花税"
+              value={stampTaxRate}
+              onChange={setStampTaxRate}
+              min={0}
+              max={20}
+              step={0.5}
+              hint="卖出时收取（默认千 1）"
+              valueFormatter={(v) => `万分之${v}`}
+            />
+            <ConfigSlider
+              label="过户费"
+              value={transferFeeRate}
+              onChange={setTransferFeeRate}
+              min={0}
+              max={5}
+              step={0.1}
+              hint="按成交金额收取的过户费"
+              valueFormatter={(v) => `万分之${v}`}
+            />
+            <ConfigSlider
+              label="最低佣金"
+              value={minCommission}
+              onChange={setMinCommission}
+              min={0}
+              max={20}
+              step={0.5}
+              hint="单笔佣金不足时按此金额收取"
+              valueFormatter={(v) => `${v} 元`}
+            />
+          </HStack>
+
+          <VStack gap={1}>
+            <SegmentedControl
+              value={slippageType}
+              onChange={(v) => {
+                const next = v as SlippageType;
+                setSlippageType(next);
+                // 切换滑点方式时重置为对应默认值，避免数值越界
+                setSlippageValue(next === "percent" ? 2 : 0.2);
+              }}
+              label="滑点方式"
+              layout="hug"
+            >
+              <SegmentedControlItem value="percent" label="按比例" />
+              <SegmentedControlItem value="fixed" label="固定金额" />
+            </SegmentedControl>
+          </VStack>
+
+          <ConfigSlider
+            label={slippageType === "percent" ? "滑点比例" : "滑点金额"}
+            value={slippageValue}
+            onChange={setSlippageValue}
+            min={0}
+            max={slippageType === "percent" ? 20 : 5}
+            step={slippageType === "percent" ? 0.5 : 0.1}
+            hint={
+              slippageType === "percent"
+                ? "成交价按此比例上浮/下浮"
+                : "每笔成交固定滑点金额"
+            }
+            valueFormatter={(v) => (slippageType === "percent" ? `万分之${v}` : `${v} 元`)}
+          />
         </VStack>
       </Section>
 

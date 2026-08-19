@@ -190,6 +190,28 @@ def _f_atr_ratio(data: dict[str, np.ndarray], period: int) -> float:
     return _clamp(1.0 - ratio * 10.0)
 
 
+def _f_boll_position(
+    data: dict[str, np.ndarray], period: int = 20, num_std: float = 2.0
+) -> float:
+    """布林带位置因子：收盘价在 N 日布林带（均值 ± num_std 倍标准差）中的相对位置。
+
+    返回 [0, 1]：0=贴近下轨（超卖），0.5=中轨，1=贴近上轨（超买）。
+    """
+    closes = data["close"]
+    if len(closes) < period:
+        return 0.5
+    window = closes[-period:]
+    mid = float(window.mean())
+    std = float(window.std())
+    if std == 0:
+        return 0.5
+    upper = mid + num_std * std
+    lower = mid - num_std * std
+    if upper == lower:
+        return 0.5
+    return _clamp((float(closes[-1]) - lower) / (upper - lower))
+
+
 # ============================================================================
 # Factor 数据类与注册表
 # ============================================================================
@@ -235,9 +257,11 @@ _BUILTIN_FACTORS: list[Factor] = [
     # ---- 动量 ----
     _make_factor("roc_5", "5日动量", "momentum", 1, "近5日涨跌幅", _f_roc, period=5),
     _make_factor("roc_20", "20日动量", "momentum", 1, "近20日涨跌幅", _f_roc, period=20),
+    _make_factor("rsi_6", "RSI(6)", "momentum", 1, "短期相对强弱指标", _f_rsi, period=6),
     _make_factor("rsi_14", "RSI(14)", "momentum", 1, "相对强弱指标", _f_rsi, period=14),
     _make_factor("macd_diff", "MACD柱", "momentum", 1, "MACD 柱值", _f_macd, fast=12, slow=26, signal=9),
     # ---- 趋势 ----
+    _make_factor("ma_trend_5", "MA趋势(5)", "trend", 1, "收盘价相对5日均线偏离", _f_ma_trend, period=5),
     _make_factor("ma_trend_20", "MA趋势(20)", "trend", 1, "收盘价相对20日均线偏离", _f_ma_trend, period=20),
     _make_factor("ma_trend_60", "MA趋势(60)", "trend", 1, "收盘价相对60日均线偏离", _f_ma_trend, period=60),
     _make_factor("close_position", "价格位置(20)", "trend", 1, "收盘价在20日高低区间位置", _f_close_position, period=20),
@@ -246,6 +270,7 @@ _BUILTIN_FACTORS: list[Factor] = [
     _make_factor("mfi_14", "MFI(14)", "volume", 1, "资金流量指标", _f_mfi, period=14),
     # ---- 波动 ----
     _make_factor("atr_ratio_14", "波动率(14)", "volatility", -1, "ATR相对收盘价（反向）", _f_atr_ratio, period=14),
+    _make_factor("boll_position", "布林带位置", "volatility", 1, "收盘价在20日布林带中的相对位置", _f_boll_position),
 ]
 
 # 因子名 → Factor 的注册表

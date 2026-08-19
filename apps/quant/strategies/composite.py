@@ -64,6 +64,36 @@ class CompositeStrategy(Strategy):
     stop_loss: float = 0.08
     take_profit: float = 0.20
 
+    # ---- 风控层扩展参数（由 build_composite_strategy 子类化时覆盖，数值均为 0-1 小数）----
+    stop_type: str = "fixed"  # 止损方式：fixed=固定百分比 / trailing=移动止损 / atr=ATR 止损
+    trailing_stop: float = 0.10  # 移动止损回撤比例（从持仓最高价回撤触发）
+    atr_stop_multiple: float = 2.0  # ATR 止损倍数（止损价 = 入场价 - N × ATR）
+    take_type: str = "fixed"  # 止盈方式：fixed=固定百分比 / trailing=移动止盈
+    trailing_take: float = 0.10  # 移动止盈回撤比例（从持仓最高价回撤触发）
+    max_loss_per_trade: float = 0.0  # 单笔最大亏损（0=不限，超限强制离场）
+    max_consecutive_losses: int = 0  # 连续亏损熔断次数（0=不限，达到后暂停开仓）
+
+    # ---- 出场层扩展参数（由 build_composite_strategy 子类化时覆盖）----
+    exit_type: str = "threshold"  # threshold=得分≤阈值触发，cross=得分下穿阈值触发
+    max_holding_days: int = 0  # 持仓时间上限（交易日，0=不限）
+
+    # ---- 仓位层扩展参数（由 build_composite_strategy 子类化时覆盖，数值均为 0-1 小数）----
+    position_sizing: str = "fixed"  # 仓位计算方式：fixed/kelly/atr
+    position_base_size: float = 0.95  # 基础目标仓位（fixed 直接使用，kelly/atr 作为上限参考）
+    position_max_size: float = 0.95  # 单票仓位硬上限
+    position_total_cap: float = 1.0  # 总仓位上限
+    position_max_count: int = 1  # 最大持仓数量（组合回测用，单标的恒为 1）
+    kelly_fraction: float = 0.5  # 凯利分数系数（0.5=半凯利）
+    atr_period: int = 14  # ATR 周期
+    atr_risk_budget: float = 0.02  # ATR 单笔风险预算（占净值比例）
+    pyramiding: bool = False  # 是否分批建仓（加仓）
+    first_entry_ratio: float = 0.5  # 首仓比例（相对基础仓位）
+    add_on_profit: float = 0.05  # 加仓触发浮盈阈值
+    add_size_ratio: float = 0.25  # 每次加仓比例（相对基础仓位）
+    max_adds: int = 2  # 最大加仓次数
+    partial_exit: bool = False  # 是否分批止盈（减仓）
+    partial_exit_ratio: float = 0.5  # 首段止盈后保留比例
+
     # ---- 入场层扩展参数（由 build_composite_strategy 子类化时覆盖）----
     entry_type: str = "threshold"  # threshold=得分达标触发，cross=得分上穿阈值触发
     entry_volume_confirm: bool = False  # 量能确认：当前量 >= 前 N 日均量 × 倍率
@@ -80,8 +110,19 @@ class CompositeStrategy(Strategy):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._entry_price = 0.0
-        # 上一根 bar 的综合得分，供 cross 入场方式做上穿判断
+        # 上一根 bar 的综合得分，供 cross 入场/出场方式做上穿/下穿判断
         self._prev_score: float | None = None
+        # 当前持仓已持有的交易日数（用于持仓时间上限强制离场）
+        self._holding_bars = 0
+        # 仓位层运行时状态
+        self._add_count = 0  # 当前持仓已加仓次数
+        self._partial_exited = False  # 是否已完成分批止盈减仓
+        self._target_size = 0.0  # 当前持仓的目标仓位（0-1）
+        self._trade_pnls: list[float] = []  # 已平仓收益率（凯利公式统计用）
+        # 风控层运行时状态
+        self._highest_price = 0.0  # 当前持仓期间的最高价（移动止损/止盈用）
+        self._consecutive_losses = 0  # 连续亏损次数（熔断统计用）
+        self._halted = False  # 是否已触发连续亏损熔断（暂停开仓）
 
     def _collect_data(self, symbol: str) -> dict[str, np.ndarray]:
         """拉取历史行情数据，组织成因子计算所需的 dict。"""
@@ -121,7 +162,7 @@ class CompositeStrategy(Strategy):
         return combine_scores(scores, weights, thresholds, self.combine_mode)
 
     def on_bar(self, bar) -> None:
-        """每根 K 线触发，根据综合得分与入场过滤条件执行交易。"""
+        """每根 K 线触发，根据综合得分、入场过滤与仓位层配置执行交易。"""
         data = self._collect_data(bar.symbol)
         if len(data["close"]) < HISTORY_COUNT:
             return
@@ -129,28 +170,179 @@ class CompositeStrategy(Strategy):
         score = self._score(data)
         pos = self.get_position(bar.symbol)
 
-        # 入场：空仓且满足入场信号 + 过滤条件
+        # 入场：空仓且满足入场信号 + 过滤条件（已熔断则暂停开仓）
         if pos <= 0:
-            if self._entry_signal(score) and self._entry_filters_pass(bar, data):
-                self.order_target_percent(symbol=bar.symbol, target_percent=self.position_size)
-                self._entry_price = bar.close
+            if not self._halted and self._entry_signal(score) and self._entry_filters_pass(bar, data):
+                self._open_position(bar, data)
+            self._prev_score = score
+            return
 
-        # 出场：持仓且满足任一离场条件
-        elif pos > 0:
-            exit_signal = score <= self.exit_threshold
+        # 持仓：更新最高价、计算浮盈，依次处理分批止盈 / 分批加仓 / 离场
+        if float(bar.close) > self._highest_price:
+            self._highest_price = float(bar.close)
+        change = float(bar.close) / self._entry_price - 1.0 if self._entry_price > 0 else 0.0
 
-            # 止损 / 止盈
-            if self._entry_price > 0:
-                change = float(bar.close) / self._entry_price - 1.0
-                if change <= -self.stop_loss or change >= self.take_profit:
-                    exit_signal = True
+        # 1) 分批止盈：首次达到止盈线，减仓保留部分，剩余继续持有
+        if self.partial_exit and not self._partial_exited and change >= self.take_profit:
+            self._partial_exited = True
+            keep = self._target_size * self.partial_exit_ratio
+            self.order_target_percent(symbol=bar.symbol, target_percent=keep)
+            self._prev_score = score
+            return
 
-            if exit_signal:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
-                self._entry_price = 0.0
+        # 2) 分批加仓：浮盈达到阈值且未满仓且次数未达上限
+        if self.pyramiding and self._add_count < self.max_adds and change >= self.add_on_profit:
+            self._add_count += 1
+            ratio = self.first_entry_ratio + self.add_size_ratio * self._add_count
+            new_target = min(self._target_size * ratio, self._target_size)
+            self.order_target_percent(symbol=bar.symbol, target_percent=new_target)
 
-        # 记录当前得分，供 cross 入场方式做上穿判断
+        # 3) 离场信号：得分信号 + 止损/止盈（按风控层方式）+ 单笔最大亏损
+        exit_signal = self._exit_signal(score)
+        if self._entry_price > 0:
+            if self._stop_signal(bar, change, data):
+                exit_signal = True
+            elif not self.partial_exit and self._take_signal(bar, change):
+                exit_signal = True
+            # 单笔最大亏损硬止损（0 表示不限）
+            if self.max_loss_per_trade > 0 and change <= -self.max_loss_per_trade:
+                exit_signal = True
+
+        # 持仓时间上限：持有交易日数达到上限即强制离场
+        self._holding_bars += 1
+        if self.max_holding_days > 0 and self._holding_bars >= self.max_holding_days:
+            exit_signal = True
+
+        if exit_signal:
+            self._record_trade(change)
+            self._update_consecutive_losses(change)
+            self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
+            self._entry_price = 0.0
+            self._holding_bars = 0
+            self._add_count = 0
+            self._partial_exited = False
+            self._target_size = 0.0
+            self._highest_price = 0.0
+
+        # 记录当前得分，供 cross 入场/出场方式做上穿/下穿判断
         self._prev_score = score
+
+    def _open_position(self, bar, data: dict[str, np.ndarray]) -> None:
+        """建仓：计算目标仓位，按分批建仓配置决定首笔买入比例。"""
+        self._target_size = self._compute_target_size(data)
+        self._add_count = 0
+        self._partial_exited = False
+        self._highest_price = float(bar.close)
+        if self.pyramiding:
+            first = self._target_size * self.first_entry_ratio
+        else:
+            first = self._target_size
+        self.order_target_percent(symbol=bar.symbol, target_percent=first)
+        self._entry_price = bar.close
+        self._holding_bars = 0
+
+    def _record_trade(self, change: float) -> None:
+        """记录一笔已平仓交易的收益率（供凯利公式动态统计胜率/盈亏比）。"""
+        self._trade_pnls.append(change)
+        if len(self._trade_pnls) > 200:
+            self._trade_pnls = self._trade_pnls[-200:]
+
+    def _stop_signal(self, bar, change: float, data: dict[str, np.ndarray]) -> bool:
+        """止损信号：按 stop_type 判定（fixed 固定 / trailing 移动 / atr 波动）。"""
+        if self.stop_type == "trailing":
+            # 移动止损：从持仓最高价回撤 trailing_stop 比例触发
+            if self._highest_price <= 0:
+                return False
+            return float(bar.close) <= self._highest_price * (1.0 - self.trailing_stop)
+        if self.stop_type == "atr":
+            # ATR 止损：入场价 - N × ATR
+            atr = self._current_atr(data)
+            if atr <= 0 or self._entry_price <= 0:
+                return False
+            return float(bar.close) <= self._entry_price - self.atr_stop_multiple * atr
+        # fixed：固定百分比止损
+        return change <= -self.stop_loss
+
+    def _take_signal(self, bar, change: float) -> bool:
+        """止盈信号：按 take_type 判定（fixed 固定 / trailing 移动）。"""
+        if self.take_type == "trailing":
+            # 移动止盈：先有浮盈，且从持仓最高价回撤 trailing_take 比例触发
+            if self._highest_price <= 0 or self._highest_price <= self._entry_price:
+                return False
+            return float(bar.close) <= self._highest_price * (1.0 - self.trailing_take)
+        # fixed：固定百分比止盈
+        return change >= self.take_profit
+
+    def _update_consecutive_losses(self, change: float) -> None:
+        """连续亏损熔断统计：亏损累加，盈利清零；达到上限后暂停开仓。"""
+        if self.max_consecutive_losses <= 0:
+            return
+        if change < 0:
+            self._consecutive_losses += 1
+            if self._consecutive_losses >= self.max_consecutive_losses:
+                self._halted = True
+        else:
+            self._consecutive_losses = 0
+
+    def _compute_target_size(self, data: dict[str, np.ndarray]) -> float:
+        """根据仓位计算方式与上限约束，返回目标仓位（0-1）。"""
+        base = self.position_base_size
+        if self.position_sizing == "kelly":
+            size = self._kelly_size(base)
+        elif self.position_sizing == "atr":
+            size = self._atr_size(data, base)
+        else:  # fixed
+            size = base
+        size = min(size, self.position_max_size, self.position_total_cap)
+        return max(0.0, min(size, 1.0))
+
+    def _kelly_size(self, base: float) -> float:
+        """凯利公式目标仓位：基于历史已平仓交易动态统计胜率与盈亏比。"""
+        if len(self._trade_pnls) < 5:
+            return base
+        wins = [p for p in self._trade_pnls if p > 0]
+        losses = [p for p in self._trade_pnls if p <= 0]
+        if not losses:
+            return base
+        win_rate = len(wins) / len(self._trade_pnls)
+        avg_loss = sum(abs(p) for p in losses) / len(losses)
+        if avg_loss <= 0:
+            return base
+        avg_win = sum(wins) / len(wins) if wins else 0.0
+        payoff = avg_win / avg_loss
+        if payoff <= 0:
+            return base
+        # 凯利公式 f* = (p * b - q) / b，其中 q = 1 - p
+        kelly = (win_rate * payoff - (1.0 - win_rate)) / payoff
+        kelly = max(0.0, kelly)
+        return min(base, kelly * self.kelly_fraction)
+
+    def _current_atr(self, data: dict[str, np.ndarray]) -> float:
+        """计算当前 ATR（真实波幅均值），供 ATR 止损 / ATR 仓位复用。"""
+        closes = data["close"]
+        highs = data["high"]
+        lows = data["low"]
+        n = self.atr_period
+        if len(closes) < n + 1:
+            return 0.0
+        trs: list[float] = []
+        for i in range(len(closes) - n, len(closes)):
+            h = float(highs[i])
+            l = float(lows[i])
+            pc = float(closes[i - 1])
+            trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+        return float(np.mean(trs)) if trs else 0.0
+
+    def _atr_size(self, data: dict[str, np.ndarray], base: float) -> float:
+        """ATR 波动率目标仓位：波动越大仓位越小。"""
+        closes = data["close"]
+        atr = self._current_atr(data)
+        price = float(closes[-1])
+        if price <= 0 or atr <= 0:
+            return base
+        # 以 2×ATR 作为单笔止损距离，仓位 = 风险预算 / 止损幅度
+        size = self.atr_risk_budget * price / (2.0 * atr)
+        return min(base, max(0.0, size))
 
     def _entry_signal(self, score: float) -> bool:
         """判断是否触发入场信号。
@@ -161,6 +353,16 @@ class CompositeStrategy(Strategy):
         if self.entry_type == "cross":
             return self._prev_score is not None and self._prev_score < self.entry_threshold <= score
         return score >= self.entry_threshold
+
+    def _exit_signal(self, score: float) -> bool:
+        """判断是否触发出场信号。
+
+        - threshold：得分 <= 阈值即触发
+        - cross：得分从上方下穿阈值（上一根 > 阈值 >= 当前）才触发，更抗噪声
+        """
+        if self.exit_type == "cross":
+            return self._prev_score is not None and self._prev_score > self.exit_threshold >= score
+        return score <= self.exit_threshold
 
     def _entry_filters_pass(self, bar, data: dict[str, np.ndarray]) -> bool:
         """依次执行入场过滤，全部通过才允许买入。"""
@@ -250,6 +452,7 @@ def build_composite_strategy(
     combine = normalize_combine(config.get("combine"))
     entry = config.get("entry", {})
     exit_cfg = config.get("exit", {})
+    position_cfg = config.get("position", {})
     risk = config.get("risk", {})
 
     n = len(factors)
@@ -268,6 +471,10 @@ def build_composite_strategy(
     if entry_type not in ("threshold", "cross"):
         entry_type = "threshold"
 
+    pos_sizing = position_cfg.get("sizing", "fixed")
+    if pos_sizing not in ("fixed", "kelly", "atr"):
+        pos_sizing = "fixed"
+
     overrides: dict[str, Any] = {
         "factor_names": names,
         "factor_weights": weights,
@@ -285,9 +492,33 @@ def build_composite_strategy(
         "is_st": bool(is_st),
         "market_trend": market_trend or {},
         "exit_threshold": float(exit_cfg.get("value", 0.30)),
+        "exit_type": "cross" if exit_cfg.get("type", "threshold") == "cross" else "threshold",
+        "max_holding_days": int(exit_cfg.get("maxHoldingDays", 0) or 0),
+        "position_sizing": pos_sizing,
+        "position_base_size": float(position_cfg.get("baseSize", 0.95)),
+        "position_max_size": float(position_cfg.get("maxSize", 0.95)),
+        "position_total_cap": float(position_cfg.get("totalCap", 1.0)),
+        "position_max_count": int(position_cfg.get("maxPositions", 1) or 1),
+        "kelly_fraction": float(position_cfg.get("kellyFraction", 0.5)),
+        "atr_period": int(position_cfg.get("atrPeriod", 14) or 14),
+        "atr_risk_budget": float(position_cfg.get("atrRiskBudget", 0.02)),
+        "pyramiding": bool(position_cfg.get("pyramiding", False)),
+        "first_entry_ratio": float(position_cfg.get("firstEntry", 0.5)),
+        "add_on_profit": float(position_cfg.get("addOnProfit", 0.05)),
+        "add_size_ratio": float(position_cfg.get("addSize", 0.25)),
+        "max_adds": int(position_cfg.get("maxAdds", 2) or 2),
+        "partial_exit": bool(position_cfg.get("partialExit", False)),
+        "partial_exit_ratio": float(position_cfg.get("partialExitRatio", 0.5)),
         "position_size": float(risk.get("positionSize", 0.95)),
         "stop_loss": abs(float(risk.get("stopLoss", 0.08))),
         "take_profit": float(risk.get("takeProfit", 0.20)),
+        "stop_type": "trailing" if risk.get("stopType") == "trailing" else ("atr" if risk.get("stopType") == "atr" else "fixed"),
+        "trailing_stop": abs(float(risk.get("trailingStop", 0.10))),
+        "atr_stop_multiple": float(risk.get("atrStopMultiple", 2.0)),
+        "take_type": "trailing" if risk.get("takeType") == "trailing" else "fixed",
+        "trailing_take": abs(float(risk.get("trailingTake", 0.10))),
+        "max_loss_per_trade": abs(float(risk.get("maxLossPerTrade", 0.0))),
+        "max_consecutive_losses": int(risk.get("maxConsecutiveLosses", 0) or 0),
     }
 
     return type("CompositeStrategy", (CompositeStrategy,), overrides)

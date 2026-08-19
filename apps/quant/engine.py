@@ -20,11 +20,21 @@ def run(
     df: pd.DataFrame,
     strategy: type[Strategy] | Strategy,
     initial_cash: float = INITIAL_CASH,
-    commission_rate: float = 0.0003,
-    stamp_tax_rate: float = 0.001,
+    cost: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """执行回测，返回 AKQuant 原生风格的字典格式结果。
+
+    成本参数通过 cost 字典传入（字段为万分比，对齐 configJson.cost）：
+      {
+        "commissionRate": 3,     # 佣金费率（万3 = 0.03%）
+        "stampTaxRate": 10,      # 印花税（万10 = 千1 = 0.1%）
+        "transferFeeRate": 0.1,  # 过户费（万0.1）
+        "minCommission": 5,      # 最低佣金（元）
+        "slippageType": "percent",  # percent=按比例 / fixed=固定金额
+        "slippageValue": 2,      # 滑点：percent 时万分比，fixed 时元
+      }
+    缺省时使用 A 股默认成本（佣金万3、印花税千1、过户费万0.1、最低佣金5元、滑点万2）。
 
     返回结构：
       {
@@ -38,10 +48,9 @@ def run(
         data=df,
         strategy=strategy,
         initial_cash=initial_cash,
-        commission_rate=commission_rate,
-        stamp_tax_rate=stamp_tax_rate,
         t_plus_one=True,
         history_depth=100,
+        **_cost_kwargs(cost),
         **kwargs,
     )
 
@@ -52,6 +61,44 @@ def run(
         "metrics": _build_metrics(result),
         "equity": equity,
         "trades": _build_trades(result),
+    }
+
+
+# ==============================
+# 成本参数转换
+# ==============================
+
+
+def _basis_to_ratio(value: float) -> float:
+    """万分比 → 小数比例（3 → 0.0003）。"""
+    try:
+        return float(value) / 10000.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _cost_kwargs(cost: dict[str, Any] | None) -> dict[str, Any]:
+    """将成本层配置（万分比）转换为 AKQuant run_backtest 引擎参数。
+
+    缺省时对齐 A 股默认成本：佣金万3、印花税千1、过户费万0.1、
+    最低佣金 5 元、滑点按比例万2。
+    """
+    c = cost or {}
+    slippage_type = c.get("slippageType", "percent")
+    if slippage_type not in ("percent", "fixed"):
+        slippage_type = "percent"
+    slippage_value = float(c.get("slippageValue", 2))
+    if slippage_type == "percent":
+        slippage = {"type": "percent", "value": _basis_to_ratio(slippage_value)}
+    else:
+        slippage = {"type": "fixed", "value": slippage_value}
+
+    return {
+        "commission_rate": _basis_to_ratio(c.get("commissionRate", 3)),
+        "stamp_tax_rate": _basis_to_ratio(c.get("stampTaxRate", 10)),
+        "transfer_fee_rate": _basis_to_ratio(c.get("transferFeeRate", 0.1)),
+        "min_commission": float(c.get("minCommission", 5.0)),
+        "slippage": slippage,
     }
 
 
