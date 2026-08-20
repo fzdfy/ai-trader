@@ -19,6 +19,7 @@ import {
   type ScreenItem,
   type RunScreenInput,
 } from "../../hooks/useScreens";
+import { useAddStockPool } from "../../hooks/useStockPool";
 
 // 选股结果行：原始结果 + 排名
 type ScreenRow = Record<string, unknown> & ScreenItem & { rank: number };
@@ -131,6 +132,7 @@ function ScreensPage() {
   const { data: industryBoards = [] } = useBoardsQuery("industry");
   const { data: conceptBoards = [] } = useBoardsQuery("concept");
   const runScreen = useRunScreen();
+  const addStockPool = useAddStockPool();
 
   const [strategyId, setStrategyId] = useState("");
   const [topN, setTopN] = useState(20);
@@ -248,6 +250,24 @@ function ScreensPage() {
     setSelectedResultSetIds((prev) => prev.filter((x) => x !== id));
   };
 
+  // 加入选股池（落库，支持按日回放；区别于前端内存的"结果集合"）
+  const handleAddToStockPool = () => {
+    const selected = rows.filter((r) => selectedSymbols.has(r.symbol));
+    if (selected.length === 0) return;
+    const source = runScreen.data?.strategy.name ?? "选股";
+    addStockPool.mutate(
+      {
+        items: selected.map((r) => ({
+          symbol: r.symbol,
+          name: r.name,
+          source,
+          score: r.score.toFixed(1),
+        })),
+      },
+      { onSuccess: () => setSelectedSymbols(new Set()) },
+    );
+  };
+
   return (
     <VStack gap={6}>
       <VStack gap={1}>
@@ -362,6 +382,28 @@ function ScreensPage() {
                   isDisabled={selectedCount === 0}
                   onClick={handleAddToResultSet}
                 />
+                <Button
+                  label={
+                    addStockPool.isPending
+                      ? "加入中..."
+                      : selectedCount > 0
+                        ? `加入选股池（已选 ${selectedCount} 只）`
+                        : "加入选股池"
+                  }
+                  variant="primary"
+                  isDisabled={selectedCount === 0 || addStockPool.isPending}
+                  onClick={handleAddToStockPool}
+                />
+                {addStockPool.isSuccess && (
+                  <Text size="sm" style={{ color: "var(--color-text-positive)" }}>
+                    已加入 {addStockPool.data?.count ?? selectedCount} 只到选股池
+                  </Text>
+                )}
+                {addStockPool.isError && (
+                  <Text size="sm" style={{ color: "var(--color-text-negative)" }}>
+                    {(addStockPool.error as Error)?.message ?? "加入选股池失败"}
+                  </Text>
+                )}
               </HStack>
               <Table<ScreenRow>
                 idKey="symbol"

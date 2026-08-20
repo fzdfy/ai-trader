@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Target,
   RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
 
@@ -99,6 +100,12 @@ function HomeLayout() {
 
           <SideNavSection title="量化" isHeaderHidden>
             <SideNavItem label="量化" icon={<Gauge size={16} />}>
+              <SideNavItem
+                label="复盘"
+                href="/home/reviews"
+                icon={<ClipboardList size={16} />}
+                isSelected={location.pathname.startsWith("/home/reviews")}
+              />
               <SideNavItem
                 label="回测"
                 href="/home/backtest"

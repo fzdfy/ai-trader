@@ -18,6 +18,8 @@ import { strategiesRoute } from "./strategies";
 import { screensRoute } from "./screens";
 import { profileRoute } from "./profile";
 import { syncRoute } from "./sync";
+import { reviewsRoute } from "./reviews";
+import { stockPoolRoute } from "./stock-pool";
 // import { adminRoute } from "./admin";
 
 const api = new Hono();
@@ -34,6 +36,8 @@ api.route("/strategies", strategiesRoute);
 api.route("/screens", screensRoute);
 api.route("/profile", profileRoute);
 api.route("/sync", syncRoute);
+api.route("/reviews", reviewsRoute);
+api.route("/stock-pool", stockPoolRoute);
 // api.route("/signals", signalsRoute);
 api.route("/news", newsRoute);
 // api.route("/backtests", backtestsRoute);

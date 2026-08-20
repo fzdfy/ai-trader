@@ -71,6 +71,13 @@
       "when": 1787049325244,
       "tag": "0009_loose_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787216079884,
+      "tag": "0010_cooing_leper_queen",
+      "breakpoints": true
     }
   ]
 }

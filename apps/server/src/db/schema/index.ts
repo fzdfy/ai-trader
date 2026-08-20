@@ -5,3 +5,4 @@ export * from "./news";
 // export * from "./bt";
 export * from "./ops";
 export * from "./auth";
+export * from "./reviews";
