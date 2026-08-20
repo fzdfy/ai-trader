@@ -25,6 +25,12 @@ interface ApiResponse<T> {
 export interface RunScreenInput {
   strategyId: number;
   topN: number;
+  /** 股票池范围：全部 / 行业 / 板块 / 前端结果集合 */
+  scope?: "all" | "industry" | "concept" | "resultSet";
+  /** scope=industry|concept 时，选中的板块代码（多选） */
+  boardCodes?: string[];
+  /** scope=resultSet 时，前端结果集合中的完整 symbol 列表 */
+  symbols?: string[];
 }
 
 // ---------- hooks ----------
