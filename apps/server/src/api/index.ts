@@ -17,6 +17,7 @@ import { factorsRoute } from "./factors";
 import { strategiesRoute } from "./strategies";
 import { screensRoute } from "./screens";
 import { profileRoute } from "./profile";
+import { syncRoute } from "./sync";
 // import { adminRoute } from "./admin";
 
 const api = new Hono();
@@ -32,6 +33,7 @@ api.route("/factors", factorsRoute);
 api.route("/strategies", strategiesRoute);
 api.route("/screens", screensRoute);
 api.route("/profile", profileRoute);
+api.route("/sync", syncRoute);
 // api.route("/signals", signalsRoute);
 api.route("/news", newsRoute);
 // api.route("/backtests", backtestsRoute);

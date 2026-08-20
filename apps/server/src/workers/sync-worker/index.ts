@@ -1,4 +1,7 @@
 import cron from "node-cron";
+import { eq } from "drizzle-orm";
+import { db } from "../../db";
+import { jobRun } from "../../db/schema";
 import { CRON_JOBS } from "./cron-config";
 import { kline1mPipe } from "./pipes/kline-1m";
 import { kline1dPipeRun } from "./pipes/kline-1d";
@@ -24,10 +27,34 @@ function wrapJob(name: string, fn: () => Promise<void>) {
   return async () => {
     if (running.has(name)) return;
     running.add(name);
+    let runId: number | null = null;
     try {
+      const inserted = await db
+        .insert(jobRun)
+        .values({ jobType: name, status: "running", startedAt: new Date() })
+        .returning({ id: jobRun.id });
+      runId = inserted[0]?.id ?? null;
+
       await fn();
+
+      if (runId != null) {
+        await db
+          .update(jobRun)
+          .set({ status: "success", finishedAt: new Date() })
+          .where(eq(jobRun.id, runId));
+      }
     } catch (error) {
       console.error(`[${name}] error:`, error);
+      if (runId != null) {
+        await db
+          .update(jobRun)
+          .set({
+            status: "failed",
+            error: (error as Error)?.message ?? String(error),
+            finishedAt: new Date(),
+          })
+          .where(eq(jobRun.id, runId));
+      }
     } finally {
       running.delete(name);
     }

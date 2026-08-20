@@ -17,8 +17,8 @@
  */
 
 import { db } from "../../../db";
-import { watchlist } from "../../../db/schema";
-import { sql } from "drizzle-orm";
+import { instrument } from "../../../db/schema";
+import { sql, eq } from "drizzle-orm";
 
 export type Period = "5d" | "1w" | "1mo";
 
@@ -77,7 +77,11 @@ async function periodStart(symbol: string, period: Period): Promise<Date | null>
  *   所以先子查询算出滚动组号 grp，外层再按 (symbol, grp) 分组。
  * - 1w / 1mo 的 DATE_TRUNC 是普通标量函数，可直接 GROUP BY。
  */
-async function aggregateSymbol(symbol: string, period: Period, start: Date | null): Promise<number> {
+async function aggregateSymbol(
+  symbol: string,
+  period: Period,
+  start: Date | null,
+): Promise<number> {
   if (start === null) {
     // 全量：先清空该 symbol 该周期的旧记录，保证与日线严格一致
     await db.execute(sql`
@@ -152,14 +156,17 @@ async function aggregateSymbol(symbol: string, period: Period, start: Date | nul
 }
 
 /**
- * 增量运行：对每个自选标的，重算包含最新交易日的各周期。
+ * 增量运行：对每个上市标的，重算包含最新交易日的各周期。
  *
  * 只在 kline-1d 管道写入完成后调用（由 sync-worker 编排）。
  */
 export async function klinePeriodPipeRun(): Promise<void> {
-  const symbols = await db.selectDistinct({ symbol: watchlist.symbol }).from(watchlist);
+  const symbols = await db
+    .select({ symbol: instrument.symbol })
+    .from(instrument)
+    .where(eq(instrument.status, "listed"));
   if (symbols.length === 0) {
-    console.log("[kline-period] no watchlist symbols, skip");
+    console.log("[kline-period] no listed symbols, skip");
     return;
   }
 
@@ -176,13 +183,16 @@ export async function klinePeriodPipeRun(): Promise<void> {
 }
 
 /**
- * 全量重建：对所有自选标的的 5d/1w/1mo 周期线完整重建。
+ * 全量重建：对所有上市标的的 5d/1w/1mo 周期线完整重建。
  * 由 scripts/sync-kline-period.ts 手动调用。
  */
 export async function klinePeriodRebuildAll(): Promise<void> {
-  const symbols = await db.selectDistinct({ symbol: watchlist.symbol }).from(watchlist);
+  const symbols = await db
+    .select({ symbol: instrument.symbol })
+    .from(instrument)
+    .where(eq(instrument.status, "listed"));
   if (symbols.length === 0) {
-    console.log("[kline-period] no watchlist symbols, skip");
+    console.log("[kline-period] no listed symbols, skip");
     return;
   }
 
