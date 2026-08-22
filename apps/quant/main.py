@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from data.router import router as data_router
 from data_loader import compute_market_trend, is_st_symbol, load_kline
 from engine import get_strategy_list, run
 from factors import get_factor_list
@@ -43,6 +44,9 @@ app = FastAPI(title="AI Trader Quant", version="0.1.0")
 # Request ID 中间件（必须在 CORS 之前）
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# stock-sdk 数据源契约层（仅声明，端点抛 NotImplementedError）
+app.include_router(data_router, prefix="/api/v1/data")
 
 
 def _get_strategy_cls(name: str) -> type:
