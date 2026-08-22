@@ -1,6 +1,7 @@
 import { db } from "../../../db";
 import { isTradeDay, isAfterMarketClose } from "../calendar";
-import { StockSDK, asyncPool } from "stock-sdk";
+import { asyncPool } from "stock-sdk";
+import { createSdk } from "../../../lib/sdk";
 import { sql, eq } from "drizzle-orm";
 import { bar1dAdj, instrument } from "../../../db/schema";
 import dayjs from "dayjs";
@@ -25,7 +26,7 @@ function toLowerCode(symbol: string): string {
 }
 
 export async function kline1dPipeRun(): Promise<void> {
-  const sdk = new StockSDK();
+  const sdk = createSdk();
 
   // 获取同步标的：全部上市标的
   const symbols = await db
@@ -124,7 +125,7 @@ export async function kline1dPipeRun(): Promise<void> {
   // 并发拉取（上游接口有隐式限流，8 并发在稳定性与速度间取平衡）
   const counts = await asyncPool(
     symbols.map((s) => () => syncOne(s.symbol)),
-    8,
+    1,
   );
   const total = counts.reduce((acc, n) => acc + n, 0);
 

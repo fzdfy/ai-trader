@@ -673,3 +673,64 @@ export const barPeriodAdj = pgTable(
     index("bar_period_adj_symbol_time_idx").on(table.period, table.symbol, table.time),
   ],
 );
+
+// ============================================================================
+
+/**
+ * fund_flow_rank — 资金流排行快照表（行业 / 概念 / 个股）
+ *
+ * 定位：落库 stock-sdk 资金流排行接口结果，供复盘资金流模块等从 DB 读取，
+ * 避免每次复盘/查询都实时拉取上游（东方财富接口网络不稳定）。
+ *
+ * 三档数据源（category 区分）：
+ *   - category = "industry"  → fundFlow.sectorRank({ sectorType: "industry" }) 行业资金流
+ *   - category = "concept"   → fundFlow.sectorRank({ sectorType: "concept" })  概念板块资金流
+ *   - category = "stock"     → fundFlow.rank()  个股资金流排行
+ *
+ * 字段为行业/概念/个股三类的并集：个股有 price，板块有 topStockCode/topStockName，
+ * 其余净流入字段三档共有。不相关字段置 null。
+ *
+ * 写入策略：收盘后定时同步，upsert（date + category + code 主键，同日覆盖为最新）。
+ * 主要读者：复盘资金流模块、资金流相关查询接口。
+ */
+export const fundFlowRank = pgTable(
+  "fund_flow_rank",
+  {
+    /** 快照日期（交易日） */
+    date: date("date").notNull(),
+    /** 分类：industry / concept / stock */
+    category: text("category").notNull(),
+    /** 排名（从 1 开始） */
+    rank: integer("rank").notNull(),
+    /** 代码（板块 BK 编号或个股代码） */
+    code: text("code").notNull(),
+    /** 名称 */
+    name: text("name").notNull(),
+    /** 涨跌幅(%) */
+    changePercent: numeric("change_percent"),
+    /** 主力净流入-净额(元) */
+    mainNetInflow: numeric("main_net_inflow"),
+    /** 主力净流入-净占比(%) */
+    mainNetInflowPercent: numeric("main_net_inflow_percent"),
+    /** 超大单净流入-净额(元) */
+    superLargeNetInflow: numeric("super_large_net_inflow"),
+    /** 大单净流入-净额(元) */
+    largeNetInflow: numeric("large_net_inflow"),
+    /** 中单净流入-净额(元) */
+    mediumNetInflow: numeric("medium_net_inflow"),
+    /** 小单净流入-净额(元) */
+    smallNetInflow: numeric("small_net_inflow"),
+    /** 最新价（仅个股有） */
+    price: numeric("price"),
+    /** 主力净流入最大股代码（仅板块有） */
+    topStockCode: text("top_stock_code"),
+    /** 主力净流入最大股名称（仅板块有） */
+    topStockName: text("top_stock_name"),
+    /** 数据更新时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.category, table.code] }),
+    index("fund_flow_rank_date_category_idx").on(table.date, table.category),
+  ],
+);

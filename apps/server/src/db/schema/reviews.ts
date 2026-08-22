@@ -17,9 +17,9 @@ import {
  *   {
  *     instructions: string,          // 给复盘 agent 的方法论提示词
  *     sections: Array<{             // 前端按此顺序动态渲染各图表模块
- *       type: "fundflow" | "mainline" | "stockpool" | "summary",
+ *       type: "fundflow" | "mainline" | "boardchange" | "limitup" | "stockpool" | "summary",
  *       title: string,
- *       chart: "bar" | "table" | "text"
+ *       chart: "fundflow" | "mainline" | "bar" | "table" | "stockpool" | "text"
  *     }>
  *   }
  *
@@ -34,19 +34,15 @@ export const reviewSkill = pgTable("review_skill", {
 /**
  * review_daily — 每日复盘结果（按交易日一份，可回放 / 重新生成覆盖）
  *
- * 生成时把当日的行业资金流、主线、选股池、总结全部快照落库，
- * 保证回放时即使行情数据已变化，复盘内容仍与生成时一致。
+ * 生成时把「组装好的自描述 sections（含渲染数据）」整体快照落库，
+ * 保证回放时即使行情数据已变化，复盘内容仍与生成时一致，且无需重新拼装。
  */
 export const reviewDaily = pgTable("review_daily", {
   /** 复盘交易日（主键，一日一份） */
   date: date("date").primaryKey(),
-  /** 行业资金流快照：Array<{ code, name, changePercent, mainNetInflow, ... }> */
-  fundflow: jsonb("fundflow").notNull(),
-  /** 主线快照：Array<{ boardName, reason }> */
-  mainline: jsonb("mainline").notNull(),
-  /** 选股池快照：Array<{ symbol, name, source, score }> */
-  stockPool: jsonb("stock_pool").notNull(),
-  /** 总结文本 */
+  /** 组装后的自描述模块（含数据）：Array<{ type, title, chart, data }> */
+  sections: jsonb("sections").notNull(),
+  /** 总结文本（列表预览用） */
   summary: text("summary").notNull(),
   /** 生成时使用的 skill 快照 */
   skill: jsonb("skill").notNull(),

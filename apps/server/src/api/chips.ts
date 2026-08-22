@@ -9,8 +9,8 @@
  */
 
 import { Hono } from "hono";
-import { StockSDK } from "stock-sdk";
 import { db } from "../db";
+import { createSdk } from "../lib/sdk";
 import { bar1dAdj } from "../db/schema";
 import { eq, lte, desc } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
@@ -88,7 +88,7 @@ chipsRoute.get("/board", async (c) => {
 
   if (!code) return badRequest(c, "code is required");
 
-  const sdk = new StockSDK();
+  const sdk = createSdk();
   let klines: Array<{ date: string; open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null }>;
   try {
     klines = await sdk.board.industry.kline(code, { period: "daily", adjust: "qfq" });

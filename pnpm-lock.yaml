@@ -15,8 +15,8 @@ importers:
         specifier: ^1.1.21
         version: 1.6.23(pg@8.22.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(solid-js@1.9.14)
       stock-sdk:
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.4.2
+        version: 2.4.2
     devDependencies:
       '@ai-trader/eslint-config':
         specifier: workspace:*
@@ -3067,6 +3067,10 @@ packages:
     resolution: {integrity: sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg==}
     engines: {node: '>=18.0.0'}
 
+  eventsource-parser@3.1.1:
+    resolution: {integrity: sha512-EKN1vKAMcZ8MlYMpaNuxN6R9yakzH6uajHcHVTqWJzvu5pWw9DyhbP35HH8MVBQ+dZjAfDxk+A8NiR9KWaXiyQ==}
+    engines: {node: '>=18.0.0'}
+
   eventsource@3.0.7:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
@@ -4412,8 +4416,8 @@ packages:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
 
-  stock-sdk@2.4.0:
-    resolution: {integrity: sha512-4pVdLKQ8x3iGYt9edasQoa4tT3/5xCK0EebLhuvFoVYyLYKP5Y8Eld/W3B0LZi2+LBgcOxeDUKd+jYxrOeCd5Q==}
+  stock-sdk@2.4.2:
+    resolution: {integrity: sha512-tLtQSQZ1SmvkDNIbFpWABgpAvK2Iu2yDf3AoGtlKWe8rYSXMziOoMXXbf9b1KU7iIXR1G5AU/a8xeB7/37eutw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -4864,14 +4868,14 @@ snapshots:
     dependencies:
       '@ai-sdk/provider': 2.0.3
       '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.1.0
+      eventsource-parser: 3.1.1
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.40(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.14
       '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.1.0
+      eventsource-parser: 3.1.1
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@5.0.13(zod@3.25.76)':
@@ -4879,7 +4883,7 @@ snapshots:
       '@ai-sdk/provider': 4.0.4
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
-      eventsource-parser: 3.1.0
+      eventsource-parser: 3.1.1
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@5.0.25(zod@3.25.76)':
@@ -7474,6 +7478,8 @@ snapshots:
 
   eventsource-parser@3.1.0: {}
 
+  eventsource-parser@3.1.1: {}
+
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.1.0
@@ -9054,7 +9060,7 @@ snapshots:
 
   statuses@2.0.2: {}
 
-  stock-sdk@2.4.0: {}
+  stock-sdk@2.4.2: {}
 
   stream-parser@0.3.1:
     dependencies:

@@ -15,8 +15,8 @@
  */
 
 import { Hono } from "hono";
-import { StockSDK } from "stock-sdk";
 import { db } from "../db";
+import { createSdk } from "../lib/sdk";
 import { board, boardConstituent } from "../db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
@@ -85,7 +85,7 @@ heatmapRoute.get("/", async (c) => {
     return badRequest(c, "type must be industry|concept");
   }
 
-  const sdk = new StockSDK();
+  const sdk = createSdk();
   let source = "db";
 
   // 1. DB 优先：板块
@@ -260,7 +260,7 @@ heatmapRoute.get("/board", async (c) => {
     return badRequest(c, "type must be industry|concept and code required");
   }
 
-  const sdk = new StockSDK();
+  const sdk = createSdk();
 
   // 1. DB 优先
   const dbRows = await db

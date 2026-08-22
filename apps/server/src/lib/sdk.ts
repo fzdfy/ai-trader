@@ -29,13 +29,16 @@ const RETRYABLE_CODES = new Set([
  */
 export function createSdk(): StockSDK {
   return new StockSDK({
-    timeout: 30_000,
+    timeout: 10_000,
     retry: {
-      maxRetries: 30,
+      maxRetries: 1,
       baseDelay: 300,
       maxDelay: 300,
       retryOnNetworkError: true,
       retryOnTimeout: true,
+    },
+    providerPolicies: {
+      eastmoney: { timeout: 10_000, rateLimit: { requestsPerSecond: 1, maxBurst: 1 } },
     },
   });
 }
@@ -58,14 +61,12 @@ export async function withSdkRetry<T>(
   fn: () => Promise<T>,
   options: RetryOptions = {},
 ): Promise<T> {
-  const { maxAttempts = 30, baseDelayMs = 300, label = "sdk" } = options;
+  const { maxAttempts = 3, baseDelayMs = 500, label = "sdk" } = options;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const result = await fn();
-      console.log("withSdkRetry result:", result);
-      return result;
+      return await fn();
     } catch (error) {
       lastError = error;
       const code = getSdkErrorCode(error);

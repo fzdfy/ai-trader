@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { StockSDK } from "stock-sdk";
+import { createSdk } from "../lib/sdk";
 import { ok, badRequest } from "../lib/response";
 
 const fundflowRoute = new Hono();
@@ -27,7 +27,7 @@ fundflowRoute.get("/", async (c) => {
     return badRequest(c, "period must be daily|weekly|monthly");
   }
 
-  const sdk = new StockSDK();
+  const sdk = createSdk();
   try {
     const rows = await sdk.fundFlow.individual(toEastmoneyCode(symbol), {
       period: period as "daily" | "weekly" | "monthly",

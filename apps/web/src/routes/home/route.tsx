@@ -18,6 +18,8 @@ import {
   Target,
   RefreshCw,
   ClipboardList,
+  FileText,
+  ListChecks,
 } from "lucide-react";
 import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
 
@@ -98,14 +100,25 @@ function HomeLayout() {
             </SideNavItem>
           </SideNavSection>
 
+          <SideNavSection title="复盘" isHeaderHidden>
+            <SideNavItem label="复盘" icon={<ClipboardList size={16} />}>
+              <SideNavItem
+                label="今日复盘"
+                href="/home/reviews/today"
+                icon={<FileText size={16} />}
+                isSelected={location.pathname === "/home/reviews/today"}
+              />
+              <SideNavItem
+                label="历史复盘"
+                href="/home/reviews/history"
+                icon={<ListChecks size={16} />}
+                isSelected={location.pathname.startsWith("/home/reviews/history")}
+              />
+            </SideNavItem>
+          </SideNavSection>
+
           <SideNavSection title="量化" isHeaderHidden>
             <SideNavItem label="量化" icon={<Gauge size={16} />}>
-              <SideNavItem
-                label="复盘"
-                href="/home/reviews"
-                icon={<ClipboardList size={16} />}
-                isSelected={location.pathname.startsWith("/home/reviews")}
-              />
               <SideNavItem
                 label="回测"
                 href="/home/backtest"

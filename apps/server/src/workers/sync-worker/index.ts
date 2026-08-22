@@ -8,9 +8,17 @@ import { kline1dPipeRun } from "./pipes/kline-1d";
 import { gapDetectPipe } from "./pipes/gap-detect";
 import { newsPipeRun } from "./pipes/news";
 import { boardsPipeRun } from "./pipes/boards";
+import { fundFlowPipeRun } from "./pipes/fundflow";
 import { featuresPipeRun } from "./pipes/features";
 
-type PipeName = "kline-1m" | "kline-1d" | "gap-detect" | "news" | "boards" | "features";
+type PipeName =
+  | "kline-1m"
+  | "kline-1d"
+  | "gap-detect"
+  | "news"
+  | "boards"
+  | "fundflow"
+  | "features";
 
 const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "kline-1m": () => kline1mPipe.run(),
@@ -18,6 +26,7 @@ const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "gap-detect": () => gapDetectPipe.run(),
   news: () => newsPipeRun(),
   boards: () => boardsPipeRun(),
+  fundflow: () => fundFlowPipeRun(),
   features: () => featuresPipeRun(),
 };
 

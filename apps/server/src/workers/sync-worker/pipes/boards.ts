@@ -8,7 +8,8 @@
  * 数据源：stock-sdk 东方财富板块排行（实时，收盘后同步为当日快照）。
  */
 
-import { StockSDK } from "stock-sdk";
+import type { StockSDK } from "stock-sdk";
+import { createSdk } from "../../../lib/sdk";
 import { db } from "../../../db";
 import { board, boardHistory } from "../../../db/schema";
 import { sql } from "drizzle-orm";
@@ -77,7 +78,7 @@ export async function syncBoardType(
 }
 
 export async function boardsPipeRun(): Promise<void> {
-  const sdk = new StockSDK();
+  const sdk = createSdk();
   // 当日日期（历史快照键）
   const today = new Date().toISOString().slice(0, 10);
 

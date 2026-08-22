@@ -16,6 +16,7 @@
     "db:push": "drizzle-kit push --verbose",
     "sync:instruments": "node --import @oxc-node/core/register scripts/sync-instruments.ts",
     "sync:boards": "node --import @oxc-node/core/register scripts/sync-boards.ts",
+    "sync:fundflow": "node --import @oxc-node/core/register scripts/sync-fundflow.ts",
     "sync:kline": "node --import @oxc-node/core/register scripts/sync-kline.ts",
     "worker:sync": "node --import @oxc-node/core/register src/workers/sync-worker/index.ts",
     "worker:feature": "node --import @oxc-node/core/register src/workers/feature-worker/index.ts",
