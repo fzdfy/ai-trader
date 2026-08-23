@@ -23,13 +23,27 @@ const RETRYABLE_CODES = new Set([
   "UPSTREAM_ERROR",
 ]);
 
+/** 正常浏览器 UA（东财风控要求带浏览器特征，避免被识别为爬虫） */
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
 /**
  * 创建带请求治理的 StockSDK 实例。
+ *
+ * 东财风控（社区实测，2026-05）：
+ *   - QPS > 5 / 单 IP 并发 ≥ 10 / 1min ≥ 200 / 5min ≥ 300 / 空 UA 无浏览器特征，均可能触发封禁。
+ * 因此按「防封铁律」配置：
+ *   - 串行不并发：eastmoney 令牌桶 requestsPerSecond=1 + maxBurst=1（每次间隔 ≥ 1s，QPS ≤ 2）；
+ *   - 正常浏览器 UA（全局，Node 环境生效）+ 东财 Referer，避免被识别为爬虫；
+ *   - 复用 HTTP 会话由 Node 全局 fetch（undici）默认 Keep-Alive 承担，无需额外参数；
+ *   - 「随机抖动」SDK 令牌桶不提供，批量循环场景需业务层在每只股票之间额外 sleep。
  * timeout 缩短单次请求上限；retry 开启网络错误/超时重试（provider 级，SDK 内部生效）。
  */
 export function createSdk(): StockSDK {
   return new StockSDK({
     timeout: 10_000,
+    // 东财风控：空 UA / 无浏览器特征会被封，统一带正常浏览器 UA（非东财 provider 兜底）
+    userAgent: BROWSER_UA,
     retry: {
       maxRetries: 1,
       baseDelay: 300,
@@ -38,7 +52,17 @@ export function createSdk(): StockSDK {
       retryOnTimeout: true,
     },
     providerPolicies: {
-      eastmoney: { timeout: 10_000, rateLimit: { requestsPerSecond: 1, maxBurst: 1 } },
+      eastmoney: {
+        timeout: 10_000,
+        // 串行不并发 + 每次间隔 ≥ 1s（QPS ≤ 2）
+        rateLimit: { requestsPerSecond: 1, maxBurst: 1 },
+        // 东财风控：显式带正常 UA + Referer
+        headers: {
+          "User-Agent": BROWSER_UA,
+          Referer: "https://quote.eastmoney.com/",
+          Accept: "application/json, text/plain, */*",
+        },
+      },
     },
   });
 }

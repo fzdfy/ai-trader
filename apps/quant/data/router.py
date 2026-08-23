@@ -1,733 +1,366 @@
+"""统一数据获取 API 路由（FastAPI APIRouter）。
+
+沿用 server 端行情 API 的设计（symbol/tf/start/end/codes 等查询参数），
+统一暴露当前已实现的行情能力：K 线 / 实时行情 / 逐笔成交 / 复权因子。
+
+挂载：main.py 中 `include_router(router, prefix="/api/v1/data")`。
+每个端点默认走 registry 的降级链，可用 `source` 参数强制指定某个数据源。
+
+返回值统一为 snake_case（对齐 server 端 DB 表字段），多数据源之间字段口径
+由 provider 层归一，调用方无需感知底层平台差异。
 """
-stock-sdk 数据源 API 声明（FastAPI Router）。
+from __future__ import annotations
 
-严格对齐 stock-sdk `StockSDK` 实例暴露的全部数据接口（命名空间、方法、
-参数、返回），仅声明契约、不实现业务逻辑 —— 每个端点均抛 `NotImplementedError`，
-供后续切换 / 接入数据源时按此契约实现。
+from typing import Annotated
 
-路径约定：
-- 命名空间用路径段表达（`quotes` / `kline` / `board` / ...）
-- 标的 / 代码类入参用 path 参数；查询选项（Options）用 query 模型展开；
-  数组入参（codes）用逗号分隔的 query 参数。
-"""
+from fastapi import APIRouter, HTTPException, Query
 
-from typing import Annotated, Literal
-
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
-
-from . import params as P
-from . import schemas as S
-
-router = APIRouter()
-
-# 市场实时状态（stock-sdk `MarketStatus`，作为字符串返回）
-MarketStatus = Literal["pre_market", "open", "lunch_break", "after_hours", "closed"]
-
-
-class BatchRawItem(BaseModel):
-    """`batch.raw` 的匿名返回结构。"""
-
-    key: str
-    fields: list[str]
-
-
-# ===========================================================================
-# 实时行情 quotes
-# ===========================================================================
-
-@router.get("/quotes/cn", response_model=list[S.FullQuote])
-def quotes_cn(codes: Annotated[list[str], Query()]):
-    """A 股 / 指数全量行情。"""
-    raise NotImplementedError("quotes.cn 待实现")
-
-
-@router.get("/quotes/cn-simple", response_model=list[S.SimpleQuote])
-def quotes_cn_simple(codes: Annotated[list[str], Query()]):
-    """A 股简要行情。"""
-    raise NotImplementedError("quotes.cnSimple 待实现")
-
-
-@router.get("/quotes/hk", response_model=list[S.HKQuote])
-def quotes_hk(codes: Annotated[list[str], Query()]):
-    """港股扩展行情。"""
-    raise NotImplementedError("quotes.hk 待实现")
-
-
-@router.get("/quotes/us", response_model=list[S.USQuote])
-def quotes_us(codes: Annotated[list[str], Query()]):
-    """美股行情。"""
-    raise NotImplementedError("quotes.us 待实现")
-
-
-@router.get("/quotes/fund", response_model=list[S.FundQuote])
-def quotes_fund(codes: Annotated[list[str], Query()]):
-    """公募基金行情。"""
-    raise NotImplementedError("quotes.fund 待实现")
-
-
-@router.get("/quotes/fund-flow", response_model=list[S.FundFlow])
-def quotes_fund_flow(codes: Annotated[list[str], Query()]):
-    """个股实时资金流向。"""
-    raise NotImplementedError("quotes.fundFlow 待实现")
-
-
-@router.get("/quotes/large-order", response_model=list[S.PanelLargeOrder])
-def quotes_large_order(codes: Annotated[list[str], Query()]):
-    """盘口大单占比。"""
-    raise NotImplementedError("quotes.largeOrder 待实现")
-
-
-@router.get("/quotes/timeline/{code}", response_model=S.TodayTimelineResponse)
-def quotes_timeline(code: str):
-    """当日分时。"""
-    raise NotImplementedError("quotes.timeline 待实现")
-
-
-# ===========================================================================
-# 代码列表 codes
-# ===========================================================================
-
-@router.get("/codes/cn", response_model=list[str])
-def codes_cn(options: P.GetAShareCodeListOptions = Depends()):
-    """A 股代码列表。"""
-    raise NotImplementedError("codes.cn 待实现")
-
-
-@router.get("/codes/us", response_model=list[str])
-def codes_us(options: P.GetUSCodeListOptions = Depends()):
-    """美股代码列表。"""
-    raise NotImplementedError("codes.us 待实现")
-
-
-@router.get("/codes/hk", response_model=list[str])
-def codes_hk():
-    """港股代码列表。"""
-    raise NotImplementedError("codes.hk 待实现")
-
-
-@router.get("/codes/fund", response_model=list[str])
-def codes_fund():
-    """公募基金代码列表。"""
-    raise NotImplementedError("codes.fund 待实现")
-
-
-# ===========================================================================
-# 批量行情 batch
-# ===========================================================================
-
-@router.get("/batch/cn", response_model=list[S.FullQuote])
-def batch_cn(options: P.GetAllAShareQuotesOptions = Depends()):
-    """全部 A 股行情。"""
-    raise NotImplementedError("batch.cn 待实现")
-
-
-@router.get("/batch/hk", response_model=list[S.HKQuote])
-def batch_hk(options: P.GetAllHKQuotesOptions = Depends()):
-    """全部港股行情。"""
-    raise NotImplementedError("batch.hk 待实现")
-
-
-@router.get("/batch/us", response_model=list[S.USQuote])
-def batch_us(options: P.GetAllUSQuotesOptions = Depends()):
-    """全部美股行情。"""
-    raise NotImplementedError("batch.us 待实现")
-
-
-@router.get("/batch/by-codes", response_model=list[S.FullQuote])
-def batch_by_codes(
-    codes: Annotated[list[str], Query()],
-    options: P.GetAllAShareQuotesOptions = Depends(),
-):
-    """按代码列表批量取 A 股行情。"""
-    raise NotImplementedError("batch.byCodes 待实现")
-
-
-@router.get("/batch/raw", response_model=list[BatchRawItem])
-def batch_raw(params: Annotated[str, Query(alias="params")]):
-    """腾讯财经批量原始接口。"""
-    raise NotImplementedError("batch.raw 待实现")
-
-
-# ===========================================================================
-# K 线 / 分时 kline
-# ===========================================================================
-
-@router.get("/kline/cn/{symbol}", response_model=list[S.HistoryKline])
-def kline_cn(symbol: str, options: P.HistoryKlineOptions = Depends()):
-    """A 股历史 K 线（日/周/月）。"""
-    raise NotImplementedError("kline.cn 待实现")
-
-
-@router.get(
-    "/kline/cn/minute/{symbol}",
-    response_model=list[S.MinuteTimeline] | list[S.MinuteKline],
+from . import registry
+from .base import (
+    CAPABILITY_ADJUST_FACTOR,
+    CAPABILITY_BLOCK_TRADE,
+    CAPABILITY_BOARD_FUND_FLOW,
+    CAPABILITY_CHIP_DISTRIBUTION,
+    CAPABILITY_CONCEPT_BLOCKS,
+    CAPABILITY_DAILY_DRAGON_TIGER,
+    CAPABILITY_DIVIDEND_HISTORY,
+    CAPABILITY_DRAGON_TIGER,
+    CAPABILITY_FUND_FLOW_120D,
+    CAPABILITY_FUND_FLOW_MINUTE,
+    CAPABILITY_HOLDER_NUM,
+    CAPABILITY_HOT_REASON,
+    CAPABILITY_INDUSTRY_COMPARISON,
+    CAPABILITY_KLINE,
+    CAPABILITY_LOCKUP_EXPIRY,
+    CAPABILITY_MARGIN_TRADING,
+    CAPABILITY_NORTHBOUND,
+    CAPABILITY_QUOTE,
+    CAPABILITY_TRANSACTION,
 )
-def kline_cn_minute(symbol: str, options: P.MinuteKlineOptions = Depends()):
-    """A 股分钟 K 线 / 分时。"""
-    raise NotImplementedError("kline.cnMinute 待实现")
-
-
-@router.get("/kline/hk/{symbol}", response_model=list[S.HKHistoryKline])
-def kline_hk(symbol: str, options: P.HKKlineOptions = Depends()):
-    """港股历史 K 线。"""
-    raise NotImplementedError("kline.hk 待实现")
-
-
-@router.get(
-    "/kline/hk/minute/{symbol}",
-    response_model=list[S.HKMinuteTimeline] | list[S.HKMinuteKline],
+from .schemas import (
+    AdjustFactor,
+    BlockTradeItem,
+    BoardFundFlow,
+    ChipDistribution,
+    ConceptBlocks,
+    DailyDragonTiger,
+    DividendItem,
+    DragonTigerBoard,
+    FundFlowDay,
+    FundFlowPoint,
+    HolderNumItem,
+    HotReasonItem,
+    IndustryComparison,
+    KlineBar,
+    LockupExpiry,
+    MarginTradingItem,
+    NorthboundPoint,
+    Quote,
+    TradeTick,
 )
-def kline_hk_minute(symbol: str, options: P.HKMinuteKlineOptions = Depends()):
-    """港股分钟 K 线 / 分时。"""
-    raise NotImplementedError("kline.hkMinute 待实现")
+
+router = APIRouter(tags=["data"])
 
 
-@router.get("/kline/us/{symbol}", response_model=list[S.USHistoryKline])
-def kline_us(symbol: str, options: P.USKlineOptions = Depends()):
-    """美股历史 K 线。"""
-    raise NotImplementedError("kline.us 待实现")
+def _pick(capability: str, source: str | None):
+    """指定 source 则强制用该源，否则返回 None 表示走降级链。"""
+    if source:
+        provider = registry.get_provider(source)
+        if capability not in provider.capabilities:
+            raise HTTPException(400, f"数据源 {source} 不支持能力 {capability}")
+        return provider
+    providers = registry.providers_for(capability)
+    if not providers:
+        raise HTTPException(500, f"没有数据源支持能力 {capability}")
+    return None  # None 表示走降级链
 
 
-@router.get(
-    "/kline/us/minute/{symbol}",
-    response_model=list[S.USMinuteTimeline] | list[S.USMinuteKline],
-)
-def kline_us_minute(symbol: str, options: P.USMinuteKlineOptions = Depends()):
-    """美股分钟 K 线 / 分时。"""
-    raise NotImplementedError("kline.usMinute 待实现")
+@router.get("/sources")
+def list_sources():
+    """列出各数据源及其能力，供调用方了解可切换的源。"""
+    return {
+        "providers": [
+            {"name": p.name, "capabilities": sorted(p.capabilities)}
+            for p in (registry.get_provider(n) for n in registry.all_provider_names())
+        ]
+    }
 
 
-@router.get("/kline/with-indicators/{symbol}", response_model=list[S.KlineWithIndicators])
-def kline_with_indicators(symbol: str, options: P.KlineWithIndicatorsOptions = Depends()):
-    """带技术指标的 K 线。"""
-    raise NotImplementedError("kline.withIndicators 待实现")
+@router.get("/kline", response_model=list[KlineBar])
+def get_kline(
+    symbol: Annotated[str, Query(description="标的代码，如 600519 / 000001.SZ")],
+    tf: Annotated[str, Query(description="周期：1m/5m/15m/30m/60m/1d/1w/1mo")] = "1d",
+    start: Annotated[str | None, Query(description="起始日期 YYYY-MM-DD")] = None,
+    end: Annotated[str | None, Query(description="结束日期 YYYY-MM-DD")] = None,
+    limit: Annotated[int, Query(ge=1, le=5000, description="返回根数上限")] = 500,
+    source: Annotated[str | None, Query(description="强制指定数据源")] = None,
+) -> list[KlineBar]:
+    """K 线（默认 mootdx，失败降级 baidu 日线）。"""
+    provider = _pick(CAPABILITY_KLINE, source)
+    if provider is not None:
+        return provider.kline(symbol, tf=tf, limit=limit, start=start, end=end)
+    return registry.call_with_fallback(
+        CAPABILITY_KLINE, "kline", symbol, tf=tf, limit=limit, start=start, end=end
+    )
 
 
-@router.get("/kline/signals/{symbol}", response_model=list[S.KlineSignal])
-def kline_signals(symbol: str, options: P.KlineSignalsOptions = Depends()):
-    """K 线指标信号识别。"""
-    raise NotImplementedError("kline.signals 待实现")
+@router.get("/quotes", response_model=dict[str, Quote])
+def get_quotes(
+    codes: Annotated[str, Query(description="逗号分隔的代码列表")],
+    source: Annotated[str | None, Query()] = None,
+) -> dict[str, Quote]:
+    """批量实时行情（默认腾讯含 PE/PB/市值，失败降级 mootdx 五档）。"""
+    symbols = [c.strip() for c in codes.split(",") if c.strip()]
+    if not symbols:
+        return {}
+    provider = _pick(CAPABILITY_QUOTE, source)
+    if provider is not None:
+        return provider.quote(symbols)
+    return registry.call_with_fallback(CAPABILITY_QUOTE, "quote", symbols)
 
 
-# ===========================================================================
-# 筹码分布 chips
-# ===========================================================================
-
-@router.get("/chips/cn/{symbol}", response_model=list[S.ChipDistributionItem])
-def chips_cn(symbol: str, options: P.ChipDistributionRequestOptions = Depends()):
-    """A 股筹码分布。"""
-    raise NotImplementedError("chips.cn 待实现")
-
-
-@router.get("/chips/hk/{symbol}", response_model=list[S.ChipDistributionItem])
-def chips_hk(symbol: str, options: P.ChipDistributionRequestOptions = Depends()):
-    """港股筹码分布。"""
-    raise NotImplementedError("chips.hk 待实现")
-
-
-@router.get("/chips/us/{symbol}", response_model=list[S.ChipDistributionItem])
-def chips_us(symbol: str, options: P.ChipDistributionRequestOptions = Depends()):
-    """美股筹码分布。"""
-    raise NotImplementedError("chips.us 待实现")
-
-
-# ===========================================================================
-# 板块 board（行业 / 概念）
-# ===========================================================================
-
-@router.get("/board/industry/list", response_model=list[S.IndustryBoard])
-def board_industry_list():
-    """行业板块列表。"""
-    raise NotImplementedError("board.industry.list 待实现")
-
-
-@router.get("/board/industry/spot/{symbol}", response_model=list[S.IndustryBoardSpot])
-def board_industry_spot(symbol: str):
-    """行业板块实时行情指标。"""
-    raise NotImplementedError("board.industry.spot 待实现")
-
-
-@router.get(
-    "/board/industry/constituents/{symbol}",
-    response_model=list[S.IndustryBoardConstituent],
-)
-def board_industry_constituents(symbol: str):
-    """行业板块成分股。"""
-    raise NotImplementedError("board.industry.constituents 待实现")
-
-
-@router.get("/board/industry/kline/{symbol}", response_model=list[S.IndustryBoardKline])
-def board_industry_kline(symbol: str, options: P.BoardKlineOptions = Depends()):
-    """行业板块历史 K 线。"""
-    raise NotImplementedError("board.industry.kline 待实现")
-
-
-@router.get(
-    "/board/industry/minute-kline/{symbol}",
-    response_model=list[S.IndustryBoardMinuteTimeline] | list[S.IndustryBoardMinuteKline],
-)
-def board_industry_minute_kline(symbol: str, options: P.BoardMinuteKlineOptions = Depends()):
-    """行业板块分钟 K 线。"""
-    raise NotImplementedError("board.industry.minuteKline 待实现")
-
-
-@router.get("/board/concept/list", response_model=list[S.ConceptBoard])
-def board_concept_list():
-    """概念板块列表。"""
-    raise NotImplementedError("board.concept.list 待实现")
-
-
-@router.get("/board/concept/spot/{symbol}", response_model=list[S.ConceptBoardSpot])
-def board_concept_spot(symbol: str):
-    """概念板块实时行情指标。"""
-    raise NotImplementedError("board.concept.spot 待实现")
-
-
-@router.get(
-    "/board/concept/constituents/{symbol}",
-    response_model=list[S.ConceptBoardConstituent],
-)
-def board_concept_constituents(symbol: str):
-    """概念板块成分股。"""
-    raise NotImplementedError("board.concept.constituents 待实现")
-
-
-@router.get("/board/concept/kline/{symbol}", response_model=list[S.ConceptBoardKline])
-def board_concept_kline(symbol: str, options: P.BoardKlineOptions = Depends()):
-    """概念板块历史 K 线。"""
-    raise NotImplementedError("board.concept.kline 待实现")
-
-
-@router.get(
-    "/board/concept/minute-kline/{symbol}",
-    response_model=list[S.ConceptBoardMinuteTimeline] | list[S.ConceptBoardMinuteKline],
-)
-def board_concept_minute_kline(symbol: str, options: P.BoardMinuteKlineOptions = Depends()):
-    """概念板块分钟 K 线。"""
-    raise NotImplementedError("board.concept.minuteKline 待实现")
-
-
-# ===========================================================================
-# 期权 options
-# ===========================================================================
-
-@router.get("/options/index/spot", response_model=S.OptionTQuoteResult)
-def options_index_spot(
-    product: Annotated[P.IndexOptionProduct, Query()],
-    contract: Annotated[str, Query()],
-):
-    """股指期权 T 型报价。"""
-    raise NotImplementedError("options.index.spot 待实现")
-
-
-@router.get("/options/index/kline/{symbol}", response_model=list[S.OptionKline])
-def options_index_kline(symbol: str):
-    """股指期权日 K 线。"""
-    raise NotImplementedError("options.index.kline 待实现")
-
-
-@router.get("/options/etf/months", response_model=S.ETFOptionMonth)
-def options_etf_months(cate: Annotated[P.ETFOptionCate, Query()]):
-    """ETF 期权月份信息。"""
-    raise NotImplementedError("options.etf.months 待实现")
-
-
-@router.get("/options/etf/expire-day", response_model=S.ETFOptionExpireDay)
-def options_etf_expire_day(
-    cate: Annotated[P.ETFOptionCate, Query()],
-    month: Annotated[str, Query()],
-):
-    """ETF 期权到期信息。"""
-    raise NotImplementedError("options.etf.expireDay 待实现")
-
-
-@router.get("/options/etf/minute/{code}", response_model=list[S.OptionMinute])
-def options_etf_minute(code: str):
-    """ETF 期权分钟数据。"""
-    raise NotImplementedError("options.etf.minute 待实现")
-
-
-@router.get("/options/etf/daily-kline/{code}", response_model=list[S.OptionKline])
-def options_etf_daily_kline(code: str):
-    """ETF 期权日 K 线。"""
-    raise NotImplementedError("options.etf.dailyKline 待实现")
-
-
-@router.get("/options/etf/five-day-minute/{code}", response_model=list[S.OptionMinute])
-def options_etf_five_day_minute(code: str):
-    """ETF 期权近五日分钟数据。"""
-    raise NotImplementedError("options.etf.fiveDayMinute 待实现")
-
-
-@router.get("/options/commodity/spot", response_model=S.OptionTQuoteResult)
-def options_commodity_spot(
-    variety: Annotated[str, Query()],
-    contract: Annotated[str, Query()],
-):
-    """商品期权 T 型报价。"""
-    raise NotImplementedError("options.commodity.spot 待实现")
-
-
-@router.get("/options/commodity/kline/{symbol}", response_model=list[S.OptionKline])
-def options_commodity_kline(symbol: str):
-    """商品期权日 K 线。"""
-    raise NotImplementedError("options.commodity.kline 待实现")
-
-
-@router.get("/options/cffex/quotes", response_model=list[S.CFFEXOptionQuote])
-def options_cffex_quotes(options: P.CFFEXOptionQuotesOptions = Depends()):
-    """中金所期权实时行情列表。"""
-    raise NotImplementedError("options.cffex.quotes 待实现")
-
-
-@router.get("/options/lhb", response_model=list[S.OptionLHBItem])
-def options_lhb(
+@router.get("/transaction", response_model=list[TradeTick])
+def get_transaction(
     symbol: Annotated[str, Query()],
-    date: Annotated[str, Query()],
-):
-    """期权龙虎榜。"""
-    raise NotImplementedError("options.lhb 待实现")
-
-
-# ===========================================================================
-# 期货 futures
-# ===========================================================================
-
-@router.get("/futures/kline/{symbol}", response_model=list[S.FuturesKline])
-def futures_kline(symbol: str, options: P.FuturesKlineOptions = Depends()):
-    """国内期货 K 线。"""
-    raise NotImplementedError("futures.kline 待实现")
-
-
-@router.get("/futures/global-spot", response_model=list[S.GlobalFuturesQuote])
-def futures_global_spot(options: P.GlobalFuturesSpotOptions = Depends()):
-    """全球期货实时报价。"""
-    raise NotImplementedError("futures.globalSpot 待实现")
-
-
-@router.get("/futures/global-kline/{symbol}", response_model=list[S.FuturesKline])
-def futures_global_kline(symbol: str, options: P.GlobalFuturesKlineOptions = Depends()):
-    """全球期货 K 线。"""
-    raise NotImplementedError("futures.globalKline 待实现")
-
-
-@router.get("/futures/inventory-symbols", response_model=list[S.FuturesInventorySymbol])
-def futures_inventory_symbols():
-    """期货库存品种列表。"""
-    raise NotImplementedError("futures.inventorySymbols 待实现")
-
-
-@router.get("/futures/inventory/{symbol}", response_model=list[S.FuturesInventory])
-def futures_inventory(symbol: str, options: P.FuturesInventoryOptions = Depends()):
-    """期货库存数据。"""
-    raise NotImplementedError("futures.inventory 待实现")
-
-
-@router.get("/futures/comex-inventory/{symbol}", response_model=list[S.ComexInventory])
-def futures_comex_inventory(
-    symbol: Literal["gold", "silver"],
-    options: P.ComexInventoryOptions = Depends(),
-):
-    """COMEX 库存数据。"""
-    raise NotImplementedError("futures.comexInventory 待实现")
-
-
-# ===========================================================================
-# 资金流向 fundFlow
-# ===========================================================================
-
-@router.get("/fund-flow/individual/{symbol}", response_model=list[S.StockFundFlowDaily])
-def fund_flow_individual(symbol: str, options: P.FundFlowOptions = Depends()):
-    """个股资金流（日/周/月线）。"""
-    raise NotImplementedError("fundFlow.individual 待实现")
-
-
-@router.get("/fund-flow/market", response_model=list[S.MarketFundFlow])
-def fund_flow_market():
-    """大盘资金流（按日）。"""
-    raise NotImplementedError("fundFlow.market 待实现")
-
-
-@router.get("/fund-flow/rank", response_model=list[S.FundFlowRankItem])
-def fund_flow_rank(options: P.FundFlowRankOptions = Depends()):
-    """个股资金流排名。"""
-    raise NotImplementedError("fundFlow.rank 待实现")
-
-
-@router.get("/fund-flow/sector-rank", response_model=list[S.SectorFundFlowItem])
-def fund_flow_sector_rank(options: P.FundFlowRankOptions = Depends()):
-    """板块资金流排名。"""
-    raise NotImplementedError("fundFlow.sectorRank 待实现")
-
-
-@router.get("/fund-flow/sector-history/{symbol}", response_model=list[S.StockFundFlowDaily])
-def fund_flow_sector_history(symbol: str, options: P.FundFlowOptions = Depends()):
-    """板块资金流历史。"""
-    raise NotImplementedError("fundFlow.sectorHistory 待实现")
-
-
-# ===========================================================================
-# 沪深港通 / 北向 northbound
-# ===========================================================================
-
-@router.get("/northbound/minute", response_model=list[S.NorthboundMinuteItem])
-def northbound_minute(
-    direction: Annotated[P.NorthboundDirection | None, Query()] = None,
-):
-    """北向 / 南向资金分时。"""
-    raise NotImplementedError("northbound.minute 待实现")
-
-
-@router.get("/northbound/summary", response_model=list[S.NorthboundFlowSummary])
-def northbound_summary():
-    """沪深港通市场资金流向汇总。"""
-    raise NotImplementedError("northbound.summary 待实现")
-
-
-@router.get("/northbound/holding-rank", response_model=list[S.NorthboundHoldingRankItem])
-def northbound_holding_rank(options: P.NorthboundHoldingRankOptions = Depends()):
-    """北向持股个股排行。"""
-    raise NotImplementedError("northbound.holdingRank 待实现")
-
-
-@router.get("/northbound/history", response_model=list[S.NorthboundHistoryItem])
-def northbound_history(
-    direction: Annotated[P.NorthboundDirection | None, Query()] = None,
-    options: P.NorthboundHistoryOptions = Depends(),
-):
-    """北向资金历史。"""
-    raise NotImplementedError("northbound.history 待实现")
-
-
-@router.get("/northbound/individual/{symbol}", response_model=list[S.NorthboundIndividualItem])
-def northbound_individual(symbol: str, options: P.NorthboundHistoryOptions = Depends()):
-    """个股北向持仓历史。"""
-    raise NotImplementedError("northbound.individual 待实现")
-
-
-# ===========================================================================
-# 涨停 / 盘口异动 marketEvent
-# ===========================================================================
-
-@router.get("/market-event/zt-pool", response_model=list[S.ZTPoolItem])
-def market_event_zt_pool(
-    type: Annotated[P.ZTPoolType | None, Query(alias="type")] = None,
-    date: Annotated[str | None, Query()] = None,
-):
-    """涨停股池。"""
-    raise NotImplementedError("marketEvent.ztPool 待实现")
-
-
-@router.get("/market-event/stock-changes", response_model=list[S.StockChangeItem])
-def market_event_stock_changes(
-    type: Annotated[str | None, Query(alias="type")] = None,
-):
-    """盘口异动（`type` 可为单个类型 / 逗号分隔 / `'all'`）。"""
-    raise NotImplementedError("marketEvent.stockChanges 待实现")
-
-
-@router.get("/market-event/board-changes", response_model=list[S.BoardChangeItem])
-def market_event_board_changes():
-    """板块异动。"""
-    raise NotImplementedError("marketEvent.boardChanges 待实现")
-
-
-@router.get(
-    "/market-event/individual-changes/{symbol}",
-    response_model=list[S.IndividualStockChangeItem],
-)
-def market_event_individual_changes(
-    symbol: str,
-    options: P.IndividualChangesOptions = Depends(),
-):
-    """个股盘口异动事件。"""
-    raise NotImplementedError("marketEvent.individualChanges 待实现")
-
-
-@router.get(
-    "/market-event/individual-changes-history/{symbol}",
-    response_model=S.IndividualChangesHistory,
-)
-def market_event_individual_changes_history(
-    symbol: str,
-    options: P.IndividualChangesHistoryOptions = Depends(),
-):
-    """个股近 N 天异动历史。"""
-    raise NotImplementedError("marketEvent.individualChangesHistory 待实现")
-
-
-# ===========================================================================
-# 龙虎榜 dragonTiger
-# ===========================================================================
-
-@router.get("/dragon-tiger/detail", response_model=list[S.DragonTigerDetailItem])
-def dragon_tiger_detail(options: P.DragonTigerDateOptions = Depends()):
-    """龙虎榜详情。"""
-    raise NotImplementedError("dragonTiger.detail 待实现")
-
-
-@router.get("/dragon-tiger/stock-stats", response_model=list[S.DragonTigerStockStatItem])
-def dragon_tiger_stock_stats(
-    period: Annotated[P.DragonTigerPeriod | None, Query()] = None,
-):
-    """龙虎榜个股上榜统计。"""
-    raise NotImplementedError("dragonTiger.stockStats 待实现")
-
-
-@router.get("/dragon-tiger/institution", response_model=list[S.DragonTigerInstitutionItem])
-def dragon_tiger_institution(options: P.DragonTigerDateOptions = Depends()):
-    """龙虎榜机构买卖。"""
-    raise NotImplementedError("dragonTiger.institution 待实现")
-
-
-@router.get("/dragon-tiger/branch-rank", response_model=list[S.DragonTigerBranchItem])
-def dragon_tiger_branch_rank(
-    period: Annotated[P.DragonTigerPeriod | None, Query()] = None,
-):
-    """龙虎榜营业部排行。"""
-    raise NotImplementedError("dragonTiger.branchRank 待实现")
-
-
-@router.get("/dragon-tiger/seat-detail/{symbol}", response_model=list[S.DragonTigerSeatItem])
-def dragon_tiger_seat_detail(
-    symbol: str,
-    date: Annotated[str, Query()],
-):
-    """龙虎榜个股席位明细。"""
-    raise NotImplementedError("dragonTiger.seatDetail 待实现")
-
-
-# ===========================================================================
-# 大宗交易 blockTrade
-# ===========================================================================
-
-@router.get("/block-trade/market-stat", response_model=list[S.BlockTradeMarketStatItem])
-def block_trade_market_stat():
-    """大宗交易市场统计。"""
-    raise NotImplementedError("blockTrade.marketStat 待实现")
-
-
-@router.get("/block-trade/detail", response_model=list[S.BlockTradeDetailItem])
-def block_trade_detail(options: P.BlockTradeDateOptions = Depends()):
-    """大宗交易明细。"""
-    raise NotImplementedError("blockTrade.detail 待实现")
-
-
-@router.get("/block-trade/daily-stat", response_model=list[S.BlockTradeDailyStatItem])
-def block_trade_daily_stat(options: P.BlockTradeDateOptions = Depends()):
-    """大宗交易每日统计。"""
-    raise NotImplementedError("blockTrade.dailyStat 待实现")
-
-
-# ===========================================================================
-# 融资融券 margin
-# ===========================================================================
-
-@router.get("/margin/account-info", response_model=list[S.MarginAccountItem])
-def margin_account_info():
-    """融资融券账户统计。"""
-    raise NotImplementedError("margin.accountInfo 待实现")
-
-
-@router.get("/margin/target-list", response_model=list[S.MarginTargetItem])
-def margin_target_list(date: Annotated[str | None, Query()] = None):
-    """融资融券标的证券。"""
-    raise NotImplementedError("margin.targetList 待实现")
-
-
-# ===========================================================================
-# 公募基金 fund
-# ===========================================================================
-
-@router.get("/fund/dividend-list", response_model=S.FundDividendListResult)
-def fund_dividend_list(options: P.FundDividendListOptions = Depends()):
-    """基金分红明细。"""
-    raise NotImplementedError("fund.dividendList 待实现")
-
-
-@router.get("/fund/nav-history/{code}", response_model=S.FundNavHistory)
-def fund_nav_history(code: str):
-    """基金历史净值。"""
-    raise NotImplementedError("fund.navHistory 待实现")
-
-
-@router.get("/fund/rank-history/{code}", response_model=S.FundRankHistory)
-def fund_rank_history(code: str):
-    """基金同类排名走势。"""
-    raise NotImplementedError("fund.rankHistory 待实现")
-
-
-@router.get("/fund/profile/{code}", response_model=S.FundProfile)
-def fund_profile(code: str):
-    """基金深度资料。"""
-    raise NotImplementedError("fund.profile 待实现")
-
-
-@router.get("/fund/theme/list", response_model=S.ThemeFundListResult)
-def fund_theme_list(options: P.GetThemeListOptions = Depends()):
-    """主题基金列表。"""
-    raise NotImplementedError("fund.theme.getThemeList 待实现")
-
-
-@router.get("/fund/theme/funds/{theme_code}", response_model=S.ThemeFundItemList)
-def fund_theme_funds(theme_code: str, options: P.GetThemeFundsOptions = Depends()):
-    """主题下基金列表。"""
-    raise NotImplementedError("fund.theme.getThemeFunds 待实现")
-
-
-# ===========================================================================
-# 交易日历 / 市场状态 calendar
-# ===========================================================================
-
-@router.get("/calendar/is-trading-day")
-def calendar_is_trading_day(date: Annotated[str | None, Query()] = None) -> bool:
-    """判断是否 A 股交易日。"""
-    raise NotImplementedError("calendar.isTradingDay 待实现")
-
-
-@router.get("/calendar/next-trading-day")
-def calendar_next_trading_day(date: Annotated[str | None, Query()] = None) -> str:
-    """下一个交易日。"""
-    raise NotImplementedError("calendar.nextTradingDay 待实现")
-
-
-@router.get("/calendar/prev-trading-day")
-def calendar_prev_trading_day(date: Annotated[str | None, Query()] = None) -> str:
-    """上一个交易日。"""
-    raise NotImplementedError("calendar.prevTradingDay 待实现")
-
-
-@router.get("/calendar/market-status", response_model=MarketStatus)
-def calendar_market_status(
-    market: Annotated[P.SupportedMarket | None, Query()] = None,
-    now: Annotated[str | None, Query()] = None,
-) -> MarketStatus:
-    """当前市场状态。"""
-    raise NotImplementedError("calendar.marketStatus 待实现")
-
-
-# ===========================================================================
-# 参考数据 reference
-# ===========================================================================
-
-@router.get("/reference/dividend-detail/{symbol}", response_model=list[S.DividendDetail])
-def reference_dividend_detail(symbol: str):
-    """分红派送详情。"""
-    raise NotImplementedError("reference.dividendDetail 待实现")
-
-
-@router.get("/reference/trading-calendar", response_model=list[str])
-def reference_trading_calendar():
-    """交易日历原始数组。"""
-    raise NotImplementedError("reference.tradingCalendar 待实现")
-
-
-# ===========================================================================
-# 搜索 search
-# ===========================================================================
-
-@router.get("/search", response_model=list[S.SearchResult])
-def search(keyword: Annotated[str, Query()]):
-    """模糊搜索股票/指数/基金等。"""
-    raise NotImplementedError("search 待实现")
+    date: Annotated[str | None, Query(description="交易日 YYYYMMDD，缺省为最近")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[TradeTick]:
+    """逐笔成交（仅 mootdx）。"""
+    provider = _pick(CAPABILITY_TRANSACTION, source)
+    if provider is not None:
+        return provider.transaction(symbol, date=date)
+    return registry.call_with_fallback(CAPABILITY_TRANSACTION, "transaction", symbol, date=date)
+
+
+@router.get("/adjust-factor", response_model=list[AdjustFactor])
+def get_adjust_factor(
+    symbol: Annotated[str, Query()],
+    kind: Annotated[str, Query(description="qfq 前复权 / hfq 后复权")] = "qfq",
+    source: Annotated[str | None, Query()] = None,
+) -> list[AdjustFactor]:
+    """复权因子序列（仅新浪）。"""
+    provider = _pick(CAPABILITY_ADJUST_FACTOR, source)
+    if provider is not None:
+        return provider.adjust_factor(symbol, kind=kind)
+    return registry.call_with_fallback(
+        CAPABILITY_ADJUST_FACTOR, "adjust_factor", symbol, kind=kind
+    )
+
+
+# ============================================================================
+# 信号层（Layer 3）
+# ============================================================================
+
+
+@router.get("/hot-reason", response_model=list[HotReasonItem])
+def get_hot_reason(
+    date: Annotated[str | None, Query(description="YYYY-MM-DD，缺省为今天")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[HotReasonItem]:
+    """同花顺当日强势股 + 题材归因（仅同花顺）。"""
+    provider = _pick(CAPABILITY_HOT_REASON, source)
+    if provider is not None:
+        return provider.hot_reason(date=date)
+    return registry.call_with_fallback(CAPABILITY_HOT_REASON, "hot_reason", date=date)
+
+
+@router.get("/northbound", response_model=list[NorthboundPoint])
+def get_northbound(source: Annotated[str | None, Query()] = None) -> list[NorthboundPoint]:
+    """沪深股通当日实时分钟流向（仅同花顺）。"""
+    provider = _pick(CAPABILITY_NORTHBOUND, source)
+    if provider is not None:
+        return provider.northbound()
+    return registry.call_with_fallback(CAPABILITY_NORTHBOUND, "northbound")
+
+
+@router.get("/concept-blocks", response_model=ConceptBlocks)
+def get_concept_blocks(
+    symbol: Annotated[str, Query(description="标的代码，如 600519")],
+    source: Annotated[str | None, Query()] = None,
+) -> ConceptBlocks:
+    """个股所属板块/概念归属（东财 slist）。"""
+    provider = _pick(CAPABILITY_CONCEPT_BLOCKS, source)
+    if provider is not None:
+        return provider.concept_blocks(symbol)
+    return registry.call_with_fallback(CAPABILITY_CONCEPT_BLOCKS, "concept_blocks", symbol)
+
+
+@router.get("/fund-flow-minute", response_model=list[FundFlowPoint])
+def get_fund_flow_minute(
+    symbol: Annotated[str, Query()],
+    source: Annotated[str | None, Query()] = None,
+) -> list[FundFlowPoint]:
+    """个股资金流向（分钟级，单位元）。"""
+    provider = _pick(CAPABILITY_FUND_FLOW_MINUTE, source)
+    if provider is not None:
+        return provider.fund_flow_minute(symbol)
+    return registry.call_with_fallback(CAPABILITY_FUND_FLOW_MINUTE, "fund_flow_minute", symbol)
+
+
+@router.get("/dragon-tiger", response_model=DragonTigerBoard)
+def get_dragon_tiger(
+    symbol: Annotated[str, Query()],
+    trade_date: Annotated[str | None, Query(description="YYYY-MM-DD，缺省为今天")] = None,
+    look_back: Annotated[int, Query(ge=1, le=365, description="回看天数")] = 30,
+    source: Annotated[str | None, Query()] = None,
+) -> DragonTigerBoard:
+    """个股龙虎榜（上榜记录 + 买卖席位 + 机构动向）。"""
+    provider = _pick(CAPABILITY_DRAGON_TIGER, source)
+    if provider is not None:
+        return provider.dragon_tiger(symbol, trade_date=trade_date, look_back=look_back)
+    return registry.call_with_fallback(
+        CAPABILITY_DRAGON_TIGER, "dragon_tiger", symbol, trade_date=trade_date, look_back=look_back
+    )
+
+
+@router.get("/lockup-expiry", response_model=LockupExpiry)
+def get_lockup_expiry(
+    symbol: Annotated[str, Query()],
+    trade_date: Annotated[str | None, Query()] = None,
+    forward_days: Annotated[int, Query(ge=1, le=365)] = 90,
+    source: Annotated[str | None, Query()] = None,
+) -> LockupExpiry:
+    """限售解禁日历（历史 + 未来 N 天）。"""
+    provider = _pick(CAPABILITY_LOCKUP_EXPIRY, source)
+    if provider is not None:
+        return provider.lockup_expiry(symbol, trade_date=trade_date, forward_days=forward_days)
+    return registry.call_with_fallback(
+        CAPABILITY_LOCKUP_EXPIRY, "lockup_expiry", symbol, trade_date=trade_date, forward_days=forward_days
+    )
+
+
+@router.get("/industry-comparison", response_model=IndustryComparison)
+def get_industry_comparison(
+    top_n: Annotated[int, Query(ge=1, le=100)] = 20,
+    source: Annotated[str | None, Query()] = None,
+) -> IndustryComparison:
+    """全行业涨跌幅排名（东财行业板块）。"""
+    provider = _pick(CAPABILITY_INDUSTRY_COMPARISON, source)
+    if provider is not None:
+        return provider.industry_comparison(top_n=top_n)
+    return registry.call_with_fallback(CAPABILITY_INDUSTRY_COMPARISON, "industry_comparison", top_n=top_n)
+
+
+@router.get("/board-fund-flow", response_model=BoardFundFlow)
+def get_board_fund_flow(
+    board_type: Annotated[str, Query(description="industry/concept/region")] = "industry",
+    period: Annotated[str, Query(description="today/5d/10d")] = "today",
+    top_n: Annotated[int, Query(ge=1, le=100)] = 20,
+    source: Annotated[str | None, Query()] = None,
+) -> BoardFundFlow:
+    """板块资金流向（行业/概念/地域 × 今日/5日/10日）。"""
+    provider = _pick(CAPABILITY_BOARD_FUND_FLOW, source)
+    if provider is not None:
+        return provider.board_fund_flow(board_type=board_type, period=period, top_n=top_n)
+    return registry.call_with_fallback(
+        CAPABILITY_BOARD_FUND_FLOW, "board_fund_flow", board_type=board_type, period=period, top_n=top_n
+    )
+
+
+@router.get("/daily-dragon-tiger", response_model=DailyDragonTiger)
+def get_daily_dragon_tiger(
+    trade_date: Annotated[str | None, Query(description="YYYY-MM-DD，缺省为今天")] = None,
+    min_net_buy: Annotated[float | None, Query(description="净买入下限（万元）")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> DailyDragonTiger:
+    """全市场龙虎榜汇总。"""
+    provider = _pick(CAPABILITY_DAILY_DRAGON_TIGER, source)
+    if provider is not None:
+        return provider.daily_dragon_tiger(trade_date=trade_date, min_net_buy=min_net_buy)
+    return registry.call_with_fallback(
+        CAPABILITY_DAILY_DRAGON_TIGER, "daily_dragon_tiger", trade_date=trade_date, min_net_buy=min_net_buy
+    )
+
+
+# ============================================================================
+# 资金面 / 筹码层（Layer 4）
+# ============================================================================
+
+
+@router.get("/margin-trading", response_model=list[MarginTradingItem])
+def get_margin_trading(
+    symbol: Annotated[str, Query()],
+    page_size: Annotated[int, Query(ge=1, le=100)] = 30,
+    source: Annotated[str | None, Query()] = None,
+) -> list[MarginTradingItem]:
+    """融资融券明细（日级）。"""
+    provider = _pick(CAPABILITY_MARGIN_TRADING, source)
+    if provider is not None:
+        return provider.margin_trading(symbol, page_size=page_size)
+    return registry.call_with_fallback(
+        CAPABILITY_MARGIN_TRADING, "margin_trading", symbol, page_size=page_size
+    )
+
+
+@router.get("/block-trade", response_model=list[BlockTradeItem])
+def get_block_trade(
+    symbol: Annotated[str, Query()],
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    source: Annotated[str | None, Query()] = None,
+) -> list[BlockTradeItem]:
+    """大宗交易记录。"""
+    provider = _pick(CAPABILITY_BLOCK_TRADE, source)
+    if provider is not None:
+        return provider.block_trade(symbol, page_size=page_size)
+    return registry.call_with_fallback(
+        CAPABILITY_BLOCK_TRADE, "block_trade", symbol, page_size=page_size
+    )
+
+
+@router.get("/holder-num", response_model=list[HolderNumItem])
+def get_holder_num(
+    symbol: Annotated[str, Query()],
+    page_size: Annotated[int, Query(ge=1, le=100)] = 10,
+    source: Annotated[str | None, Query()] = None,
+) -> list[HolderNumItem]:
+    """股东户数变化（季度级）。"""
+    provider = _pick(CAPABILITY_HOLDER_NUM, source)
+    if provider is not None:
+        return provider.holder_num(symbol, page_size=page_size)
+    return registry.call_with_fallback(
+        CAPABILITY_HOLDER_NUM, "holder_num", symbol, page_size=page_size
+    )
+
+
+@router.get("/dividend-history", response_model=list[DividendItem])
+def get_dividend_history(
+    symbol: Annotated[str, Query()],
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    source: Annotated[str | None, Query()] = None,
+) -> list[DividendItem]:
+    """分红送转历史。"""
+    provider = _pick(CAPABILITY_DIVIDEND_HISTORY, source)
+    if provider is not None:
+        return provider.dividend_history(symbol, page_size=page_size)
+    return registry.call_with_fallback(
+        CAPABILITY_DIVIDEND_HISTORY, "dividend_history", symbol, page_size=page_size
+    )
+
+
+@router.get("/fund-flow-120d", response_model=list[FundFlowDay])
+def get_fund_flow_120d(
+    symbol: Annotated[str, Query()],
+    source: Annotated[str | None, Query()] = None,
+) -> list[FundFlowDay]:
+    """个股资金流（日级，最近 120 个交易日，单位元）。"""
+    provider = _pick(CAPABILITY_FUND_FLOW_120D, source)
+    if provider is not None:
+        return provider.fund_flow_120d(symbol)
+    return registry.call_with_fallback(CAPABILITY_FUND_FLOW_120D, "fund_flow_120d", symbol)
+
+
+@router.get("/chip-distribution", response_model=ChipDistribution)
+def get_chip_distribution(
+    symbol: Annotated[str, Query()],
+    days: Annotated[int, Query(ge=30, le=1000, description="回看交易日数")] = 120,
+    grid_size: Annotated[int, Query(ge=50, le=1000)] = 300,
+    decay: Annotated[float, Query(ge=0.1, le=3.0, description="换手衰减系数")] = 1.0,
+    source: Annotated[str | None, Query()] = None,
+) -> ChipDistribution:
+    """筹码分布（本地推演：获利比例 / 平均成本 / 成本区间 / 筹码峰）。"""
+    provider = _pick(CAPABILITY_CHIP_DISTRIBUTION, source)
+    if provider is not None:
+        return provider.chip_distribution(symbol, days=days, grid_size=grid_size, decay=decay)
+    return registry.call_with_fallback(
+        CAPABILITY_CHIP_DISTRIBUTION, "chip_distribution", symbol, days=days, grid_size=grid_size, decay=decay
+    )

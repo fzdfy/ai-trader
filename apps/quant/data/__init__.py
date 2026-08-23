@@ -1,16 +1,37 @@
 """
-quant 数据源契约层（对齐 stock-sdk）。
+quant 统一数据获取包。
 
-本包声明了 stock-sdk 全部数据接口的请求参数（params）、返回结构（schemas）
-与 API 路由（router），仅作契约声明、不实现任何数据拉取逻辑，为后续切换
-数据源提供统一的接口基线。
+提供「统一接口 + 多平台数据源 + 降级策略」的数据获取层：
+- `base`      统一接口协议（MarketProvider 抽象基类 + 能力常量）
+- `schemas`   统一返回模型（snake_case，对齐 server 端 DB 表字段）
+- `common`    公共工具（代码归一化 / 市场前缀 / 通达信客户端）
+- `registry`  数据源注册表 + 降级选择（增删平台只需改这里 + providers）
+- `providers` 各数据源实现（每源独立子文件夹：mootdx / tencent / baidu / sina）
+- `router`    统一 API 路由（挂载于 /api/v1/data）
 
-对外导出：
-- `router`：FastAPI APIRouter，含全部数据端点（均抛 NotImplementedError）。
-- `params`：请求参数 Pydantic 模型。
-- `schemas`：返回数据 Pydantic 模型。
+增删平台：在 `providers/` 下新增子文件夹实现 provider，在 `providers/__init__.py`
+导出，再在 `registry.py` 登记其能力与降级优先级即可。
 """
+from . import base, common, registry, router, schemas
+from .providers import (
+    BaiduProvider,
+    EastmoneyProvider,
+    MootdxProvider,
+    SinaProvider,
+    TencentProvider,
+    ThsProvider,
+)
 
-from . import params, router, schemas
-
-__all__ = ["params", "router", "schemas"]
+__all__ = [
+    "base",
+    "common",
+    "registry",
+    "router",
+    "schemas",
+    "MootdxProvider",
+    "TencentProvider",
+    "BaiduProvider",
+    "SinaProvider",
+    "ThsProvider",
+    "EastmoneyProvider",
+]

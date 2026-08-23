@@ -1,7 +1,7 @@
-import { StockSDK } from "stock-sdk";
 import { sql } from "drizzle-orm";
 import { db } from "../src/db";
 import { instrument } from "../src/db/schema";
+import { createSdk } from "../src/lib/sdk";
 
 /**
  * 市场标识 → 交易所代码映射
@@ -28,7 +28,8 @@ function toSymbol(code: string): string {
 const BATCH_SIZE = 200;
 
 async function syncInstruments() {
-  const sdk = new StockSDK();
+  // 复用带东财风控治理的 SDK 实例（串行限流 + 正常 UA/Referer）
+  const sdk = createSdk();
 
   // step 1: 获取全量 A 股代码列表（带前缀：bj920000）
   console.log("[sync] step 1/3: fetching A-share code list...");

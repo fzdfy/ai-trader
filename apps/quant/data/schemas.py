@@ -1,1524 +1,347 @@
 """
-stock-sdk 返回数据模型（Pydantic）。
+统一数据返回模型（Pydantic）。
 
-严格对齐 stock-sdk 各接口的返回结构（字段名、可空性、判别字段均一致），
-作为 quant 数据源 API 的响应声明。此处仅定义数据结构，不做任何实现，
-供后续切换数据源时直接复用同一套响应契约。
+字段命名对齐 server 端数据库表结构（snake_case），保证各数据源取回的数据
+可直接映射到 `bar1d_adj` / `bar1m_adj` / `quote_latest` 等表做落库，
+而无需在 provider 之间再转一遍字段名。
 
-字段命名遵循 stock-sdk 的 camelCase 约定，序列化输出与 SDK 完全一致，
-避免下游（前端 / agent）在切换数据源后需要改动字段名。
-
-数值字段统一映射：
-- TS `number`       -> `float`（或语义明确的 `int`）
-- TS `number | null` -> `float | None`
-- TS 枚举 / 判别字面量 -> `Literal[...]`
+- `KlineBar`   对齐 bar1d_adj / bar1m_adj（time/open/high/low/close/volume/amount）
+- `Quote`      对齐 quote_latest（last/pre_close/change/change_pct/pe/pb/limit_up/down/五档…）
+- `TradeTick`  逐笔成交（mootdx transaction）
+- `AdjustFactor` 复权因子（新浪 qfq/hfq）
 """
-
-from typing import Literal, Optional
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-# ---------------------------------------------------------------------------
-# 通用字面量类型
-# ---------------------------------------------------------------------------
-
-# 数据源 provider（stock-sdk `ProviderName`）
-ProviderName = Literal["tencent", "eastmoney", "sina", "linkdiary", "unknown"]
-
-# 市场时区（stock-sdk `MarketTz`）
-MarketTz = Literal["Asia/Shanghai", "Asia/Hong_Kong", "America/New_York"]
-
-# 信号类型（stock-sdk `SignalType`，14 种）
-SignalType = Literal[
-    "ma_golden_cross",
-    "ma_death_cross",
-    "macd_golden_cross",
-    "macd_death_cross",
-    "kdj_golden_cross",
-    "kdj_death_cross",
-    "kdj_overbought",
-    "kdj_oversold",
-    "rsi_overbought",
-    "rsi_oversold",
-    "boll_break_upper",
-    "boll_break_lower",
-    "sar_reversal_up",
-    "sar_reversal_down",
-]
-
-
-# ---------------------------------------------------------------------------
-# 行情
-# ---------------------------------------------------------------------------
 
 class BidAskLevel(BaseModel):
-    """五档盘口的一档（买/卖）。"""
+    """五档盘口的一档。"""
 
     price: float
     volume: float
 
 
-class FullQuote(BaseModel):
-    """A 股 / 指数全量行情。"""
+class KlineBar(BaseModel):
+    """一根 K 线，对齐 bar1d_adj / bar1m_adj 核心列。"""
 
-    marketId: str
-    name: str
-    code: str
-    price: float
-    prevClose: float
+    time: str  # YYYY-MM-DD（或含时分秒，取前 10 位归一）
     open: float
-    volume: float
-    outerVolume: float
-    innerVolume: float
-    bid: list[BidAskLevel]
-    ask: list[BidAskLevel]
-    time: str
-    timestamp: float | None
-    tz: MarketTz
-    change: float
-    changePercent: float
     high: float
     low: float
-    volume2: float
-    amount: float
-    turnoverRate: float | None
-    pe: float | None
-    amplitude: float | None
-    circulatingMarketCap: float | None
-    totalMarketCap: float | None
-    pb: float | None
-    limitUp: float | None
-    limitDown: float | None
-    volumeRatio: float | None
-    avgPrice: float | None
-    peStatic: float | None
-    peDynamic: float | None
-    high52w: float | None
-    low52w: float | None
-    circulatingShares: float | None
-    totalShares: float | None
-    market: Literal["CN"]
-    assetType: Literal["stock"]
-    source: ProviderName
-
-
-class SimpleQuote(BaseModel):
-    """简要行情（股票 / 指数）。"""
-
-    marketId: str
-    name: str
-    code: str
-    price: float
-    change: float
-    changePercent: float
+    close: float
     volume: float
-    amount: float
-    marketCap: float | None
-    marketType: str
-    market: Literal["CN"]
-    assetType: Literal["stock"]
-    source: ProviderName
-
-
-class FundFlow(BaseModel):
-    """个股实时资金流向。"""
-
-    code: str
-    mainInflow: float
-    mainOutflow: float
-    mainNet: float
-    mainNetRatio: float
-    retailInflow: float
-    retailOutflow: float
-    retailNet: float
-    retailNetRatio: float
-    totalFlow: float
-    name: str
-    date: str
-    timestamp: float | None
-    tz: MarketTz
-
-
-class PanelLargeOrder(BaseModel):
-    """盘口大单占比。"""
-
-    buyLargeRatio: float
-    buySmallRatio: float
-    sellLargeRatio: float
-    sellSmallRatio: float
-
-
-class HKQuote(BaseModel):
-    """港股扩展行情。"""
-
-    marketId: str
-    name: str
-    code: str
-    price: float
-    prevClose: float
-    open: float
-    volume: float
-    time: str
-    timestamp: float | None
-    tz: MarketTz
-    change: float
-    changePercent: float
-    high: float
-    low: float
-    amount: float
-    lotSize: float | None
-    circulatingMarketCap: float | None
-    totalMarketCap: float | None
-    currency: str
-    market: Literal["HK"]
-    assetType: Literal["stock", "index"]
-    source: ProviderName
-
-
-class USQuote(BaseModel):
-    """美股行情。"""
-
-    marketId: str
-    name: str
-    code: str
-    price: float
-    prevClose: float
-    open: float
-    volume: float
-    time: str
-    timestamp: float | None
-    tz: MarketTz
-    change: float
-    changePercent: float
-    high: float
-    low: float
-    amount: float
-    turnoverRate: float | None
-    pe: float | None
-    amplitude: float | None
-    totalMarketCap: float | None
-    pb: float | None
-    high52w: float | None
-    low52w: float | None
-    market: Literal["US"]
-    assetType: Literal["stock", "index"]
-    source: ProviderName
-
-
-class FundQuote(BaseModel):
-    """公募基金行情。"""
-
-    code: str
-    name: str
-    nav: float
-    accNav: float
-    change: float
-    navDate: str
-    timestamp: float | None
-    tz: MarketTz
-    market: Literal["CN"]
-    assetType: Literal["fund"]
-    source: ProviderName
-
-
-# ---------------------------------------------------------------------------
-# K 线 / 分时
-# ---------------------------------------------------------------------------
-
-class HistoryKline(BaseModel):
-    """A 股历史 K 线（日/周/月）。"""
-
-    date: str
-    timestamp: float | None
-    tz: MarketTz
-    code: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-
-
-class MinuteTimeline(BaseModel):
-    """A 股分时数据（1 分钟）。"""
-
-    time: str
-    timestamp: float | None
-    tz: MarketTz
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    avgPrice: float | None
-
-
-class MinuteKline(BaseModel):
-    """A 股分钟 K 线（5/15/30/60）。"""
-
-    time: str
-    timestamp: float | None
-    tz: MarketTz
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-
-
-class TodayTimeline(BaseModel):
-    """当日分时项。"""
-
-    time: str
-    timestamp: float | None
-    tz: MarketTz
-    price: float
-    avgPrice: float
-    volume: float
-    amount: float
-
-
-class TodayTimelineResponse(BaseModel):
-    """当日分时响应。"""
-
-    code: str
-    date: str
-    timestamp: float | None
-    tz: MarketTz
-    preClose: float | None = None
-    data: list[TodayTimeline]
-
-
-class HKHistoryKline(BaseModel):
-    """港股历史 K 线。"""
-
-    date: str
-    timestamp: float | None
-    code: str
-    name: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-    tz: MarketTz
-    currency: Literal["HKD"]
-    lotSize: float | None
-
-
-class USHistoryKline(BaseModel):
-    """美股历史 K 线。"""
-
-    date: str
-    timestamp: float | None
-    code: str
-    name: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-    tz: MarketTz
-    currency: Literal["USD"]
-
-
-class HKMinuteKline(BaseModel):
-    """港股分钟 K 线。"""
-
-    time: str
-    timestamp: float | None
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-    tz: MarketTz
-    currency: Literal["HKD"]
-    code: str
-
-
-class HKMinuteTimeline(BaseModel):
-    """港股当日分时。"""
-
-    time: str
-    timestamp: float | None
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    avgPrice: float | None
-    tz: MarketTz
-    currency: Literal["HKD"]
-    code: str
-
-
-class USMinuteKline(BaseModel):
-    """美股分钟 K 线。"""
-
-    time: str
-    timestamp: float | None
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-    tz: MarketTz
-    currency: Literal["USD"]
-    code: str
-
-
-class USMinuteTimeline(BaseModel):
-    """美股当日分时。"""
-
-    time: str
-    timestamp: float | None
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    avgPrice: float | None
-    tz: MarketTz
-    currency: Literal["USD"]
-    code: str
-
-
-class KlineSignal(BaseModel):
-    """一条识别出的指标信号。"""
-
-    type: SignalType
-    date: str
-    timestamp: float
-    close: float | None
-    detail: dict[str, float] | None = None
-
-
-# ---------------------------------------------------------------------------
-# 技术指标结果（KlineWithIndicators 的可选字段）
-# ---------------------------------------------------------------------------
-
-class MACDResult(BaseModel):
-    dif: float | None
-    dea: float | None
-    macd: float | None
-
-
-class BOLLResult(BaseModel):
-    mid: float | None
-    upper: float | None
-    lower: float | None
-    bandwidth: float | None
-
-
-class KDJResult(BaseModel):
-    k: float | None
-    d: float | None
-    j: float | None
-
-
-class CCIResult(BaseModel):
-    cci: float | None
-
-
-class ATRResult(BaseModel):
-    tr: float | None
-    atr: float | None
-
-
-class OBVResult(BaseModel):
-    obv: float | None
-    obvMa: float | None
-
-
-class ROCResult(BaseModel):
-    roc: float | None
-    signal: float | None
-
-
-class DMIResult(BaseModel):
-    pdi: float | None
-    mdi: float | None
-    adx: float | None
-    adxr: float | None
-
-
-class SARResult(BaseModel):
-    sar: float | None
-    trend: Literal[1, -1] | None
-    ep: float | None
-    af: float | None
-
-
-class KCResult(BaseModel):
-    mid: float | None
-    upper: float | None
-    lower: float | None
-    width: float | None
-
-
-class KlineWithIndicators(HistoryKline):
-    """带技术指标的 A 股 K 线（HistoryKline 字段 + 可选指标）。"""
-
-    ma: dict[str, float | None] | None = None
-    macd: MACDResult | None = None
-    boll: BOLLResult | None = None
-    kdj: KDJResult | None = None
-    rsi: dict[str, float | None] | None = None
-    wr: dict[str, float | None] | None = None
-    bias: dict[str, float | None] | None = None
-    cci: CCIResult | None = None
-    atr: ATRResult | None = None
-    obv: OBVResult | None = None
-    roc: ROCResult | None = None
-    dmi: DMIResult | None = None
-    sar: SARResult | None = None
-    kc: KCResult | None = None
-
-
-# ---------------------------------------------------------------------------
-# 板块（行业 / 概念）
-# ---------------------------------------------------------------------------
-
-class IndustryBoard(BaseModel):
-    """行业板块列表项（概念板块复用此结构）。"""
-
-    rank: int
-    name: str
-    code: str
-    price: float | None
-    change: float | None
-    changePercent: float | None
-    totalMarketCap: float | None
-    turnoverRate: float | None
-    riseCount: int | None
-    fallCount: int | None
-    leadingStock: str | None
-    leadingStockChangePercent: float | None
-
-
-class IndustryBoardSpot(BaseModel):
-    """行业板块实时行情指标。"""
-
-    item: str
-    value: float | None
-
-
-class IndustryBoardConstituent(BaseModel):
-    """行业板块成分股。"""
-
-    rank: int
-    code: str
-    name: str
-    price: float | None
-    changePercent: float | None
-    change: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    high: float | None
-    low: float | None
-    open: float | None
-    prevClose: float | None
-    turnoverRate: float | None
-    pe: float | None
-    pb: float | None
-
-
-class IndustryBoardKline(BaseModel):
-    """行业板块历史 K 线。"""
-
-    date: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-
-
-class IndustryBoardMinuteTimeline(BaseModel):
-    """行业板块 1 分钟分时。"""
-
-    time: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    price: float | None
-
-
-class IndustryBoardMinuteKline(BaseModel):
-    """行业板块分钟 K 线（5/15/30/60）。"""
-
-    time: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-
-
-# 概念板块结构复用行业板块
-ConceptBoard = IndustryBoard
-ConceptBoardSpot = IndustryBoardSpot
-ConceptBoardConstituent = IndustryBoardConstituent
-ConceptBoardKline = IndustryBoardKline
-ConceptBoardMinuteTimeline = IndustryBoardMinuteTimeline
-ConceptBoardMinuteKline = IndustryBoardMinuteKline
-
-
-# ---------------------------------------------------------------------------
-# 期货
-# ---------------------------------------------------------------------------
-
-class FuturesKline(BaseModel):
-    """期货 K 线。"""
-
-    date: str
-    code: str
-    name: str
-    open: float | None
-    close: float | None
-    high: float | None
-    low: float | None
-    volume: float | None
-    amount: float | None
-    amplitude: float | None
-    changePercent: float | None
-    change: float | None
-    turnoverRate: float | None
-    openInterest: float | None
-
-
-class GlobalFuturesQuote(BaseModel):
-    """全球期货实时报价。"""
-
-    code: str
-    name: str
-    price: float | None
-    change: float | None
-    changePercent: float | None
-    open: float | None
-    high: float | None
-    low: float | None
-    prevSettle: float | None
-    volume: float | None
-    buyVolume: float | None
-    sellVolume: float | None
-    openInterest: float | None
-
-
-class FuturesInventorySymbol(BaseModel):
-    """期货库存品种。"""
-
-    code: str
-    name: str
-    marketCode: str
-
-
-class FuturesInventory(BaseModel):
-    """期货库存数据。"""
-
-    code: str
-    date: str
-    inventory: float | None
-    change: float | None
-
-
-class ComexInventory(BaseModel):
-    """COMEX 库存数据。"""
-
-    date: str
-    name: str
-    storageTon: float | None
-    storageOunce: float | None
-
-
-# ---------------------------------------------------------------------------
-# 期权
-# ---------------------------------------------------------------------------
-
-class OptionTQuote(BaseModel):
-    """期权 T 型报价项。"""
+    amount: float | None = None
+    ma5: float | None = None
+    ma10: float | None = None
+    ma20: float | None = None
+    # 复权因子（应用新浪复权后回填，未复权时为 None）
+    adj_factor: float | None = None
+
+
+class Quote(BaseModel):
+    """单只标的实时行情，对齐 quote_latest 核心列 + 五档 + 长尾 extra。"""
 
     symbol: str
-    buyVolume: float | None
-    buyPrice: float | None
-    price: float | None
-    askPrice: float | None
-    askVolume: float | None
-    openInterest: float | None
-    change: float | None
-    strikePrice: float | None
+    name: str | None = None
+    last: float | None = None
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    pre_close: float | None = None
+    volume: float | None = None
+    amount: float | None = None
+    change: float | None = None
+    change_pct: float | None = None
+    turnover_rate: float | None = None
+    pe: float | None = None
+    pb: float | None = None
+    limit_up: float | None = None
+    limit_down: float | None = None
+    # 盘口五档（腾讯不提供，mootdx 提供）
+    bid: list[BidAskLevel] = Field(default_factory=list)
+    ask: list[BidAskLevel] = Field(default_factory=list)
+    # 僵尸报价检测（北交所老号段 / 长期停牌股）
+    is_stale: bool = False
+    stale_reason: str | None = None
+    # 长尾字段兜底（量比 / 振幅 / 流通市值 / 总市值 / 静态PE 等）
+    extra: dict = Field(default_factory=dict)
 
 
-class OptionTQuoteResult(BaseModel):
-    """期权 T 型报价结果。"""
-
-    calls: list[OptionTQuote]
-    puts: list[OptionTQuote]
-
-
-class OptionKline(BaseModel):
-    """期权日 K 线。"""
-
-    date: str
-    open: float | None
-    high: float | None
-    low: float | None
-    close: float | None
-    volume: float | None
-
-
-class OptionMinute(BaseModel):
-    """期权分钟数据。"""
+class TradeTick(BaseModel):
+    """逐笔成交。"""
 
     time: str
+    price: float
+    volume: float
+    num: int | None = None
+    # buy / sell / neutral
+    side: str = "neutral"
+
+
+class AdjustFactor(BaseModel):
+    """复权因子序列的一条。"""
+
     date: str
-    price: float | None
-    volume: float | None
-    openInterest: float | None
-    avgPrice: float | None
+    factor: float
 
 
-class ETFOptionMonth(BaseModel):
-    """ETF 期权月份信息。"""
-
-    months: list[str]
-    stockId: str
-    cateId: str
-    cateList: list[str]
+# ============================================================================
+# 信号层（Layer 3）模型 — 同花顺热点 / 北向 / 概念归属 / 资金流 / 龙虎榜 / 解禁 / 板块
+# ============================================================================
 
 
-class ETFOptionExpireDay(BaseModel):
-    """ETF 期权到期信息。"""
-
-    expireDay: str
-    remainderDays: int
-    stockId: str
-    name: str
-
-
-class CFFEXOptionQuote(BaseModel):
-    """中金所期权实时行情。"""
+class HotReasonItem(BaseModel):
+    """同花顺当日强势股 + 题材归因（reason 为核心字段）。"""
 
     code: str
-    name: str
-    price: float | None
-    change: float | None
-    changePercent: float | None
-    volume: float | None
-    amount: float | None
-    openInterest: float | None
-    strikePrice: float | None
-    remainDays: float | None
-    dailyChange: float | None
-    prevSettle: float | None
-    open: float | None
+    name: str = ""
+    reason: str = ""  # 题材归因 tags，如「算力租赁+Token工厂+AI政务」
+    close: float | None = None
+    change: float | None = None  # 涨跌额（元）
+    change_pct: float | None = None  # 涨幅(%)
+    turnover_rate: float | None = None  # 换手率(%)
+    amount: float | None = None  # 成交额（元）
+    volume: float | None = None  # 成交量（股）
+    large_order_net: float | None = None  # 大单净量（主力净流入指标）
+    market: str = ""  # 沪/深/北
 
 
-class OptionLHBItem(BaseModel):
-    """期权龙虎榜项。"""
-
-    tradeType: str
-    date: str
-    symbol: str
-    targetName: str
-    rank: int
-    memberName: str
-    sellVolume: float | None
-    sellVolumeChange: float | None
-    netSellVolume: float | None
-    sellVolumeRatio: float | None
-    buyVolume: float | None
-    buyVolumeChange: float | None
-    netBuyVolume: float | None
-    buyVolumeRatio: float | None
-    sellPosition: float | None
-    sellPositionChange: float | None
-    netSellPosition: float | None
-    sellPositionRatio: float | None
-    buyPosition: float | None
-    buyPositionChange: float | None
-    netBuyPosition: float | None
-    buyPositionRatio: float | None
-
-
-# ---------------------------------------------------------------------------
-# 搜索 / 参考数据
-# ---------------------------------------------------------------------------
-
-class SearchResult(BaseModel):
-    """搜索结果。"""
-
-    code: str
-    name: str
-    market: str
-    type: str
-    category: Literal["stock", "index", "fund", "bond", "futures", "option", "other"] | None = None
-
-
-class ExternalLink(BaseModel):
-    """外部财经站点链接。"""
-
-    name: str
-    url: str
-
-
-class DividendDetail(BaseModel):
-    """分红派送详情。"""
-
-    code: str
-    name: str
-    reportDate: str | None
-    planNoticeDate: str | None
-    disclosureDate: str | None
-    assignTransferRatio: float | None
-    bonusRatio: float | None
-    transferRatio: float | None
-    dividendPretax: float | None
-    dividendDesc: str | None
-    dividendYield: float | None
-    eps: float | None
-    bps: float | None
-    capitalReserve: float | None
-    unassignedProfit: float | None
-    netProfitYoy: float | None
-    totalShares: float | None
-    equityRecordDate: str | None
-    exDividendDate: str | None
-    payDate: str | None
-    assignProgress: str | None
-    noticeDate: str | None
-
-
-# ---------------------------------------------------------------------------
-# 资金流向（深度）
-# ---------------------------------------------------------------------------
-
-class StockFundFlowDaily(BaseModel):
-    """个股资金流（日/周/月线）。"""
-
-    date: str
-    close: float | None
-    changePercent: float | None
-    mainNetInflow: float | None
-    mainNetInflowPercent: float | None
-    superLargeNetInflow: float | None
-    superLargeNetInflowPercent: float | None
-    largeNetInflow: float | None
-    largeNetInflowPercent: float | None
-    mediumNetInflow: float | None
-    mediumNetInflowPercent: float | None
-    smallNetInflow: float | None
-    smallNetInflowPercent: float | None
-
-
-class FundFlowRankItem(BaseModel):
-    """个股资金流排名项。"""
-
-    code: str
-    name: str
-    price: float | None
-    changePercent: float | None
-    mainNetInflow: float | None
-    mainNetInflowPercent: float | None
-    superLargeNetInflow: float | None
-    superLargeNetInflowPercent: float | None
-    largeNetInflow: float | None
-    largeNetInflowPercent: float | None
-    mediumNetInflow: float | None
-    mediumNetInflowPercent: float | None
-    smallNetInflow: float | None
-    smallNetInflowPercent: float | None
-
-
-class SectorFundFlowItem(BaseModel):
-    """板块资金流排名项。"""
-
-    code: str
-    name: str
-    changePercent: float | None
-    mainNetInflow: float | None
-    mainNetInflowPercent: float | None
-    superLargeNetInflow: float | None
-    largeNetInflow: float | None
-    mediumNetInflow: float | None
-    smallNetInflow: float | None
-    topStockName: str | None = None
-    topStockCode: str | None = None
-
-
-class MarketFundFlow(BaseModel):
-    """大盘资金流（按日）。"""
-
-    date: str
-    shClose: float | None
-    shChangePercent: float | None
-    szClose: float | None
-    szChangePercent: float | None
-    mainNetInflow: float | None
-    mainNetInflowPercent: float | None
-    superLargeNetInflow: float | None
-    superLargeNetInflowPercent: float | None
-    largeNetInflow: float | None
-    largeNetInflowPercent: float | None
-    mediumNetInflow: float | None
-    mediumNetInflowPercent: float | None
-    smallNetInflow: float | None
-    smallNetInflowPercent: float | None
-
-
-# ---------------------------------------------------------------------------
-# 沪深港通 / 北向资金
-# ---------------------------------------------------------------------------
-
-class NorthboundMinuteItem(BaseModel):
-    """北向 / 南向资金分时数据。"""
-
-    date: str
-    time: str
-    shanghaiNetInflow: float | None
-    shenzhenNetInflow: float | None
-    totalNetInflow: float | None
-
-
-class NorthboundFlowSummary(BaseModel):
-    """沪深港通市场资金流向汇总。"""
-
-    date: str
-    type: str
-    boardName: str
-    direction: str
-    status: str
-    netBuyAmount: float | None
-    netInflow: float | None
-    remainAmount: float | None
-    upCount: int | None
-    flatCount: int | None
-    downCount: int | None
-    indexCode: str
-    indexName: str
-    indexChangePercent: float | None
-
-
-class NorthboundHoldingRankItem(BaseModel):
-    """北向 / 沪股通 / 深股通持股个股排行项。"""
-
-    date: str
-    code: str
-    name: str
-    close: float | None
-    changePercent: float | None
-    holdShares: float | None
-    holdMarketValue: float | None
-    holdRatioFloat: float | None
-    holdRatioTotal: float | None
-    addShares: float | None
-    addMarketValue: float | None
-    addMarketValuePercent: float | None
-    sector: str
-
-
-class NorthboundHistoryItem(BaseModel):
-    """北向资金历史项（按日）。"""
-
-    date: str
-    netBuyAmount: float | None
-    buyAmount: float | None
-    sellAmount: float | None
-    accNetBuyAmount: float | None
-    netInflow: float | None
-    remainAmount: float | None
-    topStockCode: str | None
-    topStockName: str | None
-    topStockChangePercent: float | None
-
-
-class NorthboundIndividualItem(BaseModel):
-    """个股北向持仓历史项。"""
-
-    date: str
-    holdShares: float | None
-    holdMarketValue: float | None
-    holdRatioFloat: float | None
-    holdRatioTotal: float | None
-    close: float | None
-    changePercent: float | None
-
-
-# ---------------------------------------------------------------------------
-# 涨停板 / 盘口异动
-# ---------------------------------------------------------------------------
-
-class ZTPoolItem(BaseModel):
-    """涨停股池项。"""
-
-    code: str
-    name: str
-    price: float | None
-    changePercent: float | None
-    limitPrice: float | None
-    amount: float | None
-    floatMarketValue: float | None
-    totalMarketValue: float | None
-    turnoverRate: float | None
-    continuousBoardCount: int | None
-    firstBoardTime: str | None
-    lastBoardTime: str | None
-    boardAmount: float | None
-    sealAmount: float | None
-    failedCount: int | None
-    industry: str
-    ztStatistics: str
-    amplitude: float | None
-    speed: float | None
-
-
-class StockChangeItem(BaseModel):
-    """盘口异动项。"""
+class NorthboundPoint(BaseModel):
+    """沪深股通当日实时分钟流向的一个时间点。单位：亿元。"""
 
     time: str
-    code: str
-    name: str
-    changeType: str
-    typeCode: str
-    changeTypeLabel: str
-    info: str
+    hgt_yi: float | None = None  # 沪股通累计净买入
+    sgt_yi: float | None = None  # 深股通累计净买入
 
 
-class IndividualStockChangeItem(BaseModel):
-    """个股盘口异动事件。"""
+class ConceptBlock(BaseModel):
+    """个股所属的单个板块 / 概念。"""
+
+    name: str = ""
+    code: str = ""  # BK 板块代码
+    change_pct: float | None = None  # 板块当日涨跌幅
+    lead_stock: str = ""  # 板块龙头股
+
+
+class ConceptBlocks(BaseModel):
+    """个股所属板块/概念归属（东财 slist）。"""
+
+    total: int = 0
+    boards: list[ConceptBlock] = Field(default_factory=list)
+    concept_tags: list[str] = Field(default_factory=list)
+
+
+class FundFlowPoint(BaseModel):
+    """个股资金流分钟级一个点。单位：元。"""
 
     time: str
-    typeCode: str
-    changeType: str
-    changeTypeLabel: str
-    price: float | None
-    changePercent: float | None
-    info: str
-    v: float | None
+    main_net: float = 0.0  # 主力净流入
+    small_net: float = 0.0  # 小单净流入
+    mid_net: float = 0.0  # 中单净流入
+    large_net: float = 0.0  # 大单净流入
+    super_net: float = 0.0  # 超大单净流入
 
 
-class IndividualChangesDay(BaseModel):
-    """个股单个交易日的异动数据。"""
+class FundFlowDay(BaseModel):
+    """个股资金流日级一条。单位：元。"""
 
     date: str
-    available: bool
-    code: str
-    name: str
-    changes: list[IndividualStockChangeItem]
-
-
-class ChangeTypeCount(BaseModel):
-    """单个异动类型的计数。"""
-
-    count: int
-    label: str
-
-
-class IndividualChangesCoverage(BaseModel):
-    """个股异动历史覆盖情况。"""
-
-    from_: str = Field(alias="from")
-    to: str
-    availableFrom: str | None
-
-
-class IndividualChangesHistory(BaseModel):
-    """个股近 N 天异动历史。"""
-
-    code: str
-    name: str
-    requestedDays: int
-    coverage: IndividualChangesCoverage
-    days: list[IndividualChangesDay]
-    stats: dict[str, ChangeTypeCount]
-
-
-class BoardChangeItem(BaseModel):
-    """板块异动项。"""
-
-    name: str
-    changePercent: float | None
-    mainNetInflow: float | None
-    totalChangeCount: int | None
-    topStockCode: str
-    topStockName: str
-    topStockDirection: str
-    changeTypeDistribution: dict[str, int]
-
-
-# ---------------------------------------------------------------------------
-# 龙虎榜
-# ---------------------------------------------------------------------------
-
-class DragonTigerDetailItem(BaseModel):
-    """龙虎榜详情项。"""
-
-    code: str
-    name: str
-    date: str
-    close: float | None
-    changePercent: float | None
-    netBuyAmount: float | None
-    buyAmount: float | None
-    sellAmount: float | None
-    dealAmount: float | None
-    totalAmount: float | None
-    netBuyRatio: float | None
-    dealAmountRatio: float | None
-    turnoverRate: float | None
-    floatMarketValue: float | None
-    reason: str
-    afterChange1d: float | None
-    afterChange2d: float | None
-    afterChange5d: float | None
-    afterChange10d: float | None
-
-
-class DragonTigerStockStatItem(BaseModel):
-    """龙虎榜个股上榜统计项。"""
-
-    code: str
-    name: str
-    latestDate: str
-    close: float | None
-    changePercent: float | None
-    count: int | None
-    totalBuyAmount: float | None
-    totalSellAmount: float | None
-    totalNetAmount: float | None
-    totalDealAmount: float | None
-    buyOrgCount: int | None
-    sellOrgCount: int | None
-
-
-class DragonTigerInstitutionItem(BaseModel):
-    """龙虎榜机构买卖项。"""
-
-    code: str
-    name: str
-    date: str
-    close: float | None
-    changePercent: float | None
-    buyOrgCount: int | None
-    sellOrgCount: int | None
-    orgBuyAmount: float | None
-    orgSellAmount: float | None
-    orgNetAmount: float | None
-
-
-class DragonTigerBranchItem(BaseModel):
-    """龙虎榜营业部排行项。"""
-
-    code: str
-    name: str
-    totalBuyAmount: float | None
-    totalSellAmount: float | None
-    buyCount: int | None
-    sellCount: int | None
-    totalCount: int | None
-
-
-class DragonTigerSeatItem(BaseModel):
-    """龙虎榜个股席位明细项。"""
-
-    rank: int | None
-    branchName: str
-    buyAmount: float | None
-    buyAmountRatio: float | None
-    sellAmount: float | None
-    sellAmountRatio: float | None
-    netAmount: float | None
-    side: Literal["buy", "sell"]
-
-
-# ---------------------------------------------------------------------------
-# 大宗交易
-# ---------------------------------------------------------------------------
-
-class BlockTradeMarketStatItem(BaseModel):
-    """大宗交易市场统计项（按日）。"""
-
-    date: str
-    shClose: float | None
-    shChangePercent: float | None
-    totalAmount: float | None
-    premiumAmount: float | None
-    premiumRatio: float | None
-    discountAmount: float | None
-    discountRatio: float | None
-
-
-class BlockTradeDetailItem(BaseModel):
-    """大宗交易明细项。"""
-
-    code: str
-    name: str
-    date: str
-    close: float | None
-    changePercent: float | None
-    dealPrice: float | None
-    dealVolume: float | None
-    dealAmount: float | None
-    premiumRate: float | None
-    buyBranch: str
-    sellBranch: str
-
-
-class BlockTradeDailyStatItem(BaseModel):
-    """大宗交易每日统计项（按股票汇总）。"""
-
-    code: str
-    name: str
-    date: str
-    changePercent: float | None
-    close: float | None
-    dealCount: int | None
-    dealTotalAmount: float | None
-    dealTotalVolume: float | None
-    premiumAmount: float | None
-    discountAmount: float | None
+    main_net: float = 0.0
+    small_net: float = 0.0
+    mid_net: float = 0.0
+    large_net: float = 0.0
+    super_net: float = 0.0
 
 
-# ---------------------------------------------------------------------------
-# 融资融券
-# ---------------------------------------------------------------------------
+class DragonTigerSeat(BaseModel):
+    """龙虎榜单边（买/卖）席位。单位：万元。"""
 
-class MarginAccountItem(BaseModel):
-    """融资融券账户统计项（按日）。"""
+    name: str = ""
+    buy_amt: float = 0.0
+    sell_amt: float = 0.0
+    net: float = 0.0
 
-    date: str
-    finBalance: float | None
-    loanBalance: float | None
-    finBuyAmount: float | None
-    loanSellAmount: float | None
-    investorCount: int | None
-    liabilityInvestorCount: int | None
-    totalGuarantee: float | None
-    avgGuaranteeRatio: float | None
 
+class DragonTigerRecord(BaseModel):
+    """龙虎榜上榜记录。"""
 
-class MarginTargetItem(BaseModel):
-    """融资融券标的证券项。"""
+    date: str = ""
+    reason: str = ""  # 上榜原因
+    net_buy: float = 0.0  # 净买入（万元）
+    turnover: float = 0.0  # 换手率(%)
 
-    code: str
-    name: str
-    date: str
-    finBalance: float | None
-    finBuyAmount: float | None
-    finRepayAmount: float | None
-    loanBalance: float | None
-    loanSellVolume: float | None
-    loanRepayVolume: float | None
 
+class DragonTigerInstitution(BaseModel):
+    """龙虎榜机构专用席位买卖统计。单位：万元。"""
 
-# ---------------------------------------------------------------------------
-# 公募基金扩展
-# ---------------------------------------------------------------------------
+    buy_amt: float = 0.0
+    sell_amt: float = 0.0
+    net_amt: float = 0.0
 
-class FundDividend(BaseModel):
-    """一条基金分红记录。"""
 
-    code: str
-    name: str
-    equityRecordDate: str | None
-    exDividendDate: str | None
-    dividendPerShare: float | None
-    payDate: str | None
-    dividendType: str | None
+class DragonTigerSeats(BaseModel):
+    """买卖席位 TOP5。"""
 
+    buy: list[DragonTigerSeat] = Field(default_factory=list)
+    sell: list[DragonTigerSeat] = Field(default_factory=list)
 
-class FundDividendListResult(BaseModel):
-    """基金分红查询结果。"""
 
-    items: list[FundDividend]
-    totalPages: int
-    pageSize: int
-    currentPage: int
+class DragonTigerBoard(BaseModel):
+    """个股龙虎榜聚合结果。"""
 
+    records: list[DragonTigerRecord] = Field(default_factory=list)
+    seats: DragonTigerSeats = Field(default_factory=DragonTigerSeats)
+    institution: DragonTigerInstitution = Field(default_factory=DragonTigerInstitution)
 
-class FundNavPoint(BaseModel):
-    """单条历史净值点。"""
 
-    date: str
-    timestamp: float | None
-    nav: float | None
-    accNav: float | None
-    dailyReturn: float | None
-    unitMoney: str
+class LockupExpiryItem(BaseModel):
+    """限售解禁一批。shares/able_shares 单位：万股。"""
 
+    date: str = ""
+    type: str = ""  # 解禁类型
+    shares: float = 0.0  # 本次解禁股数
+    able_shares: float = 0.0  # 实际可流通股数
+    ratio: float = 0.0  # 占总股本比（小数，×100 得百分比）
 
-class FundNavHistory(BaseModel):
-    """基金历史净值查询结果。"""
 
-    code: str
-    name: str | None
-    items: list[FundNavPoint]
+class LockupExpiry(BaseModel):
+    """限售解禁日历（历史 + 未来）。"""
 
+    history: list[LockupExpiryItem] = Field(default_factory=list)
+    upcoming: list[LockupExpiryItem] = Field(default_factory=list)
 
-class FundRankPoint(BaseModel):
-    """单条同类排名点。"""
 
-    date: str
-    timestamp: float | None
-    rank: int | None
-    total: int | None
-    percentile: float | None
+class IndustryRankItem(BaseModel):
+    """行业板块排名一条。"""
 
+    rank: int = 0
+    name: str = ""
+    code: str = ""
+    change_pct: float | None = None  # 涨跌幅(%)
+    up_count: int = 0  # 上涨家数
+    down_count: int = 0  # 下跌家数
+    leader: str = ""  # 领涨股
+    leader_change: float | None = None  # 领涨股涨跌幅
 
-class FundRankHistory(BaseModel):
-    """基金同类排名走势查询结果。"""
 
-    code: str
-    name: str | None
-    items: list[FundRankPoint]
+class IndustryComparison(BaseModel):
+    """全行业涨跌幅排名。"""
 
+    top: list[IndustryRankItem] = Field(default_factory=list)
+    bottom: list[IndustryRankItem] = Field(default_factory=list)
+    total: int = 0
 
-class FundHolding(BaseModel):
-    """前十大重仓股。"""
 
-    code: str
-    marketId: str
+class BoardFundFlowItem(BaseModel):
+    """板块资金流向一条。金额单位：元，净占比单位：%。"""
 
+    rank: int = 0
+    name: str = ""
+    code: str = ""
+    change_pct: float | None = None
+    main_net: float | None = None  # 主力净流入
+    main_pct: float | None = None  # 主力净占比(%)
+    leader: str = ""
+    # 仅今日周期：超大/大/中/小单净额
+    super_large_net: float | None = None
+    large_net: float | None = None
+    medium_net: float | None = None
+    small_net: float | None = None
 
-class FundBondHolding(BaseModel):
-    """前五大债券持仓。"""
 
-    code: str
-    marketId: str
+class BoardFundFlow(BaseModel):
+    """板块资金流向排名结果。"""
 
+    board_type: str = ""  # industry / concept / region
+    period: str = ""  # today / 5d / 10d
+    total: int = 0
+    rows: list[BoardFundFlowItem] = Field(default_factory=list)
 
-class FundAssetAllocation(BaseModel):
-    """资产配置项（单季度）。"""
 
-    date: str
-    timestamp: float | None
-    stockRatio: float
-    bondRatio: float
-    cashRatio: float
-    otherRatio: float
-    netAsset: float
+class DailyDragonTigerStock(BaseModel):
+    """全市场龙虎榜中的一只股票。金额单位：万元。"""
 
+    code: str = ""
+    name: str = ""
+    reason: str = ""
+    close: float = 0.0
+    change_pct: float = 0.0
+    net_buy_wan: float = 0.0
+    buy_wan: float = 0.0
+    sell_wan: float = 0.0
+    turnover_pct: float = 0.0
 
-class FundPositionPoint(BaseModel):
-    """股票仓位测算点（每日）。"""
 
-    date: str
-    timestamp: float
-    position: float
+class DailyDragonTiger(BaseModel):
+    """全市场龙虎榜汇总。"""
 
+    date: str = ""
+    total_records: int = 0
+    stocks: list[DailyDragonTigerStock] = Field(default_factory=list)
+    note: str | None = None
 
-class FundPerformanceEvaluation(BaseModel):
-    """业绩评价。"""
 
-    overall: float
-    categories: list[str]
-    scores: list[float]
-    descriptions: list[str]
+# ============================================================================
+# 资金面 / 筹码层（Layer 4）模型 — 融资融券 / 大宗 / 股东户数 / 分红 / 资金流120日 / 筹码
+# ============================================================================
 
 
-class FundManager(BaseModel):
-    """基金经理信息。"""
+class MarginTradingItem(BaseModel):
+    """融资融券明细一条。金额单位：元。"""
 
-    id: str
-    name: str
-    avatarUrl: str | None
-    star: float | None
-    workTime: str | None
-    fundSize: str | None
-    power: Optional["FundPerformanceEvaluation"] = None
+    date: str = ""
+    rzye: float = 0.0  # 融资余额
+    rzmre: float = 0.0  # 融资买入额
+    rzche: float = 0.0  # 融资偿还额
+    rqye: float = 0.0  # 融券余额
+    rqmcl: float = 0.0  # 融券卖出量
+    rqchl: float = 0.0  # 融券偿还量
+    rzrqye: float = 0.0  # 融资融券余额合计
 
 
-class FundHolderStructure(BaseModel):
-    """持有人结构（单期）。"""
+class BlockTradeItem(BaseModel):
+    """大宗交易一条。"""
 
-    date: str
-    timestamp: float | None
-    institutionRatio: float
-    individualRatio: float
-    internalRatio: float
+    date: str = ""
+    price: float = 0.0  # 成交价
+    close: float = 0.0  # 当日收盘价
+    premium_pct: float = 0.0  # 溢价率(%)
+    vol: float = 0.0  # 成交量
+    amount: float = 0.0  # 成交额
+    buyer: str = ""  # 买方营业部
+    seller: str = ""  # 卖方营业部
 
 
-class FundScaleChange(BaseModel):
-    """规模变动（单季度）。"""
+class HolderNumItem(BaseModel):
+    """股东户数变化一条。"""
 
-    date: str
-    scale: float
-    mom: str
+    date: str = ""
+    holder_num: float = 0.0  # 股东户数
+    change_num: float = 0.0  # 户数变化
+    change_ratio: float = 0.0  # 环比(%)
+    avg_shares: float = 0.0  # 户均持股
 
 
-class FundBuySedemption(BaseModel):
-    """申购赎回（单季度）。"""
+class DividendItem(BaseModel):
+    """分红送转历史一条。"""
 
-    date: str
-    timestamp: float | None
-    buy: float
-    sell: float
-    total: float
+    date: str = ""  # 除权除息日
+    bonus_rmb: float = 0.0  # 每股派息（税前，元）
+    transfer_ratio: float = 0.0  # 每10股转增
+    bonus_ratio: float = 0.0  # 每10股送股
+    plan: str = ""  # 进度
 
 
-class FundStageReturns(BaseModel):
-    """阶段收益率。"""
+class ChipDistribution(BaseModel):
+    """筹码分布（本地推演）结果。"""
 
-    oneMonth: float | None
-    threeMonth: float | None
-    sixMonth: float | None
-    oneYear: float | None
-
-
-class FundSameTypePeer(BaseModel):
-    """同类基金中的一只。"""
-
-    code: str
-    name: str
-    value: float | None
-
-
-class FundSameType(BaseModel):
-    """同类基金。"""
-
-    groups: list[list[FundSameTypePeer]]
-
-
-class FundProfile(BaseModel):
-    """基金深度资料。"""
-
-    code: str
-    name: str | None
-    sourceRate: float | None
-    rate: float | None
-    minSubscription: float | None
-    holdings: list[FundHolding]
-    bondHoldings: list[FundBondHolding]
-    assetAllocation: list[FundAssetAllocation]
-    positions: list[FundPositionPoint]
-    managers: list[FundManager]
-    performance: FundPerformanceEvaluation | None
-    holderStructure: list[FundHolderStructure]
-    scaleChanges: list[FundScaleChange]
-    buySedemption: list[FundBuySedemption]
-    stageReturns: FundStageReturns
-    sameType: FundSameType | None
-
-
-class ThemeFund(BaseModel):
-    """主题基金条目（主题列表 / 热门主题）。"""
-
-    code: str
-    name: str
-    dailyChange: float | None
-    weeklyReturn: float | None
-    monthlyReturn: float | None
-    quarterlyReturn: float | None
-    halfYearReturn: float | None
-    yearlyReturn: float | None
-    threeYearReturn: float | None
-    fiveYearReturn: float | None
-    type: Literal["行业", "概念"]
-
-
-class ThemeFundListResult(BaseModel):
-    """主题基金列表结果。"""
-
-    items: list[ThemeFund]
-    totalPages: int
-    pageSize: int
-    currentPage: int
-
-
-class ThemeFundItem(BaseModel):
-    """主题下基金条目。"""
-
-    code: str
-    name: str
-    fundType: str
-    dailyChange: float | None
-    weeklyReturn: float | None
-    monthlyReturn: float | None
-    quarterlyReturn: float | None
-    yearlyReturn: float | None
-    nav: float | None
-    themeCode: str
-    themeName: str | None = None
-
-
-class ThemeFundItemList(BaseModel):
-    """主题下基金列表结果。"""
-
-    items: list[ThemeFundItem]
-    total: int
-    pageIndex: int
-    pageSize: int
-
-
-# ---------------------------------------------------------------------------
-# 筹码分布
-# ---------------------------------------------------------------------------
-
-class ChipHistogram(BaseModel):
-    """筹码峰直方图。"""
-
-    prices: list[float]
-    ratios: list[float]
-
-
-class ChipDistributionItem(BaseModel):
-    """单日筹码分布统计。"""
-
-    date: str
-    profitRatio: float | None
-    avgCost: float | None
-    cost90Low: float | None
-    cost90High: float | None
-    concentration90: float | None
-    cost70Low: float | None
-    cost70High: float | None
-    concentration70: float | None
-    histogram: ChipHistogram | None = None
+    price: float  # 现价
+    profit_ratio: float  # 获利比例（现价之下持仓占比，[0,1]）
+    avg_cost: float  # 平均成本
+    cost_90: tuple[float, float]  # 5%~95% 分位价格区间
+    cost_70: tuple[float, float]  # 15%~85% 分位价格区间
+    concentration_90: float | None = None  # 90% 集中度
+    concentration_70: float | None = None  # 70% 集中度
+    peak_price: float  # 筹码峰
+    histogram: list[tuple[float, float]] = Field(default_factory=list)  # (价位, 权重)

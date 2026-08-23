@@ -45,7 +45,7 @@ app = FastAPI(title="AI Trader Quant", version="0.1.0")
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# stock-sdk 数据源契约层（仅声明，端点抛 NotImplementedError）
+# 统一数据获取 API（多平台数据源 + 降级策略，返回 snake_case）
 app.include_router(data_router, prefix="/api/v1/data")
 
 
