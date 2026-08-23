@@ -1,20 +1,15 @@
 /**
- * 资金流向 API — 通过 stock-sdk 拉取东方财富个股资金流（主力/超大/大/中/小单）。
+ * 资金流向 API — 通过 quant 数据服务拉取东方财富个股资金流（主力/超大/大/中/小单）。
  *
- * 数据来源：push2his.eastmoney.com 日级资金流接口，实时返回，不落库。
+ * 数据来源：quant /fund-flow-120d（东财日级资金流，最近 120 个交易日），实时返回，不落库。
+ * quant 返回 snake_case，此处映射为前端图表需要的 camelCase。
  */
 
 import { Hono } from "hono";
-import { createSdk } from "../lib/sdk";
+import { quant } from "../lib/quant";
 import { ok, badRequest } from "../lib/response";
 
 const fundflowRoute = new Hono();
-
-/** symbol "002594.SZ" → 腾讯/东财格式 "sz002594" */
-function toEastmoneyCode(symbol: string): string {
-  const [code, exchange] = symbol.split(".");
-  return `${(exchange ?? "").toLowerCase()}${code}`;
-}
 
 // GET /api/v1/fundflow?symbol=002594.SZ&period=daily&limit=30
 fundflowRoute.get("/", async (c) => {
@@ -27,14 +22,20 @@ fundflowRoute.get("/", async (c) => {
     return badRequest(c, "period must be daily|weekly|monthly");
   }
 
-  const sdk = createSdk();
   try {
-    const rows = await sdk.fundFlow.individual(toEastmoneyCode(symbol), {
-      period: period as "daily" | "weekly" | "monthly",
-    });
-    // 只保留最近 limit 条
-    const sliced = rows.slice(-limit);
-    return ok(c, sliced);
+    const rows = await quant.fundFlow120d(symbol);
+    // quant 仅提供日级资金流（最近 120 个交易日），映射 snake_case → 前端 camelCase
+    const mapped = rows.slice(-limit).map((r) => ({
+      date: r.date,
+      close: r.close,
+      changePercent: r.change_pct,
+      mainNetInflow: r.main_net,
+      superLargeNetInflow: r.super_net,
+      largeNetInflow: r.large_net,
+      mediumNetInflow: r.mid_net,
+      smallNetInflow: r.small_net,
+    }));
+    return ok(c, mapped);
   } catch (error) {
     console.error(`[fundflow] ${symbol} failed:`, error);
     return ok(c, []);

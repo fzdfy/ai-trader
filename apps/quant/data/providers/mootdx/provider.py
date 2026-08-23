@@ -1,14 +1,18 @@
 """mootdx（通达信）行情源 provider。
 
-能力：kline（多周期，不复权）/ quote（五档盘口）/ transaction（逐笔成交）。
+能力：kline（多周期，不复权）/ quote（五档盘口）/
+transaction（逐笔成交）。
+
+数据来源：通达信 TCP 7709 二进制协议，零注册零鉴权，实测【不封 IP】，是
+a-stock-data skill 里行情/K线的第 1 优先级主源。
 
 注意：mootdx 不提供 PE / PB / 市值 / 换手率 / 涨跌停价，这些走腾讯源；
-bars() 返回【不复权】数据，跨除权日比价需配合新浪复权因子。
+bars() 返回【不复权】数据，跨除权日比价需配合新浪复权因子（或改用腾讯前复权）。
 """
 from __future__ import annotations
 
 from ...base import MarketProvider
-from ...common import norm_ticker, tdx_client
+from ...common import norm_date, norm_ticker, tdx_client
 from ...schemas import BidAskLevel, KlineBar, Quote, TradeTick
 
 # tf → mootdx frequency 映射（mootdx 0.11.7 实测频率值表）
@@ -43,7 +47,11 @@ class MootdxProvider(MarketProvider):
         limit: int = 500,
         start: str | None = None,
         end: str | None = None,
+        adjust: str = "qfq",  # mootdx 仅不复权，adjust 被忽略
     ) -> list[KlineBar]:
+        # 归一化日期（兼容 YYYYMMDD / YYYY-MM-DD），对齐 time 字段的 YYYY-MM-DD
+        start = norm_date(start)
+        end = norm_date(end)
         freq = _TF_TO_FREQ.get(tf)
         if freq is None:
             raise ValueError(f"mootdx 不支持的周期: {tf}")

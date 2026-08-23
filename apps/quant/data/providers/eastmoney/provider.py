@@ -11,6 +11,10 @@
 
 字段口径：金额单位统一为「元」（分钟/日资金流、融资融券、大宗），龙虎榜净买额为
 「万元」。返回 snake_case，对齐 server 端 DB 表字段。
+
+⚠️ K 线政策：个股日 K 线（kline）已从本源移除——K 线不属于东财「独有」数据，
+按 skill 优先级改走腾讯（主，日线前/后复权）/ mootdx（备，多周期不复权）/ 百度（备）
+等不封 IP 源。本源仅保留板块 BK 指数 K 线（board_kline，东财独有）。
 """
 from __future__ import annotations
 
@@ -30,8 +34,11 @@ from ...base import MarketProvider
 from ...common import UA, get_prefix, norm_ticker, tdx_client
 from ...schemas import (
     BlockTradeItem,
+    BoardConstituentItem,
     BoardFundFlow,
     BoardFundFlowItem,
+    BoardList,
+    BoardListItem,
     ChipDistribution,
     ConceptBlock,
     ConceptBlocks,
@@ -45,9 +52,11 @@ from ...schemas import (
     DragonTigerSeats,
     FundFlowDay,
     FundFlowPoint,
+    FundFlowRankItem,
     HolderNumItem,
     IndustryComparison,
     IndustryRankItem,
+    KlineBar,
     LockupExpiry,
     LockupExpiryItem,
     MarginTradingItem,
@@ -247,6 +256,10 @@ class EastmoneyProvider(MarketProvider):
         "industry_comparison",
         "board_fund_flow",
         "daily_dragon_tiger",
+        "board_list",
+        "board_constituents",
+        "board_kline",
+        "fund_flow_rank",
         "margin_trading",
         "block_trade",
         "holder_num",
@@ -448,11 +461,163 @@ class EastmoneyProvider(MarketProvider):
             )
         return IndustryComparison(top=rows[:top_n], bottom=rows[-top_n:], total=len(rows))
 
+    # ── 3.7b 板块列表 / 成分股 / 板块 K 线（供热力图与行业筹码）─────
+
+    def board_list(self, board_type: str = "industry") -> BoardList:
+        """板块列表（行业/概念），含总市值/换手率/领涨股，供热力图一级节点。
+
+        与 stock-sdk `board.industry.list()` / `board.concept.list()` 同源同字段：
+        push2 clist，`fs` 区分行业/概念，返回全部板块（概念约 400+，需翻页拉全）。
+        """
+        board_fs = {"industry": "m:90+t:2", "concept": "m:90+t:3"}
+        if board_type not in board_fs:
+            raise ValueError(f"board_type 须为 {list(board_fs)}")
+        # f2 最新价 / f3 涨跌幅 / f8 换手率 / f12 代码 / f14 名称 /
+        # f20 总市值 / f128 领涨股 / f136 领涨股涨跌幅
+        base = {
+            "pn": "1", "pz": "100", "po": "1", "np": "1",
+            "fltt": "2", "invt": "2", "fid": "f3",
+            "fs": board_fs[board_type],
+            "fields": "f2,f3,f8,f12,f14,f20,f128,f136",
+        }
+
+        def _page(pn: int):
+            d = _em_get(
+                "https://push2delay.eastmoney.com/api/qt/clist/get",
+                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
+            )
+            dd = d.get("data") or {}
+            return (dd.get("diff") or []), int(dd.get("total") or 0)
+
+        # 东财 clist 单页上限 100（pz 传大于 100 也只返回 100 条），
+        # 必须 pz=100 才能让翻页逻辑 len(more) < page_size 正确走到最后一页。
+        page_size = 100
+        items, total = _page(1)
+        pn = 2
+        while len(items) < total:
+            more, _ = _page(pn)
+            if not more:
+                break
+            items += more
+            if len(more) < page_size:
+                break
+            pn += 1
+
+        rows = [
+            BoardListItem(
+                name=it.get("f14", "") or "",
+                code=it.get("f12", "") or "",
+                change_pct=_f(it.get("f3")),
+                total_market_cap=_f(it.get("f20")),
+                turnover_rate=_f(it.get("f8")),
+                leader=it.get("f128", "") or "",
+                leader_change=_f(it.get("f136")),
+            )
+            for it in items
+        ]
+        return BoardList(board_type=board_type, total=len(rows), rows=rows)
+
+    def board_constituents(self, board_code: str) -> list[BoardConstituentItem]:
+        """板块成分股列表，供热力图二级节点。"""
+        base = {
+            "pn": "1", "pz": "100", "po": "1", "np": "1",
+            "fltt": "2", "invt": "2", "fid": "f3",
+            "fs": f"b:{board_code} f:!50",
+            "fields": "f2,f3,f6,f8,f12,f14",
+        }
+
+        def _page(pn: int):
+            d = _em_get(
+                "https://push2delay.eastmoney.com/api/qt/clist/get",
+                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
+            )
+            dd = d.get("data") or {}
+            return (dd.get("diff") or []), int(dd.get("total") or 0)
+
+        # 东财 clist 单页上限 100，需翻页拉全（融资融券等大板块成分股可达数千只）
+        page_size = 100
+        items, total = _page(1)
+        pn = 2
+        while len(items) < total:
+            more, _ = _page(pn)
+            if not more:
+                break
+            items += more
+            if len(more) < page_size:
+                break
+            pn += 1
+
+        return [
+            BoardConstituentItem(
+                code=it.get("f12", "") or "",
+                name=it.get("f14", "") or "",
+                price=_f(it.get("f2")),
+                change_pct=_f(it.get("f3")),
+                turnover_rate=_f(it.get("f8")),
+                amount=_f(it.get("f6")),
+            )
+            for it in items
+        ]
+
+    def board_kline(
+        self,
+        board_code: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[KlineBar]:
+        """板块指数日 K 线（东财 BK 指数，secid=90.{code}）。
+
+        来源：东财 push2his kline（板块 BK 指数 K 线为东财独有，mootdx/腾讯无此数据，
+        属 skill「东财只用于独有数据」范畴）。
+        降级：无独立备胎（板块指数 K 线仅东财提供）；走 _em_get 串行限流防封。
+        """
+        secid = f"90.{board_code}"
+        params = {
+            "secid": secid,
+            "klt": "101",  # 日K
+            "fqt": "1",    # 前复权
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+            "lmt": str(limit),
+        }
+        if start:
+            params["beg"] = start.replace("-", "")
+        if end:
+            params["end"] = end.replace("-", "")
+        d = _em_get(
+            "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+            params=params,
+            headers={"Referer": "https://quote.eastmoney.com/", "Origin": "https://quote.eastmoney.com"},
+            timeout=15,
+        )
+        rows: list[KlineBar] = []
+        for line in (d.get("data") or {}).get("klines") or []:
+            parts = line.split(",")
+            if len(parts) >= 7:
+                rows.append(
+                    KlineBar(
+                        time=parts[0],
+                        open=_f0(parts[1]),
+                        close=_f0(parts[2]),
+                        high=_f0(parts[3]),
+                        low=_f0(parts[4]),
+                        volume=_f0(parts[5]),
+                        amount=_f0(parts[6]),
+                    )
+                )
+        return rows
+
     # ── 3.8 板块资金流向 ───────────────────────────────────────────
 
     def board_fund_flow(
         self, board_type: str = "industry", period: str = "today", top_n: int = 20
     ) -> BoardFundFlow:
+        """板块资金流向（行业/概念/地域 × 今日/5日/10日）。
+
+        来源：东财 push2 clist（板块级资金流为东财独有，mootdx/腾讯无此数据）。
+        降级：无独立备胎；走 _em_get 串行限流防封。与 stock-sdk `board.fundFlow` 同源。
+        """
         board_fs = {"industry": "m:90+t:2", "concept": "m:90+t:3", "region": "m:90+t:1"}
         board_period = {
             "today": ("f62", "f62", "f184", "f3", "f204"),
@@ -469,7 +634,7 @@ class EastmoneyProvider(MarketProvider):
         if f_leader:
             fields.append(f_leader)
         if period == "today":
-            fields += ["f66", "f72", "f78", "f84"]  # 超大/大/中/小单净额
+            fields += ["f66", "f72", "f78", "f84", "f205"]  # 超大/大/中/小单净额 + 主力净流入最大股名称
 
         base = {
             "pz": "200", "po": "1", "np": "1", "fltt": "2", "invt": "2",
@@ -516,6 +681,8 @@ class EastmoneyProvider(MarketProvider):
                 row.large_net = _f(it.get("f72"))
                 row.medium_net = _f(it.get("f78"))
                 row.small_net = _f(it.get("f84"))
+                row.top_stock_code = it.get("f204", "") or ""
+                row.top_stock_name = it.get("f205", "") or ""
             rows.append(row)
         return BoardFundFlow(board_type=board_type, period=period, total=total, rows=rows[:top_n])
 
@@ -678,8 +845,70 @@ class EastmoneyProvider(MarketProvider):
                         mid_net=_f0(parts[3]),
                         large_net=_f0(parts[4]),
                         super_net=_f0(parts[5]),
+                        close=_f(parts[6]) if len(parts) >= 7 else None,
+                        change_pct=_f(parts[7]) if len(parts) >= 8 else None,
                     )
                 )
+        return rows
+
+    # ── 4.5b 个股资金流排行（全市场）──────────────────────────────
+
+    def fund_flow_rank(self, indicator: str = "today", top_n: int = 100) -> list[FundFlowRankItem]:
+        """全市场个股资金流排行，按主力净流入降序（东财 clist，fid=f62）。
+
+        来源：东财 push2 clist（个股资金流为东财独有，mootdx/腾讯无此数据）。
+        降级：无独立备胎；走 _em_get 串行限流防封。与 stock-sdk `fundFlow.rank` 同源同字段：
+        fs 覆盖沪深北全部 A 股，fields 取主力/超大/大/中/小单净额与净占比。
+        """
+        if indicator != "today":
+            raise ValueError(f"fund_flow_rank 仅支持 indicator='today'，收到 {indicator!r}")
+        # 全 A 股（深主板/深创业/深中小/沪主板/沪科创/北交所，剔除退市 f:!2）
+        fs = "m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2"
+        base = {
+            "pn": "1", "pz": "100", "po": "1", "np": "1",
+            "fltt": "2", "invt": "2", "fid": "f62",
+            "fs": fs,
+            "fields": "f12,f14,f2,f3,f62,f184,f66,f72,f78,f84",
+        }
+
+        def _page(pn: int):
+            d = _em_get(
+                "https://push2.eastmoney.com/api/qt/clist/get",
+                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
+            )
+            dd = d.get("data") or {}
+            return (dd.get("diff") or []), int(dd.get("total") or 0)
+
+        page_size = 100
+        items, total = _page(1)
+        pn = 2
+        while len(items) < top_n:
+            if total and len(items) >= total:
+                break
+            more, _ = _page(pn)
+            if not more:
+                break
+            items += more
+            pn += 1
+            if len(more) < page_size:
+                break
+
+        rows: list[FundFlowRankItem] = []
+        for it in items[:top_n]:
+            rows.append(
+                FundFlowRankItem(
+                    code=it.get("f12", "") or "",
+                    name=it.get("f14", "") or "",
+                    price=_f(it.get("f2")),
+                    change_pct=_f(it.get("f3")),
+                    main_net=_f(it.get("f62")),
+                    main_pct=_f(it.get("f184")),
+                    super_large_net=_f(it.get("f66")),
+                    large_net=_f(it.get("f72")),
+                    medium_net=_f(it.get("f78")),
+                    small_net=_f(it.get("f84")),
+                )
+            )
         return rows
 
     # ── 4.6 筹码分布（本地推演）────────────────────────────────────

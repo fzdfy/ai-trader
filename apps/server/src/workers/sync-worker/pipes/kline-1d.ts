@@ -1,7 +1,6 @@
 import { db } from "../../../db";
 import { isTradeDay, isAfterMarketClose } from "../calendar";
-import { asyncPool } from "stock-sdk";
-import { createSdk } from "../../../lib/sdk";
+import { quant } from "../../../lib/quant";
 import { sql, eq } from "drizzle-orm";
 import { bar1dAdj, instrument } from "../../../db/schema";
 import dayjs from "dayjs";
@@ -17,17 +16,7 @@ import dayjs from "dayjs";
 //   },
 // };
 
-function toLowerCode(symbol: string): string {
-  const parts = symbol.split(".");
-  const code = parts[0] ?? symbol;
-  const exchange = parts[1] ?? "";
-  const prefix = exchange.toLowerCase();
-  return `${prefix}${code}`;
-}
-
 export async function kline1dPipeRun(): Promise<void> {
-  const sdk = createSdk();
-
   // 获取同步标的：全部上市标的
   const symbols = await db
     .select({ symbol: instrument.symbol })
@@ -57,24 +46,11 @@ export async function kline1dPipeRun(): Promise<void> {
   }
 
   const syncOne = async (symbol: string): Promise<number> => {
-    const tencentCode = toLowerCode(symbol);
-    // 增量：从该标的已入库的最新日线日期开始；SDK 会根据指标依赖自动向前多取若干 bar 保证指标有效
+    // 增量：从该标的已入库的最新日线日期开始（YYYYMMDD，未入库则为 undefined 走全量）
     const startDate = latestBySymbol.get(symbol);
 
-    const klines = await sdk.kline
-      .withIndicators(tencentCode, {
-        period: "daily",
-        adjust: "qfq",
-        startDate,
-        endDate: today,
-        indicators: {
-          ma: [5, 10, 20, 60],
-          macd: {},
-          boll: {},
-          kdj: {},
-          rsi: [6, 12, 24],
-        },
-      })
+    const klines = await quant
+      .stockKline(symbol, 500, startDate, today, "qfq")
       .catch((error) => {
         console.error(`[kline-1d] ${symbol} failed:`, error);
         return [];
@@ -82,22 +58,21 @@ export async function kline1dPipeRun(): Promise<void> {
 
     if (klines.length === 0) return 0;
 
-    const batch = klines
-      .filter((k) => k.date)
-      .map((k) => ({
-        time: new Date(k.date),
-        symbol,
-        open: String(k.open ?? 0),
-        high: String(k.high ?? 0),
-        low: String(k.low ?? 0),
-        close: String(k.close ?? 0),
-        volume: String(k.volume ?? 0),
-        amount: k.amount == null ? null : String(k.amount),
-        avgPrice: null,
-        indicators: { ma: k.ma, macd: k.macd, boll: k.boll, kdj: k.kdj, rsi: k.rsi },
-        sourceUpdatedAt: new Date(),
-        ingestedAt: new Date(),
-      }));
+    const batch = klines.map((k) => ({
+      time: new Date(k.time),
+      symbol,
+      open: String(k.open ?? 0),
+      high: String(k.high ?? 0),
+      low: String(k.low ?? 0),
+      close: String(k.close ?? 0),
+      volume: String(k.volume ?? 0),
+      amount: k.amount == null ? null : String(k.amount),
+      avgPrice: null,
+      // quant 当前不提供技术指标，indicators 不再由本管道填充
+      indicators: {},
+      sourceUpdatedAt: new Date(),
+      ingestedAt: new Date(),
+    }));
 
     for (let j = 0; j < batch.length; j += 200) {
       await db
@@ -122,12 +97,12 @@ export async function kline1dPipeRun(): Promise<void> {
     return batch.length;
   };
 
-  // 并发拉取（上游接口有隐式限流，8 并发在稳定性与速度间取平衡）
-  const counts = await asyncPool(
-    symbols.map((s) => () => syncOne(s.symbol)),
-    1,
-  );
-  const total = counts.reduce((acc, n) => acc + n, 0);
+  // 串行拉取（quant 侧 K 线主源腾讯 fqkline 前复权，降级 mootdx/百度，均为不封 IP 源，
+  // 逐一同步避免瞬时并发过高。注：前复权遇除权会整体漂移历史价，建议定期全量重刷对齐口径）
+  let total = 0;
+  for (const s of symbols) {
+    total += await syncOne(s.symbol);
+  }
 
   console.log(`[kline-1d] done. ${total} bars total`);
 }

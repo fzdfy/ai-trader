@@ -1,15 +1,15 @@
 /**
  * fundflow 管道 — 同步行业 / 概念 / 个股资金流排行到 fund_flow_rank。
  *
- * 数据源：stock-sdk 东方财富资金流排行接口（收盘后同步为当日快照）：
- *   - industry : fundFlow.sectorRank({ sectorType: "industry" })
- *   - concept  : fundFlow.sectorRank({ sectorType: "concept" })
- *   - stock    : fundFlow.rank()
+ * 数据源：quant 数据服务东方财富资金流排行接口（收盘后同步为当日快照）：
+ *   - industry : quant.boardFundFlow("industry", "today")
+ *   - concept  : quant.boardFundFlow("concept", "today")
+ *   - stock    : quant.fundFlowRank()
  *
  * 写入策略：upsert（date + category + code 主键，同日覆盖为当天最后一次同步结果）。
  */
 
-import { createSdk, withSdkRetry } from "../../../lib/sdk";
+import { quant } from "../../../lib/quant";
 import { db } from "../../../db";
 import { fundFlowRank } from "../../../db/schema";
 import { sql } from "drizzle-orm";
@@ -147,7 +147,6 @@ async function upsertStock(today: string, rows: StockRow[]): Promise<number> {
 }
 
 export async function fundFlowPipeRun(): Promise<void> {
-  const sdk = createSdk();
   const today = new Date().toISOString().slice(0, 10);
 
   let industries: SectorRow[] = [];
@@ -156,10 +155,19 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching industry sector fund flow...");
-    industries = await withSdkRetry(
-      () => sdk.fundFlow.sectorRank({ sectorType: "industry", indicator: "today" }),
-      { label: "fundflow.industry" },
-    );
+    industries = (await quant.boardFundFlow("industry", "today", 100)).rows.map((r) => ({
+      code: r.code,
+      name: r.name,
+      changePercent: r.change_pct,
+      mainNetInflow: r.main_net,
+      mainNetInflowPercent: r.main_pct,
+      superLargeNetInflow: r.super_large_net,
+      largeNetInflow: r.large_net,
+      mediumNetInflow: r.medium_net,
+      smallNetInflow: r.small_net,
+      topStockCode: r.top_stock_code,
+      topStockName: r.top_stock_name,
+    }));
     console.log(`[fundflow] got ${industries.length} industry rows`);
   } catch (error) {
     console.error("[fundflow] industry fetch failed (skip):", (error as Error).message ?? error);
@@ -167,10 +175,19 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching concept sector fund flow...");
-    concepts = await withSdkRetry(
-      () => sdk.fundFlow.sectorRank({ sectorType: "concept", indicator: "today" }),
-      { label: "fundflow.concept" },
-    );
+    concepts = (await quant.boardFundFlow("concept", "today", 100)).rows.map((r) => ({
+      code: r.code,
+      name: r.name,
+      changePercent: r.change_pct,
+      mainNetInflow: r.main_net,
+      mainNetInflowPercent: r.main_pct,
+      superLargeNetInflow: r.super_large_net,
+      largeNetInflow: r.large_net,
+      mediumNetInflow: r.medium_net,
+      smallNetInflow: r.small_net,
+      topStockCode: r.top_stock_code,
+      topStockName: r.top_stock_name,
+    }));
     console.log(`[fundflow] got ${concepts.length} concept rows`);
   } catch (error) {
     console.error("[fundflow] concept fetch failed (skip):", (error as Error).message ?? error);
@@ -178,9 +195,18 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching stock fund flow rank...");
-    stocks = await withSdkRetry(() => sdk.fundFlow.rank({ indicator: "today" }), {
-      label: "fundflow.stock",
-    });
+    stocks = (await quant.fundFlowRank(100)).map((r) => ({
+      code: r.code,
+      name: r.name,
+      price: r.price,
+      changePercent: r.change_pct,
+      mainNetInflow: r.main_net,
+      mainNetInflowPercent: r.main_pct,
+      superLargeNetInflow: r.super_large_net,
+      largeNetInflow: r.large_net,
+      mediumNetInflow: r.medium_net,
+      smallNetInflow: r.small_net,
+    }));
     console.log(`[fundflow] got ${stocks.length} stock rows`);
   } catch (error) {
     console.error("[fundflow] stock fetch failed (skip):", (error as Error).message ?? error);

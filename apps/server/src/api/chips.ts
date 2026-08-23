@@ -10,7 +10,7 @@
 
 import { Hono } from "hono";
 import { db } from "../db";
-import { createSdk } from "../lib/sdk";
+import { quant } from "../lib/quant";
 import { bar1dAdj } from "../db/schema";
 import { eq, lte, desc } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
@@ -80,7 +80,7 @@ chipsRoute.get("/", async (c) => {
 });
 
 // GET /api/v1/chips/board?code=BK1027&days=250&bins=48
-// 行业筹码分布：用行业板块指数日K线（stock-sdk 东方财富 BK 指数）计算成本分布。
+// 行业筹码分布：用行业板块指数日K线（quant 东方财富 BK 指数）计算成本分布。
 chipsRoute.get("/board", async (c) => {
   const code = c.req.query("code");
   const days = Math.min(Math.max(Number(c.req.query("days") ?? "250"), 30), 2000);
@@ -88,26 +88,22 @@ chipsRoute.get("/board", async (c) => {
 
   if (!code) return badRequest(c, "code is required");
 
-  const sdk = createSdk();
-  let klines: Array<{ date: string; open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null }>;
+  let klines: Awaited<ReturnType<typeof quant.boardKline>>;
   try {
-    klines = await sdk.board.industry.kline(code, { period: "daily", adjust: "qfq" });
+    klines = await quant.boardKline(code, days);
   } catch (error) {
     console.error(`[chips] board ${code} kline failed:`, error);
     return ok(c, null);
   }
 
-  const bars: DailyBar[] = klines
-    .filter((k) => k.date && k.high != null && k.low != null && k.close != null)
-    .slice(-days)
-    .map((k) => ({
-      time: new Date(k.date),
-      open: k.open ?? k.close ?? 0,
-      high: k.high ?? 0,
-      low: k.low ?? 0,
-      close: k.close ?? 0,
-      volume: k.volume ?? 0,
-    }));
+  const bars: DailyBar[] = klines.slice(-days).map((k) => ({
+    time: new Date(k.time),
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+    volume: k.volume,
+  }));
 
   if (bars.length === 0) return ok(c, null);
 

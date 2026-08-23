@@ -152,6 +152,8 @@ class FundFlowDay(BaseModel):
     mid_net: float = 0.0
     large_net: float = 0.0
     super_net: float = 0.0
+    close: float | None = None  # 当日收盘价
+    change_pct: float | None = None  # 当日涨跌幅(%)
 
 
 class DragonTigerSeat(BaseModel):
@@ -248,6 +250,9 @@ class BoardFundFlowItem(BaseModel):
     large_net: float | None = None
     medium_net: float | None = None
     small_net: float | None = None
+    # 主力净流入最大股（仅今日周期，f204 代码 / f205 名称）
+    top_stock_code: str = ""
+    top_stock_name: str = ""
 
 
 class BoardFundFlow(BaseModel):
@@ -257,6 +262,52 @@ class BoardFundFlow(BaseModel):
     period: str = ""  # today / 5d / 10d
     total: int = 0
     rows: list[BoardFundFlowItem] = Field(default_factory=list)
+
+
+class FundFlowRankItem(BaseModel):
+    """个股资金流排行一条。金额单位：元，净占比单位：%。"""
+
+    code: str = ""
+    name: str = ""
+    price: float | None = None  # 最新价
+    change_pct: float | None = None  # 涨跌幅(%)
+    main_net: float | None = None  # 主力净流入
+    main_pct: float | None = None  # 主力净占比(%)
+    super_large_net: float | None = None  # 超大单净流入
+    large_net: float | None = None  # 大单净流入
+    medium_net: float | None = None  # 中单净流入
+    small_net: float | None = None  # 小单净流入
+
+
+class BoardListItem(BaseModel):
+    """板块列表一条（行业/概念），供热力图一级节点使用。"""
+
+    name: str = ""
+    code: str = ""  # BK 板块代码，如 BK0475
+    change_pct: float | None = None  # 涨跌幅(%)
+    total_market_cap: float | None = None  # 总市值（元）
+    turnover_rate: float | None = None  # 换手率(%)
+    leader: str = ""  # 领涨股名称
+    leader_change: float | None = None  # 领涨股涨跌幅(%)
+
+
+class BoardList(BaseModel):
+    """板块列表（行业/概念）。"""
+
+    board_type: str = ""  # industry / concept
+    total: int = 0
+    rows: list[BoardListItem] = Field(default_factory=list)
+
+
+class BoardConstituentItem(BaseModel):
+    """板块成分股一条，供热力图二级节点使用。"""
+
+    code: str = ""  # 6 位股票代码
+    name: str = ""
+    price: float | None = None  # 最新价
+    change_pct: float | None = None  # 涨跌幅(%)
+    turnover_rate: float | None = None  # 换手率(%)
+    amount: float | None = None  # 成交额（元）
 
 
 class DailyDragonTigerStock(BaseModel):

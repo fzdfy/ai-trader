@@ -474,13 +474,13 @@ export const quoteSnapshot = pgTable(
 // ============================================================================
 
 /**
- * bar_1m_adj — 1 分钟 K 线表（后复权）
+ * bar_1m_adj — 1 分钟 K 线表（前复权）
  *
  * 定位：整个系统唯一的分钟级明细基表。所有多分钟粒度（5m/15m/30m/60m）
  * 均通过 TimescaleDB 连续聚合（cagg）从此表派生，不再建独立的宽表。
  *
  * 存储内容：每只股票每个交易分钟一根 Bar 的 OHLCV。
- * 复权口径：后复权，与 bar_1d_adj 口径一致，可无缝拼接。
+ * 复权口径：前复权，与 bar_1d_adj 口径一致，可无缝拼接。
  *
  * ── 写入策略 ──
  *
@@ -548,7 +548,7 @@ export const bar1mAdj = pgTable(
 // ============================================================================
 
 /**
- * bar_1d_adj — 日 K 线表（后复权）
+ * bar_1d_adj — 日 K 线表（前复权）
  *
  * 定位：权威日线数据，从上游 kline.cn 独立同步。
  * 不依赖于 bar_1m_adj 聚合——上游日线可能含集合竞价数据（09:25 开盘价），
@@ -591,7 +591,7 @@ export const bar1dAdj = pgTable(
     low: numeric("low").notNull(),
     /** 当日收盘价 */
     close: numeric("close").notNull(),
-    /** 当日成交量（股） */
+    /** 当日成交量（手） */
     volume: numeric("volume").notNull(),
     /** 当日成交额（元） */
     amount: numeric("amount"),
@@ -655,7 +655,7 @@ export const barPeriodAdj = pgTable(
     low: numeric("low").notNull(),
     /** 周期末根日线 close */
     close: numeric("close").notNull(),
-    /** 周期内成交量合计（股） */
+    /** 周期内成交量合计（手） */
     volume: numeric("volume").notNull(),
     /** 周期内成交额合计（元） */
     amount: numeric("amount"),

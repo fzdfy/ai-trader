@@ -6,7 +6,7 @@
  *
  * 数据流（DB 优先，避免每次都打上游）：
  *   1. 从 DB 查询一级板块（board 表）与二级成分股（board_constituent 表）
- *   2. DB 无板块数据 → 实时拉取板块（stock-sdk），成功后 upsert 到 board
+ *   2. DB 无板块数据 → 实时拉取板块（quant），成功后 upsert 到 board
  *   3. 板块有、成分股缺失 → 实时拉取成分股，成功后 upsert 到 board_constituent
  *   4. 实时拉取带总时限保护（15s），超时放弃剩余
  *
@@ -16,7 +16,7 @@
 
 import { Hono } from "hono";
 import { db } from "../db";
-import { createSdk } from "../lib/sdk";
+import { quant } from "../lib/quant";
 import { board, boardConstituent } from "../db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
@@ -85,10 +85,7 @@ heatmapRoute.get("/", async (c) => {
     return badRequest(c, "type must be industry|concept");
   }
 
-  const sdk = createSdk();
   let source = "db";
-
-  // 1. DB 优先：板块
   let boards: BoardNode[] = (
     await db
       .select()
@@ -101,16 +98,15 @@ heatmapRoute.get("/", async (c) => {
   // 2. DB 无板块 → 实时拉取并落库
   if (boards.length === 0) {
     try {
-      const rows =
-        type === "industry" ? await sdk.board.industry.list() : await sdk.board.concept.list();
-      const fetched: BoardNode[] = rows.map((item) => ({
+      const boardList = await quant.boardList(type as "industry" | "concept");
+      const fetched: BoardNode[] = boardList.rows.map((item) => ({
         name: item.name,
         code: item.code,
-        changePercent: item.changePercent,
-        totalMarketCap: item.totalMarketCap,
-        turnoverRate: item.turnoverRate,
-        leadingStock: item.leadingStock,
-        leadingStockChangePercent: item.leadingStockChangePercent,
+        changePercent: item.change_pct,
+        totalMarketCap: item.total_market_cap,
+        turnoverRate: item.turnover_rate,
+        leadingStock: item.leader || null,
+        leadingStockChangePercent: item.leader_change,
       }));
       if (fetched.length > 0) {
         // 落库 board（upsert），同时写当日历史快照由 boards 管道负责，这里只写最新
@@ -181,17 +177,14 @@ heatmapRoute.get("/", async (c) => {
     const deadline = Date.now() + 15_000; // 总时限 15s
     await mapWithConcurrency(missingBoards, 5, deadline, async (b) => {
       try {
-        const rows =
-          type === "industry"
-            ? await sdk.board.industry.constituents(b.code)
-            : await sdk.board.concept.constituents(b.code);
+        const rows = await quant.boardConstituents(b.code);
         const stocks: StockNode[] = rows.map((s) => ({
           name: s.name,
           code: s.code,
           // 面积：成交额（成分股接口无总市值字段）
           value: s.amount ?? 0,
-          changePercent: s.changePercent,
-          turnoverRate: s.turnoverRate,
+          changePercent: s.change_pct,
+          turnoverRate: s.turnover_rate,
         }));
         dbMap.set(b.code, stocks);
         failedBoards.delete(b.code);
@@ -260,8 +253,6 @@ heatmapRoute.get("/board", async (c) => {
     return badRequest(c, "type must be industry|concept and code required");
   }
 
-  const sdk = createSdk();
-
   // 1. DB 优先
   const dbRows = await db
     .select()
@@ -284,16 +275,13 @@ heatmapRoute.get("/board", async (c) => {
     return ok(c, { code, source: "eastmoney", data: [] });
   }
   try {
-    const rows =
-      type === "industry"
-        ? await sdk.board.industry.constituents(code)
-        : await sdk.board.concept.constituents(code);
+    const rows = await quant.boardConstituents(code);
     const stocks: StockNode[] = rows.map((s) => ({
       name: s.name,
       code: s.code,
       value: s.amount ?? 0,
-      changePercent: s.changePercent,
-      turnoverRate: s.turnoverRate,
+      changePercent: s.change_pct,
+      turnoverRate: s.turnover_rate,
     }));
     failedBoards.delete(code);
 

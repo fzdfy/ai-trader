@@ -24,7 +24,9 @@ from typing import ClassVar
 from .schemas import (
     AdjustFactor,
     BlockTradeItem,
+    BoardConstituentItem,
     BoardFundFlow,
+    BoardList,
     ChipDistribution,
     ConceptBlocks,
     DailyDragonTiger,
@@ -32,6 +34,7 @@ from .schemas import (
     DragonTigerBoard,
     FundFlowDay,
     FundFlowPoint,
+    FundFlowRankItem,
     HolderNumItem,
     HotReasonItem,
     IndustryComparison,
@@ -59,6 +62,10 @@ CAPABILITY_LOCKUP_EXPIRY = "lockup_expiry"
 CAPABILITY_INDUSTRY_COMPARISON = "industry_comparison"
 CAPABILITY_BOARD_FUND_FLOW = "board_fund_flow"
 CAPABILITY_DAILY_DRAGON_TIGER = "daily_dragon_tiger"
+CAPABILITY_BOARD_LIST = "board_list"
+CAPABILITY_BOARD_CONSTITUENTS = "board_constituents"
+CAPABILITY_BOARD_KLINE = "board_kline"
+CAPABILITY_FUND_FLOW_RANK = "fund_flow_rank"
 
 # 资金面 / 筹码层（Layer 4）
 CAPABILITY_MARGIN_TRADING = "margin_trading"
@@ -84,8 +91,14 @@ class MarketProvider(ABC):
         limit: int = 500,
         start: str | None = None,
         end: str | None = None,
+        adjust: str = "qfq",
     ) -> list[KlineBar]:
-        """K 线。tf ∈ {1m,5m,15m,30m,60m,1d,1w,1mo}。"""
+        """K 线。tf ∈ {1m,5m,15m,30m,60m,1d,1w,1mo}。
+
+        adjust 复权口径（仅 tf=1d 时有效）：qfq=前复权（默认，最新价为基准）、
+        hfq=后复权（历史价为基准）、none=不复权。非日线周期（分钟/周/月）仅
+        mootdx 支持且均为不复权，忽略 adjust。
+        """
         raise NotImplementedError(f"{self.name} 不支持 kline")
 
     def quote(self, symbols: list[str]) -> dict[str, Quote]:
@@ -145,6 +158,28 @@ class MarketProvider(ABC):
     ) -> DailyDragonTiger:
         """全市场龙虎榜。"""
         raise NotImplementedError(f"{self.name} 不支持 daily_dragon_tiger")
+
+    def board_list(self, board_type: str = "industry") -> BoardList:
+        """板块列表（行业/概念），含总市值/换手率/领涨股，供热力图一级节点。"""
+        raise NotImplementedError(f"{self.name} 不支持 board_list")
+
+    def board_constituents(self, board_code: str) -> list[BoardConstituentItem]:
+        """板块成分股列表，供热力图二级节点。"""
+        raise NotImplementedError(f"{self.name} 不支持 board_constituents")
+
+    def board_kline(
+        self,
+        board_code: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[KlineBar]:
+        """板块指数日 K 线（东财 BK 指数）。"""
+        raise NotImplementedError(f"{self.name} 不支持 board_kline")
+
+    def fund_flow_rank(self, indicator: str = "today") -> list[FundFlowRankItem]:
+        """个股资金流排行（全市场，按主力净流入降序）。"""
+        raise NotImplementedError(f"{self.name} 不支持 fund_flow_rank")
 
     # ── 资金面 / 筹码层（Layer 4）───────────────────────────────────
 

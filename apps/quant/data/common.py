@@ -104,6 +104,20 @@ def norm_ticker(code: str) -> str:
     return digits
 
 
+def norm_date(d: str | None) -> str | None:
+    """日期串归一化为 YYYY-MM-DD（兼容 YYYYMMDD 与 YYYY-MM-DD 两种入参）。
+
+    server 端 worker 用 dayjs 传 YYYYMMDD，而 K 线 time 字段统一为 YYYY-MM-DD，
+    二者需在对 K 线做 start/end 过滤前对齐，否则字符串比较会漏判（返回空）。
+    """
+    if not d:
+        return None
+    s = str(d).strip()
+    if len(s) == 8 and s.isdigit():
+        return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+    return s[:10]
+
+
 def _probe(ip: str, port: int, timeout: float = 2.0) -> bool:
     """TCP 握手探测（快速粗筛，握手成功 ≠ 能取数，还需 _validate 验活）。"""
     try:

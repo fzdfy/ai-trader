@@ -2,8 +2,8 @@
 
 能力：kline（日线，自带 MA5/MA10/MA20，无需本地计算）。
 
-HTTP GET JSON，用 stdlib urllib 直连。仅支持日线（ktype=1）；作为 mootdx
-日线取数失败时的降级源。
+数据来源：百度股市通 HTTP GET JSON，用 stdlib urllib 直连。仅支持日线（ktype=1）；
+作为 mootdx 日线取数失败时的降级源（不同域名、不同风控面）。
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 
 from ...base import MarketProvider
-from ...common import UA, norm_ticker
+from ...common import UA, norm_date, norm_ticker
 from ...schemas import KlineBar
 
 _URL = "https://finance.pae.baidu.com/selfselect/getstockquotation"
@@ -35,7 +35,11 @@ class BaiduProvider(MarketProvider):
         limit: int = 500,
         start: str | None = None,
         end: str | None = None,
+        adjust: str = "qfq",  # 百度仅不复权，adjust 被忽略
     ) -> list[KlineBar]:
+        # 归一化日期（兼容 YYYYMMDD / YYYY-MM-DD），对齐 time 字段的 YYYY-MM-DD
+        start = norm_date(start)
+        end = norm_date(end)
         params = {
             "all": "1",
             "isIndex": "false",

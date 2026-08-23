@@ -19,7 +19,10 @@ from . import registry
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
     CAPABILITY_BLOCK_TRADE,
+    CAPABILITY_BOARD_CONSTITUENTS,
     CAPABILITY_BOARD_FUND_FLOW,
+    CAPABILITY_BOARD_KLINE,
+    CAPABILITY_BOARD_LIST,
     CAPABILITY_CHIP_DISTRIBUTION,
     CAPABILITY_CONCEPT_BLOCKS,
     CAPABILITY_DAILY_DRAGON_TIGER,
@@ -27,6 +30,7 @@ from .base import (
     CAPABILITY_DRAGON_TIGER,
     CAPABILITY_FUND_FLOW_120D,
     CAPABILITY_FUND_FLOW_MINUTE,
+    CAPABILITY_FUND_FLOW_RANK,
     CAPABILITY_HOLDER_NUM,
     CAPABILITY_HOT_REASON,
     CAPABILITY_INDUSTRY_COMPARISON,
@@ -40,7 +44,9 @@ from .base import (
 from .schemas import (
     AdjustFactor,
     BlockTradeItem,
+    BoardConstituentItem,
     BoardFundFlow,
+    BoardList,
     ChipDistribution,
     ConceptBlocks,
     DailyDragonTiger,
@@ -48,6 +54,7 @@ from .schemas import (
     DragonTigerBoard,
     FundFlowDay,
     FundFlowPoint,
+    FundFlowRankItem,
     HolderNumItem,
     HotReasonItem,
     IndustryComparison,
@@ -90,17 +97,25 @@ def list_sources():
 def get_kline(
     symbol: Annotated[str, Query(description="标的代码，如 600519 / 000001.SZ")],
     tf: Annotated[str, Query(description="周期：1m/5m/15m/30m/60m/1d/1w/1mo")] = "1d",
+    adjust: Annotated[str, Query(description="复权口径（仅日线有效）：qfq 前复权（默认）/ hfq 后复权 / none 不复权")] = "qfq",
     start: Annotated[str | None, Query(description="起始日期 YYYY-MM-DD")] = None,
     end: Annotated[str | None, Query(description="结束日期 YYYY-MM-DD")] = None,
     limit: Annotated[int, Query(ge=1, le=5000, description="返回根数上限")] = 500,
     source: Annotated[str | None, Query(description="强制指定数据源")] = None,
 ) -> list[KlineBar]:
-    """K 线（默认 mootdx，失败降级 baidu 日线）。"""
+    """K 线。
+
+    tf 多周期（1m~1mo）；adjust 复权仅 tf=1d 时有效（腾讯 fqkline 支持 qfq/hfq，
+    mootdx/百度仅不复权）。非日线周期自动落到 mootdx（不复权，忽略 adjust）。
+
+    来源：腾讯（主，日线前/后复权，不封 IP）→ mootdx（备，多周期不复权）→ 百度（备，日线带 MA）。
+    遵循 skill 优先级，不再走东财 K 线（push2his 有风控、会封 IP）。
+    """
     provider = _pick(CAPABILITY_KLINE, source)
     if provider is not None:
-        return provider.kline(symbol, tf=tf, limit=limit, start=start, end=end)
+        return provider.kline(symbol, tf=tf, limit=limit, start=start, end=end, adjust=adjust)
     return registry.call_with_fallback(
-        CAPABILITY_KLINE, "kline", symbol, tf=tf, limit=limit, start=start, end=end
+        CAPABILITY_KLINE, "kline", symbol, tf=tf, limit=limit, start=start, end=end, adjust=adjust
     )
 
 
@@ -109,7 +124,7 @@ def get_quotes(
     codes: Annotated[str, Query(description="逗号分隔的代码列表")],
     source: Annotated[str | None, Query()] = None,
 ) -> dict[str, Quote]:
-    """批量实时行情（默认腾讯含 PE/PB/市值，失败降级 mootdx 五档）。"""
+    """批量实时行情。来源：腾讯（主，含 PE/PB/市值/换手率）；降级：mootdx（五档盘口）。"""
     symbols = [c.strip() for c in codes.split(",") if c.strip()]
     if not symbols:
         return {}
@@ -125,7 +140,7 @@ def get_transaction(
     date: Annotated[str | None, Query(description="交易日 YYYYMMDD，缺省为最近")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> list[TradeTick]:
-    """逐笔成交（仅 mootdx）。"""
+    """逐笔成交。来源：mootdx 通达信（仅此源）；降级：无。"""
     provider = _pick(CAPABILITY_TRANSACTION, source)
     if provider is not None:
         return provider.transaction(symbol, date=date)
@@ -138,7 +153,7 @@ def get_adjust_factor(
     kind: Annotated[str, Query(description="qfq 前复权 / hfq 后复权")] = "qfq",
     source: Annotated[str | None, Query()] = None,
 ) -> list[AdjustFactor]:
-    """复权因子序列（仅新浪）。"""
+    """复权因子序列。来源：新浪（仅此源，qfq/hfq）；降级：无。"""
     provider = _pick(CAPABILITY_ADJUST_FACTOR, source)
     if provider is not None:
         return provider.adjust_factor(symbol, kind=kind)
@@ -157,7 +172,7 @@ def get_hot_reason(
     date: Annotated[str | None, Query(description="YYYY-MM-DD，缺省为今天")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> list[HotReasonItem]:
-    """同花顺当日强势股 + 题材归因（仅同花顺）。"""
+    """同花顺当日强势股 + 题材归因。来源：同花顺（仅此源）；降级：无。"""
     provider = _pick(CAPABILITY_HOT_REASON, source)
     if provider is not None:
         return provider.hot_reason(date=date)
@@ -166,7 +181,7 @@ def get_hot_reason(
 
 @router.get("/northbound", response_model=list[NorthboundPoint])
 def get_northbound(source: Annotated[str | None, Query()] = None) -> list[NorthboundPoint]:
-    """沪深股通当日实时分钟流向（仅同花顺）。"""
+    """沪深股通当日实时分钟流向。来源：同花顺（仅此源）；降级：无。"""
     provider = _pick(CAPABILITY_NORTHBOUND, source)
     if provider is not None:
         return provider.northbound()
@@ -178,7 +193,7 @@ def get_concept_blocks(
     symbol: Annotated[str, Query(description="标的代码，如 600519")],
     source: Annotated[str | None, Query()] = None,
 ) -> ConceptBlocks:
-    """个股所属板块/概念归属（东财 slist）。"""
+    """个股所属板块/概念归属。来源：东财 slist（独有）；降级：无，走 _em_get 防封。"""
     provider = _pick(CAPABILITY_CONCEPT_BLOCKS, source)
     if provider is not None:
         return provider.concept_blocks(symbol)
@@ -190,7 +205,7 @@ def get_fund_flow_minute(
     symbol: Annotated[str, Query()],
     source: Annotated[str | None, Query()] = None,
 ) -> list[FundFlowPoint]:
-    """个股资金流向（分钟级，单位元）。"""
+    """个股资金流向（分钟级）。来源：东财 push2（独有）；降级：无，走 _em_get 防封。"""
     provider = _pick(CAPABILITY_FUND_FLOW_MINUTE, source)
     if provider is not None:
         return provider.fund_flow_minute(symbol)
@@ -204,7 +219,7 @@ def get_dragon_tiger(
     look_back: Annotated[int, Query(ge=1, le=365, description="回看天数")] = 30,
     source: Annotated[str | None, Query()] = None,
 ) -> DragonTigerBoard:
-    """个股龙虎榜（上榜记录 + 买卖席位 + 机构动向）。"""
+    """个股龙虎榜（上榜记录 + 买卖席位 + 机构动向）。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_DRAGON_TIGER, source)
     if provider is not None:
         return provider.dragon_tiger(symbol, trade_date=trade_date, look_back=look_back)
@@ -220,7 +235,7 @@ def get_lockup_expiry(
     forward_days: Annotated[int, Query(ge=1, le=365)] = 90,
     source: Annotated[str | None, Query()] = None,
 ) -> LockupExpiry:
-    """限售解禁日历（历史 + 未来 N 天）。"""
+    """限售解禁日历（历史 + 未来 N 天）。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_LOCKUP_EXPIRY, source)
     if provider is not None:
         return provider.lockup_expiry(symbol, trade_date=trade_date, forward_days=forward_days)
@@ -234,7 +249,7 @@ def get_industry_comparison(
     top_n: Annotated[int, Query(ge=1, le=100)] = 20,
     source: Annotated[str | None, Query()] = None,
 ) -> IndustryComparison:
-    """全行业涨跌幅排名（东财行业板块）。"""
+    """全行业涨跌幅排名。来源：东财 push2 clist（独有）；降级：无，走 _em_get 防封。"""
     provider = _pick(CAPABILITY_INDUSTRY_COMPARISON, source)
     if provider is not None:
         return provider.industry_comparison(top_n=top_n)
@@ -248,12 +263,67 @@ def get_board_fund_flow(
     top_n: Annotated[int, Query(ge=1, le=100)] = 20,
     source: Annotated[str | None, Query()] = None,
 ) -> BoardFundFlow:
-    """板块资金流向（行业/概念/地域 × 今日/5日/10日）。"""
+    """板块资金流向（行业/概念/地域 × 今日/5日/10日）。来源：东财 push2 clist（独有）；降级：无。"""
     provider = _pick(CAPABILITY_BOARD_FUND_FLOW, source)
     if provider is not None:
         return provider.board_fund_flow(board_type=board_type, period=period, top_n=top_n)
     return registry.call_with_fallback(
         CAPABILITY_BOARD_FUND_FLOW, "board_fund_flow", board_type=board_type, period=period, top_n=top_n
+    )
+
+
+@router.get("/fund-flow-rank", response_model=list[FundFlowRankItem])
+def get_fund_flow_rank(
+    top_n: Annotated[int, Query(ge=1, le=300, description="返回前 N 名")] = 100,
+    source: Annotated[str | None, Query()] = None,
+) -> list[FundFlowRankItem]:
+    """全市场个股资金流排行（按主力净流入降序）。来源：东财 push2 clist（独有）；降级：无。"""
+    provider = _pick(CAPABILITY_FUND_FLOW_RANK, source)
+    if provider is not None:
+        return provider.fund_flow_rank(indicator="today", top_n=top_n)
+    return registry.call_with_fallback(
+        CAPABILITY_FUND_FLOW_RANK, "fund_flow_rank", indicator="today", top_n=top_n
+    )
+
+
+@router.get("/board-list", response_model=BoardList)
+def get_board_list(
+    board_type: Annotated[str, Query(description="industry/concept")] = "industry",
+    source: Annotated[str | None, Query()] = None,
+) -> BoardList:
+    """板块列表（行业/概念），供热力图一级节点。来源：东财 push2 clist（独有）；降级：无。"""
+    provider = _pick(CAPABILITY_BOARD_LIST, source)
+    if provider is not None:
+        return provider.board_list(board_type=board_type)
+    return registry.call_with_fallback(CAPABILITY_BOARD_LIST, "board_list", board_type=board_type)
+
+
+@router.get("/board-constituents", response_model=list[BoardConstituentItem])
+def get_board_constituents(
+    board_code: Annotated[str, Query(description="BK 板块代码，如 BK0475")],
+    source: Annotated[str | None, Query()] = None,
+) -> list[BoardConstituentItem]:
+    """板块成分股列表，供热力图二级节点。来源：东财 push2 clist（独有）；降级：无。"""
+    provider = _pick(CAPABILITY_BOARD_CONSTITUENTS, source)
+    if provider is not None:
+        return provider.board_constituents(board_code)
+    return registry.call_with_fallback(CAPABILITY_BOARD_CONSTITUENTS, "board_constituents", board_code)
+
+
+@router.get("/board-kline", response_model=list[KlineBar])
+def get_board_kline(
+    board_code: Annotated[str, Query(description="BK 板块代码，如 BK0475")],
+    limit: Annotated[int, Query(ge=1, le=5000, description="返回根数上限")] = 500,
+    start: Annotated[str | None, Query(description="起始日期 YYYY-MM-DD")] = None,
+    end: Annotated[str | None, Query(description="结束日期 YYYY-MM-DD")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[KlineBar]:
+    """板块指数日 K 线。来源：东财 push2his（BK 指数独有）；降级：无，走 _em_get 防封。"""
+    provider = _pick(CAPABILITY_BOARD_KLINE, source)
+    if provider is not None:
+        return provider.board_kline(board_code, limit=limit, start=start, end=end)
+    return registry.call_with_fallback(
+        CAPABILITY_BOARD_KLINE, "board_kline", board_code, limit=limit, start=start, end=end
     )
 
 
@@ -263,7 +333,7 @@ def get_daily_dragon_tiger(
     min_net_buy: Annotated[float | None, Query(description="净买入下限（万元）")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> DailyDragonTiger:
-    """全市场龙虎榜汇总。"""
+    """全市场龙虎榜汇总。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_DAILY_DRAGON_TIGER, source)
     if provider is not None:
         return provider.daily_dragon_tiger(trade_date=trade_date, min_net_buy=min_net_buy)
@@ -283,7 +353,7 @@ def get_margin_trading(
     page_size: Annotated[int, Query(ge=1, le=100)] = 30,
     source: Annotated[str | None, Query()] = None,
 ) -> list[MarginTradingItem]:
-    """融资融券明细（日级）。"""
+    """融资融券明细（日级）。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_MARGIN_TRADING, source)
     if provider is not None:
         return provider.margin_trading(symbol, page_size=page_size)
@@ -298,7 +368,7 @@ def get_block_trade(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     source: Annotated[str | None, Query()] = None,
 ) -> list[BlockTradeItem]:
-    """大宗交易记录。"""
+    """大宗交易记录。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_BLOCK_TRADE, source)
     if provider is not None:
         return provider.block_trade(symbol, page_size=page_size)
@@ -313,7 +383,7 @@ def get_holder_num(
     page_size: Annotated[int, Query(ge=1, le=100)] = 10,
     source: Annotated[str | None, Query()] = None,
 ) -> list[HolderNumItem]:
-    """股东户数变化（季度级）。"""
+    """股东户数变化（季度级）。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_HOLDER_NUM, source)
     if provider is not None:
         return provider.holder_num(symbol, page_size=page_size)
@@ -328,7 +398,7 @@ def get_dividend_history(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     source: Annotated[str | None, Query()] = None,
 ) -> list[DividendItem]:
-    """分红送转历史。"""
+    """分红送转历史。来源：东财 datacenter（独有）；降级：无。"""
     provider = _pick(CAPABILITY_DIVIDEND_HISTORY, source)
     if provider is not None:
         return provider.dividend_history(symbol, page_size=page_size)
@@ -342,7 +412,7 @@ def get_fund_flow_120d(
     symbol: Annotated[str, Query()],
     source: Annotated[str | None, Query()] = None,
 ) -> list[FundFlowDay]:
-    """个股资金流（日级，最近 120 个交易日，单位元）。"""
+    """个股资金流（日级，最近 120 个交易日）。来源：东财 push2his（独有）；降级：无。"""
     provider = _pick(CAPABILITY_FUND_FLOW_120D, source)
     if provider is not None:
         return provider.fund_flow_120d(symbol)
@@ -357,7 +427,7 @@ def get_chip_distribution(
     decay: Annotated[float, Query(ge=0.1, le=3.0, description="换手衰减系数")] = 1.0,
     source: Annotated[str | None, Query()] = None,
 ) -> ChipDistribution:
-    """筹码分布（本地推演：获利比例 / 平均成本 / 成本区间 / 筹码峰）。"""
+    """筹码分布（本地推演：获利比例 / 平均成本 / 成本区间 / 筹码峰）。来源：mootdx 日线 OHLC + 腾讯流通市值本地推演；降级：无。"""
     provider = _pick(CAPABILITY_CHIP_DISTRIBUTION, source)
     if provider is not None:
         return provider.chip_distribution(symbol, days=days, grid_size=grid_size, decay=decay)

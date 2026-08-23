@@ -3,8 +3,10 @@
 按「能力 → 首选源 → 备选源」维护降级链，router 通过 `call_with_fallback`
 面向统一接口取数：首选源失败自动落到备选源，全部失败才抛错。
 
-优先级原则（沿用 a-stock-data skill）：能用通达信/腾讯就别用东财；
-当前行情层不涉及东财，降级链仅覆盖 mootdx / tencent / baidu / sina。
+优先级原则（沿用 a-stock-data skill）：能用通达信(mootdx)/腾讯就别用东财——
+行情 / K 线 / 实时价 / 市值走 mootdx / 腾讯 / 百度等不封 IP 源；东财仅用于其
+「独有、别处拿不到」的数据（板块资金流 / 龙虎榜 / 解禁 / 融资融券 / 研报等），
+并统一走 _em_get 串行限流防封。
 
 增删平台：在 `_PROVIDER_CLASSES` 登记 provider 类、在 `_CAPABILITY_PRIORITY`
 声明其能力优先级即可，无需改动 router 或各 provider 实现。
@@ -14,7 +16,10 @@ from __future__ import annotations
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
     CAPABILITY_BLOCK_TRADE,
+    CAPABILITY_BOARD_CONSTITUENTS,
     CAPABILITY_BOARD_FUND_FLOW,
+    CAPABILITY_BOARD_KLINE,
+    CAPABILITY_BOARD_LIST,
     CAPABILITY_CHIP_DISTRIBUTION,
     CAPABILITY_CONCEPT_BLOCKS,
     CAPABILITY_DAILY_DRAGON_TIGER,
@@ -22,6 +27,7 @@ from .base import (
     CAPABILITY_DRAGON_TIGER,
     CAPABILITY_FUND_FLOW_120D,
     CAPABILITY_FUND_FLOW_MINUTE,
+    CAPABILITY_FUND_FLOW_RANK,
     CAPABILITY_HOLDER_NUM,
     CAPABILITY_HOT_REASON,
     CAPABILITY_INDUSTRY_COMPARISON,
@@ -56,7 +62,10 @@ _instances: dict[str, MarketProvider] = {}
 
 # 每类能力的首选顺序（降级链）
 _CAPABILITY_PRIORITY: dict[str, list[str]] = {
-    CAPABILITY_KLINE: ["mootdx", "baidu"],
+    # K 线：腾讯主（日线，支持前复权 qfq/后复权 hfq，见 kline 的 adjust 参数；
+    # 非日线 tf 腾讯会抛错，自动降级到 mootdx）→ mootdx 备（多周期，不复权，不封 IP）
+    # → 百度备（日线带 MA，不复权）。不再走东财（K 线非东财独有，push2his 有风控会封 IP）。
+    CAPABILITY_KLINE: ["tencent", "mootdx", "baidu"],
     CAPABILITY_QUOTE: ["tencent", "mootdx"],
     CAPABILITY_TRANSACTION: ["mootdx"],
     CAPABILITY_ADJUST_FACTOR: ["sina"],
@@ -70,6 +79,10 @@ _CAPABILITY_PRIORITY: dict[str, list[str]] = {
     CAPABILITY_INDUSTRY_COMPARISON: ["eastmoney"],
     CAPABILITY_BOARD_FUND_FLOW: ["eastmoney"],
     CAPABILITY_DAILY_DRAGON_TIGER: ["eastmoney"],
+    CAPABILITY_BOARD_LIST: ["eastmoney"],
+    CAPABILITY_BOARD_CONSTITUENTS: ["eastmoney"],
+    CAPABILITY_BOARD_KLINE: ["eastmoney"],
+    CAPABILITY_FUND_FLOW_RANK: ["eastmoney"],
     # 资金面 / 筹码层（Layer 4）
     CAPABILITY_MARGIN_TRADING: ["eastmoney"],
     CAPABILITY_BLOCK_TRADE: ["eastmoney"],
