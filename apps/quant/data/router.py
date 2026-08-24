@@ -260,7 +260,7 @@ def get_industry_comparison(
 def get_board_fund_flow(
     board_type: Annotated[str, Query(description="industry/concept/region")] = "industry",
     period: Annotated[str, Query(description="today/5d/10d")] = "today",
-    top_n: Annotated[int, Query(ge=1, le=100)] = 20,
+    top_n: Annotated[int | None, Query(ge=1, le=100, description="返回前 N 名，不传返回全量板块")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> BoardFundFlow:
     """板块资金流向（行业/概念/地域 × 今日/5日/10日）。来源：东财 push2 clist（独有）；降级：无。"""
@@ -274,7 +274,7 @@ def get_board_fund_flow(
 
 @router.get("/fund-flow-rank", response_model=list[FundFlowRankItem])
 def get_fund_flow_rank(
-    top_n: Annotated[int, Query(ge=1, le=300, description="返回前 N 名")] = 100,
+    top_n: Annotated[int | None, Query(ge=1, le=300, description="返回前 N 名，不传返回全量个股")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> list[FundFlowRankItem]:
     """全市场个股资金流排行（按主力净流入降序）。来源：东财 push2 clist（独有）；降级：无。"""
@@ -313,7 +313,7 @@ def get_board_constituents(
 @router.get("/board-kline", response_model=list[KlineBar])
 def get_board_kline(
     board_code: Annotated[str, Query(description="BK 板块代码，如 BK0475")],
-    limit: Annotated[int, Query(ge=1, le=5000, description="返回根数上限")] = 500,
+    limit: Annotated[int | None, Query(ge=1, le=10000, description="返回根数上限，不传返回全量")] = None,
     start: Annotated[str | None, Query(description="起始日期 YYYY-MM-DD")] = None,
     end: Annotated[str | None, Query(description="结束日期 YYYY-MM-DD")] = None,
     source: Annotated[str | None, Query()] = None,

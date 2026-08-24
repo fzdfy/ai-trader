@@ -562,7 +562,7 @@ class EastmoneyProvider(MarketProvider):
     def board_kline(
         self,
         board_code: str,
-        limit: int = 500,
+        limit: int | None = None,
         start: str | None = None,
         end: str | None = None,
     ) -> list[KlineBar]:
@@ -571,6 +571,8 @@ class EastmoneyProvider(MarketProvider):
         来源：东财 push2his kline（板块 BK 指数 K 线为东财独有，mootdx/腾讯无此数据，
         属 skill「东财只用于独有数据」范畴）。
         降级：无独立备胎（板块指数 K 线仅东财提供）；走 _em_get 串行限流防封。
+
+        limit=None 表示全量：beg 回溯到 1990、lmt=10000（板块指数历史远小于该上限）。
         """
         secid = f"90.{board_code}"
         params = {
@@ -579,12 +581,17 @@ class EastmoneyProvider(MarketProvider):
             "fqt": "1",    # 前复权
             "fields1": "f1,f2,f3,f4,f5,f6",
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-            "lmt": str(limit),
         }
         if start:
             params["beg"] = start.replace("-", "")
         if end:
             params["end"] = end.replace("-", "")
+        if limit is None:
+            # 全量：回溯至 1990 年，lmt 给到接口上限
+            params.setdefault("beg", "19900101")
+            params["lmt"] = "10000"
+        else:
+            params["lmt"] = str(limit)
         d = _em_get(
             "https://push2his.eastmoney.com/api/qt/stock/kline/get",
             params=params,
@@ -611,12 +618,14 @@ class EastmoneyProvider(MarketProvider):
     # ── 3.8 板块资金流向 ───────────────────────────────────────────
 
     def board_fund_flow(
-        self, board_type: str = "industry", period: str = "today", top_n: int = 20
+        self, board_type: str = "industry", period: str = "today", top_n: int | None = None
     ) -> BoardFundFlow:
         """板块资金流向（行业/概念/地域 × 今日/5日/10日）。
 
         来源：东财 push2 clist（板块级资金流为东财独有，mootdx/腾讯无此数据）。
         降级：无独立备胎；走 _em_get 串行限流防封。与 stock-sdk `board.fundFlow` 同源。
+
+        top_n=None 表示全量板块（翻页拉完；东财 clist 单页上限 100）。
         """
         board_fs = {"industry": "m:90+t:2", "concept": "m:90+t:3", "region": "m:90+t:1"}
         board_period = {
@@ -637,23 +646,26 @@ class EastmoneyProvider(MarketProvider):
             fields += ["f66", "f72", "f78", "f84", "f205"]  # 超大/大/中/小单净额 + 主力净流入最大股名称
 
         base = {
-            "pz": "200", "po": "1", "np": "1", "fltt": "2", "invt": "2",
+            "pz": "100", "po": "1", "np": "1", "fltt": "2", "invt": "2",
             "fid": fid, "fs": board_fs[board_type],
             "fields": ",".join(dict.fromkeys(fields)),
         }
 
         def _page(pn: int):
             d = _em_get(
-                "https://push2.eastmoney.com/api/qt/clist/get",
+                "https://push2delay.eastmoney.com/api/qt/clist/get",
                 params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
             )
             dd = d.get("data") or {}
             return (dd.get("diff") or []), int(dd.get("total") or 0)
 
-        page_size = 200
+        # 东财 clist 单页上限 100；翻页直到达到 top_n（或全量拉完）
+        page_size = 100
         items, total = _page(1)
         pn = 2
-        while len(items) < top_n:
+        while True:
+            if top_n is not None and len(items) >= top_n:
+                break
             if total and len(items) >= total:
                 break
             more, _ = _page(pn)
@@ -681,10 +693,11 @@ class EastmoneyProvider(MarketProvider):
                 row.large_net = _f(it.get("f72"))
                 row.medium_net = _f(it.get("f78"))
                 row.small_net = _f(it.get("f84"))
-                row.top_stock_code = it.get("f204", "") or ""
-                row.top_stock_name = it.get("f205", "") or ""
+                row.top_stock_code = it.get("f205", "") or ""
+                row.top_stock_name = it.get("f204", "") or ""
             rows.append(row)
-        return BoardFundFlow(board_type=board_type, period=period, total=total, rows=rows[:top_n])
+        rows = rows if top_n is None else rows[:top_n]
+        return BoardFundFlow(board_type=board_type, period=period, total=total, rows=rows)
 
     # ── 3.9 全市场龙虎榜 ───────────────────────────────────────────
 
@@ -820,7 +833,12 @@ class EastmoneyProvider(MarketProvider):
     # ── 4.5 个股资金流（120 日，日级）──────────────────────────────
 
     def fund_flow_120d(self, code: str) -> list[FundFlowDay]:
-        secid = _em_secid(code)
+        """个股 / 板块（BK 代码）资金流历史（日级，最近 120 个交易日）。
+
+        来源：东财 push2his fflow daykline（个股/板块资金流为东财独有，板块 secid=90.BKxxxx）。
+        降级：无独立备胎；走 _em_get 串行限流防封。
+        """
+        secid = f"90.{code}" if code.upper().startswith("BK") else _em_secid(code)
         params = {
             "secid": secid,
             "fields1": "f1,f2,f3,f7",
@@ -853,12 +871,14 @@ class EastmoneyProvider(MarketProvider):
 
     # ── 4.5b 个股资金流排行（全市场）──────────────────────────────
 
-    def fund_flow_rank(self, indicator: str = "today", top_n: int = 100) -> list[FundFlowRankItem]:
+    def fund_flow_rank(self, indicator: str = "today", top_n: int | None = None) -> list[FundFlowRankItem]:
         """全市场个股资金流排行，按主力净流入降序（东财 clist，fid=f62）。
 
         来源：东财 push2 clist（个股资金流为东财独有，mootdx/腾讯无此数据）。
         降级：无独立备胎；走 _em_get 串行限流防封。与 stock-sdk `fundFlow.rank` 同源同字段：
         fs 覆盖沪深北全部 A 股，fields 取主力/超大/大/中/小单净额与净占比。
+
+        top_n=None 表示全量个股（翻页拉完，全 A 股约 5000+ 只，注意耗时）。
         """
         if indicator != "today":
             raise ValueError(f"fund_flow_rank 仅支持 indicator='today'，收到 {indicator!r}")
@@ -873,16 +893,19 @@ class EastmoneyProvider(MarketProvider):
 
         def _page(pn: int):
             d = _em_get(
-                "https://push2.eastmoney.com/api/qt/clist/get",
+                "https://push2delay.eastmoney.com/api/qt/clist/get",
                 params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
             )
             dd = d.get("data") or {}
             return (dd.get("diff") or []), int(dd.get("total") or 0)
 
+        # 东财 clist 单页上限 100；翻页直到达到 top_n（或全量拉完）
         page_size = 100
         items, total = _page(1)
         pn = 2
-        while len(items) < top_n:
+        while True:
+            if top_n is not None and len(items) >= top_n:
+                break
             if total and len(items) >= total:
                 break
             more, _ = _page(pn)
@@ -893,8 +916,9 @@ class EastmoneyProvider(MarketProvider):
             if len(more) < page_size:
                 break
 
+        selected = items if top_n is None else items[:top_n]
         rows: list[FundFlowRankItem] = []
-        for it in items[:top_n]:
+        for it in selected:
             rows.append(
                 FundFlowRankItem(
                     code=it.get("f12", "") or "",

@@ -6,14 +6,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // ---------- types ----------
 
-/** skill.sections 中的单个模块配置（来自 skill 快照，不含渲染数据） */
-export interface ReviewSectionConfig {
-  type: string;
-  title: string;
-  chart: string;
+/** 复盘方法论（instructions，前端可编辑；模块结构固定，不再由 skill 配置） */
+export interface ReviewSkill {
+  instructions: string;
 }
 
-/** 自描述渲染模块：skill 配置 + 服务端已组装的数据 data（前端据此动态渲染） */
+/** 自描述渲染模块：固定模块配置 + 服务端已组装的数据 data（前端据此动态渲染） */
 export interface ReviewSection {
   type: string;
   title: string;
@@ -96,7 +94,6 @@ export interface Review {
   skill: ReviewSkill;
   updatedAt: string;
 }
-
 export interface ReviewListItem {
   date: string;
   summary: string;
@@ -199,10 +196,11 @@ function parseSseEvent(block: string): { event: string; data: string } {
 }
 
 /**
- * 流式生成复盘（SSE 分节渐进渲染）。
+ * 流式生成复盘（模块就绪即推送，前端收到即渲染）。
  *
- * 服务端先推结构化模块（fundflow/stockpool），agent 生成的模块（mainline/summary）
- * 先以 data=null 占位、待生成后补推；前端据此边生成边渲染，无需等全量返回。
+ * 服务端按 skill.sections 顺序逐个推送已就绪模块（结构化模块先行、agent 模块
+ * 生成后推送、summary 压轴），不推 data=null 占位。前端按 index 填充 sections，
+ * 渲染时仅展示已就绪模块（空槽跳过），无「生成中」占位卡。
  */
 export function useGenerateReviewStream() {
   const queryClient = useQueryClient();

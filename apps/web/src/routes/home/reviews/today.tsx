@@ -1,9 +1,9 @@
 /**
  * 今日复盘页 — 生成/查看当日复盘。
  *
- * 生成采用流式（SSE 分节渐进）：点击「生成」后，服务端先推结构化模块
- * （行业资金流/选股池），agent 生成的模块（主线/总结）随后补推，前端
- * 通过 ReviewSections 边生成边渲染，无需等全量返回。
+ * 生成采用流式：服务端按 skill.sections 顺序逐个推送已就绪模块（结构化模块先行、
+ * agent 生成的模块后推、summary 压轴），前端收到即渲染对应模块组件，
+ * 不预先渲染占位卡；agent 推理期间仅展示已就绪模块。
  *
  * 已有复盘（历史生成结果）则直接渲染；无数据时提示并引导生成。
  */
@@ -17,9 +17,9 @@ import { Section } from "@astryxdesign/core/Section";
 import {
   useGenerateReviewStream,
   useReviewQuery,
-  useReviewSkillQuery,
+  type ReviewSection,
 } from "../../../hooks/useReviews";
-import { ReviewContent, ReviewSections, sectionsChanged } from "./-private/ReviewContent";
+import { ReviewContent, ReviewSections } from "./-private/ReviewContent";
 import { today, formatDateTime } from "./-private/utils";
 
 export const Route = createFileRoute("/home/reviews/today")({
@@ -28,14 +28,16 @@ export const Route = createFileRoute("/home/reviews/today")({
 
 function TodayReviewPage() {
   const date = today();
-  const { data: skill } = useReviewSkillQuery();
   const reviewQuery = useReviewQuery(date);
   const review = reviewQuery.data ?? null;
   const stream = useGenerateReviewStream();
 
+  console.log("TodayReviewPage stream", stream);
   const isStreaming = stream.status === "streaming";
-  // 一旦有流式产物（含生成中/刚完成），就以流式 sections 渐进渲染
-  const showStreamSections = stream.sections.length > 0;
+  // 已就绪的流式模块（跳过未推送的空槽，无占位卡）
+  const streamSections = stream.sections.filter((s): s is ReviewSection => s != null);
+  console.log("TodayReviewPage streamSections", streamSections);
+  const showStream = streamSections.length > 0;
 
   return (
     <VStack gap={6}>
@@ -55,20 +57,20 @@ function TodayReviewPage() {
       <Section>
         <HStack gap={3} align="center" style={{ flexWrap: "wrap" }}>
           <Button
-            label={isStreaming ? "生成中..." : review ? "重新生成" : "生成复盘"}
+            label={
+              isStreaming ? "生成中..." : showStream ? "刚刚更新" : review ? "重新生成" : "生成复盘"
+            }
             variant="primary"
             isDisabled={isStreaming}
             onClick={() => stream.start(date)}
           />
-          {!showStreamSections && review && (
+          {!showStream && review && (
             <Text type="supporting" size="sm">
               更新于 {formatDateTime(review.updatedAt)}
             </Text>
           )}
-          {showStreamSections && (
-            <Text type="supporting" size="sm">
-              {isStreaming ? "正在生成…" : "刚刚更新"}
-            </Text>
+          {isStreaming && (
+            <Spinner size="sm" label="正在生成复盘（结构化模块先出，Agent 推理主线/总结中）..." />
           )}
         </HStack>
         {stream.error && (
@@ -76,17 +78,18 @@ function TodayReviewPage() {
         )}
       </Section>
 
-      {/* 流式生成中的渐进渲染 */}
-      {showStreamSections && <ReviewSections sections={stream.sections} />}
+      {/* 流式生成：模块就绪即渲染 */}
+      {showStream && <ReviewSections sections={streamSections} />}
 
-      {/* 已有复盘（非流式）渲染 */}
-      {!showStreamSections && reviewQuery.isLoading && <Spinner size="sm" label="正在加载复盘..." />}
+      {/* 无流式产物时：已有复盘直接渲染 */}
+      {!showStream && reviewQuery.isLoading && <Spinner size="sm" label="正在加载复盘..." />}
 
-      {!showStreamSections && !reviewQuery.isLoading && review && (
-        <ReviewContent review={review} skillChanged={sectionsChanged(review.skill, skill)} />
+      {!showStream && !reviewQuery.isLoading && !isStreaming && review && (
+        <ReviewContent review={review} />
       )}
 
-      {!showStreamSections && !reviewQuery.isLoading && !review && (
+      {/* 无数据时：空状态引导 */}
+      {!showStream && !reviewQuery.isLoading && !isStreaming && !review && (
         <Section>
           <VStack gap={2} align="start">
             <Text style={{ fontWeight: 600 }}>今日尚未生成复盘</Text>

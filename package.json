@@ -16,6 +16,7 @@
     "db:studio": "turbo db:studio",
     "sync-instruments": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-instruments.ts",
     "sync-boards": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-boards.ts",
+    "sync-fundflow": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-fundflow.ts",
     "sync-kline1d": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline1d.ts",
     "sync-kline-period": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline-period.ts",
     "sync-news": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-news.ts",

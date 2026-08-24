@@ -1,9 +1,8 @@
 /**
- * 编辑复盘 Skill 页面 — 调整复盘方法论与 UI 模块配置。
+ * 编辑复盘方法论页面。
  *
- * Skill 由 instructions（方法论提示词）与 sections（UI 模块配置）组成，
- * 保存后即覆盖当前 skill；下次生成复盘时 agent 会动态读取最新 skill。
- * 已生成的历史复盘使用其生成时的 skill 快照渲染，不受此处修改影响。
+ * 复盘模块结构固定（代码写死），此处仅编辑给总结 agent 的方法论提示词
+ * （instructions）。保存后下次生成复盘时 agent 会动态读取最新方法论。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
@@ -26,8 +25,8 @@ function ReviewSkillPage() {
       </HStack>
 
       <VStack gap={1}>
-        <Heading level={2}>编辑复盘 Skill</Heading>
-        <Text type="supporting">调整复盘方法论与 UI 模块配置，下次生成复盘时生效。</Text>
+        <Heading level={2}>编辑复盘方法论</Heading>
+        <Text type="supporting">调整复盘方法论（instructions），下次生成复盘时生效。</Text>
       </VStack>
 
       <ReviewSkillEditor />

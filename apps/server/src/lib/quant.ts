@@ -131,9 +131,7 @@ async function getJson<T>(path: string): Promise<T> {
 export const quant = {
   /** 个股资金流（日级，最近 120 个交易日） */
   fundFlow120d: (symbol: string) =>
-    getJson<FundFlowDay[]>(
-      `/api/v1/data/fund-flow-120d?symbol=${encodeURIComponent(symbol)}`,
-    ),
+    getJson<FundFlowDay[]>(`/api/v1/data/fund-flow-120d?symbol=${encodeURIComponent(symbol)}`),
 
   /** 板块列表（行业/概念） */
   boardList: (boardType: "industry" | "concept") =>
@@ -145,21 +143,26 @@ export const quant = {
       `/api/v1/data/board-constituents?board_code=${encodeURIComponent(boardCode)}`,
     ),
 
-  /** 板块指数日 K 线 */
-  boardKline: (boardCode: string, limit = 500) =>
-    getJson<BoardKlineBar[]>(
-      `/api/v1/data/board-kline?board_code=${encodeURIComponent(boardCode)}&limit=${limit}`,
-    ),
+  /** 板块指数日 K 线（不传 limit 则返回全量历史） */
+  boardKline: (boardCode: string, limit?: number) => {
+    let path = `/api/v1/data/board-kline?board_code=${encodeURIComponent(boardCode)}`;
+    if (limit != null) path += `&limit=${limit}`;
+    return getJson<BoardKlineBar[]>(path);
+  },
 
-  /** 板块资金流向（行业/概念/地域 × 今日/5日/10日） */
-  boardFundFlow: (boardType: string, period = "today", topN = 100) =>
-    getJson<BoardFundFlow>(
-      `/api/v1/data/board-fund-flow?board_type=${boardType}&period=${period}&top_n=${topN}`,
-    ),
+  /** 板块资金流向（行业/概念/地域 × 今日/5日/10日；不传 topN 则返回全量板块） */
+  boardFundFlow: (boardType: string, period = "today", topN?: number) => {
+    let path = `/api/v1/data/board-fund-flow?board_type=${boardType}&period=${period}`;
+    if (topN != null) path += `&top_n=${topN}`;
+    return getJson<BoardFundFlow>(path);
+  },
 
-  /** 全市场个股资金流排行（按主力净流入降序） */
-  fundFlowRank: (topN = 100) =>
-    getJson<FundFlowRankItem[]>(`/api/v1/data/fund-flow-rank?top_n=${topN}`),
+  /** 全市场个股资金流排行（按主力净流入降序；不传 topN 则返回全量个股） */
+  fundFlowRank: (topN?: number) => {
+    let path = `/api/v1/data/fund-flow-rank`;
+    if (topN != null) path += `?top_n=${topN}`;
+    return getJson<FundFlowRankItem[]>(path);
+  },
 
   /** 个股日 K 线（腾讯主源，adjust 复权口径 qfq/hfq/none；失败降级 mootdx/百度不复权；不再走东财） */
   stockKline: (

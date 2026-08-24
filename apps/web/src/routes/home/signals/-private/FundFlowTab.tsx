@@ -1,138 +1,126 @@
+/**
+ * Tab 4: 资金流向 — 行业 / 概念 / 个股 资金流排行（查库分页）。
+ *
+ * 列表资金流字段只展示主力净流入，SQL 分页。
+ * 红涨绿跌（A 股惯例）：净流入为正（红），流出为负（绿）。
+ */
 import { useState } from "react";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
 import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
-import { Card } from "@astryxdesign/core/Card";
-import { FundFlowChart, type FundFlowDaily } from "../../../../components/charts/FundFlowChart";
-import { MetricCard } from "./MetricCard";
-import { useFundFlowQuery } from "../../../../hooks/useFundFlow";
+import {
+  useFundFlowRankQuery,
+  type FundFlowRankRow,
+} from "../../../../hooks/useFundFlow";
 import { fmtFlow } from "../../../../lib/format";
 import { chartDown, chartUp } from "../../../../lib/theme";
 
-/** 资金流明细表列（模块级静态，避免每次渲染重建） */
-const flowColumns = [
-  { key: "date" as const, header: "日期", width: proportional(1.2) },
-  { key: "close" as const, header: "收盘价", width: proportional(0.8) },
+type Category = "industry" | "concept" | "stock";
+
+/** Tab 配置（模块级静态） */
+const CATEGORIES: { value: Category; label: string }[] = [
+  { value: "industry", label: "行业" },
+  { value: "concept", label: "概念" },
+  { value: "stock", label: "个股" },
+];
+
+const PAGE_SIZE = 50;
+
+/** 资金净流入单元格：流入红 / 流出绿（fmtFlow 自带正负号） */
+function FlowCell({ value }: { value: number | null }) {
+  if (value == null) return <Text type="supporting">-</Text>;
+  const color = value >= 0 ? chartUp() : chartDown();
+  return <Text style={{ color, fontWeight: 600 }}>{fmtFlow(value)}</Text>;
+}
+
+/** 排行列表列：只展示 排名 / 名称 / 主力净流入 */
+const COLUMNS = [
   {
-    key: "changePercent" as const,
-    header: "涨跌幅",
-    width: proportional(0.8),
-    renderCell: (row: FundFlowDaily) => (
-      <Text
-        style={{
-          color: (row.changePercent ?? 0) >= 0 ? chartUp() : chartDown(),
-          fontWeight: 600,
-        }}
-      >
-        {(row.changePercent ?? 0).toFixed(2)}%
-      </Text>
-    ),
+    key: "rank",
+    header: "#",
+    width: proportional(0.5),
+    renderCell: (r: FundFlowRankRow) => <Text type="supporting">{r.rank}</Text>,
   },
+  { key: "name", header: "名称", width: proportional(2) },
   {
-    key: "mainNetInflow" as const,
+    key: "mainNetInflow",
     header: "主力净流入",
-    width: proportional(1),
-    renderCell: (row: FundFlowDaily) => fmtFlow(row.mainNetInflow),
-  },
-  {
-    key: "superLargeNetInflow" as const,
-    header: "超大单",
-    width: proportional(1),
-    renderCell: (row: FundFlowDaily) => fmtFlow(row.superLargeNetInflow),
-  },
-  {
-    key: "largeNetInflow" as const,
-    header: "大单",
-    width: proportional(1),
-    renderCell: (row: FundFlowDaily) => fmtFlow(row.largeNetInflow),
-  },
-  {
-    key: "mediumNetInflow" as const,
-    header: "中单",
-    width: proportional(1),
-    renderCell: (row: FundFlowDaily) => fmtFlow(row.mediumNetInflow),
-  },
-  {
-    key: "smallNetInflow" as const,
-    header: "小单",
-    width: proportional(1),
-    renderCell: (row: FundFlowDaily) => fmtFlow(row.smallNetInflow),
+    width: proportional(1.5),
+    renderCell: (r: FundFlowRankRow) => <FlowCell value={r.mainNetInflow} />,
   },
 ];
 
-/** 资金流指标卡：流入红 / 流出绿（A 股资金流向惯例） */
-function FlowMetric({ label, value }: { label: string; value: number | null }) {
-  const color = value == null ? undefined : value >= 0 ? chartUp() : chartDown();
-  return <MetricCard label={label} value={value == null ? "-" : fmtFlow(value)} color={color} />;
-}
-
-/** Tab 4: 资金流向 */
+/** Tab 4: 资金流向（行业 / 概念 / 个股 分页列表） */
 export function FundFlowTab() {
-  const [symbol, setSymbol] = useState("002594.SZ");
-  const [submitted, setSubmitted] = useState("");
+  const [category, setCategory] = useState<Category>("industry");
+  const [page, setPage] = useState(1);
 
-  // 资金流向查询（点击"查看资金流"提交 symbol 后触发）
-  const { data = [], isFetching } = useFundFlowQuery(submitted);
-  const loading = isFetching;
+  const { data, isFetching } = useFundFlowRankQuery(category, page, PAGE_SIZE);
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
 
-  const handleLoad = () => {
-    if (symbol) setSubmitted(symbol);
+  const handleCategory = (next: Category) => {
+    setCategory(next);
+    setPage(1);
   };
-
-  // 最新一天汇总（主力净流入等）
-  const latest = data[data.length - 1];
 
   return (
     <VStack gap={4}>
-      <HStack gap={2} align="end">
-        <TextInput
-          label="股票代码"
-          placeholder="如 000001.SZ"
-          value={symbol}
-          onChange={setSymbol}
-          onEnter={handleLoad}
-          style={{ width: 160 }}
-        />
-        <Button
-          label={loading ? "加载中..." : "查看资金流"}
-          variant="primary"
-          isDisabled={!symbol || loading}
-          onClick={handleLoad}
-        />
+      {/* Tab 切换 + 概览 */}
+      <HStack gap={2} align="center" style={{ flexWrap: "wrap" }}>
+        {CATEGORIES.map((c) => (
+          <Button
+            key={c.value}
+            label={c.label}
+            variant={category === c.value ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => handleCategory(c.value)}
+          />
+        ))}
+        <Text type="supporting" size="sm">
+          共 {total} 条 · 最新快照资金流排行（红流入 / 绿流出）
+        </Text>
       </HStack>
 
-      {loading && <Spinner size="sm" label="加载资金流向中..." />}
+      {/* 排行榜列表 */}
+      {isFetching && rows.length === 0 ? (
+        <Spinner size="sm" label="加载资金流排行中..." />
+      ) : (
+        <Table<FundFlowRankRow>
+          idKey="code"
+          columns={COLUMNS as never}
+          data={rows}
+          density="compact"
+          dividers="rows"
+          hasHover
+        />
+      )}
 
-      {data.length > 0 && (
-        <>
-          {latest && (
-            <HStack gap={4} style={{ flexWrap: "wrap" }}>
-              <FlowMetric label="主力净流入" value={latest.mainNetInflow} />
-              <FlowMetric label="超大单净流入" value={latest.superLargeNetInflow} />
-              <FlowMetric label="大单净流入" value={latest.largeNetInflow} />
-              <FlowMetric label="中单净流入" value={latest.mediumNetInflow} />
-              <FlowMetric label="小单净流入" value={latest.smallNetInflow} />
-            </HStack>
-          )}
-          <Card padding={4}>
-            <FundFlowChart data={data} />
-          </Card>
-          <Table<FundFlowDaily>
-            idKey="date"
-            columns={flowColumns}
-            data={[...data].reverse()}
-            density="compact"
-            dividers="rows"
-            hasHover
+      {/* 分页控件 */}
+      <HStack gap={3} align="center" style={{ justifyContent: "flex-end" }}>
+        <Text type="supporting" size="sm">
+          第 {page} / {totalPages} 页
+        </Text>
+        <HStack gap={2}>
+          <Button
+            label="上一页"
+            size="sm"
+            variant="secondary"
+            isDisabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
           />
-        </>
-      )}
-      {!loading && data.length === 0 && (
-        <Text type="supporting">输入股票代码查询资金流向（数据来自东方财富）</Text>
-      )}
+          <Button
+            label="下一页"
+            size="sm"
+            variant="secondary"
+            isDisabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          />
+        </HStack>
+      </HStack>
     </VStack>
   );
 }

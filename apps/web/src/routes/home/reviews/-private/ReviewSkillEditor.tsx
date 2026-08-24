@@ -1,13 +1,8 @@
 /**
- * 复盘 Skill 编辑面板 — 仅编辑复盘方法论（instructions）。
+ * 复盘方法论编辑面板 — 仅编辑 instructions（给总结 agent 的方法论提示词）。
  *
- * Skill 由两部分组成：
- *   - instructions：给复盘 agent 的方法论提示词（此处可编辑）
- *   - sections：要求 agent 输出的模块结构（不再手动编辑）
- *
- * UI 模块不再由用户手动配置：生成复盘时 agent 会依据 skill 中要求的模块
- * 与实际数据自动生成 UI，模块无数据时渲染为空数据。已生成的历史复盘仍使用
- * 其生成时的 skill 快照渲染，不受此处修改影响。
+ * 复盘模块结构固定（代码写死，前端按 type 渲染），不再由用户配置。
+ * 已生成的历史复盘使用其生成时快照的 sections 渲染，不受此处修改影响。
  */
 import { useEffect, useRef, useState } from "react";
 import { VStack } from "@astryxdesign/core/Stack";
@@ -26,8 +21,7 @@ export function ReviewSkillEditor() {
   const { data: skill } = useReviewSkillQuery();
   const saveSkill = useUpdateReviewSkill();
 
-  // 编辑草稿：首次加载时同步一次，避免窗口重取覆盖未保存编辑。
-  // 只编辑 instructions，sections 保持原值不变。
+  // 编辑草稿：首次加载时同步一次，避免窗口重取覆盖未保存编辑
   const [draft, setDraft] = useState<ReviewSkill | null>(null);
   const skillLoadedRef = useRef(false);
   useEffect(() => {
@@ -40,9 +34,9 @@ export function ReviewSkillEditor() {
   return (
     <Section>
       <VStack gap={3}>
-        <Text style={{ fontWeight: 700, fontSize: 16 }}>复盘 Skill</Text>
+        <Text style={{ fontWeight: 700, fontSize: 16 }}>复盘方法论</Text>
         <Text type="supporting" size="sm">
-          Agent 生成复盘时会动态读取此 Skill，并依据其中要求的方法论与数据自动生成 UI。
+          Agent 生成总结时会动态读取此方法论。模块结构固定，此处仅编辑总结的分析要求。
         </Text>
         {draft ? (
           <>

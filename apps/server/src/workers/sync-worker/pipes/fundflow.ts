@@ -155,7 +155,7 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching industry sector fund flow...");
-    industries = (await quant.boardFundFlow("industry", "today", 100)).rows.map((r) => ({
+    industries = (await quant.boardFundFlow("industry", "today")).rows.map((r) => ({
       code: r.code,
       name: r.name,
       changePercent: r.change_pct,
@@ -175,7 +175,7 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching concept sector fund flow...");
-    concepts = (await quant.boardFundFlow("concept", "today", 100)).rows.map((r) => ({
+    concepts = (await quant.boardFundFlow("concept", "today")).rows.map((r) => ({
       code: r.code,
       name: r.name,
       changePercent: r.change_pct,
@@ -195,7 +195,7 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching stock fund flow rank...");
-    stocks = (await quant.fundFlowRank(100)).map((r) => ({
+    stocks = (await quant.fundFlowRank()).map((r) => ({
       code: r.code,
       name: r.name,
       price: r.price,

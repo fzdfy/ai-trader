@@ -1,8 +1,7 @@
 /**
  * 历史复盘详情页 — 回放某交易日复盘。
  *
- * 渲染模块取自该条复盘记录里快照的 skill.sections，
- * 即使当前 skill 已修改，历史复盘仍按生成时的结构展示（可追溯、可复现）。
+ * 模块结构固定（代码写死），直接渲染该条记录中快照的 sections（可追溯、可复现）。
  */
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
@@ -10,8 +9,8 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
-import { useReviewQuery, useReviewSkillQuery } from "../../../../hooks/useReviews";
-import { ReviewContent, sectionsChanged } from "../-private/ReviewContent";
+import { useReviewQuery } from "../../../../hooks/useReviews";
+import { ReviewContent } from "../-private/ReviewContent";
 import { formatDateTime } from "../-private/utils";
 
 export const Route = createFileRoute("/home/reviews/history/$date")({
@@ -20,7 +19,6 @@ export const Route = createFileRoute("/home/reviews/history/$date")({
 
 function ReviewHistoryDetailPage() {
   const { date } = useParams({ from: "/home/reviews/history/$date" });
-  const { data: skill } = useReviewSkillQuery();
   const reviewQuery = useReviewQuery(date);
   const review = reviewQuery.data ?? null;
 
@@ -47,7 +45,7 @@ function ReviewHistoryDetailPage() {
         </Text>
       </VStack>
 
-      <ReviewContent review={review} skillChanged={sectionsChanged(review.skill, skill)} />
+      <ReviewContent review={review} />
     </VStack>
   );
 }

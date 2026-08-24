@@ -65,10 +65,9 @@ async function resolveInstructions(): Promise<string> {
 export const reviewAnalyst = new Agent({
   id: "review-analyst",
   name: "A股复盘分析师",
-  model: "deepseek/deepseek-v4-pro",
+  model: "deepseek/deepseek-v4-flash",
   instructions: resolveInstructions,
   tools: {
-    getReviewSkill: getReviewSkillTool,
     getFundFlowRank: fundFlowRankTool,
     getBoardConstituents: boardConstituentsTool,
     getDailyBoardChanges: dailyBoardChangesTool,

@@ -250,7 +250,7 @@ class BoardFundFlowItem(BaseModel):
     large_net: float | None = None
     medium_net: float | None = None
     small_net: float | None = None
-    # 主力净流入最大股（仅今日周期，f204 代码 / f205 名称）
+    # 主力净流入最大股（仅今日周期，f205 代码 / f204 名称）
     top_stock_code: str = ""
     top_stock_name: str = ""
 

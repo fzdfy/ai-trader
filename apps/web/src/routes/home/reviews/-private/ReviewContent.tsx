@@ -10,7 +10,6 @@
  * 因此历史数据也能直接渲染，且与生成时结构保持一致（可追溯、可复现）。
  */
 import { memo, useEffect, useRef } from "react";
-import { Info } from "lucide-react";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { Table, proportional } from "@astryxdesign/core/Table";
@@ -26,7 +25,6 @@ import {
 import type {
   Review,
   ReviewSection,
-  ReviewSkill,
   FundFlowItem,
   MainlineItem,
   ReviewStockPoolItem,
@@ -50,14 +48,14 @@ function formatCell(v: unknown): string {
   return String(v);
 }
 
-/** 判断数据是否为「空」：空数组 / 空字符串视为空，null 交由调用方单独处理（流式占位） */
+/** 判断数据是否为「空」：空数组 / 空字符串视为空，null 由 SectionRenderer 统一按空状态处理 */
 function isEmptyData(data: unknown): boolean {
   if (Array.isArray(data)) return data.length === 0;
   if (typeof data === "string") return !data.trim();
   return false;
 }
 
-// ---------- 空状态 / 占位 ----------
+// ---------- 空状态 ----------
 
 function EmptyState() {
   return (
@@ -71,24 +69,6 @@ function EmptyState() {
     >
       <Text type="supporting" style={{ textAlign: "center" }}>
         暂无数据
-      </Text>
-    </div>
-  );
-}
-
-/** 流式生成中模块占位（data 尚未推送到位时展示） */
-function StreamingPlaceholder() {
-  return (
-    <div
-      style={{
-        background: "var(--color-background-card)",
-        border: "1px dashed var(--color-border)",
-        borderRadius: "var(--radius-md, 8px)",
-        padding: "var(--spacing-6)",
-      }}
-    >
-      <Text type="supporting" style={{ textAlign: "center" }}>
-        生成中…
       </Text>
     </div>
   );
@@ -320,14 +300,19 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
         minWidth: 0,
       }}
     >
-      <Text style={{ fontWeight: 700, fontSize: 14, marginBottom: "var(--spacing-3)" }}>{title}</Text>
+      <Text style={{ fontWeight: 700, fontSize: 14, marginBottom: "var(--spacing-3)" }}>
+        {title}
+      </Text>
       <VStack gap={2}>
         {rows.map((r) => {
           const inflow = r.mainNetInflow ?? 0;
           const width = maxAbs > 0 ? (Math.abs(inflow) / maxAbs) * 100 : 0;
           const color = inflow >= 0 ? chartUp() : chartDown();
           return (
-            <div key={r.code} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-2)" }}>
+            <div
+              key={r.code}
+              style={{ display: "flex", alignItems: "center", gap: "var(--spacing-2)" }}
+            >
               <Text
                 size="sm"
                 style={{
@@ -360,7 +345,9 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
                   overflow: "hidden",
                 }}
               >
-                <div style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 5 }} />
+                <div
+                  style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 5 }}
+                />
               </div>
               <Text size="sm" style={{ width: 62, textAlign: "right", flexShrink: 0, color }}>
                 {fmtFlow(r.mainNetInflow)}
@@ -375,7 +362,11 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
 
 /** 资金流向模块：行业 / 概念 / 个股 各 top5 */
 function FundFlowBlock({ data }: { data: unknown }) {
-  const d = (data ?? {}) as { industry?: FundFlowItem[]; concept?: FundFlowItem[]; stock?: FundFlowItem[] };
+  const d = (data ?? {}) as {
+    industry?: FundFlowItem[];
+    concept?: FundFlowItem[];
+    stock?: FundFlowItem[];
+  };
   const industry = d.industry ?? [];
   const concept = d.concept ?? [];
   const stock = d.stock ?? [];
@@ -433,7 +424,9 @@ function MainlineBlock({ data }: { data: unknown }) {
             }}
           />
           <VStack gap={3}>
-            <Text style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 28, lineHeight: 1 }}>
+            <Text
+              style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 28, lineHeight: 1 }}
+            >
               {String(i + 1).padStart(2, "0")}
             </Text>
             <Text style={{ fontWeight: 700, fontSize: 18 }}>{m.boardName}</Text>
@@ -471,7 +464,13 @@ function MainlineBlock({ data }: { data: unknown }) {
 // ---------- 选股池（今日列表 + 上日新增/移除） ----------
 
 /** 选股池条目 chip（tone 控制增减语义色） */
-function StockPoolChip({ item, tone }: { item: ReviewStockPoolItem; tone: "add" | "remove" | "plain" }) {
+function StockPoolChip({
+  item,
+  tone,
+}: {
+  item: ReviewStockPoolItem;
+  tone: "add" | "remove" | "plain";
+}) {
   const borderColor =
     tone === "add"
       ? "var(--color-chart-up, #e5484d)"
@@ -501,6 +500,7 @@ function StockPoolChip({ item, tone }: { item: ReviewStockPoolItem; tone: "add" 
 
 /** 选股池模块：今日列表 + 与上一交易日相比的新增/移除 */
 function StockPoolBlock({ data }: { data: unknown }) {
+  console.log("StockPoolBlock data", data);
   const d = (data ?? {}) as {
     today?: ReviewStockPoolItem[];
     added?: ReviewStockPoolItem[];
@@ -558,13 +558,27 @@ function StockPoolBlock({ data }: { data: unknown }) {
 // ---------- 通用渲染器 ----------
 
 /**
- * 通用模块渲染器：仅按 chart 类型分派渲染，不关心具体模块语义。
- * data == null 表示流式生成中尚未推送，显示占位；空数据显示空状态。
+ * 模块渲染器：优先按模块 type 分派到专用渲染组件（fundflow/mainline/stockpool，
+ * 数据为对象/专门结构，不受 skill 的 chart 配置影响）；无专用组件的模块
+ * 再按 chart 类型通用渲染（bar/table/text/card）。
+ * data == null（未知模块类型）或空数据时显示空状态。
  */
 function SectionRenderer({ section }: { section: ReviewSection }) {
-  const { chart, data } = section;
-  if (data == null) return <StreamingPlaceholder />;
+  const { type, chart, data } = section;
+  if (data == null) return <EmptyState />;
   if (isEmptyData(data)) return <EmptyState />;
+
+  // 专用模块组件（按 type 语义分派，chart 配置不再破坏渲染）
+  switch (type) {
+    case "fundflow":
+      return <FundFlowBlock data={data} />;
+    case "mainline":
+      return <MainlineBlock data={data} />;
+    case "stockpool":
+      return <StockPoolBlock data={data} />;
+    default:
+      break;
+  }
 
   switch (chart) {
     case "bar": {
@@ -589,6 +603,7 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
       return <TextBlock data={data} />;
     case "card":
       return <CardList data={data} />;
+    // 兼容历史/自定义 skill 直接以 chart 指定专用组件的情况
     case "fundflow":
       return <FundFlowBlock data={data} />;
     case "mainline":
@@ -612,12 +627,12 @@ function ReviewSectionBlock({ section }: { section: ReviewSection }) {
 }
 
 /**
- * 渲染自描述 sections 列表。today 页流式生成与历史/最终渲染均复用此组件，
- * 因此"边生成边渲染"与"历史直接渲染"走同一套通用渲染逻辑。
+ * 渲染自描述 sections 列表。今日生成结果与历史复盘复用此组件，
+ * 按模块 chart 类型分派到对应渲染组件（fundflow/mainline/stockpool/bar/table/text/card）。
  */
 export function ReviewSections({ sections }: { sections: ReviewSection[] }) {
   if (sections.length === 0) {
-    return <Text type="supporting">暂无可用模块，请检查 Skill 配置。</Text>;
+    return <Text type="supporting">暂无可用模块。</Text>;
   }
   return (
     <VStack gap={4}>
@@ -630,41 +645,10 @@ export function ReviewSections({ sections }: { sections: ReviewSection[] }) {
 
 // ---------- 主组件 ----------
 
-export function ReviewContent({
-  review,
-  skillChanged = false,
-}: {
-  review: Review;
-  /** 快照 skill 的 sections 与当前 skill 是否不同 */
-  skillChanged?: boolean;
-}) {
+export function ReviewContent({ review }: { review: Review }) {
   return (
     <VStack gap={4}>
-      {skillChanged && (
-        <HStack
-          gap={2}
-          align="center"
-          style={{
-            background: "var(--color-background-card)",
-            border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-md, 8px)",
-            padding: "var(--spacing-3)",
-          }}
-        >
-          <Info size={16} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
-          <Text size="sm" type="supporting">
-            此复盘使用生成时的 Skill 版本，当前 Skill 已更新，模块结构可能与最新配置不同。
-          </Text>
-        </HStack>
-      )}
-
       <ReviewSections sections={review.sections ?? []} />
     </VStack>
   );
-}
-
-/** 判断两个 skill 的 sections（UI 模块结构）是否不同 */
-export function sectionsChanged(a?: ReviewSkill | null, b?: ReviewSkill | null): boolean {
-  if (!a || !b) return false;
-  return JSON.stringify(a.sections) !== JSON.stringify(b.sections);
 }
