@@ -10,8 +10,7 @@
 
 import { Hono } from "hono";
 import { db } from "../db";
-import { quant } from "../lib/quant";
-import { bar1dAdj } from "../db/schema";
+import { bar1dAdj, boardKline } from "../db/schema";
 import { eq, lte, desc } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 
@@ -80,7 +79,7 @@ chipsRoute.get("/", async (c) => {
 });
 
 // GET /api/v1/chips/board?code=BK1027&days=250&bins=48
-// 行业筹码分布：用行业板块指数日K线（quant 东方财富 BK 指数）计算成本分布。
+// 行业筹码分布：用板块指数日 K 线（board_kline 表）计算成本分布。
 chipsRoute.get("/board", async (c) => {
   const code = c.req.query("code");
   const days = Math.min(Math.max(Number(c.req.query("days") ?? "250"), 30), 2000);
@@ -88,24 +87,32 @@ chipsRoute.get("/board", async (c) => {
 
   if (!code) return badRequest(c, "code is required");
 
-  let klines: Awaited<ReturnType<typeof quant.boardKline>>;
-  try {
-    klines = await quant.boardKline(code, days);
-  } catch (error) {
-    console.error(`[chips] board ${code} kline failed:`, error);
-    return ok(c, null);
-  }
+  // 查库：最近 N 个交易日的板块指数日线
+  const rows = await db
+    .select({
+      time: boardKline.time,
+      open: boardKline.open,
+      high: boardKline.high,
+      low: boardKline.low,
+      close: boardKline.close,
+      volume: boardKline.volume,
+    })
+    .from(boardKline)
+    .where(eq(boardKline.code, code))
+    .orderBy(desc(boardKline.time))
+    .limit(days);
 
-  const bars: DailyBar[] = klines.slice(-days).map((k) => ({
-    time: new Date(k.time),
-    open: k.open,
-    high: k.high,
-    low: k.low,
-    close: k.close,
-    volume: k.volume,
+  if (rows.length === 0) return ok(c, null);
+
+  // 时间正序
+  const bars: DailyBar[] = rows.reverse().map((r) => ({
+    time: r.time,
+    open: Number(r.open),
+    high: Number(r.high),
+    low: Number(r.low),
+    close: Number(r.close),
+    volume: Number(r.volume),
   }));
-
-  if (bars.length === 0) return ok(c, null);
 
   const distribution = computeChipDistribution(bars, bins);
   const currentPrice = bars[bars.length - 1]!.close;

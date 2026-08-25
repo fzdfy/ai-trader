@@ -3,6 +3,7 @@ import { isTradeDay, isAfterMarketClose } from "../calendar";
 import { quant } from "../../../lib/quant";
 import { sql, eq } from "drizzle-orm";
 import { bar1dAdj, instrument } from "../../../db/schema";
+import { updateProgress } from "../progress";
 import dayjs from "dayjs";
 
 // export const kline1dPipe = {
@@ -100,8 +101,14 @@ export async function kline1dPipeRun(): Promise<void> {
   // 串行拉取（quant 侧 K 线主源腾讯 fqkline 前复权，降级 mootdx/百度，均为不封 IP 源，
   // 逐一同步避免瞬时并发过高。注：前复权遇除权会整体漂移历史价，建议定期全量重刷对齐口径）
   let total = 0;
-  for (const s of symbols) {
+  updateProgress(0, symbols.length, "开始同步日线 K 线");
+  for (let i = 0; i < symbols.length; i++) {
+    const s = symbols[i]!;
     total += await syncOne(s.symbol);
+    // 每处理 50 个标的上报一次进度（全市场 5000+ 标的，逐条上报写库过频）
+    if ((i + 1) % 50 === 0 || i === symbols.length - 1) {
+      updateProgress(i + 1, symbols.length, `同步日线 ${i + 1}/${symbols.length}`);
+    }
   }
 
   console.log(`[kline-1d] done. ${total} bars total`);

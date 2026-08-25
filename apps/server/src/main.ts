@@ -2,13 +2,32 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { and, eq, isNull } from "drizzle-orm";
 import { api } from "./api";
 import { auth } from "./auth";
+import { db } from "./db";
+import { jobRun } from "./db/schema";
 import { requestId } from "./middleware/request-id";
 import { createLogger } from "./lib/logger";
 
 const log = createLogger("server");
 const app = new Hono();
+
+/**
+ * 启动清理：手动同步任务由本进程后台执行，进程重启后任务中断且 status 停在 running，
+ * 启动时统一标记为 failed，避免界面一直显示「运行中」。
+ * 只清理 sync-manual（cron worker 的任务由 worker 进程管理，不受本进程重启影响）。
+ */
+async function cleanupInterruptedSyncs(): Promise<void> {
+  try {
+    await db
+      .update(jobRun)
+      .set({ status: "failed", error: "interrupted (server restart)", finishedAt: new Date() })
+      .where(and(eq(jobRun.jobType, "sync-manual"), eq(jobRun.status, "running"), isNull(jobRun.finishedAt)));
+  } catch (error) {
+    log.error({ err: error }, "cleanup interrupted syncs failed");
+  }
+}
 
 // 请求 ID 中间件（必须在 cors 之前，确保 traceId 贯穿全链路）
 app.use("*", requestId);
@@ -32,6 +51,8 @@ app.get("/health", (c) => c.json({ status: "ok", time: new Date().toISOString() 
 
 const port = 3001;
 
-serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, () => {
+serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, async () => {
+  // 启动时清理进程重启遗留的 running 手动同步（async，不阻塞监听）
+  void cleanupInterruptedSyncs();
   log.info({ port }, "listening");
 });

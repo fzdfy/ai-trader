@@ -39,6 +39,10 @@ export const board = pgTable("board", {
   popularity: text("popularity"),
   /** 总市值（元），热力图面积用 */
   totalMarketCap: numeric("total_market_cap"),
+  /** 领涨股名称（热力图 tooltip 用） */
+  leader: text("leader"),
+  /** 领涨股涨跌幅(%) */
+  leaderChange: text("leader_change"),
   /** 数据更新时间 */
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -122,6 +126,43 @@ export const boardConstituent = pgTable(
     primaryKey({ columns: [table.boardCode, table.symbol] }),
     index("board_constituent_type_idx").on(table.type),
     index("board_constituent_board_idx").on(table.boardCode),
+  ],
+);
+
+/**
+ * board_kline — 板块指数日 K 线表
+ *
+ * 定位：落库板块（行业/概念）指数的日 K 线，供筹码分布（chips/board）等
+ * 从 DB 读取，避免每次都实时拉取上游板块指数 K 线。
+ *
+ * 写入策略：收盘后定时同步，upsert（code + time 主键，同日覆盖为最新）。
+ * 主要读者：筹码分布接口 /api/v1/chips/board。
+ */
+export const boardKline = pgTable(
+  "board_kline",
+  {
+    /** 板块代码，如 BK1027 */
+    code: text("code").notNull(),
+    /** 交易日对应日期 00:00:00 */
+    time: timestamp("time").notNull(),
+    /** 当日开盘价 */
+    open: numeric("open").notNull(),
+    /** 当日最高价 */
+    high: numeric("high").notNull(),
+    /** 当日最低价 */
+    low: numeric("low").notNull(),
+    /** 当日收盘价 */
+    close: numeric("close").notNull(),
+    /** 当日成交量（手） */
+    volume: numeric("volume").notNull(),
+    /** 当日成交额（元） */
+    amount: numeric("amount"),
+    /** 后端写入时间 */
+    ingestedAt: timestamp("ingested_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.code, table.time] }),
+    index("board_kline_code_time_idx").on(table.code, table.time),
   ],
 );
 

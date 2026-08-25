@@ -13,6 +13,7 @@ import { quant } from "../../../lib/quant";
 import { db } from "../../../db";
 import { fundFlowRank } from "../../../db/schema";
 import { sql } from "drizzle-orm";
+import { updateProgress } from "../progress";
 
 /** 板块资金流排行项（industry / concept 共用） */
 interface SectorRow {
@@ -212,9 +213,18 @@ export async function fundFlowPipeRun(): Promise<void> {
     console.error("[fundflow] stock fetch failed (skip):", (error as Error).message ?? error);
   }
 
+  // 三个阶段：行业 / 概念 / 个股
+  const TOTAL_STAGES = 3;
+  updateProgress(0, TOTAL_STAGES, "开始同步资金流排行");
+
   const industryCount = await upsertSector(today, "industry", industries);
+  updateProgress(1, TOTAL_STAGES, `行业资金流完成（${industryCount} 条）`);
+
   const conceptCount = await upsertSector(today, "concept", concepts);
+  updateProgress(2, TOTAL_STAGES, `概念资金流完成（${conceptCount} 条）`);
+
   const stockCount = await upsertStock(today, stocks);
+  updateProgress(3, TOTAL_STAGES, `个股资金流完成（${stockCount} 条）`);
 
   console.log(
     `[fundflow] done. industry: ${industryCount}, concept: ${conceptCount}, stock: ${stockCount} (snapshot ${today})`,

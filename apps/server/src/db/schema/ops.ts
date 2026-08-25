@@ -31,6 +31,14 @@ export const syncCursor = pgTable(
 
 /**
  * 任务执行记录表
+ *
+ * 记录同步管道每次执行的状态与进度：
+ *   - 状态流转：running → success / failed
+ *   - 进度：total = 本次预计处理总量，processed = 当前已完成量，
+ *     message = 阶段说明（如「同步板块排行 1/2」「拉取成分股 500/1000」）
+ *
+ * 写入策略：sync-worker wrapJob / 手动同步接口创建行，管道执行中实时更新
+ * processed / total / message（通过 AsyncLocalStorage 关联当前 runId）。
  */
 export const jobRun = pgTable("job_run", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -40,6 +48,12 @@ export const jobRun = pgTable("job_run", {
   rangeStart: timestamp("range_start"),
   rangeEnd: timestamp("range_end"),
   status: text("status").notNull().default("pending"),
+  /** 本次同步预计处理总量（如板块数 / 标的数），运行中由管道更新 */
+  total: integer("total"),
+  /** 本次同步已完成量，运行中由管道实时更新 */
+  processed: integer("processed"),
+  /** 阶段进度说明，如「拉取成分股 500/1000」 */
+  message: text("message"),
   attempt: integer("attempt").notNull().default(1),
   error: text("error"),
   startedAt: timestamp("started_at"),

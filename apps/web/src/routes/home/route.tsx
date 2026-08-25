@@ -20,6 +20,7 @@ import {
   ClipboardList,
   FileText,
   ListChecks,
+  Database,
 } from "lucide-react";
 import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
 
@@ -45,6 +46,8 @@ function HomeLayout() {
   const autoSyncing = (syncStatus.data?.runningJobs ?? []).some(
     (name) => name !== "sync-manual",
   );
+  // 手动同步进行中（异步触发后由 /sync/status 轮询反映）
+  const manualSyncing = (syncStatus.data?.runningJobs ?? []).includes("sync-manual");
   return (
     <div style={{ display: "flex", height: "100%", width: "100%" }}>
       {/* 侧边栏 */}
@@ -145,6 +148,17 @@ function HomeLayout() {
               />
             </SideNavItem>
           </SideNavSection>
+
+          <SideNavSection title="系统" isHeaderHidden>
+            <SideNavItem label="系统" icon={<Database size={16} />}>
+              <SideNavItem
+                label="同步中心"
+                href="/home/sync"
+                icon={<RefreshCw size={16} />}
+                isSelected={location.pathname.startsWith("/home/sync")}
+              />
+            </SideNavItem>
+          </SideNavSection>
         </SideNav>
 
         {/* 数据更新时间 + 手动更新 */}
@@ -165,12 +179,17 @@ function HomeLayout() {
                 自动更新中...
               </Text>
             )}
+            {manualSyncing && (
+              <Text size="sm" type="supporting">
+                手动同步中...
+              </Text>
+            )}
             <Button
-              label={runSync.isPending ? "更新中..." : "手动更新"}
+              label={runSync.isPending ? "启动中..." : manualSyncing ? "同步中..." : "手动更新"}
               variant="ghost"
               size="sm"
               icon={<RefreshCw size={14} />}
-              isDisabled={runSync.isPending || autoSyncing}
+              isDisabled={runSync.isPending || autoSyncing || manualSyncing}
               onClick={() => runSync.mutate()}
             />
           </VStack>
