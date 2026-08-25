@@ -13,6 +13,7 @@ import { boardKlinePipeRun } from "./pipes/board-kline";
 import { constituentsPipeRun } from "./pipes/constituents";
 import { fundFlowPipeRun } from "./pipes/fundflow";
 import { featuresPipeRun } from "./pipes/features";
+import { limitUpPoolPipeRun } from "./pipes/limit-up-pool";
 
 type PipeName =
   | "kline-1m"
@@ -23,7 +24,8 @@ type PipeName =
   | "board-kline"
   | "constituents"
   | "fundflow"
-  | "features";
+  | "features"
+  | "limit-up-pool";
 
 const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "kline-1m": () => kline1mPipe.run(),
@@ -35,6 +37,7 @@ const RUNNERS: Record<PipeName, () => Promise<void>> = {
   constituents: () => constituentsPipeRun(),
   fundflow: () => fundFlowPipeRun(),
   features: () => featuresPipeRun(),
+  "limit-up-pool": () => limitUpPoolPipeRun(),
 };
 
 const running = new Set<string>();

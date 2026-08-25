@@ -13,6 +13,7 @@ export const CRON_JOBS: CronJobConfig[] = [
   { name: "board-kline", cron: "40 15 * * 1-5",  enabled: true },
   { name: "constituents", cron: "45 15 * * 1-5",  enabled: true },
   { name: "fundflow",    cron: "35 15 * * 1-5",  enabled: true },
+  { name: "limit-up-pool", cron: "50 15 * * 1-5", enabled: true },
   { name: "features",    cron: "0 16 * * 1-5",   enabled: true },
   { name: "heartbeat",   cron: "0 * * * * *",    enabled: true },
 ];

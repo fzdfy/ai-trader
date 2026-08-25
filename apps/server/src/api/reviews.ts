@@ -7,6 +7,7 @@
  *   POST /generate        生成/重新生成某交易日复盘（一次性返回）
  *   POST /generate/stream 流式生成（结构化模块就绪即推送，总结压轴）
  *   GET  /list            复盘日期列表（回放选择用）
+ *   GET  /mainline        规则化主线（独立接口，date/limit 可选）
  *   GET  /:date           回放某交易日复盘
  *
  * 六大模块（固定，代码写死顺序/标题/图表类型，不受 skill 配置影响）：
@@ -32,7 +33,8 @@ import {
   getDailyBoardChangesData,
   getConsecutiveLimitUpData,
   getStockPoolChangeData,
-  getBoardConstituentsData,
+  getMainlineData,
+  type MainlineItem,
 } from "../agent/mastra/tools/review-tools";
 
 const reviewsRoute = new Hono();
@@ -95,13 +97,6 @@ interface ReviewSection {
   title: string;
   chart: string;
   data: unknown;
-}
-
-/** 主线项（规则化生成） */
-interface MainlineItem {
-  boardName: string;
-  coreStocks: string[];
-  reason: string;
 }
 
 /** 六大模块的数据对象 */
@@ -174,43 +169,12 @@ async function fetchStockPool(date: string): Promise<ReviewData["stockPool"]> {
 }
 
 /**
- * 规则化生成主线：基于行业资金流（主力净流入为正且靠前）+ 板块涨幅打分，
- * 取 top N，核心个股来自板块成分股表。不依赖 agent，快且稳定。
+ * 规则化生成主线：复用 review-tools 的 getMainlineData（单一数据源），
+ * 基于行业资金流 + 板块成分股，不依赖 agent，快且稳定。
  */
-async function buildMainline(
-  fundflow: ReviewData["fundflow"],
-  boardChanges: unknown[],
-): Promise<MainlineItem[]> {
-  const industries = (fundflow.industry ?? []) as Array<{
-    code: string;
-    name: string;
-    mainNetInflow: number | null;
-  }>;
-  const changeMap = new Map(
-    (boardChanges as Array<{ code: string; changePercent: number | null }>).map((b) => [
-      b.code,
-      b.changePercent,
-    ]),
-  );
-
-  // 打分：主力净流入降序为主（只保留净流入为正的行业），结合涨幅
-  const candidates = industries
-    .filter((i) => (i.mainNetInflow ?? 0) > 0)
-    .sort((a, b) => (b.mainNetInflow ?? 0) - (a.mainNetInflow ?? 0))
-    .slice(0, 5);
-
-  const items: MainlineItem[] = [];
-  for (const ind of candidates) {
-    // 核心个股：从板块成分股表取涨幅居前 3 只
-    const cons = await getBoardConstituentsData(ind.code, 3);
-    const pct = changeMap.get(ind.code);
-    items.push({
-      boardName: ind.name,
-      coreStocks: cons.items.map((c) => c.name).filter(Boolean),
-      reason: `主力净流入 ${fmtYuan(ind.mainNetInflow)}${pct != null ? `，涨幅 ${pct}%` : ""}`,
-    });
-  }
-  return items;
+async function buildMainline(date: string): Promise<MainlineItem[]> {
+  const res = await getMainlineData(date);
+  return res.items;
 }
 
 /** 将结构化复盘数据压缩为紧凑文本，注入 agent 提示词 */
@@ -334,7 +298,7 @@ reviewsRoute.post("/generate", async (c) => {
     ]);
 
     // 2. 规则化主线（无 agent）
-    const mainline = await buildMainline(fundflow, boardChanges);
+    const mainline = await buildMainline(date);
 
     // 3. agent 生成总结（输入全部结构化数据）
     const data: ReviewData = { fundflow, mainline, boardChanges, limitUp, stockPool, summary: "" };
@@ -400,7 +364,7 @@ reviewsRoute.post("/generate/stream", async (c) => {
       }
 
       // 3. 规则化主线（查成分股，稍慢）→ 推送
-      const mainline = await buildMainline(fundflow, boardChanges);
+      const mainline = await buildMainline(date);
       const mainlineIndex = REVIEW_MODULES.findIndex((s) => s.type === "mainline");
       await stream.writeSSE({
         event: "section",
@@ -442,6 +406,23 @@ reviewsRoute.post("/generate/stream", async (c) => {
       });
     }
   });
+});
+
+// GET /api/v1/reviews/mainline — 规则化主线（独立接口，供前端/外部直接取主线）
+// 查询参数：date（可选，YYYY-MM-DD，缺省取最新快照日期）、limit（可选，默认 5，最大 10）
+reviewsRoute.get("/mainline", async (c) => {
+  const date = c.req.query("date")?.trim() || undefined;
+  const limitParam = c.req.query("limit");
+  const parsedLimit = limitParam ? Math.floor(Number(limitParam)) : 5;
+  const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 10) : 5;
+
+  try {
+    const res = await getMainlineData(date, limit);
+    return ok(c, res);
+  } catch (err) {
+    console.error("[reviews] mainline error:", err);
+    return serverError(c, "主线获取失败，请稍后重试。");
+  }
 });
 
 // GET /api/v1/reviews/list — 复盘日期列表

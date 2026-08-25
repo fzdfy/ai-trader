@@ -333,6 +333,27 @@ class DailyDragonTiger(BaseModel):
     note: str | None = None
 
 
+class LimitUpPoolItem(BaseModel):
+    """涨停池一条（东财 getTopicZTPool）。金额单位：元。
+
+    `code` 为 6 位裸代码，server 端落库前转换为标准 symbol（60x/68x→.SH 等）。
+    """
+
+    code: str = ""  # 6 位股票代码
+    name: str = ""
+    limit_up_count: int = 0  # 连板数
+    is_limit_up: bool = True  # 是否涨停（涨停池内恒为 True）
+    first_limit_time: str | None = None  # 首次封板时间 YYYY-MM-DD HH:MM:SS
+    open_count: int = 0  # 炸板次数
+    seal_amount: float | None = None  # 封单资金（元）
+    limit_type: str | None = None  # 涨停类型（东财接口暂无，预留）
+    industry: str | None = None  # 行业板块
+    concepts: str | None = None  # 概念标签（东财接口暂无，预留）
+    turnover_rate: float | None = None  # 换手率(%)
+    amount: float | None = None  # 成交额（元）
+    float_market_cap: float | None = None  # 流通市值（元）
+
+
 # ============================================================================
 # 资金面 / 筹码层（Layer 4）模型 — 融资融券 / 大宗 / 股东户数 / 分红 / 资金流120日 / 筹码
 # ============================================================================

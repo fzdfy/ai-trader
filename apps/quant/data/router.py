@@ -35,6 +35,7 @@ from .base import (
     CAPABILITY_HOT_REASON,
     CAPABILITY_INDUSTRY_COMPARISON,
     CAPABILITY_KLINE,
+    CAPABILITY_LIMIT_UP_POOL,
     CAPABILITY_LOCKUP_EXPIRY,
     CAPABILITY_MARGIN_TRADING,
     CAPABILITY_NORTHBOUND,
@@ -59,6 +60,7 @@ from .schemas import (
     HotReasonItem,
     IndustryComparison,
     KlineBar,
+    LimitUpPoolItem,
     LockupExpiry,
     MarginTradingItem,
     NorthboundPoint,
@@ -284,6 +286,18 @@ def get_fund_flow_rank(
     return registry.call_with_fallback(
         CAPABILITY_FUND_FLOW_RANK, "fund_flow_rank", indicator="today", top_n=top_n
     )
+
+
+@router.get("/limit-up-pool", response_model=list[LimitUpPoolItem])
+def get_limit_up_pool(
+    date: Annotated[str | None, Query(description="YYYY-MM-DD，缺省为今天")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[LimitUpPoolItem]:
+    """当日涨停池。来源：东财 getTopicZTPool（独有）；降级：无，走 _em_get 防封。"""
+    provider = _pick(CAPABILITY_LIMIT_UP_POOL, source)
+    if provider is not None:
+        return provider.limit_up_pool(date=date)
+    return registry.call_with_fallback(CAPABILITY_LIMIT_UP_POOL, "limit_up_pool", date=date)
 
 
 @router.get("/board-list", response_model=BoardList)

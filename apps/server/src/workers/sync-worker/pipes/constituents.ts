@@ -13,6 +13,15 @@ import { sql } from "drizzle-orm";
 import { board, boardConstituent } from "../../../db/schema";
 import { updateProgress } from "../progress";
 
+/** 东财原始代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/92→.BJ，已含后缀则原样） */
+function codeToSymbol(code: string): string {
+  if (code.includes(".")) return code;
+  if (/^(60|68)/.test(code)) return `${code}.SH`;
+  if (/^(00|30)/.test(code)) return `${code}.SZ`;
+  if (/^(43|83|87|92)/.test(code)) return `${code}.BJ`;
+  return `${code}.SH`;
+}
+
 /** 并发拉取上限，避免上游限流 */
 const CONCURRENCY = 5;
 
@@ -50,7 +59,7 @@ export async function constituentsPipeRun(): Promise<void> {
           batch.push({
             boardCode: b.code,
             type: b.type,
-            symbol: s.code,
+            symbol: codeToSymbol(s.code),
             name: s.name,
             changePercent: s.change_pct != null ? String(s.change_pct) : null,
             turnoverRate: s.turnover_rate != null ? String(s.turnover_rate) : null,

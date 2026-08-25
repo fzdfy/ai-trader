@@ -116,6 +116,23 @@ export interface StockKlineBar {
   adj_factor: number | null;
 }
 
+/** 涨停池一条（quant /limit-up-pool 返回；code 为 6 位裸代码，落库前转标准 symbol） */
+export interface LimitUpPoolItem {
+  code: string;
+  name: string;
+  limit_up_count: number;
+  is_limit_up: boolean;
+  first_limit_time: string | null;
+  open_count: number;
+  seal_amount: number | null;
+  limit_type: string | null;
+  industry: string | null;
+  concepts: string | null;
+  turnover_rate: number | null;
+  amount: number | null;
+  float_market_cap: number | null;
+}
+
 /** quant 请求超时（毫秒）。上游（东财/腾讯等）网络抖动可能 hang，必须限时避免卡死同步管道 */
 const QUANT_TIMEOUT_MS = 20_000;
 
@@ -166,6 +183,13 @@ export const quant = {
     let path = `/api/v1/data/fund-flow-rank`;
     if (topN != null) path += `?top_n=${topN}`;
     return getJson<FundFlowRankItem[]>(path);
+  },
+
+  /** 当日涨停池（date 为 YYYY-MM-DD，缺省为今天） */
+  limitUpPool: (date?: string) => {
+    let path = `/api/v1/data/limit-up-pool`;
+    if (date) path += `?date=${encodeURIComponent(date)}`;
+    return getJson<LimitUpPoolItem[]>(path);
   },
 
   /** 个股日 K 线（腾讯主源，adjust 复权口径 qfq/hfq/none；失败降级 mootdx/百度不复权；不再走东财） */

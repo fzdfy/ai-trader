@@ -57,12 +57,16 @@ from ...schemas import (
     IndustryComparison,
     IndustryRankItem,
     KlineBar,
+    LimitUpPoolItem,
     LockupExpiry,
     LockupExpiryItem,
     MarginTradingItem,
 )
 
 DATACENTER_URL = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+
+# 东财涨停池接口固定参数（getTopicZTPool 的 ut / dpt）
+ZTB_UT = "7eea3edcaed734bea9cbfc24409ed989"
 
 # 东财防封：两次请求最小间隔（秒），批量场景可调大到 1.5~2
 _EM_MIN_INTERVAL = 1.0
@@ -88,6 +92,12 @@ def _f0(v) -> float:
 def _i(v) -> int:
     r = _f(v)
     return int(r) if r is not None else 0
+
+
+def _fmt_zt_time(t) -> str:
+    """东财涨停池时间（HHMMSS 整数）→ 'HH:MM:SS'。"""
+    s = str(t).zfill(6)
+    return f"{s[0:2]}:{s[2:4]}:{s[4:6]}"
 
 
 def _em_get(url: str, params: dict | None = None, headers: dict | None = None, timeout: int = 15):
@@ -260,6 +270,7 @@ class EastmoneyProvider(MarketProvider):
         "board_constituents",
         "board_kline",
         "fund_flow_rank",
+        "limit_up_pool",
         "margin_trading",
         "block_trade",
         "holder_num",
@@ -931,6 +942,55 @@ class EastmoneyProvider(MarketProvider):
                     large_net=_f(it.get("f72")),
                     medium_net=_f(it.get("f78")),
                     small_net=_f(it.get("f84")),
+                )
+            )
+        return rows
+
+    # ── 4.5c 涨停池 ───────────────────────────────────────────────
+
+    def limit_up_pool(self, date: str | None = None) -> list[LimitUpPoolItem]:
+        """当日涨停池（东财 getTopicZTPool）。
+
+        来源：东财 push2ex getTopicZTPool（涨停板池为东财独有，mootdx/腾讯无此数据）。
+        降级：无独立备胎；走 _em_get 串行限流防封。
+
+        `date` 为 YYYY-MM-DD（缺省为今天），内部转 YYYYMMDD 传给接口。
+        """
+        if date is None:
+            date = _date.today().strftime("%Y-%m-%d")
+        ymd = date.replace("-", "")
+        params = {
+            "ut": ZTB_UT, "dpt": "wz.ztzt", "Pageindex": "0",
+            "pagesize": "10000", "sort": "fbt:asc", "date": ymd,
+        }
+        d = _em_get(
+            "https://push2ex.eastmoney.com/getTopicZTPool",
+            params=params,
+            headers={"Referer": "https://quote.eastmoney.com/"},
+            timeout=10,
+        )
+        pool = (d.get("data") or {}).get("pool") or []
+        rows: list[LimitUpPoolItem] = []
+        for p in pool:
+            fbt = p.get("fbt")
+            first_limit_time = None
+            if fbt not in (None, "", "-"):
+                first_limit_time = f"{date} {_fmt_zt_time(fbt)}"
+            rows.append(
+                LimitUpPoolItem(
+                    code=str(p.get("c", "")) or "",
+                    name=str(p.get("n", "")) or "",
+                    limit_up_count=_i(p.get("lbc")),
+                    is_limit_up=True,
+                    first_limit_time=first_limit_time,
+                    open_count=_i(p.get("zbc")),
+                    seal_amount=_f(p.get("fund")),
+                    limit_type=None,
+                    industry=p.get("hybk") or None,
+                    concepts=None,
+                    turnover_rate=_f(p.get("hs")),
+                    amount=_f(p.get("amount")),
+                    float_market_cap=_f(p.get("ltsz")),
                 )
             )
         return rows

@@ -775,3 +775,72 @@ export const fundFlowRank = pgTable(
     index("fund_flow_rank_date_category_idx").on(table.date, table.category),
   ],
 );
+
+// ============================================================================
+
+/**
+ * limit_up_pool — 涨停池表（每日涨停 / 曾涨停个股快照）
+ *
+ * 定位：落地每日涨停板数据，是「市场主线识别」的核心输入源之一。
+ * 与 board / board_history（方向与持续性）、fund_flow_rank（资金确认）互补，
+ * 从「情绪与龙头」维度补齐主线判定的最后一环。
+ *
+ * 支撑的分析能力：
+ *   - 连板梯队：按 limit_up_count 分层（首板 / 二板 / 三板 / 高度板），
+ *     定位情绪周期所处阶段（冰点 → 启动 → 高潮 → 退潮）。
+ *   - 主线板块：按 industry / concepts 聚合涨停家数 + 连板高度，
+ *     识别当日资金聚焦的方向（涨停潮 = 主线赚钱效应）。
+ *   - 封板强度：first_limit_time（越早越强）+ seal_amount（封单越大越坚决）
+ *      + limit_type（一字板 > T 字板 > 换手板），区分「真强」与「尾盘偷袭」。
+ *   - 炸板率：open_count / is_limit_up，衡量情绪质量与分歧程度。
+ *
+ * 写入策略：交易日收盘后定时同步（沿用 sync-boards 的 cron 模式），
+ * 从东财涨停池接口全量拉取，upsert（date + symbol 主键，同日覆盖为最新）。
+ * 主要读者：主线识别接口、连板梯队接口、复盘模块。
+ */
+export const limitUpPool = pgTable(
+  "limit_up_pool",
+  {
+    /** 快照日期（交易日） */
+    date: date("date").notNull(),
+    /** 股票代码（标准 symbol，如 600519.SH，便于直接 JOIN quote_latest / bar1d_adj） */
+    symbol: text("symbol").notNull(),
+    /** 股票名称 */
+    name: text("name").notNull(),
+    /** 连板数（1 = 首板，2 = 二板，以此类推），连板梯队核心字段 */
+    limitUpCount: integer("limit_up_count").notNull(),
+    /** 是否最终封住涨停（false = 炸板后未回封），炸板率与情绪质量用 */
+    isLimitUp: boolean("is_limit_up").notNull().default(true),
+    /** 首次封板时间（越早封板代表做多意愿越强） */
+    firstLimitTime: timestamp("first_limit_time"),
+    /** 开板 / 炸板次数（0 = 全天未开板，封板最坚决） */
+    openCount: integer("open_count").notNull().default(0),
+    /** 封单金额（元），封板强度指标 */
+    sealAmount: numeric("seal_amount"),
+    /**
+     * 涨停类型：
+     *   - 一字板  开盘即涨停、全天不打开（最强）
+     *   - T字板   盘中打开后回封
+     *   - 换手板  经过充分换手后封板（分歧转一致）
+     */
+    limitType: text("limit_type"),
+    /** 所属行业板块（如 半导体 / 光伏），主线板块归类用 */
+    industry: text("industry"),
+    /** 涨停原因 / 题材标签（逗号分隔），题材主线归类用 */
+    concepts: text("concepts"),
+    /** 换手率(%)，衡量筹码交换充分度 */
+    turnoverRate: numeric("turnover_rate"),
+    /** 当日成交额（元），涨停潮资金体量参考 */
+    amount: numeric("amount"),
+    /** 流通市值（元），区分大票涨停与小票连板 */
+    floatMarketCap: numeric("float_market_cap"),
+    /** 后端写入时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.symbol] }),
+    index("limit_up_pool_date_idx").on(table.date),
+    index("limit_up_pool_industry_date_idx").on(table.industry, table.date),
+    index("limit_up_pool_count_date_idx").on(table.limitUpCount, table.date),
+  ],
+);

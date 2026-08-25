@@ -18,6 +18,7 @@
     "sync-boards": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-boards.ts",
     "sync-board-kline": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-board-kline.ts",
     "sync-fundflow": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-fundflow.ts",
+    "sync-limit-up-pool": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-limit-up-pool.ts",
     "sync-kline1d": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline1d.ts",
     "sync-kline-period": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-kline-period.ts",
     "sync-news": "node --import @oxc-node/core/register --env-file=.env.local apps/server/scripts/sync-news.ts",

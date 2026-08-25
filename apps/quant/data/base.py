@@ -39,6 +39,7 @@ from .schemas import (
     HotReasonItem,
     IndustryComparison,
     KlineBar,
+    LimitUpPoolItem,
     LockupExpiry,
     MarginTradingItem,
     NorthboundPoint,
@@ -66,6 +67,7 @@ CAPABILITY_BOARD_LIST = "board_list"
 CAPABILITY_BOARD_CONSTITUENTS = "board_constituents"
 CAPABILITY_BOARD_KLINE = "board_kline"
 CAPABILITY_FUND_FLOW_RANK = "fund_flow_rank"
+CAPABILITY_LIMIT_UP_POOL = "limit_up_pool"
 
 # 资金面 / 筹码层（Layer 4）
 CAPABILITY_MARGIN_TRADING = "margin_trading"
@@ -180,6 +182,10 @@ class MarketProvider(ABC):
     def fund_flow_rank(self, indicator: str = "today") -> list[FundFlowRankItem]:
         """个股资金流排行（全市场，按主力净流入降序）。"""
         raise NotImplementedError(f"{self.name} 不支持 fund_flow_rank")
+
+    def limit_up_pool(self, date: str | None = None) -> list[LimitUpPoolItem]:
+        """当日涨停池。"""
+        raise NotImplementedError(f"{self.name} 不支持 limit_up_pool")
 
     # ── 资金面 / 筹码层（Layer 4）───────────────────────────────────
 

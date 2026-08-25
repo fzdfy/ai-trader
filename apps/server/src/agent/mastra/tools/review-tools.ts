@@ -24,8 +24,9 @@ import {
   boardHistory,
   bar1dAdj,
   instrument,
+  limitUpPool,
 } from "../../../db/schema";
-import { eq, desc, and, gte, lte, lt } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, inArray } from "drizzle-orm";
 
 /** 数值 → number | null（drizzle numeric 返回 string） */
 function n(v: unknown): number | null {
@@ -147,6 +148,295 @@ export async function getBoardConstituentsData(
       amount: n(r.amount),
     })),
   };
+}
+
+/** 主线项（四维加权评分生成）：方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应，总分 100 */
+export interface MainlineItem {
+  boardCode: string;
+  boardName: string;
+  score: number;
+  directionScore: number;
+  fundScore: number;
+  leaderScore: number;
+  effectScore: number;
+  coreStocks: string[];
+  reason: string;
+}
+
+/** 封板强度打分：一字板 > T字板 > 换手板 > 其他（满分 5） */
+function limitTypeScore(limitType: string | null): number {
+  if (!limitType) return 1;
+  if (limitType.includes("一字")) return 5;
+  if (limitType.includes("T字") || limitType.includes("T 字")) return 3.5;
+  if (limitType.includes("换手")) return 2;
+  return 1;
+}
+
+/** min-max 归一化：values → [0,1]，全相等时返回 0.5（避免除零） */
+function normalize(values: number[]): number[] {
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  if (max === min) return values.map(() => 0.5);
+  return values.map((v) => (v - min) / (max - min));
+}
+
+/**
+ * 主线评分模型（行业板块粒度，总分 100）：
+ *   ① 方向持续性 25 = 近3日累计涨幅(15) + 近5日上涨天数(10)      ← board_history
+ *   ② 资金确认   30 = 主力净流入额(18) + 净占比(12)              ← fund_flow_rank
+ *   ③ 龙头情绪   25 = 涨停家数(10) + 最高连板(10) + 封板强度(5)   ← limit_up_pool
+ *   ④ 赚钱效应   20 = 板块涨幅(8) + 上涨家数占比(7) + 炸板率(5)   ← board_history/board_constituent/limit_up_pool
+ *
+ * 候选板块 = 当日涨停池涉及的行业（industry 去重）。各子指标在候选内做 min-max 归一化，
+ * 越高的子指标（如连板、净流入）取原始值，越低的子指标（炸板率）取反向值。
+ */
+export async function getMainlineData(
+  date?: string,
+  limit = 5,
+): Promise<{ date: string | null; items: MainlineItem[] }> {
+  const capped = Math.min(limit, 10);
+
+  // 1. 解析目标交易日（缺省取涨停池最新快照日期）
+  let targetDate = date ?? null;
+  if (!targetDate) {
+    const latest = await db
+      .selectDistinct({ date: limitUpPool.date })
+      .from(limitUpPool)
+      .orderBy(desc(limitUpPool.date))
+      .limit(1);
+    targetDate = latest[0]?.date ?? null;
+  }
+  if (!targetDate) return { date: null, items: [] };
+
+  // 2. 当日涨停池（含封板 + 炸板，用于涨停家数 / 炸板率 / 连板 / 封板强度）
+  const poolRows = await db
+    .select()
+    .from(limitUpPool)
+    .where(eq(limitUpPool.date, targetDate));
+  if (poolRows.length === 0) return { date: targetDate, items: [] };
+
+  // 3. 行业资金流（category=industry，取 <= targetDate 的最新交易日全量，含 BK 代码用于关联成分股）
+  const fundDateRow = await db
+    .selectDistinct({ date: fundFlowRank.date })
+    .from(fundFlowRank)
+    .where(and(eq(fundFlowRank.category, "industry"), lte(fundFlowRank.date, targetDate)))
+    .orderBy(desc(fundFlowRank.date))
+    .limit(1);
+  const fundDate = fundDateRow[0]?.date ?? null;
+
+  // 4. 行业板块历史（type=industry，取 <= targetDate 的最新 5 个交易日，用于方向持续性 / 板块涨幅）
+  const histDates = await db
+    .selectDistinct({ date: boardHistory.date })
+    .from(boardHistory)
+    .where(and(eq(boardHistory.type, "industry"), lte(boardHistory.date, targetDate)))
+    .orderBy(desc(boardHistory.date))
+    .limit(5);
+
+  // ---------- 候选行业聚合（从涨停池按 industry 去重） ----------
+  interface Agg {
+    name: string;
+    limitUpCount: number; // 封板家数
+    bustCount: number; // 炸板家数
+    maxConsecutive: number; // 最高连板数
+    sealStrength: number; // 封板强度（取最强封板）
+    stocks: Array<{ name: string; limitUpCount: number }>;
+  }
+  const byName = new Map<string, Agg>();
+  for (const r of poolRows) {
+    const industry = r.industry?.trim();
+    if (!industry) continue;
+    let agg = byName.get(industry);
+    if (!agg) {
+      agg = {
+        name: industry,
+        limitUpCount: 0,
+        bustCount: 0,
+        maxConsecutive: 0,
+        sealStrength: 0,
+        stocks: [],
+      };
+      byName.set(industry, agg);
+    }
+    if (r.isLimitUp) {
+      agg.limitUpCount += 1;
+      agg.sealStrength = Math.max(agg.sealStrength, limitTypeScore(r.limitType));
+    } else {
+      agg.bustCount += 1;
+    }
+    agg.maxConsecutive = Math.max(agg.maxConsecutive, r.limitUpCount);
+    agg.stocks.push({ name: r.name, limitUpCount: r.limitUpCount });
+  }
+
+  // ---------- 行业资金流 name → 数据 映射 ----------
+  const fundMap = new Map<
+    string,
+    { code: string; mainNetInflow: number; netInflowPct: number }
+  >();
+  if (fundDate) {
+    const fundRows = await db
+      .select({
+        code: fundFlowRank.code,
+        name: fundFlowRank.name,
+        mainNetInflow: fundFlowRank.mainNetInflow,
+        mainNetInflowPercent: fundFlowRank.mainNetInflowPercent,
+      })
+      .from(fundFlowRank)
+      .where(and(eq(fundFlowRank.category, "industry"), eq(fundFlowRank.date, fundDate)));
+    for (const r of fundRows) {
+      fundMap.set(r.name, {
+        code: r.code,
+        mainNetInflow: n(r.mainNetInflow) ?? 0,
+        netInflowPct: n(r.mainNetInflowPercent) ?? 0,
+      });
+    }
+  }
+
+  // ---------- 行业板块历史 name → 近5日涨幅序列 映射 ----------
+  const histMap = new Map<string, { code: string; pcts: number[] }>();
+  if (histDates.length > 0) {
+    const dateList = histDates.map((d) => d.date);
+    const histRows = await db
+      .select({
+        code: boardHistory.code,
+        name: boardHistory.name,
+        changePercent: boardHistory.changePercent,
+      })
+      .from(boardHistory)
+      .where(and(eq(boardHistory.type, "industry"), inArray(boardHistory.date, dateList)));
+    for (const r of histRows) {
+      const pct = n(r.changePercent);
+      let cur = histMap.get(r.name);
+      if (!cur) {
+        cur = { code: r.code, pcts: [] };
+        histMap.set(r.name, cur);
+      }
+      if (pct != null) cur.pcts.push(pct);
+    }
+  }
+
+  // ---------- 批量读取候选行业成分股，算上涨家数占比 ----------
+  const candidateNames = [...byName.keys()];
+  const codeToName = new Map<string, string>(); // BK code → 行业名
+  for (const name of candidateNames) {
+    const f = fundMap.get(name);
+    const h = histMap.get(name);
+    const code = f?.code ?? h?.code;
+    if (code) codeToName.set(code, name);
+  }
+  const upRatioMap = new Map<string, number>(); // 行业名 → 上涨家数占比 0~1
+  if (codeToName.size > 0) {
+    const consRows = await db
+      .select({
+        boardCode: boardConstituent.boardCode,
+        changePercent: boardConstituent.changePercent,
+      })
+      .from(boardConstituent)
+      .where(inArray(boardConstituent.boardCode, [...codeToName.keys()]));
+    const byCode = new Map<string, { total: number; up: number }>();
+    for (const r of consRows) {
+      let cur = byCode.get(r.boardCode);
+      if (!cur) {
+        cur = { total: 0, up: 0 };
+        byCode.set(r.boardCode, cur);
+      }
+      cur.total += 1;
+      if ((n(r.changePercent) ?? 0) > 0) cur.up += 1;
+    }
+    for (const [code, name] of codeToName) {
+      const cur = byCode.get(code);
+      upRatioMap.set(name, cur && cur.total > 0 ? cur.up / cur.total : 0);
+    }
+  }
+
+  // ---------- 组装原始指标 ----------
+  interface Raw {
+    name: string;
+    code: string;
+    coreStocks: string[];
+    sum3d: number; // 近3日累计涨幅
+    upDays5: number; // 近5日上涨天数
+    mainNetInflow: number;
+    netInflowPct: number;
+    limitUpCount: number;
+    maxConsecutive: number;
+    sealStrength: number;
+    boardPct: number; // 当日板块涨幅
+    upRatio: number; // 上涨家数占比 0~1
+    bustRatio: number; // 炸板率 0~1
+  }
+  const raws: Raw[] = [];
+  for (const [name, agg] of byName) {
+    const hist = histMap.get(name);
+    const pcts = hist?.pcts ?? [];
+    const code = fundMap.get(name)?.code ?? hist?.code ?? "";
+    const fund = fundMap.get(name);
+
+    // 方向持续性：近3日累计涨幅 + 近5日上涨天数（pcts 为按日期降序，最新在前）
+    const last5 = pcts.slice(0, 5);
+    const sum3d = last5.slice(0, 3).reduce((s, p) => s + p, 0);
+    const upDays5 = last5.filter((p) => p > 0).length;
+
+    // 封板股按连板数降序，龙头取前 3
+    const leaders = agg.stocks
+      .filter((s) => s.limitUpCount > 0)
+      .sort((a, b) => b.limitUpCount - a.limitUpCount)
+      .slice(0, 3)
+      .map((s) => s.name);
+
+    const total = agg.limitUpCount + agg.bustCount;
+    raws.push({
+      name,
+      code,
+      coreStocks: leaders,
+      sum3d,
+      upDays5,
+      mainNetInflow: fund?.mainNetInflow ?? 0,
+      netInflowPct: fund?.netInflowPct ?? 0,
+      limitUpCount: agg.limitUpCount,
+      maxConsecutive: agg.maxConsecutive,
+      sealStrength: agg.sealStrength,
+      boardPct: pcts[0] ?? 0,
+      upRatio: upRatioMap.get(name) ?? 0,
+      bustRatio: total > 0 ? agg.bustCount / total : 0,
+    });
+  }
+
+  // ---------- 子指标归一化（越高越好的指标先 clip 到 >= 0） ----------
+  const clip = (vals: number[]) => vals.map((v) => Math.max(v, 0));
+  const nSum3d = normalize(clip(raws.map((r) => r.sum3d)));
+  const nNetInflow = normalize(clip(raws.map((r) => r.mainNetInflow)));
+  const nNetPct = normalize(clip(raws.map((r) => r.netInflowPct)));
+  const nLimitUp = normalize(raws.map((r) => r.limitUpCount));
+  const nConsec = normalize(raws.map((r) => r.maxConsecutive));
+  const nSeal = normalize(raws.map((r) => r.sealStrength));
+  const nBoardPct = normalize(clip(raws.map((r) => r.boardPct)));
+
+  const items: MainlineItem[] = raws.map((r, i) => {
+    // ① 方向持续性 25：近3日累计涨幅(15) + 近5日上涨天数(10，按比例)
+    const directionScore = nSum3d[i]! * 15 + (r.upDays5 / 5) * 10;
+    // ② 资金确认 30：主力净流入额(18) + 净占比(12)
+    const fundScore = nNetInflow[i]! * 18 + nNetPct[i]! * 12;
+    // ③ 龙头情绪 25：涨停家数(10) + 最高连板(10) + 封板强度(5)
+    const leaderScore = nLimitUp[i]! * 10 + nConsec[i]! * 10 + nSeal[i]! * 5;
+    // ④ 赚钱效应 20：板块涨幅(8) + 上涨家数占比(7) + 炸板率(5，越低越好)
+    const effectScore = nBoardPct[i]! * 8 + r.upRatio * 7 + (1 - r.bustRatio) * 5;
+
+    const score = directionScore + fundScore + leaderScore + effectScore;
+    return {
+      boardCode: r.code,
+      boardName: r.name,
+      score: Number(score.toFixed(1)),
+      directionScore: Number(directionScore.toFixed(1)),
+      fundScore: Number(fundScore.toFixed(1)),
+      leaderScore: Number(leaderScore.toFixed(1)),
+      effectScore: Number(effectScore.toFixed(1)),
+      coreStocks: r.coreStocks,
+      reason: `方向${directionScore.toFixed(0)}/资金${fundScore.toFixed(0)}/情绪${leaderScore.toFixed(0)}/效应${effectScore.toFixed(0)}，涨停${r.limitUpCount}家最高${r.maxConsecutive}板，龙头${r.coreStocks.join("、") || "—"}`,
+    };
+  });
+
+  items.sort((a, b) => b.score - a.score);
+  return { date: targetDate, items: items.slice(0, capped) };
 }
 
 /** 当日板块异动：对比 board_history 最近两个交易日涨跌幅，取 delta 最大者 */
@@ -446,6 +736,37 @@ export const boardConstituentsTool = createTool({
     ),
   }),
   execute: async ({ boardCode, limit }) => getBoardConstituentsData(boardCode, limit),
+});
+
+/** 主线（规则化）：四维加权评分（方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应），不依赖 LLM */
+export const mainlineTool = createTool({
+  id: "getMainline",
+  description:
+    "规则化生成当日主线（top N 行业板块 + 龙头股）。四维加权评分总分 100：" +
+    "方向持续性(25，近3日涨幅+近5日上涨天数)、资金确认(30，主力净流入额+净占比)、" +
+    "龙头情绪(25，涨停家数+最高连板+封板强度)、赚钱效应(20，板块涨幅+上涨家数占比+炸板率)。" +
+    "返回结果已含每维得分与理由，可直接作为主线模块渲染。",
+  inputSchema: z.object({
+    date: z.string().optional().describe("交易日 YYYY-MM-DD，缺省取最新涨停池快照日期"),
+    limit: z.number().default(5).describe("返回前 N 条主线，最大 10"),
+  }),
+  outputSchema: z.object({
+    date: z.string().nullable(),
+    items: z.array(
+      z.object({
+        boardCode: z.string(),
+        boardName: z.string(),
+        score: z.number(),
+        directionScore: z.number(),
+        fundScore: z.number(),
+        leaderScore: z.number(),
+        effectScore: z.number(),
+        coreStocks: z.array(z.string()),
+        reason: z.string(),
+      }),
+    ),
+  }),
+  execute: async ({ date, limit }) => getMainlineData(date, limit),
 });
 
 /** 当日板块异动，从 board_history 表对比计算 */

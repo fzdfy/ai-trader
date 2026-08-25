@@ -8,8 +8,9 @@ export function fmtFlow(v: number | null): string {
   return `${sign}${abs.toFixed(0)}`;
 }
 
-/** 东财股票代码 → 标准 symbol（如 600519 → 600519.SH） */
+/** 东财股票代码 → 标准 symbol（如 600519 → 600519.SH，已含后缀则原样返回） */
 export function toSymbol(code: string): string {
+  if (code.includes(".")) return code;
   if (/^(60|68)/.test(code)) return `${code}.SH`;
   if (/^(00|30)/.test(code)) return `${code}.SZ`;
   if (/^(43|83|87|92)/.test(code)) return `${code}.BJ`;
