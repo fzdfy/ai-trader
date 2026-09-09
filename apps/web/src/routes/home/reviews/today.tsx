@@ -49,7 +49,7 @@ function TodayReviewPage() {
           </Text>
         </VStack>
         <Link to="/home/reviews/skill" style={{ textDecoration: "none" }}>
-          <Button label="编辑复盘 Skill" variant="secondary" />
+          <Button label="查看复盘 Skill" variant="secondary" />
         </Link>
       </HStack>
 
@@ -94,7 +94,7 @@ function TodayReviewPage() {
           <VStack gap={2} align="start">
             <Text style={{ fontWeight: 600 }}>今日尚未生成复盘</Text>
             <Text type="supporting" size="sm">
-              点击上方「生成复盘」，Agent 将结合行业资金流向与选股池生成当日复盘。
+              点击上方「生成复盘」，将依次生成资金流向、主线、涨停池、市场情绪、板块异动、连板、选股池与总结。
             </Text>
           </VStack>
         </Section>

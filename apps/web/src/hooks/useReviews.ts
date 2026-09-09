@@ -19,11 +19,6 @@ export interface ReviewSection {
   data: unknown;
 }
 
-export interface ReviewSkill {
-  instructions: string;
-  sections: ReviewSectionConfig[];
-}
-
 /** 资金流排行项（行业 / 概念 / 个股共用） */
 export interface FundFlowItem {
   code: string;
@@ -72,6 +67,35 @@ export interface LimitUpItem {
   lastPrice: number | null;
 }
 
+/** 涨停池条目（limit_up_pool 原始快照，含连板梯队 / 封板 / 题材信息） */
+export interface LimitUpPoolItem {
+  symbol: string;
+  name: string;
+  limitUpCount: number;
+  isLimitUp: boolean;
+  limitType: string | null;
+  openCount: number;
+  sealAmount: number | null;
+  industry: string | null;
+  concepts: string | null;
+  turnoverRate: number | null;
+  amount: number | null;
+}
+
+/** 市场情绪温度结果（全市场单日 0~100 标量 + 各维度得分 + 原始指标） */
+export interface MarketEmotionResult {
+  date: string | null;
+  metric: { preset: string; version: number; displayName: string; instruction: string };
+  /** 0~100 情绪温度，越高越热 */
+  temperature: number;
+  limitUpCount: number;
+  bustRate: number;
+  maxConsecutive: number;
+  sealStrength: number;
+  /** 各维度得分（key 为 MARKET_EMOTION_DEF 维度 key） */
+  dimScores: Record<string, number>;
+}
+
 export interface ReviewStockPoolItem {
   symbol: string;
   name: string;
@@ -114,25 +138,6 @@ export function useReviewSkillQuery() {
       const res = await fetch("/api/v1/reviews/skill");
       const json = (await res.json()) as ApiResponse<{ content: ReviewSkill }>;
       return json.success ? json.data.content : null;
-    },
-  });
-}
-
-export function useUpdateReviewSkill() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (content: ReviewSkill) => {
-      const res = await fetch("/api/v1/reviews/skill", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      const json = (await res.json()) as ApiResponse<{ content: ReviewSkill }>;
-      if (!json.success) throw new Error((json as unknown as { error: string }).error);
-      return json.data.content;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reviews", "skill"] });
     },
   });
 }

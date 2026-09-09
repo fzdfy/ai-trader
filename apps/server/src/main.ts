@@ -23,7 +23,13 @@ async function cleanupInterruptedSyncs(): Promise<void> {
     await db
       .update(jobRun)
       .set({ status: "failed", error: "interrupted (server restart)", finishedAt: new Date() })
-      .where(and(eq(jobRun.jobType, "sync-manual"), eq(jobRun.status, "running"), isNull(jobRun.finishedAt)));
+      .where(
+        and(
+          eq(jobRun.jobType, "sync-manual"),
+          eq(jobRun.status, "running"),
+          isNull(jobRun.finishedAt),
+        ),
+      );
   } catch (error) {
     log.error({ err: error }, "cleanup interrupted syncs failed");
   }
@@ -32,10 +38,13 @@ async function cleanupInterruptedSyncs(): Promise<void> {
 // 请求 ID 中间件（必须在 cors 之前，确保 traceId 贯穿全链路）
 app.use("*", requestId);
 
-app.use("*", cors({
-  origin: (origin) => origin ?? "http://localhost:8080",
-  credentials: true,
-}));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => origin ?? "http://localhost:9080",
+    credentials: true,
+  }),
+);
 
 // Mount auth routes
 app.all("/api/auth/*", (c) => auth.handler(c.req.raw));

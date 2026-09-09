@@ -19,6 +19,7 @@ import {
   chartAxisText,
   chartUp,
   chartDown,
+  chartCurrent,
   splitLineStyle,
   axisLineStyle,
 } from "../../../../lib/theme";
@@ -28,6 +29,8 @@ import type {
   FundFlowItem,
   MainlineItem,
   ReviewStockPoolItem,
+  LimitUpPoolItem,
+  MarketEmotionResult,
 } from "../../../../hooks/useReviews";
 import { fmtFlow } from "../../../../lib/format";
 
@@ -555,6 +558,230 @@ function StockPoolBlock({ data }: { data: unknown }) {
   );
 }
 
+// ---------- 涨停池 / 连板梯队 ----------
+
+/** 涨停池条目 chip（连板梯队用） */
+function PoolChip({ item }: { item: LimitUpPoolItem }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "3px 10px",
+        borderRadius: "var(--radius-sm, 6px)",
+        background: "var(--color-background-subtle)",
+        border: "1px solid var(--color-border)",
+        fontSize: 13,
+      }}
+    >
+      <span style={{ fontWeight: 600 }}>{item.name}</span>
+      {item.industry && (
+        <span style={{ color: "var(--color-text-supporting)" }}>{item.industry}</span>
+      )}
+    </span>
+  );
+}
+
+/** 涨停池模块：涨停/炸板/封板率/最高连板 + 连板梯队（按连板数降序分组） */
+function LimitUpPoolBlock({ data }: { data: unknown }) {
+  const rows = (Array.isArray(data) ? data : []) as LimitUpPoolItem[];
+  if (rows.length === 0) return <EmptyState />;
+
+  const sealed = rows.filter((r) => r.isLimitUp);
+  const busted = rows.filter((r) => !r.isLimitUp);
+  const maxBoard = rows.reduce((m, r) => Math.max(m, r.limitUpCount), 0);
+  const sealRate = rows.length > 0 ? (sealed.length / rows.length) * 100 : 0;
+
+  // 封板股按连板数分组（降序）
+  const ladder = new Map<number, LimitUpPoolItem[]>();
+  for (const r of sealed) {
+    const arr = ladder.get(r.limitUpCount) ?? [];
+    arr.push(r);
+    ladder.set(r.limitUpCount, arr);
+  }
+  const ladderEntries = [...ladder.entries()].sort((a, b) => b[0] - a[0]);
+
+  const boardLabel = (n: number) =>
+    n >= 4 ? `${n} 板（高度板）` : n === 3 ? "3 板" : n === 2 ? "2 板" : "首板";
+
+  const stats = [
+    { label: "涨停", value: `${sealed.length} 家` },
+    { label: "炸板", value: `${busted.length} 家` },
+    { label: "封板率", value: `${sealRate.toFixed(0)}%` },
+    { label: "最高连板", value: `${maxBoard} 板` },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-4)", width: "100%" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--spacing-3)" }}>
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            style={{
+              background: "var(--color-background-card)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-md, 8px)",
+              padding: "var(--spacing-4)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--spacing-1)",
+            }}
+          >
+            <Text type="supporting" size="sm">
+              {s.label}
+            </Text>
+            <Text style={{ fontWeight: 700, fontSize: 20 }}>{s.value}</Text>
+          </div>
+        ))}
+      </div>
+      <VStack gap={3} style={{ width: "100%" }}>
+        {ladderEntries.map(([board, items]) => (
+          <div
+            key={board}
+            style={{ display: "flex", alignItems: "flex-start", gap: "var(--spacing-3)" }}
+          >
+            <Text
+              size="sm"
+              style={{ width: 96, flexShrink: 0, fontWeight: 700, color: "var(--color-accent)" }}
+            >
+              {boardLabel(board)}
+            </Text>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-2)" }}>
+              {items.map((it) => (
+                <PoolChip key={it.symbol} item={it} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </VStack>
+    </div>
+  );
+}
+
+// ---------- 市场情绪温度 ----------
+
+/** 温度 → 语义色（A 股惯例：红热 / 绿冷，中间用琥珀） */
+function emotionColor(temp: number): string {
+  if (temp >= 60) return chartUp();
+  if (temp >= 40) return chartCurrent();
+  return chartDown();
+}
+
+/** 温度 → 冷热标签 */
+function emotionLabel(temp: number): string {
+  if (temp >= 70) return "火热";
+  if (temp >= 60) return "偏热";
+  if (temp >= 40) return "温和";
+  if (temp >= 20) return "偏冷";
+  return "冰点";
+}
+
+/** 市场情绪温度模块：大数字温度 + 0~100 温度条 + 三维度得分 + 原始指标 */
+function MarketEmotionBlock({ data }: { data: unknown }) {
+  const e = data as MarketEmotionResult | null;
+  if (!e) return <EmptyState />;
+  const temp = Math.max(0, Math.min(100, e.temperature));
+  const color = emotionColor(temp);
+
+  const dims = [
+    { key: "scale", label: "涨停规模", score: e.dimScores?.scale ?? 0 },
+    { key: "quality", label: "封板质量", score: e.dimScores?.quality ?? 0 },
+    { key: "height", label: "连板高度", score: e.dimScores?.height ?? 0 },
+  ];
+  const rawStats = [
+    { label: "涨停", value: `${e.limitUpCount} 家` },
+    { label: "炸板率", value: `${(e.bustRate * 100).toFixed(1)}%` },
+    { label: "最高连板", value: `${e.maxConsecutive} 板` },
+  ];
+
+  return (
+    <div
+      style={{
+        background: "var(--color-background-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md, 8px)",
+        padding: "var(--spacing-5)",
+        width: "100%",
+      }}
+    >
+      <HStack gap={5} align="center" style={{ flexWrap: "wrap" }}>
+        <VStack gap={1} align="center" style={{ minWidth: 132 }}>
+          <Text style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, color }}>
+            {Math.round(temp)}
+          </Text>
+          <Text size="sm" style={{ fontWeight: 700, color }}>
+            {emotionLabel(temp)}
+          </Text>
+        </VStack>
+
+        <VStack gap={4} style={{ flex: 1, minWidth: 260 }}>
+          <div style={{ width: "100%" }}>
+            <div
+              style={{
+                height: 10,
+                borderRadius: 5,
+                background: "var(--color-background-subtle)",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ width: `${temp}%`, height: "100%", background: color, borderRadius: 5 }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--spacing-1)" }}>
+              <Text size="sm" type="supporting">0</Text>
+              <Text size="sm" type="supporting">50</Text>
+              <Text size="sm" type="supporting">100</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-2)" }}>
+            {dims.map((d) => (
+              <div key={d.key} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-3)" }}>
+                <Text size="sm" style={{ width: 72, flexShrink: 0 }}>
+                  {d.label}
+                </Text>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 8,
+                    borderRadius: 4,
+                    background: "var(--color-background-subtle)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.min(Math.max(d.score, 0), 100)}%`,
+                      height: "100%",
+                      background: "var(--color-accent)",
+                      borderRadius: 4,
+                    }}
+                  />
+                </div>
+                <Text size="sm" style={{ width: 40, textAlign: "right", flexShrink: 0 }}>
+                  {d.score.toFixed(1)}
+                </Text>
+              </div>
+            ))}
+          </div>
+        </VStack>
+
+        <VStack gap={2} style={{ minWidth: 120 }}>
+          {rawStats.map((s) => (
+            <div key={s.label} style={{ display: "flex", justifyContent: "space-between", gap: "var(--spacing-3)" }}>
+              <Text size="sm" type="supporting">
+                {s.label}
+              </Text>
+              <Text size="sm" style={{ fontWeight: 600 }}>
+                {s.value}
+              </Text>
+            </div>
+          ))}
+        </VStack>
+      </HStack>
+    </div>
+  );
+}
+
 // ---------- 通用渲染器 ----------
 
 /**
@@ -608,6 +835,10 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
       return <FundFlowBlock data={data} />;
     case "mainline":
       return <MainlineBlock data={data} />;
+    case "limitup_pool":
+      return <LimitUpPoolBlock data={data} />;
+    case "market_emotion":
+      return <MarketEmotionBlock data={data} />;
     case "stockpool":
       return <StockPoolBlock data={data} />;
     default:

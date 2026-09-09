@@ -22,7 +22,7 @@ services:
       dockerfile: docker/web.Dockerfile
     container_name: aitrader-nginx
     ports:
-      - "8080:80"
+      - "9080:80"
     depends_on:
       - server
     restart: unless-stopped
@@ -41,7 +41,7 @@ services:
     environment:
       # 容器网络地址覆盖（localhost → 容器名）
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
-      - BETTER_AUTH_URL=http://localhost:8080
+      - BETTER_AUTH_URL=http://localhost:9080
       - QUANT_URL=http://quant:3002
       # 日志
       - SERVICE_NAME=server
@@ -62,7 +62,7 @@ services:
       - .env.local
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
-      - BETTER_AUTH_URL=http://localhost:8080
+      - BETTER_AUTH_URL=http://localhost:9080
       - QUANT_URL=http://quant:3002
       # 日志
       - SERVICE_NAME=worker

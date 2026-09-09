@@ -20,6 +20,7 @@ import { profileRoute } from "./profile";
 import { syncRoute } from "./sync";
 import { reviewsRoute } from "./reviews";
 import { stockPoolRoute } from "./stock-pool";
+import { metricsRoute } from "./metrics";
 // import { adminRoute } from "./admin";
 
 const api = new Hono();
@@ -38,6 +39,7 @@ api.route("/profile", profileRoute);
 api.route("/sync", syncRoute);
 api.route("/reviews", reviewsRoute);
 api.route("/stock-pool", stockPoolRoute);
+api.route("/metrics", metricsRoute);
 // api.route("/signals", signalsRoute);
 api.route("/news", newsRoute);
 // api.route("/backtests", backtestsRoute);

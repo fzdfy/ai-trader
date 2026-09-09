@@ -27,6 +27,7 @@ import {
   limitUpPool,
 } from "../../../db/schema";
 import { eq, desc, and, gte, lte, lt, inArray } from "drizzle-orm";
+import { loadDefaultMetric, MAINLINE_DEF, MARKET_EMOTION_DEF } from "../../../lib/metrics";
 
 /** 数值 → number | null（drizzle numeric 返回 string） */
 function n(v: unknown): number | null {
@@ -181,20 +182,41 @@ function normalize(values: number[]): number[] {
 }
 
 /**
- * 主线评分模型（行业板块粒度，总分 100）：
- *   ① 方向持续性 25 = 近3日累计涨幅(15) + 近5日上涨天数(10)      ← board_history
- *   ② 资金确认   30 = 主力净流入额(18) + 净占比(12)              ← fund_flow_rank
- *   ③ 龙头情绪   25 = 涨停家数(10) + 最高连板(10) + 封板强度(5)   ← limit_up_pool
- *   ④ 赚钱效应   20 = 板块涨幅(8) + 上涨家数占比(7) + 炸板率(5)   ← board_history/board_constituent/limit_up_pool
+ * 主线评分：从 stock_metric 表读取当前默认口径（mainline），按其 spec 打分。
  *
- * 候选板块 = 当日涨停池涉及的行业（industry 去重）。各子指标在候选内做 min-max 归一化，
- * 越高的子指标（如连板、净流入）取原始值，越低的子指标（炸板率）取反向值。
+ * 口径结构（见 src/lib/metrics.ts 的 MAINLINE_DEF，分数总=100，维度与子指标权重均可配）：
+ *   ① 方向持续性 ← board_history（近3日累计涨幅 + 近5日上涨天数）
+ *   ② 资金确认   ← fund_flow_rank（主力净流入额 + 净占比）
+ *   ③ 龙头情绪   ← limit_up_pool（涨停家数 + 最高连板 + 封板强度）
+ *   ④ 赚钱效应   ← board_history/board_constituent/limit_up_pool（板块涨幅 + 上涨占比 + 炸板率反向）
+ *
+ * 候选板块 = 当日涨停池涉及的行业（industry 去重）。子指标打分方式由其 scale 决定：
+ * norm 在候选内 min-max 归一化、ratio 按天然上限算比例、inverseRatio 取反向。
+ * spec.minScore 过滤、spec.topN 决定展示条数（调用方显式传 limit 时优先）。
  */
 export async function getMainlineData(
   date?: string,
-  limit = 5,
-): Promise<{ date: string | null; items: MainlineItem[] }> {
-  const capped = Math.min(limit, 10);
+  limit?: number,
+): Promise<{
+  date: string | null;
+  metric: { preset: string; version: number; displayName: string; instruction: string };
+  items: MainlineItem[];
+}> {
+  // 读取当前默认主线口径（无记录自动种子默认值），规则引擎只按 spec 数值打分
+  const metric = await loadDefaultMetric("mainline");
+  const spec = metric.spec;
+  const topN = limit ?? spec.topN;
+  const capped = Math.min(Math.max(topN, 1), 10);
+  const wrap = (d: string | null, items: MainlineItem[]) => ({
+    date: d,
+    metric: {
+      preset: metric.preset,
+      version: metric.version,
+      displayName: metric.displayName,
+      instruction: metric.instruction,
+    },
+    items,
+  });
 
   // 1. 解析目标交易日（缺省取涨停池最新快照日期）
   let targetDate = date ?? null;
@@ -206,14 +228,14 @@ export async function getMainlineData(
       .limit(1);
     targetDate = latest[0]?.date ?? null;
   }
-  if (!targetDate) return { date: null, items: [] };
+  if (!targetDate) return wrap(null, []);
 
   // 2. 当日涨停池（含封板 + 炸板，用于涨停家数 / 炸板率 / 连板 / 封板强度）
   const poolRows = await db
     .select()
     .from(limitUpPool)
     .where(eq(limitUpPool.date, targetDate));
-  if (poolRows.length === 0) return { date: targetDate, items: [] };
+  if (poolRows.length === 0) return wrap(targetDate, []);
 
   // 3. 行业资金流（category=industry，取 <= targetDate 的最新交易日全量，含 BK 代码用于关联成分股）
   const fundDateRow = await db
@@ -401,42 +423,272 @@ export async function getMainlineData(
     });
   }
 
-  // ---------- 子指标归一化（越高越好的指标先 clip 到 >= 0） ----------
-  const clip = (vals: number[]) => vals.map((v) => Math.max(v, 0));
-  const nSum3d = normalize(clip(raws.map((r) => r.sum3d)));
-  const nNetInflow = normalize(clip(raws.map((r) => r.mainNetInflow)));
-  const nNetPct = normalize(clip(raws.map((r) => r.netInflowPct)));
-  const nLimitUp = normalize(raws.map((r) => r.limitUpCount));
-  const nConsec = normalize(raws.map((r) => r.maxConsecutive));
-  const nSeal = normalize(raws.map((r) => r.sealStrength));
-  const nBoardPct = normalize(clip(raws.map((r) => r.boardPct)));
+  // ---------- 子指标打分（按 spec 的 weights/subs + MAINLINE_DEF 的 scale 规则） ----------
 
-  const items: MainlineItem[] = raws.map((r, i) => {
-    // ① 方向持续性 25：近3日累计涨幅(15) + 近5日上涨天数(10，按比例)
-    const directionScore = nSum3d[i]! * 15 + (r.upDays5 / 5) * 10;
-    // ② 资金确认 30：主力净流入额(18) + 净占比(12)
-    const fundScore = nNetInflow[i]! * 18 + nNetPct[i]! * 12;
-    // ③ 龙头情绪 25：涨停家数(10) + 最高连板(10) + 封板强度(5)
-    const leaderScore = nLimitUp[i]! * 10 + nConsec[i]! * 10 + nSeal[i]! * 5;
-    // ④ 赚钱效应 20：板块涨幅(8) + 上涨家数占比(7) + 炸板率(5，越低越好)
-    const effectScore = nBoardPct[i]! * 8 + r.upRatio * 7 + (1 - r.bustRatio) * 5;
+  /** 子指标 key → 从 Raw 取值 */
+  const subValue = (key: string, r: Raw): number => {
+    switch (key) {
+      case "sum3d": return r.sum3d;
+      case "upDays5": return r.upDays5;
+      case "netInflow": return r.mainNetInflow;
+      case "netPct": return r.netInflowPct;
+      case "limitUpCount": return r.limitUpCount;
+      case "maxConsec": return r.maxConsecutive;
+      case "sealType": return r.sealStrength;
+      case "boardPct": return r.boardPct;
+      case "upRatio": return r.upRatio;
+      case "bustRate": return r.bustRatio;
+      default: return 0;
+    }
+  };
 
-    const score = directionScore + fundScore + leaderScore + effectScore;
+  // 预计算 norm 类子指标的候选内归一化（仅当该子指标权重 > 0）
+  const normCache: Record<string, number[]> = {};
+  for (const dim of MAINLINE_DEF.dims) {
+    for (const sub of dim.subs) {
+      const w = spec.subs[sub.key] ?? 0;
+      if (w <= 0 || sub.scale.type !== "norm") continue;
+      const rawVals = raws.map((r) => subValue(sub.key, r));
+      const vals = sub.scale.clipAtZero ? rawVals.map((v) => Math.max(v, 0)) : rawVals;
+      normCache[sub.key] = normalize(vals);
+    }
+  }
+
+  const allItems: MainlineItem[] = raws.map((r, i) => {
+    // 各维度得分 = 该维内子指标得分之和（满分 = 维度权重）
+    const dimScores: Record<string, number> = {};
+    let total = 0;
+    for (const dim of MAINLINE_DEF.dims) {
+      let dimScore = 0;
+      for (const sub of dim.subs) {
+        const w = spec.subs[sub.key] ?? 0;
+        if (w <= 0) continue;
+        const rawVal = subValue(sub.key, r);
+        if (sub.scale.type === "norm") {
+          dimScore += (normCache[sub.key]?.[i] ?? 0) * w;
+        } else if (sub.scale.type === "ratio") {
+          const v = Math.min(Math.max(rawVal / sub.scale.max, 0), 1);
+          dimScore += v * w;
+        } else {
+          // inverseRatio：越低越好
+          const v = Math.min(Math.max(rawVal, 0), 1);
+          dimScore += (1 - v) * w;
+        }
+      }
+      dimScores[dim.key] = dimScore;
+      total += dimScore;
+    }
+    const dimNum = (k: string) => Number((dimScores[k] ?? 0).toFixed(1));
     return {
       boardCode: r.code,
       boardName: r.name,
-      score: Number(score.toFixed(1)),
-      directionScore: Number(directionScore.toFixed(1)),
-      fundScore: Number(fundScore.toFixed(1)),
-      leaderScore: Number(leaderScore.toFixed(1)),
-      effectScore: Number(effectScore.toFixed(1)),
+      score: Number(total.toFixed(1)),
+      directionScore: dimNum("direction"),
+      fundScore: dimNum("fund"),
+      leaderScore: dimNum("leader"),
+      effectScore: dimNum("effect"),
       coreStocks: r.coreStocks,
-      reason: `方向${directionScore.toFixed(0)}/资金${fundScore.toFixed(0)}/情绪${leaderScore.toFixed(0)}/效应${effectScore.toFixed(0)}，涨停${r.limitUpCount}家最高${r.maxConsecutive}板，龙头${r.coreStocks.join("、") || "—"}`,
+      reason:
+        `${MAINLINE_DEF.dims.map((d) => `${d.label}${(dimScores[d.key] ?? 0).toFixed(0)}分`).join("/")}` +
+        `，涨停${r.limitUpCount}家最高${r.maxConsecutive}板，龙头${r.coreStocks.join("、") || "—"}`,
     };
   });
 
-  items.sort((a, b) => b.score - a.score);
-  return { date: targetDate, items: items.slice(0, capped) };
+  // 按 spec.minScore 过滤 + 综合分降序 + spec.topN 截断
+  const items = allItems
+    .filter((it) => it.score >= spec.minScore)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, capped);
+  return wrap(targetDate, items);
+}
+
+// ---------- 涨停池 / 市场情绪（新增数据源，供复盘 agent 直接取用） ----------
+
+/** 涨停池条目（limit_up_pool 原始快照，含连板梯队 / 封板 / 题材信息） */
+export interface LimitUpPoolItem {
+  symbol: string;
+  name: string;
+  limitUpCount: number;
+  isLimitUp: boolean;
+  limitType: string | null;
+  openCount: number;
+  sealAmount: number | null;
+  industry: string | null;
+  concepts: string | null;
+  turnoverRate: number | null;
+  amount: number | null;
+}
+
+/**
+ * 读取某交易日涨停池（limit_up_pool），按连板数降序。
+ * 这是复盘「连板梯队 / 题材主线 / 炸板率 / 封板强度」的核心原始数据源，
+ * 缺省取最新快照日期。此前仅 getMainline 内部使用，现暴露为独立工具供 agent 直接分析。
+ */
+export async function getLimitUpPoolData(
+  date?: string,
+  limit = 100,
+): Promise<{ date: string | null; items: LimitUpPoolItem[] }> {
+  const capped = Math.min(limit, 500);
+
+  let targetDate = date ?? null;
+  if (!targetDate) {
+    const latest = await db
+      .selectDistinct({ date: limitUpPool.date })
+      .from(limitUpPool)
+      .orderBy(desc(limitUpPool.date))
+      .limit(1);
+    targetDate = latest[0]?.date ?? null;
+  }
+  if (!targetDate) return { date: null, items: [] };
+
+  const rows = await db
+    .select()
+    .from(limitUpPool)
+    .where(eq(limitUpPool.date, targetDate))
+    .orderBy(desc(limitUpPool.limitUpCount))
+    .limit(capped);
+
+  return {
+    date: targetDate,
+    items: rows.map((r) => ({
+      symbol: r.symbol,
+      name: r.name,
+      limitUpCount: r.limitUpCount,
+      isLimitUp: r.isLimitUp,
+      limitType: r.limitType,
+      openCount: r.openCount,
+      sealAmount: n(r.sealAmount),
+      industry: r.industry,
+      concepts: r.concepts,
+      turnoverRate: n(r.turnoverRate),
+      amount: n(r.amount),
+    })),
+  };
+}
+
+/** 市场情绪温度结果（全市场单日一个 0~100 标量 + 各维度得分 + 原始指标） */
+export interface MarketEmotionResult {
+  date: string | null;
+  metric: { preset: string; version: number; displayName: string; instruction: string };
+  /** 0~100 情绪温度，越高越热 */
+  temperature: number;
+  limitUpCount: number;
+  bustRate: number;
+  maxConsecutive: number;
+  sealStrength: number;
+  /** 各维度得分（key 为 MARKET_EMOTION_DEF 维度 key） */
+  dimScores: Record<string, number>;
+}
+
+/**
+ * 计算某交易日市场情绪温度（0~100）：涨停规模 + 封板质量 + 连板高度加权。
+ *
+ * 口径存于 stock_metric（kind=market-emotion，MARKET_EMOTION_DEF），规则引擎只按 spec 数值打分；
+ * 子指标用绝对阈值比例（ratio / inverseRatio），不做候选间归一化（全市场单值）。
+ * 数据全部来自 limit_up_pool 单表，无需扫描全市场日 K。
+ */
+export async function getMarketEmotionData(date?: string): Promise<MarketEmotionResult> {
+  const metric = await loadDefaultMetric("market-emotion");
+  const spec = metric.spec;
+
+  let targetDate = date ?? null;
+  if (!targetDate) {
+    const latest = await db
+      .selectDistinct({ date: limitUpPool.date })
+      .from(limitUpPool)
+      .orderBy(desc(limitUpPool.date))
+      .limit(1);
+    targetDate = latest[0]?.date ?? null;
+  }
+
+  const wrap = (d: string | null, partial: Omit<MarketEmotionResult, "date" | "metric">) => ({
+    date: d,
+    metric: {
+      preset: metric.preset,
+      version: metric.version,
+      displayName: metric.displayName,
+      instruction: metric.instruction,
+    },
+    ...partial,
+  });
+
+  if (!targetDate) {
+    return wrap(null, {
+      temperature: 0,
+      limitUpCount: 0,
+      bustRate: 0,
+      maxConsecutive: 0,
+      sealStrength: 0,
+      dimScores: {},
+    });
+  }
+
+  const poolRows = await db
+    .select()
+    .from(limitUpPool)
+    .where(eq(limitUpPool.date, targetDate));
+  if (poolRows.length === 0) {
+    return wrap(targetDate, {
+      temperature: 0,
+      limitUpCount: 0,
+      bustRate: 0,
+      maxConsecutive: 0,
+      sealStrength: 0,
+      dimScores: {},
+    });
+  }
+
+  // 原始指标（全市场聚合）
+  let limitUpCount = 0;
+  let bustCount = 0;
+  let maxConsecutive = 0;
+  let sealStrength = 0;
+  for (const r of poolRows) {
+    if (r.isLimitUp) {
+      limitUpCount += 1;
+      sealStrength = Math.max(sealStrength, limitTypeScore(r.limitType));
+    } else {
+      bustCount += 1;
+    }
+    maxConsecutive = Math.max(maxConsecutive, r.limitUpCount);
+  }
+  const total = limitUpCount + bustCount;
+  const bustRate = total > 0 ? bustCount / total : 0;
+
+  const rawMap: Record<string, number> = {
+    emotionLimitUpCount: limitUpCount,
+    emotionBustRate: bustRate,
+    emotionMaxConsec: maxConsecutive,
+    emotionSealStrength: sealStrength,
+  };
+
+  // 按 spec 的 weights/subs + MARKET_EMOTION_DEF 的 scale 打分
+  const dimScores: Record<string, number> = {};
+  let temperature = 0;
+  for (const dim of MARKET_EMOTION_DEF.dims) {
+    let dimScore = 0;
+    for (const sub of dim.subs) {
+      const w = spec.subs[sub.key] ?? 0;
+      if (w <= 0) continue;
+      const rawVal = rawMap[sub.key] ?? 0;
+      if (sub.scale.type === "ratio") {
+        dimScore += Math.min(Math.max(rawVal / sub.scale.max, 0), 1) * w;
+      } else if (sub.scale.type === "inverseRatio") {
+        dimScore += (1 - Math.min(Math.max(rawVal, 0), 1)) * w;
+      }
+    }
+    dimScores[dim.key] = Number(dimScore.toFixed(1));
+    temperature += dimScore;
+  }
+
+  return wrap(targetDate, {
+    temperature: Number(temperature.toFixed(1)),
+    limitUpCount,
+    bustRate: Number(bustRate.toFixed(3)),
+    maxConsecutive,
+    sealStrength,
+    dimScores,
+  });
 }
 
 /** 当日板块异动：对比 board_history 最近两个交易日涨跌幅，取 delta 最大者 */
@@ -742,16 +994,21 @@ export const boardConstituentsTool = createTool({
 export const mainlineTool = createTool({
   id: "getMainline",
   description:
-    "规则化生成当日主线（top N 行业板块 + 龙头股）。四维加权评分总分 100：" +
-    "方向持续性(25，近3日涨幅+近5日上涨天数)、资金确认(30，主力净流入额+净占比)、" +
-    "龙头情绪(25，涨停家数+最高连板+封板强度)、赚钱效应(20，板块涨幅+上涨家数占比+炸板率)。" +
-    "返回结果已含每维得分与理由，可直接作为主线模块渲染。",
+    "规则化生成当日主线（top N 行业板块 + 龙头股）。按当前配置的主线口径（stock_metric 表 mainline）评分，" +
+    "口径含四维（方向持续性/资金确认/龙头情绪/赚钱效应，默认权重 25/30/25/20，总分 100），" +
+    "可用不同预设定义（metric.instruction 说明当前口径）。返回结果含每维得分、理由与当前口径说明，可直接渲染。",
   inputSchema: z.object({
     date: z.string().optional().describe("交易日 YYYY-MM-DD，缺省取最新涨停池快照日期"),
-    limit: z.number().default(5).describe("返回前 N 条主线，最大 10"),
+    limit: z.number().optional().describe("返回条数；缺省使用口径 spec.topN（最大 10）"),
   }),
   outputSchema: z.object({
     date: z.string().nullable(),
+    metric: z.object({
+      preset: z.string(),
+      version: z.number(),
+      displayName: z.string(),
+      instruction: z.string(),
+    }),
     items: z.array(
       z.object({
         boardCode: z.string(),
@@ -767,6 +1024,66 @@ export const mainlineTool = createTool({
     ),
   }),
   execute: async ({ date, limit }) => getMainlineData(date, limit),
+});
+
+/** 涨停池（limit_up_pool 原始快照）：连板梯队 / 炸板 / 封板 / 题材，供 agent 分析情绪与题材主线 */
+export const limitUpPoolTool = createTool({
+  id: "getLimitUpPool",
+  description:
+    "获取指定交易日的涨停池原始数据（limit_up_pool 表），按连板数降序。包含连板梯队（limitUpCount）、" +
+    "是否封住（isLimitUp）、涨停类型（一字/T字/换手）、炸板次数（openCount）、封单金额、所属行业、题材标签等。" +
+    "用于识别连板梯队结构、题材主线、炸板率与封板强度，是市场情绪与题材复盘的核心原始数据源。",
+  inputSchema: z.object({
+    date: z.string().optional().describe("交易日 YYYY-MM-DD，缺省取最新涨停池快照日期"),
+    limit: z.number().default(100).describe("返回前 N 条（按连板数降序），最大 500"),
+  }),
+  outputSchema: z.object({
+    date: z.string().nullable(),
+    items: z.array(
+      z.object({
+        symbol: z.string(),
+        name: z.string(),
+        limitUpCount: z.number(),
+        isLimitUp: z.boolean(),
+        limitType: z.string().nullable(),
+        openCount: z.number(),
+        sealAmount: z.number().nullable(),
+        industry: z.string().nullable(),
+        concepts: z.string().nullable(),
+        turnoverRate: z.number().nullable(),
+        amount: z.number().nullable(),
+      }),
+    ),
+  }),
+  execute: async ({ date, limit }) => getLimitUpPoolData(date, limit),
+});
+
+/** 市场情绪温度（stock_metric 口径化）：涨停规模 + 封板质量 + 连板高度 → 0~100 */
+export const marketEmotionTool = createTool({
+  id: "getMarketEmotion",
+  description:
+    "计算指定交易日的市场情绪温度（0~100，越高越热）。按 stock_metric 表 market-emotion 口径评分，" +
+    "口径含三维（涨停规模/封板质量/连板高度，默认权重 40/35/25，总分 100），子指标为绝对阈值比例打分。" +
+    "返回温度 + 各维度得分 + 原始指标（涨停家数/炸板率/最高连板/封板强度），metric.instruction 说明当前口径。",
+  inputSchema: z.object({
+    date: z.string().optional().describe("交易日 YYYY-MM-DD，缺省取最新涨停池快照日期"),
+  }),
+  outputSchema: z.object({
+    date: z.string().nullable(),
+    metric: z.object({
+      preset: z.string(),
+      version: z.number(),
+      displayName: z.string(),
+      instruction: z.string(),
+    }),
+    temperature: z.number(),
+    limitUpCount: z.number(),
+    bustRate: z.number(),
+    maxConsecutive: z.number(),
+    sealStrength: z.number(),
+    dimScores: z.record(z.number()),
+  }),
+  execute: async ({ date }) => getMarketEmotionData(date),
 });
 
 /** 当日板块异动，从 board_history 表对比计算 */

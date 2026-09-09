@@ -1,11 +1,12 @@
 /**
  * A 股复盘 Agent
  *
- * 每日复盘：动态读取复盘 skill（方法论），基于数据库中的资金流、板块、连板、选股池数据，
- * 生成「主线（top5 + 核心个股）」与「总结」，输出结构化 JSON 供前端图表渲染。
+ * 每日复盘：动态读取复盘 skill（方法论），基于服务端组装的结构化复盘数据，
+ * 生成当日「总结」（纯文本，压轴模块）。
  *
- * 说明：资金流/板块异动/连板/选股池等结构化模块由服务端直接从 DB 组装，
- * 本 agent 只负责需要推理的两个模块——主线与总结；所有数据判断均来自工具（DB）。
+ * 说明：资金流/主线/涨停池/市场情绪/板块异动/连板/选股池等结构化模块
+ * 由服务端直接从 DB 组装或规则化生成，本 agent 仅负责撰写总结；
+ * 总结所需的数据与口径均由调用方（api/reviews.ts）注入 prompt。
  */
 import { Agent } from "@mastra/core/agent";
 import { eq } from "drizzle-orm";
@@ -13,37 +14,31 @@ import { db } from "../../../db";
 import { reviewSkill } from "../../../db/schema";
 import { boardTool } from "../tools";
 import {
-  getReviewSkillTool,
   fundFlowRankTool,
   boardConstituentsTool,
   dailyBoardChangesTool,
   consecutiveLimitUpTool,
   stockPoolChangeTool,
   mainlineTool,
+  limitUpPoolTool,
+  marketEmotionTool,
 } from "../tools/review-tools";
 
-/** 默认复盘方法论：当 review_skill 表无记录或 instructions 为空时兜底使用 */
-const DEFAULT_INSTRUCTIONS = `你是一位专业的 A 股复盘分析师。你的任务是对指定交易日进行复盘，输出「主线」和「总结」。
+/** 默认复盘方法论：当 review_skill 表无记录或 instructions 为空时兜底使用（与 api/reviews.ts 保持一致） */
+const DEFAULT_INSTRUCTIONS = `你是专业的 A 股复盘分析师，负责对指定交易日进行复盘并产出「总结」。
 
-## 执行步骤（必须严格按顺序，所有数据必须来自工具返回结果，禁止编造数字）
-1. 先调用 getReviewSkill 读取复盘方法论（skill），并严格遵循其中的要求。
-2. 调用 getFundFlowRank（industry 与 concept）获取行业/概念资金流排行，识别资金净流入最集中的方向。
-3. 调用 getMainline 获取规则化主线（四维加权评分：方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应，总分 100），作为主线判定依据。
-4. 调用 getDailyBoardChanges、getConsecutiveLimitUp 作为情绪/异动参考，佐证主线强度。
-5. 调用 getStockPoolChange 获取当日选股池及与上一交易日的变动，评估选股与主线的匹配度。
+## 复盘模块（按此结构组织）
+1. 资金流向：行业/概念/个股主力净流入各 top5，识别资金聚焦方向。
+2. 主线：方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应加权，总分 100（口径以 getMainline 返回的 metric.instruction 为准）。
+3. 涨停池/连板梯队：涨停家数、连板梯队（首板/二板/高度板）、炸板率、封板强度、题材归类。
+4. 市场情绪温度：涨停规模 + 封板质量 + 连板高度加权，0~100 越高越热（口径以 getMarketEmotion 返回的 metric.instruction 为准）。
+5. 板块异动：当日较上一交易日涨幅变化最大的板块（轮动信号）。
+6. 连板：3 连板及以上个股，判断市场高度与赚钱效应。
+7. 选股池：今日选股池与上一交易日的新增/移除，评估与主线匹配度。
 
-## 主线判定原则
-- 主线 = 方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应的加权综合（getMainline 已按权重评分，总分 100）。
-- 每个主线板块的核心个股（龙头股）以 getMainline 返回的 coreStocks 为准。
-- 板块与核心个股必须能在工具返回结果中找到依据，不得凭空杜撰。
-
-## 输出要求（必须是纯 JSON，不要任何解释性文字，不要 markdown 代码块）
-{
-  "mainline": [
-    { "boardName": "主线板块名称", "coreStocks": ["龙头股名称"], "reason": "判断理由（涨停家数+连板高度+逻辑）" }
-  ],
-  "summary": "一段 150 字以内的当日复盘总结，涵盖：大盘/资金面、主线方向、连板情绪、选股池点评、明日关注点。"
-}`;
+## 总结输出要求
+150 字左右，精炼、有观点，覆盖：大盘/资金面、主线方向、连板情绪（含情绪温度）、选股池点评、明日关注点。
+用 Markdown 列表；结论必须有数据支撑，不得虚构。`;
 
 /**
  * 动态读取复盘 agent 的 instructions：
@@ -75,5 +70,7 @@ export const reviewAnalyst = new Agent({
     getStockPoolChange: stockPoolChangeTool,
     getBoardRankings: boardTool,
     getMainline: mainlineTool,
+    getLimitUpPool: limitUpPoolTool,
+    getMarketEmotion: marketEmotionTool,
   },
 });
