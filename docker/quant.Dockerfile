@@ -6,6 +6,18 @@ FROM python:3.14.7-alpine
 # uv
 RUN pip install --no-cache-dir uv
 
+# ⭐ 关键修复：安装 libgcc 和编译依赖
+RUN apk add --no-cache \
+    libgcc \
+    libstdc++ \
+    musl-dev \
+    gcc \
+    make \
+    && apk add --no-cache --virtual .build-deps \
+    build-base \
+    libffi-dev \
+    openssl-dev
+    
 WORKDIR /app
 
 # 复制源码 + 依赖文件（.dockerignore 已排除 .venv/__pycache__）
