@@ -146,6 +146,9 @@ export async function boardsPipeRun(): Promise<void> {
   }
 
   const totalBoards = industries.length + concepts.length;
+  if (totalBoards === 0) {
+    throw new Error("[boards] 行业/概念板块均无数据，未写入任何记录");
+  }
   updateProgress(0, totalBoards, "开始同步板块排行");
 
   const industryCount = await syncBoardType("industry", today, industries, { done: 0, total: totalBoards });

@@ -105,5 +105,7 @@ export async function limitUpPoolPipeRun(): Promise<void> {
   } catch (error) {
     console.error("[limit-up-pool] failed:", (error as Error).message ?? error);
     updateProgress(1, 1, `涨停池同步失败：${(error as Error).message ?? error}`);
+    // 源拉取失败需 rethrow，让 wrapJob 标记 failed 触发重试，避免静默"假成功"
+    throw error;
   }
 }

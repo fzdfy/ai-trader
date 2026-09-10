@@ -221,6 +221,10 @@ export async function fundFlowPipeRun(): Promise<void> {
     console.error("[fundflow] stock fetch failed (skip):", (error as Error).message ?? error);
   }
 
+  if (industries.length === 0 && concepts.length === 0 && stocks.length === 0) {
+    throw new Error("[fundflow] 行业/概念/个股资金流均无数据，未写入任何记录");
+  }
+
   // 三个阶段：行业 / 概念 / 个股
   const TOTAL_STAGES = 3;
   updateProgress(0, TOTAL_STAGES, "开始同步资金流排行");

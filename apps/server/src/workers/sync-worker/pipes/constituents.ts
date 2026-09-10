@@ -98,5 +98,9 @@ export async function constituentsPipeRun(): Promise<void> {
     updateProgress(processed, boards.length, `拉取成分股 ${processed}/${boards.length}`);
   }
 
+  if (total === 0) {
+    throw new Error(`[constituents] ${boards.length} 个板块成分股均无数据，未写入任何记录`);
+  }
+
   console.log(`[constituents] done. ${boards.length} boards, ${total} constituents`);
 }

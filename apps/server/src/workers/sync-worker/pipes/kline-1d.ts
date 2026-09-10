@@ -1,5 +1,5 @@
 import { db } from "../../../db";
-import { isTradeDay, isAfterMarketClose } from "../calendar";
+import { isTradeDay, isAfterDailyBarFinalized } from "../calendar";
 import { quant, type StockKlineBar } from "../../../lib/quant";
 import { sql, eq } from "drizzle-orm";
 import { bar1dAdj, instrument } from "../../../db/schema";
@@ -18,11 +18,11 @@ import dayjs from "dayjs";
 // };
 
 export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<void> {
-  // 日线每日收盘后才定稿，常规同步仅在交易日收盘后拉取；
-  // 全量重刷（forceFull）忽略收盘守卫，可在任意时间运行以对齐前复权口径。
+  // 日线数据收盘后片刻才定稿，常规同步需等到 16:00 之后（isAfterDailyBarFinalized），
+  // 避免拿到未定稿的当日 bar；全量重刷（forceFull）忽略守卫，可在任意时间运行以对齐前复权口径。
   const now = new Date();
-  if (!opts?.forceFull && (!(await isTradeDay(now)) || !isAfterMarketClose(now))) {
-    console.log("[kline-1d] not a trading day after market close, skip");
+  if (!opts?.forceFull && (!(await isTradeDay(now)) || !isAfterDailyBarFinalized(now))) {
+    console.log("[kline-1d] not finalized yet (need >= 16:00), skip");
     return;
   }
 
@@ -164,6 +164,10 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
   await Promise.all(
     Array.from({ length: Math.min(CONCURRENCY, symbols.length) }, () => worker()),
   );
+
+  if (total === 0) {
+    throw new Error(`[kline-1d] ${symbols.length} 只标的日线均无数据，未写入任何记录`);
+  }
 
   console.log(`[kline-1d] done. ${total} bars total`);
 }

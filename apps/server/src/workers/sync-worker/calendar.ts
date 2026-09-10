@@ -78,6 +78,19 @@ export function isAfterMarketClose(now: Date = new Date()): boolean {
   return now.getHours() * 60 + now.getMinutes() >= PM_END.hour * 60 + PM_END.minute;
 }
 
+/** 日线数据定稿时间（分钟）：A 股 15:00 收盘后，日线（收盘价/成交量）需片刻才定稿，
+ *  过早拉取可能拿到未修正的当日 bar；统一等到 16:00 之后。 */
+const DAILY_BAR_FINALIZED_MINUTES = 16 * 60;
+
+/**
+ * 判断当前是否已过日线数据定稿时间（16:00 之后）。
+ * kline-1d 依赖此判断（而非 isAfterMarketClose 的 15:00），
+ * 确保 cron 调度与 worker 启动触发共用同一时间门槛，避免 15:00–16:00 间提前拉取未定稿数据。
+ */
+export function isAfterDailyBarFinalized(now: Date = new Date()): boolean {
+  return now.getHours() * 60 + now.getMinutes() >= DAILY_BAR_FINALIZED_MINUTES;
+}
+
 /**
  * 判断当前是否在 A 股交易时段内。
  */

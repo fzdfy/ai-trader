@@ -91,5 +91,9 @@ export async function boardKlinePipeRun(): Promise<void> {
     updateProgress(processed, boards.length, `拉取板块指数 K 线 ${processed}/${boards.length}`);
   }
 
+  if (total === 0) {
+    throw new Error(`[board-kline] ${boards.length} 个板块 K 线均无数据，未写入任何记录`);
+  }
+
   console.log(`[board-kline] done. ${boards.length} boards, ${total} bars`);
 }

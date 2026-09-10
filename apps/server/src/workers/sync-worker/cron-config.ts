@@ -13,9 +13,10 @@ export interface CronJobConfig {
 export const CRON_JOBS: CronJobConfig[] = [
   // 分钟 K 线 / 缺口检测管道尚未实现（空壳），暂不调度，避免同步中心显示"成功"误导
   { name: "kline-1m",   cron: "*/30 * * * * *", enabled: false },
-  // 日 K 线：收盘后全市场增量拉取，15:00–16:59 每 10 分钟尝试，靠 hasSuccessToday 幂等；
-  // 失败自动重试，避免单点 15:20 失败导致 features / kline-period 当天级联跳过
-  { name: "kline-1d",   cron: "*/10 15-16 * * 1-5",  enabled: true, marketCloseOnly: true },
+  // 日 K 线：收盘后全市场增量拉取，16:00–17:59 每 10 分钟尝试，靠 hasSuccessToday 幂等；
+  // 起始后移到 16:00，确保当日 bar 已定稿（15:00 收盘瞬间可能拉到未定稿数据），
+  // 失败自动重试，避免单点失败导致 features / kline-period 当天级联跳过
+  { name: "kline-1d",   cron: "*/10 16-17 * * 1-5",  enabled: true, marketCloseOnly: true },
   { name: "gap-detect",  cron: "*/5 * * * *",    enabled: false },
   // 新闻：仅交易日活跃时段（07:00–23:00）运行，避免深夜/节假日空转
   { name: "news",        cron: "*/2 * * * *",    enabled: true, marketHoursOnly: true },
