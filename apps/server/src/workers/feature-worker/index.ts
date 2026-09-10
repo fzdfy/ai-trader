@@ -14,9 +14,11 @@ const boss = new PgBoss(process.env.DATABASE_URL ?? "postgres://postgres:postgre
 export async function startFeatureWorker() {
   await boss.start();
 
-  await boss.work("feature-calc", async (job) => {
-    console.log("[feature-worker] processing:", job.data);
-    // TODO: calculate features for the given symbol/time range
+  await boss.work("feature-calc", async (jobs) => {
+    for (const job of jobs) {
+      console.log("[feature-worker] processing:", job.data);
+      // TODO: calculate features for the given symbol/time range
+    }
   });
 
   console.log("[feature-worker] started");

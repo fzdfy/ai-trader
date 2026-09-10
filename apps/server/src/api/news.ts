@@ -12,12 +12,24 @@ newsRoute.get("/", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? "20"), 100);
   const offset = (page - 1) * limit;
 
-  let query = db.select().from(newsArticle).$dynamic();
   if (symbol) {
-    query = query.innerJoin(newsArticleSymbol, eq(newsArticle.id, newsArticleSymbol.articleId)).where(eq(newsArticleSymbol.symbol, symbol));
+    const rows = await db
+      .select()
+      .from(newsArticle)
+      .innerJoin(newsArticleSymbol, eq(newsArticle.id, newsArticleSymbol.articleId))
+      .where(eq(newsArticleSymbol.symbol, symbol))
+      .orderBy(desc(newsArticle.publishedAt))
+      .limit(limit)
+      .offset(offset);
+    return paginated(c, rows, rows.length, page, limit);
   }
-  query = query.orderBy(desc(newsArticle.publishedAt)).limit(limit).offset(offset);
-  const rows = await query;
+
+  const rows = await db
+    .select()
+    .from(newsArticle)
+    .orderBy(desc(newsArticle.publishedAt))
+    .limit(limit)
+    .offset(offset);
   return paginated(c, rows, rows.length, page, limit);
 });
 

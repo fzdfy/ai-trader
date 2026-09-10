@@ -18,7 +18,6 @@
 
 import { db } from "../../../db";
 import { newsArticle, newsArticleSymbol, instrument, watchlist } from "../../../db/schema";
-import { inArray } from "drizzle-orm";
 import crypto from "node:crypto";
 
 // ============================================================================
@@ -46,21 +45,36 @@ async function fetchWithTimeout(
   }
 }
 
-/** 从标题/正文中提取 6 位 A 股代码（去重） */
+/** A 股合法代码前缀（沪/深/北），用于过滤日期、编号、金额等 6 位数字误匹配 */
+const LEGAL_CODE_PREFIX = /^(60|68|00|30|43|83|87|88|92)/;
+
+/** 从标题/正文中提取 6 位 A 股代码（去重，仅保留合法前缀） */
 function extractSymbols(text: string): string[] {
-  // 匹配 6 位数字代码，排除明显不是股票代码的（如日期、纯数字金额等上下文判断）
-  // 先做宽松匹配，后续用 instrument 表过滤即可
+  // 匹配 6 位数字后按 A 股代码前缀过滤，排除日期(19xx/20xx)、纯编号、金额等；
+  // 最终仍以 instrument 白名单为准（getKnownSymbols 过滤）。
   const matches = text.match(/\b(\d{6})\b/g);
   if (!matches) return [];
-  return [...new Set(matches)];
+  return [...new Set(matches.filter((c) => LEGAL_CODE_PREFIX.test(c)))];
 }
 
-/** 从 instrument 表加载所有已知 symbol → 快速白名单 */
-let symbolCache: Set<string> | null = null;
-async function getKnownSymbols(): Promise<Set<string>> {
-  if (symbolCache) return symbolCache;
+/** instrument 白名单：裸代码(6 位) → 标准 symbol(600519.SH)，用于关联过滤与规范化 */
+let symbolCache: Map<string, string> | null = null;
+let symbolCacheAt = 0;
+const SYMBOL_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function getKnownSymbols(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (symbolCache && now - symbolCacheAt < SYMBOL_CACHE_TTL_MS) return symbolCache;
   const rows = await db.select({ symbol: instrument.symbol }).from(instrument);
-  symbolCache = new Set(rows.map((r) => r.symbol));
+  // instrument.symbol 为带后缀标准格式（如 600519.SH），extractSymbols 提取的是 6 位裸代码，
+  // 用裸代码作 key 才能命中，value 保留标准 symbol 以便落库与查询端（标准 symbol）对齐。
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    const bare = r.symbol.split(".")[0];
+    if (bare && !map.has(bare)) map.set(bare, r.symbol);
+  }
+  symbolCache = map;
+  symbolCacheAt = now;
   console.log(`[news] loaded ${symbolCache.size} known symbols from instrument`);
   return symbolCache;
 }
@@ -88,22 +102,36 @@ async function upsertArticles(
 ): Promise<number> {
   if (articles.length === 0) return 0;
 
+  // 规范化 url：空 url 生成幂等兜底键，避免 (source, url) 主键冲突导致丢数据
+  const normalized = articles.map((a) => {
+    if (a.url) return a;
+    const hash = crypto
+      .createHash("md5")
+      .update(
+        [a.source, a.title, a.publishedAt?.getTime() ?? "", a.content ?? a.summary ?? ""].join("|"),
+      )
+      .digest("hex");
+    return { ...a, url: `fallback:${a.source}:${hash}` };
+  });
+
   const knownSymbols = await getKnownSymbols();
 
-  // 预先提取每条新闻的关联 symbol（用 instrument 白名单过滤）
+  // 预先提取每条新闻的关联 symbol（用 instrument 白名单过滤，并规范化为标准 symbol）
   const symbolMap = new Map<string, string[]>();
-  for (const a of articles) {
+  for (const a of normalized) {
     const text = [a.title, a.content ?? a.summary ?? ""].join(" ");
-    const codes = extractSymbols(text).filter((c) => knownSymbols.has(c));
-    if (codes.length > 0) symbolMap.set(a.url, codes);
+    const symbols = extractSymbols(text)
+      .map((c) => knownSymbols.get(c))
+      .filter((s): s is string => s != null);
+    if (symbols.length > 0) symbolMap.set(a.url, symbols);
   }
 
   let inserted = 0;
-  // 按批次写入，onConflictDoNothing 保证幂等
-  for (let i = 0; i < articles.length; i += 100) {
-    const batch = articles.slice(i, i + 100);
+  // 按批次写入，onConflictDoNothing 保证幂等；returning 仅返回真正新增的行
+  for (let i = 0; i < normalized.length; i += 100) {
+    const batch = normalized.slice(i, i + 100);
     try {
-      await db
+      const insertedRows = await db
         .insert(newsArticle)
         .values(
           batch.map((a) => ({
@@ -116,16 +144,11 @@ async function upsertArticles(
             rawJson: a.rawJson ?? null,
           })),
         )
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ id: newsArticle.id, url: newsArticle.url });
 
-      // onConflictDoNothing 不返回实际写入的行，需回查已入库的 URL
-      const urls = batch.map((a) => a.url);
-      const existing = await db
-        .select({ id: newsArticle.id, url: newsArticle.url })
-        .from(newsArticle)
-        .where(inArray(newsArticle.url, urls));
-
-      for (const row of existing) {
+      // 仅对真正新增的文章建立标的关联（旧文章关联已存在，无需重复处理）
+      for (const row of insertedRows) {
         const symbols = symbolMap.get(row.url);
         if (symbols && symbols.length > 0) {
           await db
@@ -187,7 +210,11 @@ async function fetchClsTelegraph(): Promise<number> {
       console.error(`[news:cls] HTTP ${res.status}`);
       return 0;
     }
-    const json = await res.json();
+    const json = (await res.json()) as {
+      errno?: number;
+      msg?: string;
+      data?: { roll_data?: any[] };
+    };
     if (json.errno !== 0) {
       console.error(`[news:cls] API error: errno=${json.errno}, msg=${json.msg ?? ""}`);
       return 0;
@@ -263,7 +290,9 @@ async function fetchEastMoneyGlobal(): Promise<number> {
       console.error(`[news:em_global] HTTP ${res.status}`);
       return 0;
     }
-    const json = await res.json();
+    const json = (await res.json()) as {
+      data?: { fastNewsList?: EastMoneyNewsItem[]; list?: EastMoneyNewsItem[] };
+    };
     const list: EastMoneyNewsItem[] = json.data?.fastNewsList ?? json.data?.list ?? [];
 
     if (!list.length) {
@@ -345,7 +374,7 @@ async function fetchStockNews(symbol: string): Promise<number> {
       return 0;
     }
 
-    const json = JSON.parse(jsonpMatch[1]);
+    const json = JSON.parse(jsonpMatch[1]!);
     const list: any[] = json.Data ?? json.data ?? [];
 
     if (!list.length) return 0;

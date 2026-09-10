@@ -9,16 +9,16 @@
 
 import { db } from "../../../db";
 import { quant } from "../../../lib/quant";
-import { sql } from "drizzle-orm";
+import { notInArray, sql } from "drizzle-orm";
 import { board, boardConstituent } from "../../../db/schema";
 import { updateProgress } from "../progress";
 
-/** 东财原始代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/92→.BJ，已含后缀则原样） */
+/** 东财原始代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ，已含后缀则原样） */
 function codeToSymbol(code: string): string {
   if (code.includes(".")) return code;
   if (/^(60|68)/.test(code)) return `${code}.SH`;
   if (/^(00|30)/.test(code)) return `${code}.SZ`;
-  if (/^(43|83|87|92)/.test(code)) return `${code}.BJ`;
+  if (/^(43|83|87|88|92)/.test(code)) return `${code}.BJ`;
   return `${code}.SH`;
 }
 
@@ -32,6 +32,12 @@ export async function constituentsPipeRun(): Promise<void> {
     console.log("[constituents] no boards, skip");
     return;
   }
+
+  // 清理已退市/下架板块的成分股（board 表已 prune，此处同步删除孤儿数据）
+  const codes = boards.map((b) => b.code);
+  const prunedRes = await db.delete(boardConstituent).where(notInArray(boardConstituent.boardCode, codes));
+  const pruned = prunedRes.rowCount ?? 0;
+  if (pruned > 0) console.log(`[constituents] pruned ${pruned} stale rows`);
 
   console.log(`[constituents] syncing ${boards.length} boards`);
   updateProgress(0, boards.length, "开始拉取成分股");

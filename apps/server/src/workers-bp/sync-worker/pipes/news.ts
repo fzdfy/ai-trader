@@ -55,12 +55,24 @@ function extractSymbols(text: string): string[] {
   return [...new Set(matches)];
 }
 
-/** 从 instrument 表加载所有已知 symbol → 快速白名单 */
-let symbolCache: Set<string> | null = null;
-async function getKnownSymbols(): Promise<Set<string>> {
-  if (symbolCache) return symbolCache;
+/** instrument 白名单：裸代码(6 位) → 标准 symbol(600519.SH)，用于关联过滤与规范化 */
+let symbolCache: Map<string, string> | null = null;
+let symbolCacheAt = 0;
+const SYMBOL_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function getKnownSymbols(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (symbolCache && now - symbolCacheAt < SYMBOL_CACHE_TTL_MS) return symbolCache;
   const rows = await db.select({ symbol: instrument.symbol }).from(instrument);
-  symbolCache = new Set(rows.map((r) => r.symbol));
+  // instrument.symbol 为带后缀标准格式（如 600519.SH），extractSymbols 提取的是 6 位裸代码，
+  // 用裸代码作 key 才能命中，value 保留标准 symbol 以便落库与查询端（标准 symbol）对齐。
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    const bare = r.symbol.split(".")[0];
+    if (bare && !map.has(bare)) map.set(bare, r.symbol);
+  }
+  symbolCache = map;
+  symbolCacheAt = now;
   console.log(`[news] loaded ${symbolCache.size} known symbols from instrument`);
   return symbolCache;
 }
@@ -90,12 +102,14 @@ async function upsertArticles(
 
   const knownSymbols = await getKnownSymbols();
 
-  // 预先提取每条新闻的关联 symbol（用 instrument 白名单过滤）
+  // 预先提取每条新闻的关联 symbol（用 instrument 白名单过滤，并规范化为标准 symbol）
   const symbolMap = new Map<string, string[]>();
   for (const a of articles) {
     const text = [a.title, a.content ?? a.summary ?? ""].join(" ");
-    const codes = extractSymbols(text).filter((c) => knownSymbols.has(c));
-    if (codes.length > 0) symbolMap.set(a.url, codes);
+    const symbols = extractSymbols(text)
+      .map((c) => knownSymbols.get(c))
+      .filter((s): s is string => s != null);
+    if (symbols.length > 0) symbolMap.set(a.url, symbols);
   }
 
   let inserted = 0;
@@ -187,7 +201,11 @@ async function fetchClsTelegraph(): Promise<number> {
       console.error(`[news:cls] HTTP ${res.status}`);
       return 0;
     }
-    const json = await res.json();
+    const json = (await res.json()) as {
+      errno?: number;
+      msg?: string;
+      data?: { roll_data?: any[] };
+    };
     if (json.errno !== 0) {
       console.error(`[news:cls] API error: errno=${json.errno}, msg=${json.msg ?? ""}`);
       return 0;
@@ -263,7 +281,9 @@ async function fetchEastMoneyGlobal(): Promise<number> {
       console.error(`[news:em_global] HTTP ${res.status}`);
       return 0;
     }
-    const json = await res.json();
+    const json = (await res.json()) as {
+      data?: { fastNewsList?: EastMoneyNewsItem[]; list?: EastMoneyNewsItem[] };
+    };
     const list: EastMoneyNewsItem[] = json.data?.fastNewsList ?? json.data?.list ?? [];
 
     if (!list.length) {
@@ -345,7 +365,7 @@ async function fetchStockNews(symbol: string): Promise<number> {
       return 0;
     }
 
-    const json = JSON.parse(jsonpMatch[1]);
+    const json = JSON.parse(jsonpMatch[1]!);
     const list: any[] = json.Data ?? json.data ?? [];
 
     if (!list.length) return 0;

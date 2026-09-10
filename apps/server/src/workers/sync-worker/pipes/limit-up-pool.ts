@@ -15,13 +15,14 @@ import { db } from "../../../db";
 import { limitUpPool } from "../../../db/schema";
 import { sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
+import { localDateStr } from "../calendar";
 
-/** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/92→.BJ） */
+/** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ） */
 function codeToSymbol(code: string): string {
   if (code.includes(".")) return code;
   if (/^(60|68)/.test(code)) return `${code}.SH`;
   if (/^(00|30)/.test(code)) return `${code}.SZ`;
-  if (/^(43|83|87|92)/.test(code)) return `${code}.BJ`;
+  if (/^(43|83|87|88|92)/.test(code)) return `${code}.BJ`;
   return `${code}.SH`;
 }
 
@@ -39,51 +40,53 @@ function toDateTime(v: string | null): Date | null {
 
 /** upsert 涨停池到 limit_up_pool，返回写入条数 */
 async function upsertPool(today: string, rows: LimitUpPoolItem[]): Promise<number> {
-  for (const r of rows) {
-    const values = {
-      date: today,
-      symbol: codeToSymbol(r.code),
-      name: r.name,
-      limitUpCount: r.limit_up_count,
-      isLimitUp: r.is_limit_up,
-      firstLimitTime: toDateTime(r.first_limit_time),
-      openCount: r.open_count,
-      sealAmount: toStr(r.seal_amount),
-      limitType: r.limit_type,
-      industry: r.industry,
-      concepts: r.concepts,
-      turnoverRate: toStr(r.turnover_rate),
-      amount: toStr(r.amount),
-      floatMarketCap: toStr(r.float_market_cap),
-      updatedAt: new Date(),
-    };
+  const values = rows.map((r) => ({
+    date: today,
+    symbol: codeToSymbol(r.code),
+    name: r.name,
+    limitUpCount: r.limit_up_count,
+    isLimitUp: r.is_limit_up,
+    firstLimitTime: toDateTime(r.first_limit_time),
+    openCount: r.open_count,
+    sealAmount: toStr(r.seal_amount),
+    limitType: r.limit_type,
+    industry: r.industry,
+    concepts: r.concepts,
+    turnoverRate: toStr(r.turnover_rate),
+    amount: toStr(r.amount),
+    floatMarketCap: toStr(r.float_market_cap),
+    updatedAt: new Date(),
+  }));
+
+  for (let j = 0; j < values.length; j += 200) {
     await db
       .insert(limitUpPool)
-      .values(values)
+      .values(values.slice(j, j + 200))
       .onConflictDoUpdate({
         target: [limitUpPool.date, limitUpPool.symbol],
         set: {
-          name: values.name,
-          limitUpCount: values.limitUpCount,
-          isLimitUp: values.isLimitUp,
-          firstLimitTime: values.firstLimitTime,
-          openCount: values.openCount,
-          sealAmount: values.sealAmount,
-          limitType: values.limitType,
-          industry: values.industry,
-          concepts: values.concepts,
-          turnoverRate: values.turnoverRate,
-          amount: values.amount,
-          floatMarketCap: values.floatMarketCap,
-          updatedAt: sql`now()`,
+          name: sql.raw("excluded.name"),
+          limitUpCount: sql.raw("excluded.limit_up_count"),
+          isLimitUp: sql.raw("excluded.is_limit_up"),
+          firstLimitTime: sql.raw("excluded.first_limit_time"),
+          openCount: sql.raw("excluded.open_count"),
+          sealAmount: sql.raw("excluded.seal_amount"),
+          limitType: sql.raw("excluded.limit_type"),
+          industry: sql.raw("excluded.industry"),
+          concepts: sql.raw("excluded.concepts"),
+          turnoverRate: sql.raw("excluded.turnover_rate"),
+          amount: sql.raw("excluded.amount"),
+          floatMarketCap: sql.raw("excluded.float_market_cap"),
+          updatedAt: sql.raw("excluded.updated_at"),
         },
       });
   }
-  return rows.length;
+
+  return values.length;
 }
 
 export async function limitUpPoolPipeRun(): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
 
   updateProgress(0, 1, "开始同步涨停池");
   try {

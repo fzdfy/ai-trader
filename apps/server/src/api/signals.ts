@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { signal } from "../db/schema";
+import { signal } from "../db/schema/ai";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 
@@ -16,7 +16,7 @@ signalsRoute.get("/", async (c) => {
   if (!symbol) return badRequest(c, "symbol is required");
 
   let query = db.select().from(signal).where(eq(signal.symbol, symbol)).$dynamic();
-  if (modelId) query = query.where(eq(signal.modelId, BigInt(modelId)));
+  if (modelId) query = query.where(eq(signal.modelId, Number(modelId)));
   if (start) query = query.where(gte(signal.time, new Date(start)));
   if (end) query = query.where(lte(signal.time, new Date(end)));
   query = query.orderBy(signal.time).limit(limit);

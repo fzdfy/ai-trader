@@ -4,6 +4,10 @@
 # ============================================================
 FROM node:24.19.0-alpine
 
+# 交易日历/时段判断依赖本地时区，统一用上海时区
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Shanghai
+
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app

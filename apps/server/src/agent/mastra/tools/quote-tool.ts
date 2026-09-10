@@ -51,7 +51,7 @@ export const quoteTool = createTool({
       };
     }
 
-    const q = row[0];
+    const q = row[0]!;
     return {
       symbol: q.symbol,
       name: q.name,

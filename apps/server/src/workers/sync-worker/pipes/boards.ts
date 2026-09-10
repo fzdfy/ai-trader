@@ -12,11 +12,9 @@ import { quant } from "../../../lib/quant";
 import type { BoardListItem } from "../../../lib/quant";
 import { db } from "../../../db";
 import { board, boardHistory } from "../../../db/schema";
-import { sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
-
-/** 进度上报粒度：每处理 N 个板块更新一次 job_run（避免逐条写库过频） */
-const PROGRESS_STEP = 50;
+import { localDateStr } from "../calendar";
 
 /**
  * 同步一个板块类型（industry / concept）到 board + board_history。
@@ -29,87 +27,110 @@ export async function syncBoardType(
   list: BoardListItem[],
   progress?: { done: number; total: number },
 ): Promise<number> {
-  let count = 0;
-  for (let i = 0; i < list.length; i++) {
-    const item = list[i]!;
-    const rank = String(i + 1);
-    const changePercent = item.change_pct != null ? String(item.change_pct) : null;
-    const popularity = item.turnover_rate != null ? String(item.turnover_rate) : null;
-    const totalMarketCap = item.total_market_cap != null ? String(item.total_market_cap) : null;
-    const leader = item.leader || null;
-    const leaderChange = item.leader_change != null ? String(item.leader_change) : null;
+  const boardRows = list.map((item, i) => ({
+    code: item.code,
+    type,
+    name: item.name,
+    rank: String(i + 1),
+    changePercent: item.change_pct != null ? String(item.change_pct) : null,
+    popularity: item.turnover_rate != null ? String(item.turnover_rate) : null,
+    totalMarketCap: item.total_market_cap != null ? String(item.total_market_cap) : null,
+    leader: item.leader || null,
+    leaderChange: item.leader_change != null ? String(item.leader_change) : null,
+    updatedAt: new Date(),
+  }));
 
-    // 最新快照（覆盖写）
+  const historyRows = list.map((item, i) => ({
+    date: today,
+    code: item.code,
+    type,
+    name: item.name,
+    rank: String(i + 1),
+    changePercent: item.change_pct != null ? String(item.change_pct) : null,
+    popularity: item.turnover_rate != null ? String(item.turnover_rate) : null,
+    totalMarketCap: item.total_market_cap != null ? String(item.total_market_cap) : null,
+    updatedAt: new Date(),
+  }));
+
+  // 最新快照（覆盖写），分批 insert 避免逐条 N+1
+  for (let j = 0; j < boardRows.length; j += 200) {
     await db
       .insert(board)
-      .values({ code: item.code, type, name: item.name, rank, changePercent, popularity, totalMarketCap, leader, leaderChange, updatedAt: new Date() })
+      .values(boardRows.slice(j, j + 200))
       .onConflictDoUpdate({
         target: board.code,
         set: {
-          type,
-          name: item.name,
-          rank,
-          changePercent,
-          popularity,
-          totalMarketCap,
-          leader,
-          leaderChange,
-          updatedAt: sql`now()`,
+          type: sql.raw("excluded.type"),
+          name: sql.raw("excluded.name"),
+          rank: sql.raw("excluded.rank"),
+          changePercent: sql.raw("excluded.change_percent"),
+          popularity: sql.raw("excluded.popularity"),
+          totalMarketCap: sql.raw("excluded.total_market_cap"),
+          leader: sql.raw("excluded.leader"),
+          leaderChange: sql.raw("excluded.leader_change"),
+          updatedAt: sql.raw("excluded.updated_at"),
         },
       });
+  }
 
-    // 当日历史快照（同日覆盖为当天最后一次同步结果）
+  // 当日历史快照（同日覆盖为当天最后一次同步结果）
+  for (let j = 0; j < historyRows.length; j += 200) {
     await db
       .insert(boardHistory)
-      .values({
-        date: today,
-        code: item.code,
-        type,
-        name: item.name,
-        rank,
-        changePercent,
-        popularity,
-        totalMarketCap,
-        updatedAt: new Date(),
-      })
+      .values(historyRows.slice(j, j + 200))
       .onConflictDoUpdate({
         target: [boardHistory.date, boardHistory.code],
         set: {
-          type,
-          name: item.name,
-          rank,
-          changePercent,
-          popularity,
-          totalMarketCap,
-          updatedAt: sql`now()`,
+          type: sql.raw("excluded.type"),
+          name: sql.raw("excluded.name"),
+          rank: sql.raw("excluded.rank"),
+          changePercent: sql.raw("excluded.change_percent"),
+          popularity: sql.raw("excluded.popularity"),
+          totalMarketCap: sql.raw("excluded.total_market_cap"),
+          updatedAt: sql.raw("excluded.updated_at"),
         },
       });
-
-    count++;
-
-    // 周期性上报进度（每 PROGRESS_STEP 个板块一次）
-    if (progress && (i + 1) % PROGRESS_STEP === 0) {
-      updateProgress(
-        progress.done + i + 1,
-        progress.total,
-        `同步${type === "industry" ? "行业" : "概念"}板块 ${progress.done + i + 1}/${progress.total}`,
-      );
-    }
   }
-  return count;
+
+  // 本类型同步完成上报一次进度
+  if (progress) {
+    updateProgress(
+      progress.done + list.length,
+      progress.total,
+      `同步${type === "industry" ? "行业" : "概念"}板块 ${progress.done + list.length}/${progress.total}`,
+    );
+  }
+
+  return list.length;
+}
+
+/**
+ * 清理某个板块类型中本次未出现的旧板块（退市 / 下架）。
+ * 仅清理 board 最新快照表，board_history 历史快照保留。
+ * 注意：codes 为空时跳过，避免数据源瞬时返回空导致误删全部。
+ */
+async function pruneStaleBoards(type: "industry" | "concept", codes: string[]): Promise<number> {
+  if (codes.length === 0) return 0;
+  const res = await db
+    .delete(board)
+    .where(and(eq(board.type, type), notInArray(board.code, codes)));
+  return res.rowCount ?? 0;
 }
 
 export async function boardsPipeRun(): Promise<void> {
   // 当日日期（历史快照键）
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
 
   // 行业 / 概念各自独立，网络失败不互相影响
   let industries: BoardListItem[] = [];
   let concepts: BoardListItem[] = [];
+  let industriesOk = false;
+  let conceptsOk = false;
 
   try {
     console.log("[boards] fetching industry boards...");
     industries = (await quant.boardList("industry")).rows;
+    industriesOk = true;
     console.log(`[boards] got ${industries.length} industry boards`);
   } catch (error) {
     console.error("[boards] industry fetch failed (skip):", (error as Error).message ?? error);
@@ -118,6 +139,7 @@ export async function boardsPipeRun(): Promise<void> {
   try {
     console.log("[boards] fetching concept boards...");
     concepts = (await quant.boardList("concept")).rows;
+    conceptsOk = true;
     console.log(`[boards] got ${concepts.length} concept boards`);
   } catch (error) {
     console.error("[boards] concept fetch failed (skip):", (error as Error).message ?? error);
@@ -128,10 +150,20 @@ export async function boardsPipeRun(): Promise<void> {
 
   const industryCount = await syncBoardType("industry", today, industries, { done: 0, total: totalBoards });
   const conceptCount = await syncBoardType("concept", today, concepts, { done: industries.length, total: totalBoards });
+
+  // 清理本次未出现的旧板块（仅对拉取成功的类型），避免退市/下架板块残留
+  let pruned = 0;
+  if (industriesOk) {
+    pruned += await pruneStaleBoards("industry", industries.map((b) => b.code));
+  }
+  if (conceptsOk) {
+    pruned += await pruneStaleBoards("concept", concepts.map((b) => b.code));
+  }
+
   // 兜底：最后一批未满 PROGRESS_STEP 时确保进度到 100%
-  if (conceptCount > 0) {
+  if (totalBoards > 0) {
     updateProgress(totalBoards, totalBoards, `板块排行同步完成 ${totalBoards}/${totalBoards}`);
   }
 
-  console.log(`[boards] done. industry: ${industryCount}, concept: ${conceptCount} (snapshot ${today})`);
+  console.log(`[boards] done. industry: ${industryCount}, concept: ${conceptCount}, pruned: ${pruned} (snapshot ${today})`);
 }

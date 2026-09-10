@@ -14,6 +14,7 @@ import { db } from "../../../db";
 import { fundFlowRank } from "../../../db/schema";
 import { sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
+import { localDateStr } from "../calendar";
 
 /** 板块资金流排行项（industry / concept 共用） */
 interface SectorRow {
@@ -49,106 +50,113 @@ function toStr(v: number | null | undefined): string | null {
   return v == null ? null : String(v);
 }
 
+/** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ，已含后缀则原样） */
+function codeToSymbol(code: string): string {
+  if (code.includes(".")) return code;
+  if (/^(60|68)/.test(code)) return `${code}.SH`;
+  if (/^(00|30)/.test(code)) return `${code}.SZ`;
+  if (/^(43|83|87|88|92)/.test(code)) return `${code}.BJ`;
+  return `${code}.SH`;
+}
+
 /** upsert 板块资金流（industry / concept） */
 async function upsertSector(
   today: string,
   category: "industry" | "concept",
   rows: SectorRow[],
 ): Promise<number> {
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i]!;
-    const values = {
-      date: today,
-      category,
-      rank: i + 1,
-      code: r.code,
-      name: r.name,
-      changePercent: toStr(r.changePercent),
-      mainNetInflow: toStr(r.mainNetInflow),
-      mainNetInflowPercent: toStr(r.mainNetInflowPercent),
-      superLargeNetInflow: toStr(r.superLargeNetInflow),
-      largeNetInflow: toStr(r.largeNetInflow),
-      mediumNetInflow: toStr(r.mediumNetInflow),
-      smallNetInflow: toStr(r.smallNetInflow),
-      price: null,
-      topStockCode: r.topStockCode ?? null,
-      topStockName: r.topStockName ?? null,
-      updatedAt: new Date(),
-    };
+  const values = rows.map((r, i) => ({
+    date: today,
+    category,
+    rank: i + 1,
+    code: r.code,
+    name: r.name,
+    changePercent: toStr(r.changePercent),
+    mainNetInflow: toStr(r.mainNetInflow),
+    mainNetInflowPercent: toStr(r.mainNetInflowPercent),
+    superLargeNetInflow: toStr(r.superLargeNetInflow),
+    largeNetInflow: toStr(r.largeNetInflow),
+    mediumNetInflow: toStr(r.mediumNetInflow),
+    smallNetInflow: toStr(r.smallNetInflow),
+    price: null,
+    topStockCode: r.topStockCode ? codeToSymbol(r.topStockCode) : null,
+    topStockName: r.topStockName ?? null,
+    updatedAt: new Date(),
+  }));
+  for (let j = 0; j < values.length; j += 200) {
     await db
       .insert(fundFlowRank)
-      .values(values)
+      .values(values.slice(j, j + 200))
       .onConflictDoUpdate({
         target: [fundFlowRank.date, fundFlowRank.category, fundFlowRank.code],
         set: {
-          rank: i + 1,
-          name: r.name,
-          changePercent: values.changePercent,
-          mainNetInflow: values.mainNetInflow,
-          mainNetInflowPercent: values.mainNetInflowPercent,
-          superLargeNetInflow: values.superLargeNetInflow,
-          largeNetInflow: values.largeNetInflow,
-          mediumNetInflow: values.mediumNetInflow,
-          smallNetInflow: values.smallNetInflow,
-          price: null,
-          topStockCode: values.topStockCode,
-          topStockName: values.topStockName,
-          updatedAt: sql`now()`,
+          rank: sql.raw("excluded.rank"),
+          name: sql.raw("excluded.name"),
+          changePercent: sql.raw("excluded.change_percent"),
+          mainNetInflow: sql.raw("excluded.main_net_inflow"),
+          mainNetInflowPercent: sql.raw("excluded.main_net_inflow_percent"),
+          superLargeNetInflow: sql.raw("excluded.super_large_net_inflow"),
+          largeNetInflow: sql.raw("excluded.large_net_inflow"),
+          mediumNetInflow: sql.raw("excluded.medium_net_inflow"),
+          smallNetInflow: sql.raw("excluded.small_net_inflow"),
+          price: sql.raw("excluded.price"),
+          topStockCode: sql.raw("excluded.top_stock_code"),
+          topStockName: sql.raw("excluded.top_stock_name"),
+          updatedAt: sql.raw("excluded.updated_at"),
         },
       });
   }
-  return rows.length;
+  return values.length;
 }
 
 /** upsert 个股资金流 */
 async function upsertStock(today: string, rows: StockRow[]): Promise<number> {
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i]!;
-    const values = {
-      date: today,
-      category: "stock" as const,
-      rank: i + 1,
-      code: r.code,
-      name: r.name,
-      changePercent: toStr(r.changePercent),
-      mainNetInflow: toStr(r.mainNetInflow),
-      mainNetInflowPercent: toStr(r.mainNetInflowPercent),
-      superLargeNetInflow: toStr(r.superLargeNetInflow),
-      largeNetInflow: toStr(r.largeNetInflow),
-      mediumNetInflow: toStr(r.mediumNetInflow),
-      smallNetInflow: toStr(r.smallNetInflow),
-      price: toStr(r.price),
-      topStockCode: null,
-      topStockName: null,
-      updatedAt: new Date(),
-    };
+  const values = rows.map((r, i) => ({
+    date: today,
+    category: "stock" as const,
+    rank: i + 1,
+    code: codeToSymbol(r.code),
+    name: r.name,
+    changePercent: toStr(r.changePercent),
+    mainNetInflow: toStr(r.mainNetInflow),
+    mainNetInflowPercent: toStr(r.mainNetInflowPercent),
+    superLargeNetInflow: toStr(r.superLargeNetInflow),
+    largeNetInflow: toStr(r.largeNetInflow),
+    mediumNetInflow: toStr(r.mediumNetInflow),
+    smallNetInflow: toStr(r.smallNetInflow),
+    price: toStr(r.price),
+    topStockCode: null,
+    topStockName: null,
+    updatedAt: new Date(),
+  }));
+  for (let j = 0; j < values.length; j += 200) {
     await db
       .insert(fundFlowRank)
-      .values(values)
+      .values(values.slice(j, j + 200))
       .onConflictDoUpdate({
         target: [fundFlowRank.date, fundFlowRank.category, fundFlowRank.code],
         set: {
-          rank: i + 1,
-          name: r.name,
-          changePercent: values.changePercent,
-          mainNetInflow: values.mainNetInflow,
-          mainNetInflowPercent: values.mainNetInflowPercent,
-          superLargeNetInflow: values.superLargeNetInflow,
-          largeNetInflow: values.largeNetInflow,
-          mediumNetInflow: values.mediumNetInflow,
-          smallNetInflow: values.smallNetInflow,
-          price: values.price,
-          topStockCode: null,
-          topStockName: null,
-          updatedAt: sql`now()`,
+          rank: sql.raw("excluded.rank"),
+          name: sql.raw("excluded.name"),
+          changePercent: sql.raw("excluded.change_percent"),
+          mainNetInflow: sql.raw("excluded.main_net_inflow"),
+          mainNetInflowPercent: sql.raw("excluded.main_net_inflow_percent"),
+          superLargeNetInflow: sql.raw("excluded.super_large_net_inflow"),
+          largeNetInflow: sql.raw("excluded.large_net_inflow"),
+          mediumNetInflow: sql.raw("excluded.medium_net_inflow"),
+          smallNetInflow: sql.raw("excluded.small_net_inflow"),
+          price: sql.raw("excluded.price"),
+          topStockCode: sql.raw("excluded.top_stock_code"),
+          topStockName: sql.raw("excluded.top_stock_name"),
+          updatedAt: sql.raw("excluded.updated_at"),
         },
       });
   }
-  return rows.length;
+  return values.length;
 }
 
 export async function fundFlowPipeRun(): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
 
   let industries: SectorRow[] = [];
   let concepts: SectorRow[] = [];

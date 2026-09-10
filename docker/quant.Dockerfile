@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir uv
 
 # ⭐ 关键修复：安装 libgcc 和编译依赖
 RUN apk add --no-cache \
+    tzdata \
     libgcc \
     libstdc++ \
     musl-dev \
@@ -17,6 +18,9 @@ RUN apk add --no-cache \
     build-base \
     libffi-dev \
     openssl-dev
+
+# 交易日历/时段判断依赖本地时区，统一用上海时区
+ENV TZ=Asia/Shanghai
     
 WORKDIR /app
 

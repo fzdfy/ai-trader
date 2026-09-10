@@ -6,7 +6,11 @@
 const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
 
 export async function featuresPipeRun(): Promise<void> {
-  const res = await fetch(`${QUANT_URL}/api/v1/features/compute`, { method: "POST" });
+  const res = await fetch(`${QUANT_URL}/api/v1/features/compute`, {
+    method: "POST",
+    // 因子计算为全市场重算，耗时较长；设置上限避免 quant 服务 hang 时任务永久卡在 running
+    signal: AbortSignal.timeout(300_000),
+  });
 
   if (!res.ok) {
     const text = await res.text();

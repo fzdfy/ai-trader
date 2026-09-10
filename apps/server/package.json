@@ -19,6 +19,8 @@
     "sync:board-kline": "node --import @oxc-node/core/register scripts/sync-board-kline.ts",
     "sync:fundflow": "node --import @oxc-node/core/register scripts/sync-fundflow.ts",
     "sync:limit-up-pool": "node --import @oxc-node/core/register scripts/sync-limit-up-pool.ts",
+    "sync:calendar": "node --import @oxc-node/core/register scripts/sync-calendar.ts",
+    "refresh:kline1d": "node --import @oxc-node/core/register scripts/refresh-kline1d.ts",
     "backfill:constituent-symbol": "node --import @oxc-node/core/register scripts/backfill-constituent-symbol.ts",
     "sync:kline": "node --import @oxc-node/core/register scripts/sync-kline.ts",
     "worker:sync": "node --import @oxc-node/core/register src/workers/sync-worker/index.ts",

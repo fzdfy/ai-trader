@@ -19,8 +19,21 @@ const AM_END = { hour: 11, minute: 30 };
 const PM_START = { hour: 13, minute: 0 };
 const PM_END = { hour: 15, minute: 0 };
 
+/**
+ * 返回某日期的本地日期字符串（YYYY-MM-DD）。
+ *
+ * 注意：不能用 `toISOString().slice(0, 10)`（那取的是 UTC 日期）。本函数依赖进程
+ * 本地时区，worker/server 容器需设置 TZ=Asia/Shanghai，否则交易日判断会跨日偏移。
+ */
+export function localDateStr(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function toDateStr(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return localDateStr(date);
 }
 
 /**

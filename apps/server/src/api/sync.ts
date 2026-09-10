@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { sql, and, eq, isNull, isNotNull, desc, count, lt } from "drizzle-orm";
+import { sql, and, eq, isNull, isNotNull, desc, count, lt, inArray } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 import { jobRun } from "../db/schema";
 import { runWithProgress } from "../workers/sync-worker/progress";
@@ -27,8 +27,21 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "board-kline", name: "板块指数 K 线" },
   { jobType: "constituents", name: "板块成分股" },
   { jobType: "fundflow", name: "资金流排行" },
+  { jobType: "limit-up-pool", name: "涨停池" },
+  { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
   { jobType: "sync-manual", name: "手动同步" },
+];
+
+/** 与手动同步写同一批行情表、需互斥的 worker 定时任务 */
+const WORKER_MARKET_JOBS = [
+  "boards",
+  "kline-1d",
+  "board-kline",
+  "constituents",
+  "fundflow",
+  "limit-up-pool",
+  "features",
 ];
 
 /** 查询最近一次数据更新时间（取 board 表最新 updated_at 作为行情数据新鲜度） */
@@ -205,6 +218,16 @@ syncRoute.post("/run", async (c) => {
     .limit(1);
   if (active.length > 0) {
     return badRequest(c, "已有同步任务进行中，请稍候");
+  }
+
+  // 与 worker 定时任务互斥：worker 正在跑同一批行情管道时拒绝，避免跨进程并发写
+  const workerActive = await db
+    .select({ jobType: jobRun.jobType })
+    .from(jobRun)
+    .where(and(inArray(jobRun.jobType, WORKER_MARKET_JOBS), eq(jobRun.status, "running"), isNull(jobRun.finishedAt)))
+    .limit(1);
+  if (workerActive.length > 0) {
+    return badRequest(c, `行情同步进行中（${workerActive[0]!.jobType}），请稍候`);
   }
 
   const inserted = await db

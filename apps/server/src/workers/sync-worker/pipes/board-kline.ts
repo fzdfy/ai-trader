@@ -9,7 +9,7 @@
 
 import { db } from "../../../db";
 import { quant } from "../../../lib/quant";
-import { sql } from "drizzle-orm";
+import { notInArray, sql } from "drizzle-orm";
 import { board, boardKline } from "../../../db/schema";
 import { updateProgress } from "../progress";
 
@@ -23,6 +23,12 @@ export async function boardKlinePipeRun(): Promise<void> {
     console.log("[board-kline] no boards, skip");
     return;
   }
+
+  // 清理已退市/下架板块的历史 K 线（board 表已 prune，此处同步删除孤儿数据）
+  const codes = boards.map((b) => b.code);
+  const prunedRes = await db.delete(boardKline).where(notInArray(boardKline.code, codes));
+  const pruned = prunedRes.rowCount ?? 0;
+  if (pruned > 0) console.log(`[board-kline] pruned ${pruned} stale rows`);
 
   console.log(`[board-kline] syncing ${boards.length} boards`);
   updateProgress(0, boards.length, "开始拉取板块指数 K 线");
@@ -59,6 +65,7 @@ export async function boardKlinePipeRun(): Promise<void> {
             ingestedAt: new Date(),
           });
         }
+        total += batch.length;
 
         for (let j = 0; j < batch.length; j += 200) {
           await db

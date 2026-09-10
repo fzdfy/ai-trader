@@ -46,6 +46,7 @@ services:
       # 日志
       - SERVICE_NAME=server
       - LOG_FORMAT=json
+      - TZ=Asia/Shanghai
     depends_on:
       - postgres
     restart: unless-stopped
@@ -67,6 +68,7 @@ services:
       # 日志
       - SERVICE_NAME=worker
       - LOG_FORMAT=json
+      - TZ=Asia/Shanghai
     depends_on:
       - postgres
     restart: unless-stopped
@@ -85,6 +87,7 @@ services:
       # 日志
       - SERVICE_NAME=quant
       - LOG_FORMAT=json
+      - TZ=Asia/Shanghai
     depends_on:
       - postgres
     restart: unless-stopped
