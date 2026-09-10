@@ -1,5 +1,5 @@
 import { db } from "../../../db";
-import { isTradeDay, isAfterDailyBarFinalized } from "../calendar";
+import { isTradeDay } from "../calendar";
 import { quant, type StockKlineBar } from "../../../lib/quant";
 import { sql, eq } from "drizzle-orm";
 import { bar1dAdj, instrument } from "../../../db/schema";
@@ -18,11 +18,11 @@ import dayjs from "dayjs";
 // };
 
 export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<void> {
-  // 日线数据收盘后片刻才定稿，常规同步需等到 16:00 之后（isAfterDailyBarFinalized），
-  // 避免拿到未定稿的当日 bar；全量重刷（forceFull）忽略守卫，可在任意时间运行以对齐前复权口径。
+  // 腾讯日线收盘后即定稿（收盘集合竞价 15:00 定格），无需再等 16:00；
+  // 非交易日跳过（forceFull 忽略守卫，可任意时间运行以对齐前复权口径）。
   const now = new Date();
-  if (!opts?.forceFull && (!(await isTradeDay(now)) || !isAfterDailyBarFinalized(now))) {
-    console.log("[kline-1d] not finalized yet (need >= 16:00), skip");
+  if (!opts?.forceFull && !(await isTradeDay(now))) {
+    console.log("[kline-1d] not a trade day, skip");
     return;
   }
 
@@ -59,41 +59,52 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
   // 的判断失效而提前终止。取 600 留余量，超过 600 根的历史靠翻页补齐。
   const KLINE_PAGE = 600;
 
+  // 全量拉取：从当日往前翻页拉完整前复权历史（forceFull 与「无历史记录的增量标的」共用），
+  // 彻底对齐除权后的口径。强制 source=tencent，避免 qfq 主源失败时静默降级到不复权污染口径。
+  const fetchFullKlines = async (symbol: string): Promise<StockKlineBar[]> => {
+    const out: StockKlineBar[] = [];
+    let end = today;
+    for (;;) {
+      const chunk = await quant
+        .stockKline(symbol, KLINE_PAGE, undefined, end, "qfq", "tencent")
+        .catch((error) => {
+          console.error(`[kline-1d] ${symbol} full fetch failed:`, error);
+          return [];
+        });
+      if (chunk.length === 0) break;
+      out.push(...chunk);
+      if (chunk.length < KLINE_PAGE) break; // 不足一页说明已拉到底
+      // 翻页：以本批最早一根的上一交易日作为下一批 end，向前推进且不重叠
+      const earliest = chunk.reduce(
+        (min, k) => (k.time < min ? k.time : min),
+        chunk[0]!.time,
+      );
+      const prev = dayjs(earliest).subtract(1, "day").format("YYYYMMDD");
+      if (prev >= end) break; // 防死循环兜底（end 未向前推进时终止）
+      end = prev;
+    }
+    return out;
+  };
+
   const syncOne = async (symbol: string): Promise<number> => {
     let klines: StockKlineBar[];
 
     if (opts?.forceFull) {
-      // 全量重刷：从当日往前翻页拉取完整前复权历史，彻底对齐除权后的口径。
-      klines = [];
-      let end = today;
-      for (;;) {
-        const chunk = await quant
-          .stockKline(symbol, KLINE_PAGE, undefined, end, "qfq")
+      klines = await fetchFullKlines(symbol);
+    } else {
+      const startDate = latestBySymbol.get(symbol);
+      if (startDate) {
+        // 增量：从已入库的最新日线日期开始（区间短，500 根足够）
+        klines = await quant
+          .stockKline(symbol, 500, startDate, today, "qfq", "tencent")
           .catch((error) => {
-            console.error(`[kline-1d] ${symbol} full fetch failed:`, error);
+            console.error(`[kline-1d] ${symbol} failed:`, error);
             return [];
           });
-        if (chunk.length === 0) break;
-        klines.push(...chunk);
-        if (chunk.length < KLINE_PAGE) break; // 不足一页说明已拉到底
-        // 翻页：以本批最早一根的上一交易日作为下一批 end，向前推进且不重叠
-        const earliest = chunk.reduce(
-          (min, k) => (k.time < min ? k.time : min),
-          chunk[0]!.time,
-        );
-        const prev = dayjs(earliest).subtract(1, "day").format("YYYYMMDD");
-        if (prev >= end) break; // 防死循环兜底（end 未向前推进时终止）
-        end = prev;
+      } else {
+        // 无历史记录：走全量分页，避免只拉 500 根导致首次部署/重建后历史不完整
+        klines = await fetchFullKlines(symbol);
       }
-    } else {
-      // 增量：从该标的已入库的最新日线日期开始（YYYYMMDD，未入库则为 undefined 走全量）
-      const startDate = latestBySymbol.get(symbol);
-      klines = await quant
-        .stockKline(symbol, 500, startDate, today, "qfq")
-        .catch((error) => {
-          console.error(`[kline-1d] ${symbol} failed:`, error);
-          return [];
-        });
     }
 
     if (klines.length === 0) return 0;

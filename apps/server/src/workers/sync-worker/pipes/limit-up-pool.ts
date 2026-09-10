@@ -94,9 +94,10 @@ export async function limitUpPoolPipeRun(): Promise<void> {
     console.log(`[limit-up-pool] got ${pool.length} rows (snapshot ${today})`);
 
     if (pool.length === 0) {
-      console.log("[limit-up-pool] empty pool (非交易日或盘后未更新)，跳过写入");
-      updateProgress(1, 1, "涨停池为空（非交易日或未更新）");
-      return;
+      // marketCloseOnly 已保证进入此处必为交易日收盘后，空池几乎只会是「数据未就绪」；
+      // throw 让 wrapJob 标记 failed 触发重试，避免空池静默 success 后 hasSuccessToday 幂等
+      // 导致当天后续重试全部跳过、涨停池数据永久缺失。
+      throw new Error("[limit-up-pool] 涨停池为空（数据未就绪），等待重试");
     }
 
     const count = await upsertPool(today, pool);

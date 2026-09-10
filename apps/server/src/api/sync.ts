@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { sql, and, eq, isNull, isNotNull, desc, count, lt, inArray } from "drizzle-orm";
+import { sql, and, eq, isNull, isNotNull, desc, count, lt, gte, lte, inArray } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 import { jobRun } from "../db/schema";
 import { runWithProgress } from "../workers/sync-worker/progress";
+import { localDateStr } from "../workers/sync-worker/calendar";
 import { boardsPipeRun } from "../workers/sync-worker/pipes/boards";
 import { kline1dPipeRun } from "../workers/sync-worker/pipes/kline-1d";
 import { klinePeriodPipeRun } from "../workers/sync-worker/pipes/kline-period";
@@ -33,10 +34,12 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "sync-manual", name: "手动同步" },
 ];
 
-/** 与手动同步写同一批行情表、需互斥的 worker 定时任务 */
+/** 与手动同步写同一批行情表、需互斥的 worker 定时任务
+ *  （手动同步执行 boards / kline-1d / kline-period，三者都必须互斥，避免并发写冲突） */
 const WORKER_MARKET_JOBS = [
   "boards",
   "kline-1d",
+  "kline-period",
   "board-kline",
   "constituents",
   "fundflow",
@@ -51,6 +54,26 @@ async function queryLastUpdated(): Promise<string | null> {
   if (value == null) return null;
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** 今日是否已有成功的手动同步（sync-manual）记录（基于本地日期窗口，与 worker 的 hasSuccessToday 对齐） */
+async function hasManualSuccessToday(): Promise<boolean> {
+  const today = localDateStr();
+  const start = new Date(`${today}T00:00:00`);
+  const end = new Date(`${today}T23:59:59.999`);
+  const rows = await db
+    .select({ id: jobRun.id })
+    .from(jobRun)
+    .where(
+      and(
+        eq(jobRun.jobType, "sync-manual"),
+        eq(jobRun.status, "success"),
+        gte(jobRun.startedAt, start),
+        lte(jobRun.startedAt, end),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 /**
@@ -218,6 +241,12 @@ syncRoute.post("/run", async (c) => {
     .limit(1);
   if (active.length > 0) {
     return badRequest(c, "已有同步任务进行中，请稍候");
+  }
+
+  // 幂等：今日已成功过则默认拒绝，避免重复全市场拉取；?force=true 可强制重跑
+  const force = c.req.query("force") === "true";
+  if (!force && (await hasManualSuccessToday())) {
+    return badRequest(c, "今日已手动同步成功，如需重跑请加 ?force=true");
   }
 
   // 与 worker 定时任务互斥：worker 正在跑同一批行情管道时拒绝，避免跨进程并发写

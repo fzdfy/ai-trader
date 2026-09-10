@@ -158,6 +158,9 @@ async function upsertStock(today: string, rows: StockRow[]): Promise<number> {
 export async function fundFlowPipeRun(): Promise<void> {
   const today = localDateStr();
 
+  // 记录失败的数据源；任一源失败则任务最终标记 failed 触发重试，避免部分源数据当天永久缺失
+  const errors: string[] = [];
+
   let industries: SectorRow[] = [];
   let concepts: SectorRow[] = [];
   let stocks: StockRow[] = [];
@@ -179,7 +182,9 @@ export async function fundFlowPipeRun(): Promise<void> {
     }));
     console.log(`[fundflow] got ${industries.length} industry rows`);
   } catch (error) {
-    console.error("[fundflow] industry fetch failed (skip):", (error as Error).message ?? error);
+    const msg = (error as Error).message ?? String(error);
+    console.error("[fundflow] industry fetch failed:", msg);
+    errors.push(`industry: ${msg}`);
   }
 
   try {
@@ -199,7 +204,9 @@ export async function fundFlowPipeRun(): Promise<void> {
     }));
     console.log(`[fundflow] got ${concepts.length} concept rows`);
   } catch (error) {
-    console.error("[fundflow] concept fetch failed (skip):", (error as Error).message ?? error);
+    const msg = (error as Error).message ?? String(error);
+    console.error("[fundflow] concept fetch failed:", msg);
+    errors.push(`concept: ${msg}`);
   }
 
   try {
@@ -218,7 +225,9 @@ export async function fundFlowPipeRun(): Promise<void> {
     }));
     console.log(`[fundflow] got ${stocks.length} stock rows`);
   } catch (error) {
-    console.error("[fundflow] stock fetch failed (skip):", (error as Error).message ?? error);
+    const msg = (error as Error).message ?? String(error);
+    console.error("[fundflow] stock fetch failed:", msg);
+    errors.push(`stock: ${msg}`);
   }
 
   if (industries.length === 0 && concepts.length === 0 && stocks.length === 0) {
@@ -241,4 +250,9 @@ export async function fundFlowPipeRun(): Promise<void> {
   console.log(
     `[fundflow] done. industry: ${industryCount}, concept: ${conceptCount}, stock: ${stockCount} (snapshot ${today})`,
   );
+
+  // 成功部分已 upsert（幂等），再抛出失败以让 wrapJob 标记 failed 触发重试，补齐失败源
+  if (errors.length > 0) {
+    throw new Error(`[fundflow] 部分数据源失败（${errors.join("; ")}），已写入成功部分，等待重试`);
+  }
 }

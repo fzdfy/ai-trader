@@ -64,7 +64,66 @@ async function cleanupInterruptedJobs(): Promise<void> {
   }
 }
 
-function wrapJob(name: string, fn: () => Promise<void>) {
+/** 重试间隔（毫秒），收盘后任务失败后在此间隔后重试 */
+const DEFAULT_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** 解析 "HH:mm" 为当天该时刻的 Date（用于 deadline 比较） */
+function parseDeadline(hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h ?? 0, m ?? 0, 0, 0);
+  return d;
+}
+
+type WrapOpts = { dependsOn?: string; deadline?: string; retryIntervalMs?: number };
+
+/**
+ * 执行管道（可带重试循环）。
+ * - 有 deadline：收盘后任务，循环执行直到成功或到达 deadline；dependsOn 未满足时在循环内等待。
+ * - 无 deadline：单次执行（news / calendar 等），失败交给外层标 failed，靠 cron 下次触发重试。
+ */
+async function executeWithRetry(
+  runId: number | null,
+  name: string,
+  fn: () => Promise<void>,
+  opts?: WrapOpts,
+): Promise<void> {
+  if (!opts?.deadline) {
+    if (runId != null) await runWithProgress(runId, fn);
+    else await fn();
+    return;
+  }
+
+  const deadlineAt = parseDeadline(opts.deadline);
+  const interval = opts.retryIntervalMs ?? DEFAULT_RETRY_INTERVAL_MS;
+  for (;;) {
+    // 依赖等待：前置 jobType 今日未成功则继续等（不再依赖 cron 多次触发）
+    if (opts.dependsOn && !(await hasSuccessToday(opts.dependsOn))) {
+      if (Date.now() >= deadlineAt.getTime()) {
+        throw new Error(`依赖 ${opts.dependsOn} 今日未成功且已过 deadline ${opts.deadline}`);
+      }
+      await sleep(interval);
+      continue;
+    }
+
+    try {
+      if (runId != null) await runWithProgress(runId, fn);
+      else await fn();
+      return;
+    } catch (error) {
+      const msg = (error as Error)?.message ?? String(error);
+      if (Date.now() >= deadlineAt.getTime()) {
+        throw new Error(`重试窗口超时（deadline ${opts.deadline}），最后错误: ${msg}`);
+      }
+      console.error(`[${name}] 失败，${interval / 1000}s 后重试: ${msg}`);
+      await sleep(interval);
+    }
+  }
+}
+
+function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts) {
   return async () => {
     if (running.has(name)) return;
     running.add(name);
@@ -77,11 +136,7 @@ function wrapJob(name: string, fn: () => Promise<void>) {
       runId = inserted[0]?.id ?? null;
 
       // 在 job_run 上下文中执行管道：管道内 updateProgress() 实时上报进度
-      if (runId != null) {
-        await runWithProgress(runId, fn);
-      } else {
-        await fn();
-      }
+      await executeWithRetry(runId, name, fn, opts);
 
       if (runId != null) {
         await db
@@ -148,9 +203,13 @@ async function isManualSyncRunning(): Promise<boolean> {
  *   - dependsOn：前置 jobType 今日已成功
  */
 function makeRunner(job: CronJobConfig): () => Promise<void> {
-  const run = wrapJob(job.name, RUNNERS[job.name as PipeName]);
+  const run = wrapJob(job.name, RUNNERS[job.name as PipeName], {
+    dependsOn: job.dependsOn,
+    deadline: job.deadline,
+    retryIntervalMs: job.retryIntervalMs,
+  });
 
-  if (!job.marketCloseOnly && !job.marketHoursOnly && !job.dependsOn) return run;
+  if (!job.marketCloseOnly && !job.marketHoursOnly) return run;
 
   return async () => {
     const now = new Date();
@@ -188,11 +247,6 @@ function makeRunner(job: CronJobConfig): () => Promise<void> {
         console.log(`[sync-worker] ${job.name}: skip (周末)`);
         return;
       }
-    }
-
-    if (job.dependsOn && !(await hasSuccessToday(job.dependsOn))) {
-      console.log(`[sync-worker] ${job.name}: skip (依赖 ${job.dependsOn} 今日未完成)`);
-      return;
     }
 
     await run();

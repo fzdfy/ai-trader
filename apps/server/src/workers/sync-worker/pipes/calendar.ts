@@ -94,8 +94,11 @@ export async function syncCalendarRange(startMonth: string, endMonth: string): P
   }
 
   if (rows.length === 0) {
-    console.log("[calendar] no calendar rows fetched");
-    return 0;
+    // 拉取区间覆盖最近 3 年 ~ 未来 12 个月（共 39 个月），正常情况下必然有数据；
+    // 全空几乎只会是接口被反爬/改版/代理返回 200 但 data 为空，此时静默 success 会让
+    // trading_calendar 缺失今天 → isTradeDay(today)=false → 所有 marketCloseOnly 任务静默停跑。
+    // 改为 throw 显式 failed，让 bootstrap 与 cron 能感知并重试。
+    throw new Error("[calendar] 交易日历接口返回空数据（疑似反爬或改版），未写入任何记录");
   }
 
   for (let i = 0; i < rows.length; i += 500) {

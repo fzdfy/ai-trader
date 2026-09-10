@@ -19,6 +19,7 @@
 import { db } from "../../../db";
 import { instrument } from "../../../db/schema";
 import { sql, eq } from "drizzle-orm";
+import { updateProgress } from "../progress";
 
 export type Period = "5d" | "1w" | "1mo";
 
@@ -171,14 +172,26 @@ export async function klinePeriodPipeRun(): Promise<void> {
   }
 
   console.log(`[kline-period] incremental for ${symbols.length} symbols`);
+  updateProgress(0, symbols.length, "开始聚合周期 K 线");
   let total = 0;
+  let done = 0;
   for (const { symbol } of symbols) {
     for (const period of PERIODS) {
       const start = await periodStart(symbol, period);
       if (start === null) continue;
       total += await aggregateSymbol(symbol, period, start);
     }
+    done++;
+    // 每处理 50 个标的上报一次进度（全市场 5000+ 标的，逐条上报写库过频）
+    if (done % 50 === 0 || done === symbols.length) {
+      updateProgress(done, symbols.length, `聚合周期线 ${done}/${symbols.length}`);
+    }
   }
+
+  if (total === 0) {
+    throw new Error(`[kline-period] ${symbols.length} 只标的周期线均无数据，未写入任何记录`);
+  }
+
   console.log(`[kline-period] done. ${total} bars total`);
 }
 

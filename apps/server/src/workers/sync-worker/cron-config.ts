@@ -8,27 +8,33 @@ export interface CronJobConfig {
   marketHoursOnly?: boolean;
   /** 依赖的前置 jobType：今日该 job 成功后才会执行（如 features 依赖 kline-1d） */
   dependsOn?: string;
+  /** 重试截止时间（本地 "HH:mm"）：收盘后任务在此时间前内部循环重试，超过则标 failed */
+  deadline?: string;
+  /** 重试间隔（毫秒），默认 5 分钟 */
+  retryIntervalMs?: number;
 }
 
 export const CRON_JOBS: CronJobConfig[] = [
   // 分钟 K 线 / 缺口检测管道尚未实现（空壳），暂不调度，避免同步中心显示"成功"误导
   { name: "kline-1m",   cron: "*/30 * * * * *", enabled: false },
-  // 日 K 线：收盘后全市场增量拉取，16:00–17:59 每 10 分钟尝试，靠 hasSuccessToday 幂等；
-  // 起始后移到 16:00，确保当日 bar 已定稿（15:00 收盘瞬间可能拉到未定稿数据），
-  // 失败自动重试，避免单点失败导致 features / kline-period 当天级联跳过
-  { name: "kline-1d",   cron: "*/10 16-17 * * 1-5",  enabled: true, marketCloseOnly: true },
   { name: "gap-detect",  cron: "*/5 * * * *",    enabled: false },
-  // 新闻：仅交易日活跃时段（07:00–23:00）运行，避免深夜/节假日空转
+  // 新闻：仅交易日活跃时段（07:00–23:00）运行，高频独立触发，不走重试循环
   { name: "news",        cron: "*/2 * * * *",    enabled: true, marketHoursOnly: true },
-  { name: "boards",      cron: "30 15 * * 1-5",  enabled: true, marketCloseOnly: true },
-  { name: "board-kline", cron: "40 15 * * 1-5",  enabled: true, marketCloseOnly: true, dependsOn: "boards" },
-  { name: "constituents", cron: "45 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "boards" },
-  { name: "fundflow",    cron: "35 15 * * 1-5",  enabled: true, marketCloseOnly: true },
-  { name: "limit-up-pool", cron: "50 15 * * 1-5", enabled: true, marketCloseOnly: true },
-  // 周期线：依赖日 K 线先完成，16:00–17:59 每 10 分钟尝试（dependsOn + hasSuccessToday 幂等），
-  // 避免 kline-1d 重试较晚时 15:55 单点漏跑导致某个周期组永久缺失（直到下次 forceFull）
-  { name: "kline-period", cron: "*/10 16-17 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d" },
-  // 特征计算：依赖日 K 线先完成，16:00–18:59 每 10 分钟尝试一次，直到 kline-1d 今日成功后算一次
-  { name: "features",    cron: "*/10 16-18 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d" },
-  { name: "calendar",    cron: "0 2 * * 1",      enabled: true },
+  // ============================ 收盘后任务 ============================
+  // 统一交易日 15:10 触发一次（腾讯日线收盘后即定稿，无需等 16:00），
+  // 失败由管道内部循环重试到 deadline（18:00），不再靠 cron 多次触发；
+  // hasSuccessToday 保证每天只成功一次。
+  // 依赖关系（下游在内部等待上游成功）：
+  //   boards → board-kline / constituents
+  //   kline-1d → kline-period / features
+  { name: "kline-1d",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "boards",        cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "board-kline",   cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "boards", deadline: "18:00" },
+  { name: "constituents",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "boards", deadline: "18:00" },
+  { name: "fundflow",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "limit-up-pool", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "kline-period",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
+  { name: "features",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
+  // 交易日历：每周一凌晨 2 点一次性补未来交易日
+  { name: "calendar",      cron: "0 2 * * 1",      enabled: true },
 ];

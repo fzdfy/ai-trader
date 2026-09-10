@@ -199,7 +199,7 @@ export const instrument = pgTable("instrument", {
    * - suspended 停牌
    * - delisted  已退市
    */
-  status: text("status").notNull().default("active"),
+  status: text("status").notNull().default("listed"),
   /** 元数据最后更新时间 */
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

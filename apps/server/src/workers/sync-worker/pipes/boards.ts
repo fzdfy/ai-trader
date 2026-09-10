@@ -121,6 +121,9 @@ export async function boardsPipeRun(): Promise<void> {
   // 当日日期（历史快照键）
   const today = localDateStr();
 
+  // 记录失败的类型；任一类型失败则任务最终标记 failed 触发重试，避免部分板块快照当天停留在旧数据
+  const errors: string[] = [];
+
   // 行业 / 概念各自独立，网络失败不互相影响
   let industries: BoardListItem[] = [];
   let concepts: BoardListItem[] = [];
@@ -133,7 +136,9 @@ export async function boardsPipeRun(): Promise<void> {
     industriesOk = true;
     console.log(`[boards] got ${industries.length} industry boards`);
   } catch (error) {
-    console.error("[boards] industry fetch failed (skip):", (error as Error).message ?? error);
+    const msg = (error as Error).message ?? String(error);
+    console.error("[boards] industry fetch failed:", msg);
+    errors.push(`industry: ${msg}`);
   }
 
   try {
@@ -142,7 +147,9 @@ export async function boardsPipeRun(): Promise<void> {
     conceptsOk = true;
     console.log(`[boards] got ${concepts.length} concept boards`);
   } catch (error) {
-    console.error("[boards] concept fetch failed (skip):", (error as Error).message ?? error);
+    const msg = (error as Error).message ?? String(error);
+    console.error("[boards] concept fetch failed:", msg);
+    errors.push(`concept: ${msg}`);
   }
 
   const totalBoards = industries.length + concepts.length;
@@ -169,4 +176,9 @@ export async function boardsPipeRun(): Promise<void> {
   }
 
   console.log(`[boards] done. industry: ${industryCount}, concept: ${conceptCount}, pruned: ${pruned} (snapshot ${today})`);
+
+  // 成功部分已写入（幂等），再抛出失败以让 wrapJob 标记 failed 触发重试，补齐失败类型
+  if (errors.length > 0) {
+    throw new Error(`[boards] 部分板块类型失败（${errors.join("; ")}），已写入成功部分，等待重试`);
+  }
 }

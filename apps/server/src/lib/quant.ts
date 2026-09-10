@@ -192,17 +192,23 @@ export const quant = {
     return getJson<LimitUpPoolItem[]>(path);
   },
 
-  /** 个股日 K 线（腾讯主源，adjust 复权口径 qfq/hfq/none；失败降级 mootdx/百度不复权；不再走东财） */
+  /**
+   * 个股日 K 线（腾讯主源，adjust 复权口径 qfq/hfq/none）。
+   * 传入 source 可强制指定单一数据源（如 "tencent"），失败时不走降级链而是抛错，
+   * 避免 qfq 主源失败时静默降级到 mootdx/百度「不复权」数据、污染 bar1d_adj 前复权口径。
+   */
   stockKline: (
     symbol: string,
     limit = 500,
     start?: string,
     end?: string,
     adjust: "qfq" | "hfq" | "none" = "qfq",
+    source?: string,
   ) => {
     let path = `/api/v1/data/kline?symbol=${encodeURIComponent(symbol)}&tf=1d&limit=${limit}&adjust=${adjust}`;
     if (start) path += `&start=${encodeURIComponent(start)}`;
     if (end) path += `&end=${encodeURIComponent(end)}`;
+    if (source) path += `&source=${encodeURIComponent(source)}`;
     return getJson<StockKlineBar[]>(path);
   },
 };
