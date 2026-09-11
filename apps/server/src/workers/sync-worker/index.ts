@@ -1,53 +1,11 @@
 import cron from "node-cron";
-import { and, eq, gte, isNull, lte, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun, tradingCalendar } from "../../db/schema";
 import { CRON_JOBS, type CronJobConfig } from "./cron-config";
 import { isTradeDay, isAfterMarketClose, localDateStr } from "./calendar";
-import { runWithProgress } from "./progress";
-import { kline1mPipe } from "./pipes/kline-1m";
-import { kline1dPipeRun } from "./pipes/kline-1d";
-import { gapDetectPipe } from "./pipes/gap-detect";
-import { newsPipeRun } from "./pipes/news";
-import { boardsPipeRun } from "./pipes/boards";
-import { boardKlinePipeRun } from "./pipes/board-kline";
-import { constituentsPipeRun } from "./pipes/constituents";
-import { fundFlowPipeRun } from "./pipes/fundflow";
-import { featuresPipeRun } from "./pipes/features";
-import { limitUpPoolPipeRun } from "./pipes/limit-up-pool";
-import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
-
-type PipeName =
-  | "kline-1m"
-  | "kline-1d"
-  | "gap-detect"
-  | "news"
-  | "boards"
-  | "board-kline"
-  | "constituents"
-  | "fundflow"
-  | "features"
-  | "limit-up-pool"
-  | "kline-period"
-  | "calendar";
-
-const RUNNERS: Record<PipeName, () => Promise<void>> = {
-  "kline-1m": () => kline1mPipe.run(),
-  "kline-1d": () => kline1dPipeRun(),
-  "gap-detect": () => gapDetectPipe.run(),
-  news: () => newsPipeRun(),
-  boards: () => boardsPipeRun(),
-  "board-kline": () => boardKlinePipeRun(),
-  constituents: () => constituentsPipeRun(),
-  fundflow: () => fundFlowPipeRun(),
-  features: () => featuresPipeRun(),
-  "limit-up-pool": () => limitUpPoolPipeRun(),
-  "kline-period": () => klinePeriodPipeRun(),
-  calendar: () => calendarPipeRun(),
-};
-
-const running = new Set<string>();
+import { wrapJob, hasSuccessToday, isManualSyncRunning, RUNNERS, type PipeName } from "./runner";
 
 /**
  * 启动清理：cron 任务由本进程执行，进程重启后任务中断且 status 停在 running，
@@ -64,137 +22,9 @@ async function cleanupInterruptedJobs(): Promise<void> {
   }
 }
 
-/** 重试间隔（毫秒），收盘后任务失败后在此间隔后重试 */
-const DEFAULT_RETRY_INTERVAL_MS = 5 * 60 * 1000;
-
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-/** 解析 "HH:mm" 为当天该时刻的 Date（用于 deadline 比较） */
-function parseDeadline(hhmm: string): Date {
-  const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date();
-  d.setHours(h ?? 0, m ?? 0, 0, 0);
-  return d;
-}
-
-type WrapOpts = { dependsOn?: string; deadline?: string; retryIntervalMs?: number };
-
-/**
- * 执行管道（可带重试循环）。
- * - 有 deadline：收盘后任务，循环执行直到成功或到达 deadline；dependsOn 未满足时在循环内等待。
- * - 无 deadline：单次执行（news / calendar 等），失败交给外层标 failed，靠 cron 下次触发重试。
- */
-async function executeWithRetry(
-  runId: number | null,
-  name: string,
-  fn: () => Promise<void>,
-  opts?: WrapOpts,
-): Promise<void> {
-  if (!opts?.deadline) {
-    if (runId != null) await runWithProgress(runId, fn);
-    else await fn();
-    return;
-  }
-
-  const deadlineAt = parseDeadline(opts.deadline);
-  const interval = opts.retryIntervalMs ?? DEFAULT_RETRY_INTERVAL_MS;
-  for (;;) {
-    // 依赖等待：前置 jobType 今日未成功则继续等（不再依赖 cron 多次触发）
-    if (opts.dependsOn && !(await hasSuccessToday(opts.dependsOn))) {
-      if (Date.now() >= deadlineAt.getTime()) {
-        throw new Error(`依赖 ${opts.dependsOn} 今日未成功且已过 deadline ${opts.deadline}`);
-      }
-      await sleep(interval);
-      continue;
-    }
-
-    try {
-      if (runId != null) await runWithProgress(runId, fn);
-      else await fn();
-      return;
-    } catch (error) {
-      const msg = (error as Error)?.message ?? String(error);
-      if (Date.now() >= deadlineAt.getTime()) {
-        throw new Error(`重试窗口超时（deadline ${opts.deadline}），最后错误: ${msg}`);
-      }
-      console.error(`[${name}] 失败，${interval / 1000}s 后重试: ${msg}`);
-      await sleep(interval);
-    }
-  }
-}
-
-function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts) {
-  return async () => {
-    if (running.has(name)) return;
-    running.add(name);
-    let runId: number | null = null;
-    try {
-      const inserted = await db
-        .insert(jobRun)
-        .values({ jobType: name, status: "running", startedAt: new Date() })
-        .returning({ id: jobRun.id });
-      runId = inserted[0]?.id ?? null;
-
-      // 在 job_run 上下文中执行管道：管道内 updateProgress() 实时上报进度
-      await executeWithRetry(runId, name, fn, opts);
-
-      if (runId != null) {
-        await db
-          .update(jobRun)
-          .set({ status: "success", finishedAt: new Date() })
-          .where(eq(jobRun.id, runId));
-      }
-    } catch (error) {
-      console.error(`[${name}] error:`, error);
-      if (runId != null) {
-        await db
-          .update(jobRun)
-          .set({
-            status: "failed",
-            error: (error as Error)?.message ?? String(error),
-            finishedAt: new Date(),
-          })
-          .where(eq(jobRun.id, runId));
-      }
-    } finally {
-      running.delete(name);
-    }
-  };
-}
-
 /** 活跃时段窗口（分钟）：07:00–23:00，覆盖盘前盘后与晚间公告，避免深夜空转 */
 const MARKET_HOURS_START = 7 * 60;
 const MARKET_HOURS_END = 23 * 60;
-
-/** 某 jobType 今日是否已有成功记录（基于本地日期窗口） */
-async function hasSuccessToday(jobType: string): Promise<boolean> {
-  const today = localDateStr();
-  const start = new Date(`${today}T00:00:00`);
-  const end = new Date(`${today}T23:59:59.999`);
-  const rows = await db
-    .select({ id: jobRun.id })
-    .from(jobRun)
-    .where(
-      and(
-        eq(jobRun.jobType, jobType),
-        eq(jobRun.status, "success"),
-        gte(jobRun.startedAt, start),
-        lte(jobRun.startedAt, end),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
-
-/** 手动同步（sync-manual）是否进行中（跨进程，来自 job_run 表） */
-async function isManualSyncRunning(): Promise<boolean> {
-  const rows = await db
-    .select({ id: jobRun.id })
-    .from(jobRun)
-    .where(and(eq(jobRun.jobType, "sync-manual"), eq(jobRun.status, "running"), isNull(jobRun.finishedAt)))
-    .limit(1);
-  return rows.length > 0;
-}
 
 /**
  * 构造调度执行函数：按 job 标志叠加守卫，cron 与启动触发复用同一份逻辑。
@@ -209,7 +39,11 @@ function makeRunner(job: CronJobConfig): () => Promise<void> {
     retryIntervalMs: job.retryIntervalMs,
   });
 
-  if (!job.marketCloseOnly && !job.marketHoursOnly) return run;
+  if (!job.marketCloseOnly && !job.marketHoursOnly) {
+    return async () => {
+      await run();
+    };
+  }
 
   return async () => {
     const now = new Date();

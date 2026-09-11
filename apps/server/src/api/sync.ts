@@ -3,11 +3,8 @@ import { db } from "../db";
 import { sql, and, eq, isNull, isNotNull, desc, count, lt, gte, lte, inArray } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 import { jobRun } from "../db/schema";
-import { runWithProgress } from "../workers/sync-worker/progress";
 import { localDateStr } from "../workers/sync-worker/calendar";
-import { boardsPipeRun } from "../workers/sync-worker/pipes/boards";
-import { kline1dPipeRun } from "../workers/sync-worker/pipes/kline-1d";
-import { klinePeriodPipeRun } from "../workers/sync-worker/pipes/kline-period";
+import { runManualSync } from "../workers/sync-worker/runner";
 
 const syncRoute = new Hono();
 
@@ -227,7 +224,7 @@ syncRoute.get("/modules", async (c) => {
   return ok(c, { modules, lastSuccessAt });
 });
 
-// POST /api/v1/sync/run — 手动触发核心行情同步（板块排行 + 全市场日线 + 周期线）
+// POST /api/v1/sync/run — 手动触发全量数据同步（板块 + 板块K线 + 成分股 + 日线 + 周期线 + 特征 + 资金流 + 涨停池）
 // 异步触发：请求立即返回，任务在后台执行（避免长任务悬挂 HTTP 连接），
 // 前端通过 /sync/modules 轮询看到进度与最终状态。
 syncRoute.post("/run", async (c) => {
@@ -268,16 +265,7 @@ syncRoute.post("/run", async (c) => {
   // 后台执行，不阻塞请求；结束后落终态（success / failed）
   void (async () => {
     try {
-      const run = async () => {
-        await boardsPipeRun();
-        await kline1dPipeRun();
-        await klinePeriodPipeRun();
-      };
-      if (runId != null) {
-        await runWithProgress(runId, run);
-      } else {
-        await run();
-      }
+      await runManualSync();
 
       if (runId != null) {
         await db

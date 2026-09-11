@@ -12,7 +12,7 @@ echo "启动所有容器..."
 docker compose up -d
 
 echo ""
-echo "访问 http://localhost"
+echo "访问 http://localhost:9080"
 echo ""
 echo "docker compose logs -f  查看日志"
 echo "docker compose down     停止所有容器"

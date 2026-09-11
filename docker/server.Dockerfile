@@ -12,11 +12,17 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-# 一次性复制所有文件
-COPY . .
+# 先复制依赖清单，使依赖安装层可缓存（源码改动不触发重装）
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/server/package.json apps/server/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/lint/package.json packages/lint/package.json
 
 # 安装全部依赖
 RUN pnpm install --frozen-lockfile
+
+# 再复制源码
+COPY . .
 
 EXPOSE 3001
 

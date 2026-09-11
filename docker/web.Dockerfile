@@ -11,12 +11,18 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-# 一次性复制所有文件（避免 pnpm filter 丢失 workspace 依赖）
-COPY . .
+# 先复制依赖清单，缓存依赖安装层（避免 pnpm filter 丢失 workspace 依赖）
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/server/package.json apps/server/package.json
+COPY packages/lint/package.json packages/lint/package.json
 
-# 安装依赖 + 构建
-RUN pnpm install --frozen-lockfile \
-    && pnpm --prefix apps/web build
+# 安装依赖
+RUN pnpm install --frozen-lockfile
+
+# 再复制源码并构建
+COPY . .
+RUN pnpm --prefix apps/web build
 
 # ---- Stage 2：Nginx 托管 ----
 FROM nginx:alpine
