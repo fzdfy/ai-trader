@@ -16,5 +16,5 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: ["http://localhost:9080"],
+  trustedOrigins: ["http://localhost:9080", "https://ai.taiyangshen.xyz"],
 });
