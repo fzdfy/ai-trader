@@ -26,6 +26,7 @@ import { db } from "../db";
 import { reviewSkill, reviewDaily } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
 import { ok, badRequest, serverError } from "../lib/response";
+import { getSyncTradeDate } from "../workers/sync-worker/calendar";
 import { mastra } from "../agent/mastra";
 import { loadDefaultMetric, MAINLINE_DEF } from "../lib/metrics";
 import {
@@ -477,7 +478,8 @@ reviewsRoute.post("/generate", async (c) => {
 // 不推 data=null 占位：前端按 index 填充，仅渲染已就绪模块。
 reviewsRoute.post("/generate/stream", async (c) => {
   const body = (await c.req.json()) as { date?: string };
-  const date = body.date?.trim() || formatDate(new Date());
+  // 同上：默认日期对齐「当前应同步交易日」，日历表缺失时回退运行日
+  const date = body.date?.trim() || (await getSyncTradeDate()) || formatDate(new Date());
 
   return streamSSE(c, async (stream) => {
     try {
