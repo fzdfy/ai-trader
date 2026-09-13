@@ -209,16 +209,31 @@ const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
 /**
  * 手动同步：按依赖顺序串行执行全部 8 个行情/板块/资金/特征管道，
  * 每个管道用 wrapJob 写独立 jobType 记录（与定时任务公用 job_run 幂等状态）。
- * 前置管道本次失败则终止后续，抛错给调用方标 failed。
+ *
+ * 容错语义：
+ *   - 无依赖管道（boards / kline-1d / fundflow / limit-up-pool）互不阻断，
+ *     单个失败仅记录并继续执行后续，不再因前置报错而终止整批。
+ *   - 有依赖管道（board-kline / constituents 依赖 boards；kline-period / features 依赖 kline-1d）
+ *     仅在其依赖本次成功后执行，依赖失败则跳过。
+ *   - 全部跑完后若存在失败/跳过，抛汇总错误使 sync-manual 整体标 failed。
  */
 export async function runManualSync(): Promise<void> {
-  const done = new Set<PipeName>();
+  const results = new Map<PipeName, boolean>();
+  const failed: string[] = [];
+
   for (const job of MANUAL_SYNC_JOBS) {
-    if (job.dependsOn && !done.has(job.dependsOn)) {
-      throw new Error(`依赖 ${job.dependsOn} 本次未成功，终止 ${job.name}`);
+    if (job.dependsOn && !results.get(job.dependsOn)) {
+      console.warn(`[manual-sync] ${job.name}: 跳过（依赖 ${job.dependsOn} 未成功）`);
+      results.set(job.name, false);
+      failed.push(`${job.name}（依赖 ${job.dependsOn} 未成功）`);
+      continue;
     }
     const ok = await wrapJob(job.name, RUNNERS[job.name])();
-    if (!ok) throw new Error(`${job.name} 执行失败，终止手动同步`);
-    done.add(job.name);
+    results.set(job.name, ok);
+    if (!ok) failed.push(job.name);
+  }
+
+  if (failed.length > 0) {
+    throw new Error(`部分管道失败或跳过: ${failed.join("、")}`);
   }
 }
