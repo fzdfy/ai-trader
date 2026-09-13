@@ -207,31 +207,49 @@ const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
 ];
 
 /**
- * 手动同步：按依赖顺序串行执行全部 8 个行情/板块/资金/特征管道，
+ * 手动同步：并发编排执行 8 个行情/板块/资金/特征管道（与定时任务一致的并发模型），
  * 每个管道用 wrapJob 写独立 jobType 记录（与定时任务公用 job_run 幂等状态）。
  *
- * 容错语义：
- *   - 无依赖管道（boards / kline-1d / fundflow / limit-up-pool）互不阻断，
- *     单个失败仅记录并继续执行后续，不再因前置报错而终止整批。
+ * 并发语义：
+ *   - 无依赖管道（boards / kline-1d / fundflow / limit-up-pool）并行启动，写不同表互不冲突。
  *   - 有依赖管道（board-kline / constituents 依赖 boards；kline-period / features 依赖 kline-1d）
- *     仅在其依赖本次成功后执行，依赖失败则跳过。
- *   - 全部跑完后若存在失败/跳过，抛汇总错误使 sync-manual 整体标 failed。
+ *     挂接在各自依赖的 Promise 上：依赖成功才执行，失败则跳过。
+ *   - 单个失败不阻断其他无依赖管道；全部跑完后若存在失败/跳过，抛汇总错误使 sync-manual 整体标 failed。
  */
 export async function runManualSync(): Promise<void> {
-  const results = new Map<PipeName, boolean>();
   const failed: string[] = [];
+  const runs = new Map<PipeName, Promise<boolean>>();
 
+  const runOne = async (name: PipeName): Promise<boolean> => {
+    const ok = await wrapJob(name, RUNNERS[name])();
+    if (!ok) failed.push(name);
+    return ok;
+  };
+
+  // 1) 无依赖管道并行启动
   for (const job of MANUAL_SYNC_JOBS) {
-    if (job.dependsOn && !results.get(job.dependsOn)) {
-      console.warn(`[manual-sync] ${job.name}: 跳过（依赖 ${job.dependsOn} 未成功）`);
-      results.set(job.name, false);
-      failed.push(`${job.name}（依赖 ${job.dependsOn} 未成功）`);
-      continue;
-    }
-    const ok = await wrapJob(job.name, RUNNERS[job.name])();
-    results.set(job.name, ok);
-    if (!ok) failed.push(job.name);
+    if (!job.dependsOn) runs.set(job.name, runOne(job.name));
   }
+
+  // 2) 有依赖管道挂接到各自依赖的 Promise：依赖成功才跑，失败则跳过
+  for (const job of MANUAL_SYNC_JOBS) {
+    const { name, dependsOn } = job;
+    if (!dependsOn) continue;
+    runs.set(
+      name,
+      (async () => {
+        const depOk = await runs.get(dependsOn)!;
+        if (!depOk) {
+          console.warn(`[manual-sync] ${name}: 跳过（依赖 ${dependsOn} 未成功）`);
+          failed.push(`${name}（依赖 ${dependsOn} 未成功）`);
+          return false;
+        }
+        return runOne(name);
+      })(),
+    );
+  }
+
+  await Promise.all(runs.values());
 
   if (failed.length > 0) {
     throw new Error(`部分管道失败或跳过: ${failed.join("、")}`);
