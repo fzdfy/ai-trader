@@ -31,6 +31,8 @@ import type {
   ReviewStockPoolItem,
   LimitUpPoolItem,
   MarketEmotionResult,
+  DimensionSectionData,
+  DimensionBoard,
 } from "../../../../hooks/useReviews";
 import { fmtFlow } from "../../../../lib/format";
 
@@ -390,7 +392,92 @@ function FundFlowBlock({ data }: { data: unknown }) {
   );
 }
 
-// ---------- 主线（板块 + 核心个股） ----------
+// ---------- 主线（板块 + 核心个股 + 六维得分） ----------
+
+/** 六维标签与权重（与服务端 MAINLINE_DEF 对齐），用于主线卡片内的得分条 */
+const MAINLINE_DIMS = [
+  { label: "方向持续性", weight: 18, field: "directionScore" },
+  { label: "资金聚焦", weight: 20, field: "fundScore" },
+  { label: "龙头梯队", weight: 18, field: "leaderScore" },
+  { label: "赚钱效应", weight: 12, field: "effectScore" },
+  { label: "题材催化", weight: 16, field: "themeScore" },
+  { label: "机构/游资确认", weight: 16, field: "dragonScore" },
+] as const;
+
+/** 标签 + 分数进度条（score/max 决定宽度），维度与子指标得分共用 */
+function ScoreBar({ label, score, max }: { label: string; score: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, Math.max(0, (score / max) * 100)) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-2)" }}>
+      <Text size="sm" style={{ width: 96, flexShrink: 0, color: "var(--color-text-supporting)" }}>
+        {label}
+      </Text>
+      <div
+        style={{
+          flex: 1,
+          height: 6,
+          borderRadius: 3,
+          background: "var(--color-background-subtle)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{ width: `${pct}%`, height: "100%", background: "var(--color-accent)", borderRadius: 3 }}
+        />
+      </div>
+      <Text size="sm" style={{ width: 60, textAlign: "right", flexShrink: 0 }}>
+        {score.toFixed(1)}/{max}
+      </Text>
+    </div>
+  );
+}
+
+/** 主线维度模块：单维度的子指标得分 + 该维度领先板块（各取前 5） */
+function DimensionBlock({ data }: { data: unknown }) {
+  const dim = data as DimensionSectionData | null;
+  if (!dim || dim.boards.length === 0) return <EmptyState />;
+  return (
+    <div
+      style={{
+        background: "var(--color-background-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md, 8px)",
+        padding: "var(--spacing-4)",
+        width: "100%",
+      }}
+    >
+      <VStack gap={4}>
+        <HStack gap={2} align="center">
+          <Text style={{ fontWeight: 700, fontSize: 16 }}>{dim.label}</Text>
+          <Text size="sm" type="supporting">
+            权重 {dim.weight} 分
+          </Text>
+        </HStack>
+        {dim.boards.map((b) => (
+          <div
+            key={b.boardName}
+            style={{
+              borderTop: "1px solid var(--color-border)",
+              paddingTop: "var(--spacing-3)",
+            }}
+          >
+            <VStack gap={2}>
+              <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
+                <Text style={{ fontWeight: 600 }}>{b.boardName}</Text>
+                <Text size="sm" type="supporting">
+                  维度 {b.dimScore.toFixed(1)} · 总分 {b.totalScore.toFixed(1)}
+                </Text>
+              </HStack>
+              {b.subs.map((s) => (
+                <ScoreBar key={s.key} label={s.label} score={s.score} max={s.weight} />
+              ))}
+            </VStack>
+          </div>
+        ))}
+      </VStack>
+    </div>
+  );
+}
 
 function MainlineBlock({ data }: { data: unknown }) {
   const rows = (Array.isArray(data) ? data : []) as MainlineItem[];
@@ -406,7 +493,7 @@ function MainlineBlock({ data }: { data: unknown }) {
     >
       {rows.map((m, i) => (
         <div
-          key={`${m.boardName}-${i}`}
+          key={`${m.boardCode || m.boardName}-${i}`}
           style={{
             background: "var(--color-background-card)",
             border: "1px solid var(--color-border)",
@@ -427,13 +514,28 @@ function MainlineBlock({ data }: { data: unknown }) {
             }}
           />
           <VStack gap={3}>
-            <Text
-              style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 28, lineHeight: 1 }}
-            >
-              {String(i + 1).padStart(2, "0")}
-            </Text>
-            <Text style={{ fontWeight: 700, fontSize: 18 }}>{m.boardName}</Text>
-            {m.coreStocks.length > 0 && (
+            <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
+              <Text
+                style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 28, lineHeight: 1 }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </Text>
+              <Text style={{ fontWeight: 700, fontSize: 18, flex: 1 }}>{m.boardName}</Text>
+              <Text style={{ fontWeight: 700, fontSize: 22, color: "var(--color-accent)" }}>
+                {Number(m.score ?? 0).toFixed(1)}
+              </Text>
+            </HStack>
+            <VStack gap={1}>
+              {MAINLINE_DIMS.map((dim) => (
+                <ScoreBar
+                  key={dim.label}
+                  label={dim.label}
+                  score={Number(m[dim.field] ?? 0)}
+                  max={dim.weight}
+                />
+              ))}
+            </VStack>
+            {m.coreStocks?.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-2)" }}>
                 {m.coreStocks.map((s) => (
                   <span
@@ -799,6 +901,8 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
   switch (type) {
     case "fundflow":
       return <FundFlowBlock data={data} />;
+    case "mainline_dim":
+      return <DimensionBlock data={data} />;
     case "mainline":
       return <MainlineBlock data={data} />;
     case "stockpool":
@@ -835,6 +939,8 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
       return <FundFlowBlock data={data} />;
     case "mainline":
       return <MainlineBlock data={data} />;
+    case "dimension":
+      return <DimensionBlock data={data} />;
     case "limitup_pool":
       return <LimitUpPoolBlock data={data} />;
     case "market_emotion":

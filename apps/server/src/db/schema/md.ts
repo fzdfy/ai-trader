@@ -844,3 +844,147 @@ export const limitUpPool = pgTable(
     index("limit_up_pool_count_date_idx").on(table.limitUpCount, table.date),
   ],
 );
+
+// ============================================================================
+
+/**
+ * board_fund_flow_period — 板块周期资金流快照表（5 日 / 10 日）
+ *
+ * 定位：落库 quant /board-fund-flow 的周期（5d/10d）资金流排行，是主线「资金聚焦」
+ * 维度中「5 日资金持续性」子指标的板块级数据源（单日资金流已由 fund_flow_rank 覆盖）。
+ *
+ * 字段对齐 quant BoardFundFlowItem（金额单位：元，净占比：%）；period 区分 5d/10d，
+ * 主键 (date + board_type + period + code) 支持同板块不同周期并存。
+ *
+ * 写入策略：收盘后定时同步，upsert（同日覆盖为当天最后一次同步结果）。
+ * 主要读者：主线识别（5 日主力净流入持续性）。
+ */
+export const boardFundFlowPeriod = pgTable(
+  "board_fund_flow_period",
+  {
+    /** 快照日期（交易日） */
+    date: date("date").notNull(),
+    /** 板块类型：industry / concept */
+    boardType: text("board_type").notNull(),
+    /** 周期：5d / 10d */
+    period: text("period").notNull(),
+    /** 板块代码（BK 编号） */
+    code: text("code").notNull(),
+    /** 板块名称 */
+    name: text("name").notNull(),
+    /** 排名 */
+    rank: integer("rank").notNull(),
+    /** 涨跌幅(%) */
+    changePercent: numeric("change_percent"),
+    /** 主力净流入（元） */
+    mainNetInflow: numeric("main_net_inflow"),
+    /** 主力净占比(%) */
+    mainNetInflowPercent: numeric("main_net_inflow_percent"),
+    /** 主力净流入最大股代码 */
+    topStockCode: text("top_stock_code"),
+    /** 主力净流入最大股名称 */
+    topStockName: text("top_stock_name"),
+    /** 后端写入时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.boardType, table.period, table.code] }),
+    index("bff_period_date_type_idx").on(table.date, table.boardType, table.period),
+  ],
+);
+
+// ============================================================================
+
+/**
+ * dragon_tiger_daily — 全市场龙虎榜日快照表
+ *
+ * 定位：落库 quant /daily-dragon-tiger 全市场龙虎榜汇总，是主线「机构/游资确认」
+ * 维度的原始数据源（个股级，主线引擎内归因聚合到行业板块）。
+ *
+ * 金额单位统一为万元（net_buy_wan/buy_wan/sell_wan）。symbol 为 6 位裸代码转标准
+ * 格式（落库前由管道转换），便于主线引擎构建 symbol → 行业映射。
+ *
+ * 写入策略：收盘后定时同步，upsert（date + symbol 主键，同日覆盖）。
+ * 主要读者：主线识别（龙虎榜净买额 + 上榜家数）。
+ */
+export const dragonTigerDaily = pgTable(
+  "dragon_tiger_daily",
+  {
+    /** 快照日期（交易日） */
+    date: date("date").notNull(),
+    /** 股票代码（标准 symbol，如 600519.SH） */
+    symbol: text("symbol").notNull(),
+    /** 股票名称 */
+    name: text("name").notNull(),
+    /** 上榜原因 */
+    reason: text("reason"),
+    /** 收盘价 */
+    close: numeric("close"),
+    /** 涨跌幅(%) */
+    changePercent: numeric("change_percent"),
+    /** 净买入额（万元） */
+    netBuyWan: numeric("net_buy_wan"),
+    /** 买入额（万元） */
+    buyWan: numeric("buy_wan"),
+    /** 卖出额（万元） */
+    sellWan: numeric("sell_wan"),
+    /** 换手率(%) */
+    turnoverPercent: numeric("turnover_percent"),
+    /** 后端写入时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.symbol] }),
+    index("dragon_tiger_daily_date_idx").on(table.date),
+  ],
+);
+
+// ============================================================================
+
+/**
+ * hot_reason — 同花顺强势股 + 题材归因日快照表
+ *
+ * 定位：落库 quant /hot-reason 当日强势股题材归因，是主线「题材催化」维度中
+ * 「题材归因强度」子指标的原始数据源（个股级，主线引擎内归因聚合到行业板块）。
+ *
+ * reason 为核心字段（题材归因 tags，如「算力租赁+Token工厂+AI政务」）。
+ * symbol 为 6 位裸代码转标准格式（落库前由管道转换）。
+ *
+ * 写入策略：收盘后定时同步，upsert（date + symbol 主键，同日覆盖）。
+ * 主要读者：主线识别（题材归因强度）。
+ */
+export const hotReason = pgTable(
+  "hot_reason",
+  {
+    /** 快照日期（交易日） */
+    date: date("date").notNull(),
+    /** 股票代码（标准 symbol，如 600519.SH） */
+    symbol: text("symbol").notNull(),
+    /** 股票名称 */
+    name: text("name").notNull(),
+    /** 题材归因 tags（核心字段） */
+    reason: text("reason"),
+    /** 收盘价 */
+    close: numeric("close"),
+    /** 涨跌额（元） */
+    change: numeric("change"),
+    /** 涨幅(%) */
+    changePercent: numeric("change_percent"),
+    /** 换手率(%) */
+    turnoverRate: numeric("turnover_rate"),
+    /** 成交额（元） */
+    amount: numeric("amount"),
+    /** 成交量（股） */
+    volume: numeric("volume"),
+    /** 大单净量 */
+    largeOrderNet: numeric("large_order_net"),
+    /** 市场：沪 / 深 / 北 */
+    market: text("market"),
+    /** 后端写入时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.symbol] }),
+    index("hot_reason_date_idx").on(table.date),
+  ],
+);

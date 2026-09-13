@@ -116,6 +116,42 @@ export interface StockKlineBar {
   adj_factor: number | null;
 }
 
+/** 同花顺强势股 + 题材归因一条（quant /hot-reason 返回；code 为 6 位裸代码） */
+export interface HotReasonItem {
+  code: string;
+  name: string;
+  reason: string;
+  close: number | null;
+  change: number | null;
+  change_pct: number | null;
+  turnover_rate: number | null;
+  amount: number | null;
+  volume: number | null;
+  large_order_net: number | null;
+  market: string;
+}
+
+/** 全市场龙虎榜中的一只股票（quant /daily-dragon-tiger 返回；金额单位：万元；code 为 6 位裸代码） */
+export interface DragonTigerStock {
+  code: string;
+  name: string;
+  reason: string;
+  close: number;
+  change_pct: number;
+  net_buy_wan: number;
+  buy_wan: number;
+  sell_wan: number;
+  turnover_pct: number;
+}
+
+/** 全市场龙虎榜汇总（quant /daily-dragon-tiger 返回） */
+export interface DailyDragonTiger {
+  date: string;
+  total_records: number;
+  stocks: DragonTigerStock[];
+  note: string | null;
+}
+
 /** 涨停池一条（quant /limit-up-pool 返回；code 为 6 位裸代码，落库前转标准 symbol） */
 export interface LimitUpPoolItem {
   code: string;
@@ -192,6 +228,23 @@ export const quant = {
     let path = `/api/v1/data/limit-up-pool`;
     if (date) path += `?date=${encodeURIComponent(date)}`;
     return getJson<LimitUpPoolItem[]>(path);
+  },
+
+  /** 同花顺当日强势股 + 题材归因（date 为 YYYY-MM-DD，缺省为今天） */
+  hotReason: (date?: string) => {
+    let path = `/api/v1/data/hot-reason`;
+    if (date) path += `?date=${encodeURIComponent(date)}`;
+    return getJson<HotReasonItem[]>(path);
+  },
+
+  /** 全市场龙虎榜汇总（tradeDate 为 YYYY-MM-DD，minNetBuy 单位万元，缺省不限） */
+  dailyDragonTiger: (tradeDate?: string, minNetBuy?: number) => {
+    let path = `/api/v1/data/daily-dragon-tiger`;
+    const qs: string[] = [];
+    if (tradeDate) qs.push(`trade_date=${encodeURIComponent(tradeDate)}`);
+    if (minNetBuy != null) qs.push(`min_net_buy=${minNetBuy}`);
+    if (qs.length) path += `?${qs.join("&")}`;
+    return getJson<DailyDragonTiger>(path);
   },
 
   /**

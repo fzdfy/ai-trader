@@ -26,6 +26,7 @@ import { constituentsPipeRun } from "./pipes/constituents";
 import { fundFlowPipeRun } from "./pipes/fundflow";
 import { featuresPipeRun } from "./pipes/features";
 import { limitUpPoolPipeRun } from "./pipes/limit-up-pool";
+import { mainlineSignalsPipeRun } from "./pipes/mainline-signals";
 import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
 
@@ -40,6 +41,7 @@ export type PipeName =
   | "fundflow"
   | "features"
   | "limit-up-pool"
+  | "mainline-signals"
   | "kline-period"
   | "calendar";
 
@@ -54,6 +56,7 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   fundflow: () => fundFlowPipeRun(),
   features: () => featuresPipeRun(),
   "limit-up-pool": () => limitUpPoolPipeRun(),
+  "mainline-signals": () => mainlineSignalsPipeRun(),
   "kline-period": () => klinePeriodPipeRun(),
   calendar: () => calendarPipeRun(),
 };
@@ -204,6 +207,7 @@ const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "features", dependsOn: "kline-1d" },
   { name: "fundflow" },
   { name: "limit-up-pool" },
+  { name: "mainline-signals" },
 ];
 
 /**

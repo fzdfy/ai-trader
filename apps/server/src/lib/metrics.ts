@@ -63,71 +63,77 @@ export interface MetricKindDef {
 // 口径定义注册表
 // ---------------------------------------------------------------------------
 
-/** 主线：方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应，总分 100 */
+/** 主线：方向持续性 + 资金聚焦 + 龙头梯队 + 赚钱效应 + 题材催化 + 机构/游资确认，总分 100 */
 export const MAINLINE_DEF: MetricKindDef = {
   kind: "mainline",
-  displayName: "主线（四维加权评分）",
-  description: "识别当日资金聚焦、具备持续性的主线行业板块，总分 100。",
+  displayName: "主线（六维加权评分）",
+  description: "识别当日资金聚焦、具备持续性、被题材与机构共同确认的主线行业板块，总分 100。",
   dims: [
     {
       key: "direction",
       label: "方向持续性",
-      weightDefault: 25,
+      weightDefault: 18,
       subs: [
         {
           key: "sum3d",
           label: "近3日累计涨幅",
-          weightDefault: 15,
+          weightDefault: 10,
           scale: { type: "norm", clipAtZero: true },
         },
         {
           key: "upDays5",
           label: "近5日上涨天数",
-          weightDefault: 10,
+          weightDefault: 8,
           scale: { type: "ratio", max: 5 },
         },
       ],
     },
     {
       key: "fund",
-      label: "资金确认",
-      weightDefault: 30,
+      label: "资金聚焦",
+      weightDefault: 20,
       subs: [
         {
           key: "netInflow",
           label: "主力净流入额",
-          weightDefault: 18,
+          weightDefault: 10,
           scale: { type: "norm", clipAtZero: true },
         },
         {
           key: "netPct",
           label: "主力净流入占比",
-          weightDefault: 12,
+          weightDefault: 6,
+          scale: { type: "norm", clipAtZero: true },
+        },
+        {
+          key: "fund5d",
+          label: "5日主力净流入",
+          weightDefault: 4,
           scale: { type: "norm", clipAtZero: true },
         },
       ],
     },
     {
       key: "leader",
-      label: "龙头情绪",
-      weightDefault: 25,
+      label: "龙头梯队",
+      weightDefault: 18,
       subs: [
         {
           key: "limitUpCount",
           label: "涨停家数",
-          weightDefault: 10,
+          weightDefault: 6,
           scale: { type: "norm" },
         },
         {
           key: "maxConsec",
           label: "最高连板数",
-          weightDefault: 10,
+          weightDefault: 6,
           scale: { type: "norm" },
         },
         {
           key: "sealType",
           label: "封板强度",
-          weightDefault: 5,
+          weightDefault: 6,
           scale: { type: "norm" },
         },
       ],
@@ -135,25 +141,63 @@ export const MAINLINE_DEF: MetricKindDef = {
     {
       key: "effect",
       label: "赚钱效应",
-      weightDefault: 20,
+      weightDefault: 12,
       subs: [
         {
           key: "boardPct",
           label: "板块涨幅",
-          weightDefault: 8,
+          weightDefault: 5,
           scale: { type: "norm", clipAtZero: true },
         },
         {
           key: "upRatio",
           label: "上涨家数占比",
-          weightDefault: 7,
+          weightDefault: 4,
           scale: { type: "ratio", max: 1 },
         },
         {
           key: "bustRate",
           label: "炸板率",
-          weightDefault: 5,
+          weightDefault: 3,
           scale: { type: "inverseRatio" },
+        },
+      ],
+    },
+    {
+      key: "theme",
+      label: "题材催化",
+      weightDefault: 16,
+      subs: [
+        {
+          key: "themeConcentration",
+          label: "题材涨停集中度",
+          weightDefault: 10,
+          scale: { type: "ratio", max: 1 },
+        },
+        {
+          key: "hotReasonCount",
+          label: "题材归因强度",
+          weightDefault: 6,
+          scale: { type: "norm" },
+        },
+      ],
+    },
+    {
+      key: "dragon",
+      label: "机构/游资确认",
+      weightDefault: 16,
+      subs: [
+        {
+          key: "dragonNetBuy",
+          label: "龙虎榜净买额",
+          weightDefault: 10,
+          scale: { type: "norm", clipAtZero: true },
+        },
+        {
+          key: "dragonCount",
+          label: "上榜家数",
+          weightDefault: 6,
+          scale: { type: "norm" },
         },
       ],
     },

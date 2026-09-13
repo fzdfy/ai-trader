@@ -43,11 +43,49 @@ export interface FundFlowData {
   stock: FundFlowItem[];
 }
 
-/** 主线项：板块 + 核心个股 + 理由 */
+/** 主线项：板块六维打分 + 核心个股 + 理由 */
 export interface MainlineItem {
+  boardCode: string;
   boardName: string;
+  /** 六维加权总分（0~100） */
+  score: number;
+  directionScore: number;
+  fundScore: number;
+  leaderScore: number;
+  effectScore: number;
+  themeScore: number;
+  dragonScore: number;
+  /** 各维度得分（key 为 MAINLINE_DEF 维度 key） */
+  dimScores: Record<string, number>;
+  /** 各子指标得分（key 为 MAINLINE_DEF 子指标 key） */
+  subScores: Record<string, number>;
   coreStocks: string[];
   reason: string;
+}
+
+/** 维度内子指标得分快照 */
+export interface DimensionSubScore {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+}
+
+/** 维度内单个板块的得分快照 */
+export interface DimensionBoard {
+  boardName: string;
+  coreStocks: string[];
+  dimScore: number;
+  totalScore: number;
+  subs: DimensionSubScore[];
+}
+
+/** 维度模块数据：维度定义 + 该维度得分领先的板块 */
+export interface DimensionSectionData {
+  key: string;
+  label: string;
+  weight: number;
+  boards: DimensionBoard[];
 }
 
 /** 当日板块异动项 */
