@@ -33,7 +33,9 @@ export const CRON_JOBS: CronJobConfig[] = [
   { name: "constituents",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "boards", deadline: "18:00" },
   { name: "fundflow",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
   { name: "limit-up-pool", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "mainline-signals", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "board-fund-flow", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "dragon-tiger", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
+  { name: "hot-reason", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
   { name: "kline-period",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
   { name: "features",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
   // 交易日历：每周一凌晨 2 点一次性补未来交易日
