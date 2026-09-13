@@ -31,6 +31,20 @@ function toStr(v: number | null | undefined): string | null {
   return v == null ? null : String(v);
 }
 
+/** 并行拉取单个数据源：失败不抛出，而是返回 error（供 Promise.all 并行 + 部分失败容错） */
+async function fetchSource<T>(
+  label: string,
+  fn: () => Promise<T>,
+): Promise<{ data: T | null; error: string | null }> {
+  try {
+    return { data: await fn(), error: null };
+  } catch (error) {
+    const msg = (error as Error).message ?? String(error);
+    console.error(`[mainline-signals] ${label} fetch failed:`, msg);
+    return { data: null, error: `${label}: ${msg}` };
+  }
+}
+
 /** upsert 板块 5 日资金流（industry / concept） */
 async function upsertBoardFundFlow5d(
   today: string,
@@ -158,53 +172,27 @@ async function upsertHotReason(today: string, rows: HotReasonItem[]): Promise<nu
 export async function mainlineSignalsPipeRun(): Promise<void> {
   const today = localDateStr();
 
-  // 记录失败的数据源；任一源失败则任务最终标记 failed 触发重试，避免部分源数据当天永久缺失
-  const errors: string[] = [];
+  // 并行拉取四个数据源，各自容错（单个失败不阻断其他源）；
+  // 任一源失败都会被记入 errors，最终让 wrapJob 标记 failed 触发重试，避免部分源当天永久缺失。
+  console.log("[mainline-signals] fetching 4 sources in parallel...");
+  const [industry, concept, dragon, hot] = await Promise.all([
+    fetchSource("industry5d", async () => (await quant.boardFundFlow("industry", "5d")).rows),
+    fetchSource("concept5d", async () => (await quant.boardFundFlow("concept", "5d")).rows),
+    fetchSource("dragonTiger", async () => (await quant.dailyDragonTiger(today)).stocks),
+    fetchSource("hotReason", () => quant.hotReason(today)),
+  ]);
 
-  let industry5d: BoardFundFlowItem[] = [];
-  let concept5d: BoardFundFlowItem[] = [];
-  let dragonStocks: DragonTigerStock[] = [];
-  let hotRows: HotReasonItem[] = [];
+  const industry5d = industry.data ?? [];
+  const concept5d = concept.data ?? [];
+  const dragonStocks = dragon.data ?? [];
+  const hotRows = hot.data ?? [];
+  const errors = [industry, concept, dragon, hot]
+    .map((r) => r.error)
+    .filter((e): e is string => e != null);
 
-  try {
-    console.log("[mainline-signals] fetching industry 5d board fund flow...");
-    industry5d = (await quant.boardFundFlow("industry", "5d")).rows;
-    console.log(`[mainline-signals] got ${industry5d.length} industry 5d rows`);
-  } catch (error) {
-    const msg = (error as Error).message ?? String(error);
-    console.error("[mainline-signals] industry 5d fetch failed:", msg);
-    errors.push(`industry5d: ${msg}`);
-  }
-
-  try {
-    console.log("[mainline-signals] fetching concept 5d board fund flow...");
-    concept5d = (await quant.boardFundFlow("concept", "5d")).rows;
-    console.log(`[mainline-signals] got ${concept5d.length} concept 5d rows`);
-  } catch (error) {
-    const msg = (error as Error).message ?? String(error);
-    console.error("[mainline-signals] concept 5d fetch failed:", msg);
-    errors.push(`concept5d: ${msg}`);
-  }
-
-  try {
-    console.log("[mainline-signals] fetching daily dragon tiger...");
-    dragonStocks = (await quant.dailyDragonTiger(today)).stocks;
-    console.log(`[mainline-signals] got ${dragonStocks.length} dragon tiger stocks`);
-  } catch (error) {
-    const msg = (error as Error).message ?? String(error);
-    console.error("[mainline-signals] dragon tiger fetch failed:", msg);
-    errors.push(`dragonTiger: ${msg}`);
-  }
-
-  try {
-    console.log("[mainline-signals] fetching hot reason...");
-    hotRows = await quant.hotReason(today);
-    console.log(`[mainline-signals] got ${hotRows.length} hot reason rows`);
-  } catch (error) {
-    const msg = (error as Error).message ?? String(error);
-    console.error("[mainline-signals] hot reason fetch failed:", msg);
-    errors.push(`hotReason: ${msg}`);
-  }
+  console.log(
+    `[mainline-signals] fetched: industry5d=${industry5d.length}, concept5d=${concept5d.length}, dragon=${dragonStocks.length}, hotReason=${hotRows.length}`,
+  );
 
   if (
     industry5d.length === 0 &&

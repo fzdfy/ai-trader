@@ -58,6 +58,9 @@ export const SYNC_MODULE_NAMES: Record<string, string> = {
   "board-kline": "板块指数 K 线",
   constituents: "板块成分股",
   fundflow: "资金流排行",
+  "limit-up-pool": "涨停池",
+  "mainline-signals": "主线信号",
+  "kline-period": "周期 K 线",
   features: "特征计算",
   "sync-manual": "手动同步",
 };

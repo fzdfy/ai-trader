@@ -26,6 +26,7 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "constituents", name: "板块成分股" },
   { jobType: "fundflow", name: "资金流排行" },
   { jobType: "limit-up-pool", name: "涨停池" },
+  { jobType: "mainline-signals", name: "主线信号" },
   { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
   { jobType: "sync-manual", name: "手动同步" },
@@ -41,6 +42,7 @@ const WORKER_MARKET_JOBS = [
   "constituents",
   "fundflow",
   "limit-up-pool",
+  "mainline-signals",
   "features",
 ];
 
