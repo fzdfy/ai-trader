@@ -212,7 +212,10 @@ export async function fundFlowPipeRun(): Promise<void> {
 
   try {
     console.log("[fundflow] fetching stock fund flow rank...");
-    stocks = (await quant.fundFlowRank()).map((r) => ({
+    // 个股资金流排行只取主力净流入前 1000 名：全市场 5000+ 只需翻 54 页，收盘后与其他
+    // 管道并发共享东财全局串行锁，180s 内拿不完会恒定超时；而资金主线/复盘/前端都只看
+    // 净流入头部，前 1000 名（10 页，约 20s）已足够，且 rank 仍为全市场真实排名。
+    stocks = (await quant.fundFlowRank(1000)).map((r) => ({
       code: r.code,
       name: r.name,
       price: r.price,
