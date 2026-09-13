@@ -32,11 +32,26 @@ function toStr(v: number | null | undefined): string | null {
 
 /** upsert 全市场龙虎榜到 dragon_tiger_daily，返回写入条数 */
 async function upsertDragonTiger(today: string, stocks: DragonTigerStock[]): Promise<number> {
-  const values = stocks.map((r) => ({
+  // 东财龙虎榜同一股票当天可能因多个榜单（如「日涨幅偏离值达7%」「日换手率达20%」）
+  // 返回多条记录，而表主键为 (date, symbol)；若不先去重，同一批次会因重复冲突键触发
+  // PostgreSQL「ON CONFLICT DO UPDATE command cannot affect row a second time」。
+  // 这里按 symbol 合并：保留首条数值字段，多个上榜原因去重后拼接。
+  const bySymbol = new Map<string, DragonTigerStock & { reasons: string[] }>();
+  for (const r of stocks) {
+    const symbol = codeToSymbol(r.code);
+    const prev = bySymbol.get(symbol);
+    if (!prev) {
+      bySymbol.set(symbol, { ...r, code: symbol, reasons: r.reason ? [r.reason] : [] });
+    } else if (r.reason && !prev.reasons.includes(r.reason)) {
+      prev.reasons.push(r.reason);
+    }
+  }
+
+  const values = Array.from(bySymbol.values()).map((r) => ({
     date: today,
-    symbol: codeToSymbol(r.code),
+    symbol: r.code,
     name: r.name,
-    reason: r.reason || null,
+    reason: r.reasons.length > 0 ? r.reasons.join("；") : null,
     close: toStr(r.close),
     changePercent: toStr(r.change_pct),
     netBuyWan: toStr(r.net_buy_wan),
