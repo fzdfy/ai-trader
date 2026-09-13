@@ -182,7 +182,9 @@ export const quant = {
   fundFlowRank: (topN?: number) => {
     let path = `/api/v1/data/fund-flow-rank`;
     if (topN != null) path += `?top_n=${topN}`;
-    return getJson<FundFlowRankItem[]>(path);
+    // 全量个股（5000+）在东财分页 + _em_get 串行限流下需约 60~120s，远超默认 20s，
+    // 故单独放宽超时，避免资金流排行在手动同步中恒定超时报错。
+    return getJson<FundFlowRankItem[]>(path, 180_000);
   },
 
   /** 当日涨停池（date 为 YYYY-MM-DD，缺省为今天） */

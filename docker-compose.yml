@@ -63,7 +63,7 @@ services:
       - .env.local
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
-      - BETTER_AUTH_URL=https://ai.taiyangshen.xyz
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
       - QUANT_URL=http://quant:3002
       # 日志
       - SERVICE_NAME=worker

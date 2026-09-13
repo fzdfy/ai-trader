@@ -194,6 +194,10 @@ syncRoute.get("/modules", async (c) => {
       error: latest?.error ?? null,
       startedAt: latest?.startedAt ?? null,
       finishedAt: latest?.finishedAt ?? null,
+      durationMs:
+        latest?.startedAt && latest?.finishedAt
+          ? latest.finishedAt.getTime() - latest.startedAt.getTime()
+          : null,
       lastSuccessAt: latest?.status === "success" ? (latest?.finishedAt ?? null) : null,
       todaySuccess: stats.success,
       todayFailed: stats.failed,
@@ -215,6 +219,10 @@ syncRoute.get("/modules", async (c) => {
       error: latest.error ?? null,
       startedAt: latest.startedAt ?? null,
       finishedAt: latest.finishedAt ?? null,
+      durationMs:
+        latest.startedAt && latest.finishedAt
+          ? latest.finishedAt.getTime() - latest.startedAt.getTime()
+          : null,
       lastSuccessAt: latest.status === "success" ? (latest.finishedAt ?? null) : null,
       todaySuccess: stats.success,
       todayFailed: stats.failed,

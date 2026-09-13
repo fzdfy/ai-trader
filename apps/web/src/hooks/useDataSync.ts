@@ -77,6 +77,7 @@ export interface SyncModuleStatus {
   error: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+  durationMs: number | null;
   lastSuccessAt: string | null;
   todaySuccess: number;
   todayFailed: number;
