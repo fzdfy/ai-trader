@@ -59,7 +59,7 @@ async function queryLastUpdated(): Promise<string | null> {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/** 今日是否已有成功的手动同步（sync-manual）记录（基于本地日期窗口，与 worker 的 hasSuccessToday 对齐） */
+/** 今日是否已有成功的手动同步（sync-manual）记录（按运行日去重，防止同一天重复触发；跨天数据幂等由管道级 hasSuccessToday 按 trade_date 保证） */
 async function hasManualSuccessToday(): Promise<boolean> {
   const today = localDateStr();
   const start = new Date(`${today}T00:00:00`);

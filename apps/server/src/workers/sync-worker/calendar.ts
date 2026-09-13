@@ -11,7 +11,7 @@
 
 import { db } from "../../db";
 import { tradingCalendar } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 
 /** A 股交易时段常量 */
 const AM_START = { hour: 9, minute: 30 };
@@ -101,6 +101,37 @@ export async function getTodayTradeDate(): Promise<Date | null> {
     return today;
   }
   return null;
+}
+
+/**
+ * 根据 A 股开/收盘状态判断「当前应同步的交易日」。
+ *
+ * 规则：
+ *  - 今天是交易日且已收盘（15:00 后）→ 同步今天（当日数据已定稿）。
+ *  - 今天不是交易日，或今天虽为交易日但尚未收盘（开盘前 / 盘中）→
+ *    同步最近一个已收盘交易日。
+ *
+ * 例：周日（今天）→ 回溯到上周五；交易日盘中 → 回溯到上一交易日。
+ *
+ * @returns 应同步的交易日（YYYY-MM-DD）；日历表无可用交易日时返回 null。
+ */
+export async function getSyncTradeDate(now: Date = new Date()): Promise<string | null> {
+  const today = toDateStr(now);
+
+  // 今天已收盘的交易日 → 同步今天
+  if ((await isTradeDay(now)) && isAfterMarketClose(now)) {
+    return today;
+  }
+
+  // 否则回溯最近一个已收盘交易日（严格早于今天）
+  const [row] = await db
+    .select({ tradeDate: tradingCalendar.tradeDate })
+    .from(tradingCalendar)
+    .where(and(eq(tradingCalendar.isTradingDay, true), lt(tradingCalendar.tradeDate, today)))
+    .orderBy(desc(tradingCalendar.tradeDate))
+    .limit(1);
+
+  return row?.tradeDate ?? null;
 }
 
 /**

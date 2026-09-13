@@ -172,6 +172,13 @@ export interface LimitUpPoolItem {
 /** quant 请求超时（毫秒）。上游（东财/腾讯等）网络抖动可能 hang，必须限时避免卡死同步管道 */
 const QUANT_TIMEOUT_MS = 20_000;
 
+/**
+ * 全量/翻页重接口超时（毫秒）。东财 clist 在 quant 端走 _em_get 串行限流（1s 间隔），
+ * 全量板块/个股需翻几十页；且收盘后多个同步管道并发触发时会排队等同一把全局锁，
+ * 单接口 20s 内常拿不完，故放宽到 3 分钟（与 fundFlowRank 一致）。
+ */
+const BULK_TIMEOUT_MS = 180_000;
+
 async function getJson<T>(path: string, timeoutMs = QUANT_TIMEOUT_MS): Promise<T> {
   const res = await fetch(`${QUANT_URL}${path}`, {
     headers: { Accept: "application/json" },
@@ -190,9 +197,9 @@ export const quant = {
   fundFlow120d: (symbol: string) =>
     getJson<FundFlowDay[]>(`/api/v1/data/fund-flow-120d?symbol=${encodeURIComponent(symbol)}`),
 
-  /** 板块列表（行业/概念） */
+  /** 板块列表（行业/概念；concept 400+ 需翻页，放宽超时） */
   boardList: (boardType: "industry" | "concept") =>
-    getJson<BoardList>(`/api/v1/data/board-list?board_type=${boardType}`),
+    getJson<BoardList>(`/api/v1/data/board-list?board_type=${boardType}`, BULK_TIMEOUT_MS),
 
   /** 板块成分股 */
   boardConstituents: (boardCode: string) =>
@@ -207,11 +214,11 @@ export const quant = {
     return getJson<BoardKlineBar[]>(path);
   },
 
-  /** 板块资金流向（行业/概念/地域 × 今日/5日/10日；不传 topN 则返回全量板块） */
+  /** 板块资金流向（行业/概念/地域 × 今日/5日/10日；不传 topN 则返回全量板块，需翻页，放宽超时） */
   boardFundFlow: (boardType: string, period = "today", topN?: number) => {
     let path = `/api/v1/data/board-fund-flow?board_type=${boardType}&period=${period}`;
     if (topN != null) path += `&top_n=${topN}`;
-    return getJson<BoardFundFlow>(path);
+    return getJson<BoardFundFlow>(path, BULK_TIMEOUT_MS);
   },
 
   /** 全市场个股资金流排行（按主力净流入降序；不传 topN 则返回全量个股） */
@@ -220,14 +227,14 @@ export const quant = {
     if (topN != null) path += `?top_n=${topN}`;
     // 全量个股（5000+）在东财分页 + _em_get 串行限流下需约 60~120s，远超默认 20s，
     // 故单独放宽超时，避免资金流排行在手动同步中恒定超时报错。
-    return getJson<FundFlowRankItem[]>(path, 180_000);
+    return getJson<FundFlowRankItem[]>(path, BULK_TIMEOUT_MS);
   },
 
-  /** 当日涨停池（date 为 YYYY-MM-DD，缺省为今天） */
+  /** 当日涨停池（date 为 YYYY-MM-DD，缺省为今天）；走东财全局串行锁，并发排队下放宽超时 */
   limitUpPool: (date?: string) => {
     let path = `/api/v1/data/limit-up-pool`;
     if (date) path += `?date=${encodeURIComponent(date)}`;
-    return getJson<LimitUpPoolItem[]>(path);
+    return getJson<LimitUpPoolItem[]>(path, BULK_TIMEOUT_MS);
   },
 
   /** 同花顺当日强势股 + 题材归因（date 为 YYYY-MM-DD，缺省为今天） */
@@ -237,14 +244,14 @@ export const quant = {
     return getJson<HotReasonItem[]>(path);
   },
 
-  /** 全市场龙虎榜汇总（tradeDate 为 YYYY-MM-DD，minNetBuy 单位万元，缺省不限） */
+  /** 全市场龙虎榜汇总（tradeDate 为 YYYY-MM-DD，minNetBuy 单位万元，缺省不限）；走东财全局串行锁，放宽超时 */
   dailyDragonTiger: (tradeDate?: string, minNetBuy?: number) => {
     let path = `/api/v1/data/daily-dragon-tiger`;
     const qs: string[] = [];
     if (tradeDate) qs.push(`trade_date=${encodeURIComponent(tradeDate)}`);
     if (minNetBuy != null) qs.push(`min_net_buy=${minNetBuy}`);
     if (qs.length) path += `?${qs.join("&")}`;
-    return getJson<DailyDragonTiger>(path);
+    return getJson<DailyDragonTiger>(path, BULK_TIMEOUT_MS);
   },
 
   /**

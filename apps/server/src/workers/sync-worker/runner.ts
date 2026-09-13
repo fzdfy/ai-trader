@@ -11,10 +11,10 @@
  * 抽离原因：index.ts 顶部有 cron.schedule / setTimeout 等副作用，server 进程无法直接 import；
  * 本模块无副作用，可被 worker 与 server 两个进程安全共用。
  */
-import { and, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun } from "../../db/schema";
-import { localDateStr } from "./calendar";
+import { getSyncTradeDate } from "./calendar";
 import { runWithProgress } from "./progress";
 import { kline1mPipe } from "./pipes/kline-1m";
 import { kline1dPipeRun } from "./pipes/kline-1d";
@@ -138,9 +138,10 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
     running.add(name);
     let runId: number | null = null;
     try {
+      const tradeDate = await getSyncTradeDate();
       const inserted = await db
         .insert(jobRun)
-        .values({ jobType: name, status: "running", startedAt: new Date() })
+        .values({ jobType: name, status: "running", startedAt: new Date(), tradeDate })
         .returning({ id: jobRun.id });
       runId = inserted[0]?.id ?? null;
 
@@ -173,11 +174,11 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
   };
 }
 
-/** 某 jobType 今日是否已有成功记录（基于本地日期窗口） */
+/** 某 jobType 在当前应同步交易日是否已有成功记录（基于 trade_date） */
 export async function hasSuccessToday(jobType: string): Promise<boolean> {
-  const today = localDateStr();
-  const start = new Date(`${today}T00:00:00`);
-  const end = new Date(`${today}T23:59:59.999`);
+  const tradeDate = await getSyncTradeDate();
+  // 日历表缺失（首次部署 / 日历过期）：视为未成功，不跳过，让任务正常执行并暴露问题
+  if (!tradeDate) return false;
   const rows = await db
     .select({ id: jobRun.id })
     .from(jobRun)
@@ -185,8 +186,7 @@ export async function hasSuccessToday(jobType: string): Promise<boolean> {
       and(
         eq(jobRun.jobType, jobType),
         eq(jobRun.status, "success"),
-        gte(jobRun.startedAt, start),
-        lte(jobRun.startedAt, end),
+        eq(jobRun.tradeDate, tradeDate),
       ),
     )
     .limit(1);

@@ -16,7 +16,7 @@ import { db } from "../../../db";
 import { boardFundFlowPeriod } from "../../../db/schema";
 import { sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
-import { localDateStr } from "../calendar";
+import { getSyncTradeDate } from "../calendar";
 
 /** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ） */
 function codeToSymbol(code: string): string {
@@ -79,7 +79,8 @@ async function upsertBoardFundFlow5d(
 }
 
 export async function boardFundFlowPipeRun(): Promise<void> {
-  const today = localDateStr();
+  const today = await getSyncTradeDate();
+  if (!today) throw new Error("[board-fund-flow] 无可用交易日（交易日历为空或异常）");
 
   // 并行拉取 industry / concept 两个 boardType 的 5 日资金流，各自容错
   const [industry, concept] = await Promise.all([

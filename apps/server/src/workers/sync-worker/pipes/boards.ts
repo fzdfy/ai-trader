@@ -14,7 +14,7 @@ import { db } from "../../../db";
 import { board, boardHistory } from "../../../db/schema";
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
-import { localDateStr } from "../calendar";
+import { getSyncTradeDate } from "../calendar";
 
 /**
  * 同步一个板块类型（industry / concept）到 board + board_history。
@@ -119,7 +119,8 @@ async function pruneStaleBoards(type: "industry" | "concept", codes: string[]): 
 
 export async function boardsPipeRun(): Promise<void> {
   // 当日日期（历史快照键）
-  const today = localDateStr();
+  const today = await getSyncTradeDate();
+  if (!today) throw new Error("[boards] 无可用交易日（交易日历为空或异常）");
 
   // 记录失败的类型；任一类型失败则任务最终标记 failed 触发重试，避免部分板块快照当天停留在旧数据
   const errors: string[] = [];

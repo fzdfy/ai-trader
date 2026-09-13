@@ -14,7 +14,7 @@ import { db } from "../../../db";
 import { fundFlowRank } from "../../../db/schema";
 import { sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
-import { localDateStr } from "../calendar";
+import { getSyncTradeDate } from "../calendar";
 
 /** 板块资金流排行项（industry / concept 共用） */
 interface SectorRow {
@@ -156,7 +156,8 @@ async function upsertStock(today: string, rows: StockRow[]): Promise<number> {
 }
 
 export async function fundFlowPipeRun(): Promise<void> {
-  const today = localDateStr();
+  const today = await getSyncTradeDate();
+  if (!today) throw new Error("[fundflow] 无可用交易日（交易日历为空或异常）");
 
   // 记录失败的数据源；任一源失败则任务最终标记 failed 触发重试，避免部分源数据当天永久缺失
   const errors: string[] = [];

@@ -15,7 +15,7 @@ import { db } from "../../../db";
 import { limitUpPool } from "../../../db/schema";
 import { sql } from "drizzle-orm";
 import { updateProgress } from "../progress";
-import { localDateStr } from "../calendar";
+import { getSyncTradeDate } from "../calendar";
 
 /** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ） */
 function codeToSymbol(code: string): string {
@@ -86,7 +86,8 @@ async function upsertPool(today: string, rows: LimitUpPoolItem[]): Promise<numbe
 }
 
 export async function limitUpPoolPipeRun(): Promise<void> {
-  const today = localDateStr();
+  const today = await getSyncTradeDate();
+  if (!today) throw new Error("[limit-up-pool] 无可用交易日（交易日历为空或异常）");
 
   updateProgress(0, 1, "开始同步涨停池");
   try {
