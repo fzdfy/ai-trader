@@ -273,7 +273,7 @@ syncRoute.post("/run", async (c) => {
   // 后台执行，不阻塞请求；结束后落终态（success / failed）
   void (async () => {
     try {
-      await runManualSync();
+      await runManualSync({ force });
 
       if (runId != null) {
         await db

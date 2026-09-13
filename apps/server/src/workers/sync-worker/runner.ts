@@ -214,13 +214,20 @@ const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
  *   - 无依赖管道（boards / kline-1d / fundflow / limit-up-pool）并行启动，写不同表互不冲突。
  *   - 有依赖管道（board-kline / constituents 依赖 boards；kline-period / features 依赖 kline-1d）
  *     挂接在各自依赖的 Promise 上：依赖成功才执行，失败则跳过。
+ *   - 当日已同步完整（job_run 有当日 success）且非 force 时跳过，避免重复全市场拉取。
  *   - 单个失败不阻断其他无依赖管道；全部跑完后若存在失败/跳过，抛汇总错误使 sync-manual 整体标 failed。
  */
-export async function runManualSync(): Promise<void> {
+export async function runManualSync(opts: { force?: boolean } = {}): Promise<void> {
+  const { force = false } = opts;
   const failed: string[] = [];
   const runs = new Map<PipeName, Promise<boolean>>();
 
   const runOne = async (name: PipeName): Promise<boolean> => {
+    // 当日已同步完整且非强制重跑 → 跳过（视为已满足，供依赖链继续）
+    if (!force && (await hasSuccessToday(name))) {
+      console.log(`[manual-sync] ${name}: skip (今日已同步)`);
+      return true;
+    }
     const ok = await wrapJob(name, RUNNERS[name])();
     if (!ok) failed.push(name);
     return ok;
