@@ -7,7 +7,7 @@
  */
 import * as echarts from "echarts/core";
 import { graphic } from "echarts/core";
-import { BarChart, LineChart, TreemapChart } from "echarts/charts";
+import { BarChart, LineChart, TreemapChart, GaugeChart } from "echarts/charts";
 import {
   GridComponent,
   TooltipComponent,
@@ -20,6 +20,7 @@ echarts.use([
   BarChart,
   LineChart,
   TreemapChart,
+  GaugeChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,

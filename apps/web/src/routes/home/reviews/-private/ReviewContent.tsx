@@ -22,6 +22,7 @@ import {
   chartCurrent,
   splitLineStyle,
   axisLineStyle,
+  hexToRgba,
 } from "../../../../lib/theme";
 import type {
   Review,
@@ -123,7 +124,8 @@ const BarChart = memo(function BarChart({
 
     chartRef.current.setOption(
       {
-        animation: false,
+        animationDuration: 700,
+        animationEasing: "cubicOut",
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "shadow" },
@@ -166,7 +168,7 @@ const BarChart = memo(function BarChart({
       ref={containerRef}
       style={{
         width: "100%",
-        height: Math.max(320, Math.min(560, rows.length * 26)),
+        height: Math.max(200, Math.min(340, rows.length * 22)),
         minHeight: 0,
         background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
@@ -297,6 +299,7 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
   const maxAbs = rows.reduce((m, r) => Math.max(m, Math.abs(r.mainNetInflow ?? 0)), 0);
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
@@ -344,14 +347,15 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
               <div
                 style={{
                   flex: 1,
-                  height: 10,
+                  height: 8,
                   background: "var(--color-background-subtle)",
-                  borderRadius: 5,
+                  borderRadius: 4,
                   overflow: "hidden",
                 }}
               >
                 <div
-                  style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 5 }}
+                  className="review-bar"
+                  style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 4 }}
                 />
               </div>
               <Text size="sm" style={{ width: 62, textAlign: "right", flexShrink: 0, color }}>
@@ -422,6 +426,7 @@ function ScoreBar({ label, score, max }: { label: string; score: number; max: nu
         }}
       >
         <div
+          className="review-bar"
           style={{ width: `${pct}%`, height: "100%", background: "var(--color-accent)", borderRadius: 3 }}
         />
       </div>
@@ -438,6 +443,7 @@ function DimensionBlock({ data }: { data: unknown }) {
   if (!dim || dim.boards.length === 0) return <EmptyState />;
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
@@ -494,11 +500,12 @@ function MainlineBlock({ data }: { data: unknown }) {
       {rows.map((m, i) => (
         <div
           key={`${m.boardCode || m.boardName}-${i}`}
+          className="review-card"
           style={{
             background: "var(--color-background-card)",
             border: "1px solid var(--color-border)",
             borderRadius: "var(--radius-md, 8px)",
-            padding: "var(--spacing-5)",
+            padding: "var(--spacing-4)",
             position: "relative",
             overflow: "hidden",
           }}
@@ -637,6 +644,7 @@ function StockPoolBlock({ data }: { data: unknown }) {
 
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
@@ -720,6 +728,7 @@ function LimitUpPoolBlock({ data }: { data: unknown }) {
         {stats.map((s) => (
           <div
             key={s.label}
+            className="review-card"
             style={{
               background: "var(--color-background-card)",
               border: "1px solid var(--color-border)",
@@ -779,12 +788,76 @@ function emotionLabel(temp: number): string {
   return "冰点";
 }
 
-/** 市场情绪温度模块：大数字温度 + 0~100 温度条 + 三维度得分 + 原始指标 */
+/** 情绪温度仪表盘（ECharts gauge）：0~100 温度，红热绿冷，中心数字滚动 */
+const EmotionGauge = memo(function EmotionGauge({ temp }: { temp: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ECharts | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    chartRef.current = echarts.init(containerRef.current, undefined, { renderer: "svg" });
+    const handleResize = () => chartRef.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const color = emotionColor(temp);
+    chartRef.current.setOption(
+      {
+        animationDuration: 900,
+        animationEasing: "cubicOut",
+        series: [
+          {
+            type: "gauge",
+            startAngle: 210,
+            endAngle: -30,
+            min: 0,
+            max: 100,
+            radius: "100%",
+            pointer: { show: false },
+            progress: { show: true, width: 14, roundCap: true, itemStyle: { color } },
+            axisLine: { lineStyle: { width: 14, color: [[1, hexToRgba(color, 0.15)]] } },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: { show: false },
+            anchor: { show: false },
+            title: {
+              show: true,
+              offsetCenter: [0, "52%"],
+              fontSize: 13,
+              fontWeight: 700,
+              color,
+            },
+            detail: {
+              valueAnimation: true,
+              offsetCenter: [0, "10%"],
+              fontSize: 36,
+              fontWeight: 700,
+              color,
+              formatter: "{value}",
+            },
+            data: [{ value: temp, name: emotionLabel(temp) }],
+          },
+        ],
+      },
+      { notMerge: true },
+    );
+  }, [temp]);
+
+  return <div ref={containerRef} style={{ width: 168, height: 150, flexShrink: 0 }} />;
+});
+
+/** 市场情绪温度模块：温度仪表盘 + 三维度得分 + 原始指标 */
 function MarketEmotionBlock({ data }: { data: unknown }) {
   const e = data as MarketEmotionResult | null;
   if (!e) return <EmptyState />;
   const temp = Math.max(0, Math.min(100, e.temperature));
-  const color = emotionColor(temp);
 
   const dims = [
     { key: "scale", label: "涨停规模", score: e.dimScores?.scale ?? 0 },
@@ -799,72 +872,48 @@ function MarketEmotionBlock({ data }: { data: unknown }) {
 
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-md, 8px)",
-        padding: "var(--spacing-5)",
+        padding: "var(--spacing-4)",
         width: "100%",
       }}
     >
-      <HStack gap={5} align="center" style={{ flexWrap: "wrap" }}>
-        <VStack gap={1} align="center" style={{ minWidth: 132 }}>
-          <Text style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, color }}>
-            {Math.round(temp)}
-          </Text>
-          <Text size="sm" style={{ fontWeight: 700, color }}>
-            {emotionLabel(temp)}
-          </Text>
-        </VStack>
+      <HStack gap={6} align="center" style={{ flexWrap: "wrap" }}>
+        <EmotionGauge temp={temp} />
 
-        <VStack gap={4} style={{ flex: 1, minWidth: 260 }}>
-          <div style={{ width: "100%" }}>
-            <div
-              style={{
-                height: 10,
-                borderRadius: 5,
-                background: "var(--color-background-subtle)",
-                overflow: "hidden",
-              }}
-            >
-              <div style={{ width: `${temp}%`, height: "100%", background: color, borderRadius: 5 }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--spacing-1)" }}>
-              <Text size="sm" type="supporting">0</Text>
-              <Text size="sm" type="supporting">50</Text>
-              <Text size="sm" type="supporting">100</Text>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-2)" }}>
-            {dims.map((d) => (
-              <div key={d.key} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-3)" }}>
-                <Text size="sm" style={{ width: 72, flexShrink: 0 }}>
-                  {d.label}
-                </Text>
+        <VStack gap={3} style={{ flex: 1, minWidth: 240 }}>
+          {dims.map((d) => (
+            <div key={d.key} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-3)" }}>
+              <Text size="sm" style={{ width: 72, flexShrink: 0 }}>
+                {d.label}
+              </Text>
+              <div
+                style={{
+                  flex: 1,
+                  height: 8,
+                  borderRadius: 4,
+                  background: "var(--color-background-subtle)",
+                  overflow: "hidden",
+                }}
+              >
                 <div
+                  className="review-bar"
                   style={{
-                    flex: 1,
-                    height: 8,
+                    width: `${Math.min(Math.max(d.score, 0), 100)}%`,
+                    height: "100%",
+                    background: "var(--color-accent)",
                     borderRadius: 4,
-                    background: "var(--color-background-subtle)",
-                    overflow: "hidden",
                   }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.min(Math.max(d.score, 0), 100)}%`,
-                      height: "100%",
-                      background: "var(--color-accent)",
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <Text size="sm" style={{ width: 40, textAlign: "right", flexShrink: 0 }}>
-                  {d.score.toFixed(1)}
-                </Text>
+                />
               </div>
-            ))}
-          </div>
+              <Text size="sm" style={{ width: 40, textAlign: "right", flexShrink: 0 }}>
+                {d.score.toFixed(1)}
+              </Text>
+            </div>
+          ))}
         </VStack>
 
         <VStack gap={2} style={{ minWidth: 120 }}>
@@ -954,12 +1003,25 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
 
 // ---------- 模块列表 ----------
 
-function ReviewSectionBlock({ section }: { section: ReviewSection }) {
+function ReviewSectionBlock({ section, index }: { section: ReviewSection; index: number }) {
   return (
-    <VStack gap={3}>
-      <Text style={{ fontWeight: 700, fontSize: 16 }}>{section.title}</Text>
-      <SectionRenderer section={section} />
-    </VStack>
+    <div className="review-reveal" style={{ animationDelay: `${Math.min(index, 10) * 55}ms` }}>
+      <VStack gap={3}>
+        <HStack gap={2} align="center">
+          <div
+            style={{
+              width: 3,
+              height: 16,
+              borderRadius: 2,
+              background: "var(--color-accent)",
+              flexShrink: 0,
+            }}
+          />
+          <Text style={{ fontWeight: 700, fontSize: 16 }}>{section.title}</Text>
+        </HStack>
+        <SectionRenderer section={section} />
+      </VStack>
+    </div>
   );
 }
 
@@ -974,7 +1036,7 @@ export function ReviewSections({ sections }: { sections: ReviewSection[] }) {
   return (
     <VStack gap={4}>
       {sections.map((section, i) => (
-        <ReviewSectionBlock key={`${section.type}-${i}`} section={section} />
+        <ReviewSectionBlock key={`${section.type}-${i}`} section={section} index={i} />
       ))}
     </VStack>
   );
