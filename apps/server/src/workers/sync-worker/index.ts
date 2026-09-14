@@ -117,8 +117,6 @@ async function bootstrapCalendarIfNeeded(): Promise<boolean> {
 console.log("[sync-worker] starting (cron mode)...");
 void cleanupInterruptedJobs();
 
-const runnerByJob = new Map<string, () => Promise<void>>();
-
 for (const job of CRON_JOBS) {
   if (!job.enabled) continue;
   if (!cron.validate(job.cron)) {
@@ -126,26 +124,19 @@ for (const job of CRON_JOBS) {
     continue;
   }
   const run = makeRunner(job);
-  runnerByJob.set(job.name, run);
   cron.schedule(job.cron, run, {
     timezone: "Asia/Shanghai",
   });
   console.log(`[sync-worker] ${job.name}: "${job.cron}"`);
 }
 
-// 启动触发：先补齐交易日历（空表时），再对启用任务各执行一次；
-// marketCloseOnly 任务经 makeRunner 守卫，非交易日/盘前会跳过。
+// 启动初始化：仅在交易日历表缺当日记录时补一次日历（空表 / 日历过期），
+// 否则 isTradeDay 恒为 false，所有 marketCloseOnly 任务会被跳过。
+// 行情数据同步不在此处触发，统一交由 cron 定时调度（或手动同步）执行。
 setTimeout(async () => {
   const bootstrapped = await bootstrapCalendarIfNeeded();
   if (bootstrapped) {
-    console.log("[sync-worker] calendar bootstrapped, market-close jobs are now enabled");
-  }
-  for (const job of CRON_JOBS) {
-    if (!job.enabled) continue;
-    if (job.name === "calendar") continue; // 已由 bootstrap 覆盖空表场景，其余依赖 cron 周期
-    const run = runnerByJob.get(job.name);
-    if (!run) continue;
-    run().catch(() => {});
+    console.log("[sync-worker] calendar bootstrapped");
   }
 }, 3000);
 

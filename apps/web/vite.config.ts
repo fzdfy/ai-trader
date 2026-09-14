@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react()],
   server: {
     port: 9080,
+    allowedHosts: ["ai.taiyangshen.xyz"],
     proxy: {
       "/api": {
         target: "http://localhost:3001",

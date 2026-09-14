@@ -25,6 +25,10 @@ import {
   bar1dAdj,
   instrument,
   limitUpPool,
+  board,
+  boardFundFlowPeriod,
+  dragonTigerDaily,
+  hotReason,
 } from "../../../db/schema";
 import { eq, desc, and, gte, lte, lt, inArray } from "drizzle-orm";
 import { loadDefaultMetric, MAINLINE_DEF, MARKET_EMOTION_DEF } from "../../../lib/metrics";
@@ -151,7 +155,7 @@ export async function getBoardConstituentsData(
   };
 }
 
-/** 主线项（四维加权评分生成）：方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应，总分 100 */
+/** 主线项（六维加权评分生成）：方向持续性 + 资金聚焦 + 龙头梯队 + 赚钱效应 + 题材催化 + 机构/游资确认，总分 100 */
 export interface MainlineItem {
   boardCode: string;
   boardName: string;
@@ -160,6 +164,12 @@ export interface MainlineItem {
   fundScore: number;
   leaderScore: number;
   effectScore: number;
+  themeScore: number;
+  dragonScore: number;
+  /** 各维度得分（key 为 MAINLINE_DEF 维度 key），供前端六维展示 */
+  dimScores: Record<string, number>;
+  /** 各子指标得分（key 为 MAINLINE_DEF 子指标 key），供前端子模块展示 */
+  subScores: Record<string, number>;
   coreStocks: string[];
   reason: string;
 }
@@ -181,14 +191,25 @@ function normalize(values: number[]): number[] {
   return values.map((v) => (v - min) / (max - min));
 }
 
+/** 题材标签切分：兼容逗号/分号/加号/顿号/斜杠/空格等分隔符 */
+function splitTags(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[,，;；+、/|｜\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 /**
  * 主线评分：从 stock_metric 表读取当前默认口径（mainline），按其 spec 打分。
  *
  * 口径结构（见 src/lib/metrics.ts 的 MAINLINE_DEF，分数总=100，维度与子指标权重均可配）：
- *   ① 方向持续性 ← board_history（近3日累计涨幅 + 近5日上涨天数）
- *   ② 资金确认   ← fund_flow_rank（主力净流入额 + 净占比）
- *   ③ 龙头情绪   ← limit_up_pool（涨停家数 + 最高连板 + 封板强度）
- *   ④ 赚钱效应   ← board_history/board_constituent/limit_up_pool（板块涨幅 + 上涨占比 + 炸板率反向）
+ *   ① 方向持续性   ← board_history（近3日累计涨幅 + 近5日上涨天数）
+ *   ② 资金聚焦     ← fund_flow_rank + board_fund_flow_period（主力净流入额 + 净占比 + 5日主力净流入）
+ *   ③ 龙头梯队     ← limit_up_pool（涨停家数 + 最高连板 + 封板强度）
+ *   ④ 赚钱效应     ← board_history/board_constituent/limit_up_pool（板块涨幅 + 上涨占比 + 炸板率反向）
+ *   ⑤ 题材催化     ← limit_up_pool 题材标签 + hot_reason（题材涨停集中度 + 题材归因强度）
+ *   ⑥ 机构/游资确认 ← dragon_tiger_daily（龙虎榜净买额 + 上榜家数，个股级信号归因到行业）
  *
  * 候选板块 = 当日涨停池涉及的行业（industry 去重）。子指标打分方式由其 scale 决定：
  * norm 在候选内 min-max 归一化、ratio 按天然上限算比例、inverseRatio 取反向。
@@ -262,6 +283,8 @@ export async function getMainlineData(
     maxConsecutive: number; // 最高连板数
     sealStrength: number; // 封板强度（取最强封板）
     stocks: Array<{ name: string; limitUpCount: number }>;
+    /** 封板股题材标签计数（tag → 家数），用于题材涨停集中度 */
+    conceptCounts: Map<string, number>;
   }
   const byName = new Map<string, Agg>();
   for (const r of poolRows) {
@@ -276,12 +299,16 @@ export async function getMainlineData(
         maxConsecutive: 0,
         sealStrength: 0,
         stocks: [],
+        conceptCounts: new Map(),
       };
       byName.set(industry, agg);
     }
     if (r.isLimitUp) {
       agg.limitUpCount += 1;
       agg.sealStrength = Math.max(agg.sealStrength, limitTypeScore(r.limitType));
+      for (const tag of splitTags(r.concepts)) {
+        agg.conceptCounts.set(tag, (agg.conceptCounts.get(tag) ?? 0) + 1);
+      }
     } else {
       agg.bustCount += 1;
     }
@@ -336,6 +363,118 @@ export async function getMainlineData(
     }
   }
 
+  // ---------- 5 日板块资金流（fund5d：资金聚焦维度的持续性子指标） ----------
+  const fund5dMap = new Map<string, number>(); // 行业名 → 5日主力净流入（元）
+  const fund5dDateRow = await db
+    .selectDistinct({ date: boardFundFlowPeriod.date })
+    .from(boardFundFlowPeriod)
+    .where(
+      and(
+        eq(boardFundFlowPeriod.boardType, "industry"),
+        eq(boardFundFlowPeriod.period, "5d"),
+        lte(boardFundFlowPeriod.date, targetDate),
+      ),
+    )
+    .orderBy(desc(boardFundFlowPeriod.date))
+    .limit(1);
+  const fund5dDate = fund5dDateRow[0]?.date ?? null;
+  if (fund5dDate) {
+    const rows = await db
+      .select({
+        name: boardFundFlowPeriod.name,
+        mainNetInflow: boardFundFlowPeriod.mainNetInflow,
+      })
+      .from(boardFundFlowPeriod)
+      .where(
+        and(
+          eq(boardFundFlowPeriod.boardType, "industry"),
+          eq(boardFundFlowPeriod.period, "5d"),
+          eq(boardFundFlowPeriod.date, fund5dDate),
+        ),
+      );
+    for (const r of rows) {
+      fund5dMap.set(r.name, n(r.mainNetInflow) ?? 0);
+    }
+  }
+
+  // ---------- symbol → 行业名 映射（题材归因 / 龙虎榜 个股级信号归因到行业） ----------
+  // 一只股票可能同时挂在 一级/二级/三级 行业板块下（如「电子 / 元件 / 印制电路板」），
+  // 而候选行业来自涨停池的二级行业名（如「元件」）。若直接对 Map 末次覆盖，会落到
+  // board_constituent 返回顺序中的最后一个（通常是三级名称），导致龙虎榜/题材归因
+  // 无法归并到候选行业。故这里先按 symbol 汇总其全部行业名，再优先选与候选行业一致的名称。
+  const symbolToIndustry = new Map<string, string>();
+  const candidateIndustryNames = new Set(byName.keys());
+  const [consRows, boardNameRows] = await Promise.all([
+    db
+      .select({ boardCode: boardConstituent.boardCode, symbol: boardConstituent.symbol })
+      .from(boardConstituent)
+      .where(eq(boardConstituent.type, "industry")),
+    db
+      .select({ code: board.code, name: board.name })
+      .from(board)
+      .where(eq(board.type, "industry")),
+  ]);
+  const boardNameMap = new Map(boardNameRows.map((r) => [r.code, r.name]));
+  const symbolBoardNames = new Map<string, string[]>();
+  for (const c of consRows) {
+    const nm = boardNameMap.get(c.boardCode);
+    if (!nm) continue;
+    const names = symbolBoardNames.get(c.symbol) ?? [];
+    if (!names.includes(nm)) names.push(nm);
+    symbolBoardNames.set(c.symbol, names);
+  }
+  for (const [symbol, names] of symbolBoardNames) {
+    symbolToIndustry.set(symbol, names.find((nm) => candidateIndustryNames.has(nm)) ?? names[0]!);
+  }
+  for (const r of poolRows) {
+    if (r.industry) symbolToIndustry.set(r.symbol, r.industry.trim());
+  }
+
+  // ---------- 机构/游资确认：龙虎榜净买额 + 上榜家数（个股 → 行业聚合） ----------
+  const dragonAgg = new Map<string, { netBuy: number; count: number }>();
+  const dragonDateRow = await db
+    .selectDistinct({ date: dragonTigerDaily.date })
+    .from(dragonTigerDaily)
+    .where(lte(dragonTigerDaily.date, targetDate))
+    .orderBy(desc(dragonTigerDaily.date))
+    .limit(1);
+  const dragonDate = dragonDateRow[0]?.date ?? null;
+  if (dragonDate) {
+    const rows = await db
+      .select({ symbol: dragonTigerDaily.symbol, netBuyWan: dragonTigerDaily.netBuyWan })
+      .from(dragonTigerDaily)
+      .where(eq(dragonTigerDaily.date, dragonDate));
+    for (const r of rows) {
+      const industry = symbolToIndustry.get(r.symbol);
+      if (!industry) continue;
+      const cur = dragonAgg.get(industry) ?? { netBuy: 0, count: 0 };
+      cur.netBuy += n(r.netBuyWan) ?? 0;
+      cur.count += 1;
+      dragonAgg.set(industry, cur);
+    }
+  }
+
+  // ---------- 题材催化：同花顺题材归因强度（个股 → 行业聚合） ----------
+  const hotReasonAgg = new Map<string, number>(); // 行业名 → 被题材归因命中的家数
+  const hotDateRow = await db
+    .selectDistinct({ date: hotReason.date })
+    .from(hotReason)
+    .where(lte(hotReason.date, targetDate))
+    .orderBy(desc(hotReason.date))
+    .limit(1);
+  const hotDate = hotDateRow[0]?.date ?? null;
+  if (hotDate) {
+    const rows = await db
+      .select({ symbol: hotReason.symbol })
+      .from(hotReason)
+      .where(eq(hotReason.date, hotDate));
+    for (const r of rows) {
+      const industry = symbolToIndustry.get(r.symbol);
+      if (!industry) continue;
+      hotReasonAgg.set(industry, (hotReasonAgg.get(industry) ?? 0) + 1);
+    }
+  }
+
   // ---------- 批量读取候选行业成分股，算上涨家数占比 ----------
   const candidateNames = [...byName.keys()];
   const codeToName = new Map<string, string>(); // BK code → 行业名
@@ -379,12 +518,17 @@ export async function getMainlineData(
     upDays5: number; // 近5日上涨天数
     mainNetInflow: number;
     netInflowPct: number;
+    fund5d: number; // 5日主力净流入（元）
     limitUpCount: number;
     maxConsecutive: number;
     sealStrength: number;
     boardPct: number; // 当日板块涨幅
     upRatio: number; // 上涨家数占比 0~1
     bustRatio: number; // 炸板率 0~1
+    themeConcentration: number; // 题材涨停集中度 0~1
+    hotReasonCount: number; // 题材归因命中家数
+    dragonNetBuy: number; // 龙虎榜净买额（万元合计）
+    dragonCount: number; // 龙虎榜上榜家数
   }
   const raws: Raw[] = [];
   for (const [name, agg] of byName) {
@@ -406,6 +550,11 @@ export async function getMainlineData(
       .map((s) => s.name);
 
     const total = agg.limitUpCount + agg.bustCount;
+    // 题材涨停集中度：封板股中同一题材标签的最大重叠家数 / 封板家数（0~1）
+    let maxTagCount = 0;
+    for (const c of agg.conceptCounts.values()) maxTagCount = Math.max(maxTagCount, c);
+    const themeConcentration = agg.limitUpCount > 0 ? maxTagCount / agg.limitUpCount : 0;
+    const dragon = dragonAgg.get(name);
     raws.push({
       name,
       code,
@@ -414,12 +563,17 @@ export async function getMainlineData(
       upDays5,
       mainNetInflow: fund?.mainNetInflow ?? 0,
       netInflowPct: fund?.netInflowPct ?? 0,
+      fund5d: fund5dMap.get(name) ?? 0,
       limitUpCount: agg.limitUpCount,
       maxConsecutive: agg.maxConsecutive,
       sealStrength: agg.sealStrength,
       boardPct: pcts[0] ?? 0,
       upRatio: upRatioMap.get(name) ?? 0,
       bustRatio: total > 0 ? agg.bustCount / total : 0,
+      themeConcentration,
+      hotReasonCount: hotReasonAgg.get(name) ?? 0,
+      dragonNetBuy: dragon?.netBuy ?? 0,
+      dragonCount: dragon?.count ?? 0,
     });
   }
 
@@ -432,12 +586,17 @@ export async function getMainlineData(
       case "upDays5": return r.upDays5;
       case "netInflow": return r.mainNetInflow;
       case "netPct": return r.netInflowPct;
+      case "fund5d": return r.fund5d;
       case "limitUpCount": return r.limitUpCount;
       case "maxConsec": return r.maxConsecutive;
       case "sealType": return r.sealStrength;
       case "boardPct": return r.boardPct;
       case "upRatio": return r.upRatio;
       case "bustRate": return r.bustRatio;
+      case "themeConcentration": return r.themeConcentration;
+      case "hotReasonCount": return r.hotReasonCount;
+      case "dragonNetBuy": return r.dragonNetBuy;
+      case "dragonCount": return r.dragonCount;
       default: return 0;
     }
   };
@@ -457,6 +616,7 @@ export async function getMainlineData(
   const allItems: MainlineItem[] = raws.map((r, i) => {
     // 各维度得分 = 该维内子指标得分之和（满分 = 维度权重）
     const dimScores: Record<string, number> = {};
+    const subScores: Record<string, number> = {};
     let total = 0;
     for (const dim of MAINLINE_DEF.dims) {
       let dimScore = 0;
@@ -464,21 +624,26 @@ export async function getMainlineData(
         const w = spec.subs[sub.key] ?? 0;
         if (w <= 0) continue;
         const rawVal = subValue(sub.key, r);
+        let contrib = 0;
         if (sub.scale.type === "norm") {
-          dimScore += (normCache[sub.key]?.[i] ?? 0) * w;
+          contrib = (normCache[sub.key]?.[i] ?? 0) * w;
         } else if (sub.scale.type === "ratio") {
           const v = Math.min(Math.max(rawVal / sub.scale.max, 0), 1);
-          dimScore += v * w;
+          contrib = v * w;
         } else {
           // inverseRatio：越低越好
           const v = Math.min(Math.max(rawVal, 0), 1);
-          dimScore += (1 - v) * w;
+          contrib = (1 - v) * w;
         }
+        subScores[sub.key] = contrib;
+        dimScore += contrib;
       }
       dimScores[dim.key] = dimScore;
       total += dimScore;
     }
     const dimNum = (k: string) => Number((dimScores[k] ?? 0).toFixed(1));
+    const roundMap = (m: Record<string, number>) =>
+      Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Number(v.toFixed(1))]));
     return {
       boardCode: r.code,
       boardName: r.name,
@@ -487,6 +652,10 @@ export async function getMainlineData(
       fundScore: dimNum("fund"),
       leaderScore: dimNum("leader"),
       effectScore: dimNum("effect"),
+      themeScore: dimNum("theme"),
+      dragonScore: dimNum("dragon"),
+      dimScores: roundMap(dimScores),
+      subScores: roundMap(subScores),
       coreStocks: r.coreStocks,
       reason:
         `${MAINLINE_DEF.dims.map((d) => `${d.label}${(dimScores[d.key] ?? 0).toFixed(0)}分`).join("/")}` +
@@ -990,13 +1159,14 @@ export const boardConstituentsTool = createTool({
   execute: async ({ boardCode, limit }) => getBoardConstituentsData(boardCode, limit),
 });
 
-/** 主线（规则化）：四维加权评分（方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应），不依赖 LLM */
+/** 主线（规则化）：六维加权评分（方向持续性 + 资金聚焦 + 龙头梯队 + 赚钱效应 + 题材催化 + 机构/游资确认），不依赖 LLM */
 export const mainlineTool = createTool({
   id: "getMainline",
   description:
     "规则化生成当日主线（top N 行业板块 + 龙头股）。按当前配置的主线口径（stock_metric 表 mainline）评分，" +
-    "口径含四维（方向持续性/资金确认/龙头情绪/赚钱效应，默认权重 25/30/25/20，总分 100），" +
-    "可用不同预设定义（metric.instruction 说明当前口径）。返回结果含每维得分、理由与当前口径说明，可直接渲染。",
+    "口径含六维（方向持续性/资金聚焦/龙头梯队/赚钱效应/题材催化/机构/游资确认，默认权重 18/20/18/12/16/16，总分 100），" +
+    "可用不同预设定义（metric.instruction 说明当前口径）。返回结果含总分、每维得分（directionScore/fundScore/leaderScore/effectScore/themeScore/dragonScore）、" +
+    "维度明细 dimScores 与子指标明细 subScores、龙头股、理由与当前口径说明，可直接渲染。",
   inputSchema: z.object({
     date: z.string().optional().describe("交易日 YYYY-MM-DD，缺省取最新涨停池快照日期"),
     limit: z.number().optional().describe("返回条数；缺省使用口径 spec.topN（最大 10）"),
@@ -1018,6 +1188,10 @@ export const mainlineTool = createTool({
         fundScore: z.number(),
         leaderScore: z.number(),
         effectScore: z.number(),
+        themeScore: z.number(),
+        dragonScore: z.number(),
+        dimScores: z.record(z.number()),
+        subScores: z.record(z.number()),
         coreStocks: z.array(z.string()),
         reason: z.string(),
       }),

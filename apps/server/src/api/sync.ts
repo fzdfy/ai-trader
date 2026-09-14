@@ -26,6 +26,9 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "constituents", name: "板块成分股" },
   { jobType: "fundflow", name: "资金流排行" },
   { jobType: "limit-up-pool", name: "涨停池" },
+  { jobType: "board-fund-flow", name: "板块资金流" },
+  { jobType: "dragon-tiger", name: "龙虎榜" },
+  { jobType: "hot-reason", name: "题材归因" },
   { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
   { jobType: "sync-manual", name: "手动同步" },
@@ -41,6 +44,9 @@ const WORKER_MARKET_JOBS = [
   "constituents",
   "fundflow",
   "limit-up-pool",
+  "board-fund-flow",
+  "dragon-tiger",
+  "hot-reason",
   "features",
 ];
 
@@ -53,7 +59,7 @@ async function queryLastUpdated(): Promise<string | null> {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/** 今日是否已有成功的手动同步（sync-manual）记录（基于本地日期窗口，与 worker 的 hasSuccessToday 对齐） */
+/** 今日是否已有成功的手动同步（sync-manual）记录（按运行日去重，防止同一天重复触发；跨天数据幂等由管道级 hasSuccessToday 按 trade_date 保证） */
 async function hasManualSuccessToday(): Promise<boolean> {
   const today = localDateStr();
   const start = new Date(`${today}T00:00:00`);
@@ -194,6 +200,10 @@ syncRoute.get("/modules", async (c) => {
       error: latest?.error ?? null,
       startedAt: latest?.startedAt ?? null,
       finishedAt: latest?.finishedAt ?? null,
+      durationMs:
+        latest?.startedAt && latest?.finishedAt
+          ? latest.finishedAt.getTime() - latest.startedAt.getTime()
+          : null,
       lastSuccessAt: latest?.status === "success" ? (latest?.finishedAt ?? null) : null,
       todaySuccess: stats.success,
       todayFailed: stats.failed,
@@ -215,6 +225,10 @@ syncRoute.get("/modules", async (c) => {
       error: latest.error ?? null,
       startedAt: latest.startedAt ?? null,
       finishedAt: latest.finishedAt ?? null,
+      durationMs:
+        latest.startedAt && latest.finishedAt
+          ? latest.finishedAt.getTime() - latest.startedAt.getTime()
+          : null,
       lastSuccessAt: latest.status === "success" ? (latest.finishedAt ?? null) : null,
       todaySuccess: stats.success,
       todayFailed: stats.failed,
@@ -265,7 +279,7 @@ syncRoute.post("/run", async (c) => {
   // 后台执行，不阻塞请求；结束后落终态（success / failed）
   void (async () => {
     try {
-      await runManualSync();
+      await runManualSync({ force });
 
       if (runId != null) {
         await db

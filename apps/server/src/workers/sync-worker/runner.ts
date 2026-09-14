@@ -11,10 +11,10 @@
  * 抽离原因：index.ts 顶部有 cron.schedule / setTimeout 等副作用，server 进程无法直接 import；
  * 本模块无副作用，可被 worker 与 server 两个进程安全共用。
  */
-import { and, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun } from "../../db/schema";
-import { localDateStr } from "./calendar";
+import { getSyncTradeDate } from "./calendar";
 import { runWithProgress } from "./progress";
 import { kline1mPipe } from "./pipes/kline-1m";
 import { kline1dPipeRun } from "./pipes/kline-1d";
@@ -26,6 +26,9 @@ import { constituentsPipeRun } from "./pipes/constituents";
 import { fundFlowPipeRun } from "./pipes/fundflow";
 import { featuresPipeRun } from "./pipes/features";
 import { limitUpPoolPipeRun } from "./pipes/limit-up-pool";
+import { boardFundFlowPipeRun } from "./pipes/board-fund-flow";
+import { dragonTigerPipeRun } from "./pipes/dragon-tiger";
+import { hotReasonPipeRun } from "./pipes/hot-reason";
 import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
 
@@ -40,6 +43,9 @@ export type PipeName =
   | "fundflow"
   | "features"
   | "limit-up-pool"
+  | "board-fund-flow"
+  | "dragon-tiger"
+  | "hot-reason"
   | "kline-period"
   | "calendar";
 
@@ -54,6 +60,9 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   fundflow: () => fundFlowPipeRun(),
   features: () => featuresPipeRun(),
   "limit-up-pool": () => limitUpPoolPipeRun(),
+  "board-fund-flow": () => boardFundFlowPipeRun(),
+  "dragon-tiger": () => dragonTigerPipeRun(),
+  "hot-reason": () => hotReasonPipeRun(),
   "kline-period": () => klinePeriodPipeRun(),
   calendar: () => calendarPipeRun(),
 };
@@ -129,9 +138,10 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
     running.add(name);
     let runId: number | null = null;
     try {
+      const tradeDate = await getSyncTradeDate();
       const inserted = await db
         .insert(jobRun)
-        .values({ jobType: name, status: "running", startedAt: new Date() })
+        .values({ jobType: name, status: "running", startedAt: new Date(), tradeDate })
         .returning({ id: jobRun.id });
       runId = inserted[0]?.id ?? null;
 
@@ -164,11 +174,11 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
   };
 }
 
-/** 某 jobType 今日是否已有成功记录（基于本地日期窗口） */
+/** 某 jobType 在当前应同步交易日是否已有成功记录（基于 trade_date） */
 export async function hasSuccessToday(jobType: string): Promise<boolean> {
-  const today = localDateStr();
-  const start = new Date(`${today}T00:00:00`);
-  const end = new Date(`${today}T23:59:59.999`);
+  const tradeDate = await getSyncTradeDate();
+  // 日历表缺失（首次部署 / 日历过期）：视为未成功，不跳过，让任务正常执行并暴露问题
+  if (!tradeDate) return false;
   const rows = await db
     .select({ id: jobRun.id })
     .from(jobRun)
@@ -176,8 +186,7 @@ export async function hasSuccessToday(jobType: string): Promise<boolean> {
       and(
         eq(jobRun.jobType, jobType),
         eq(jobRun.status, "success"),
-        gte(jobRun.startedAt, start),
-        lte(jobRun.startedAt, end),
+        eq(jobRun.tradeDate, tradeDate),
       ),
     )
     .limit(1);
@@ -204,21 +213,64 @@ const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "features", dependsOn: "kline-1d" },
   { name: "fundflow" },
   { name: "limit-up-pool" },
+  { name: "board-fund-flow" },
+  { name: "dragon-tiger" },
+  { name: "hot-reason" },
 ];
 
 /**
- * 手动同步：按依赖顺序串行执行全部 8 个行情/板块/资金/特征管道，
+ * 手动同步：并发编排执行 8 个行情/板块/资金/特征管道（与定时任务一致的并发模型），
  * 每个管道用 wrapJob 写独立 jobType 记录（与定时任务公用 job_run 幂等状态）。
- * 前置管道本次失败则终止后续，抛错给调用方标 failed。
+ *
+ * 并发语义：
+ *   - 无依赖管道（boards / kline-1d / fundflow / limit-up-pool）并行启动，写不同表互不冲突。
+ *   - 有依赖管道（board-kline / constituents 依赖 boards；kline-period / features 依赖 kline-1d）
+ *     挂接在各自依赖的 Promise 上：依赖成功才执行，失败则跳过。
+ *   - 当日已同步完整（job_run 有当日 success）且非 force 时跳过，避免重复全市场拉取。
+ *   - 单个失败不阻断其他无依赖管道；全部跑完后若存在失败/跳过，抛汇总错误使 sync-manual 整体标 failed。
  */
-export async function runManualSync(): Promise<void> {
-  const done = new Set<PipeName>();
-  for (const job of MANUAL_SYNC_JOBS) {
-    if (job.dependsOn && !done.has(job.dependsOn)) {
-      throw new Error(`依赖 ${job.dependsOn} 本次未成功，终止 ${job.name}`);
+export async function runManualSync(opts: { force?: boolean } = {}): Promise<void> {
+  const { force = false } = opts;
+  const failed: string[] = [];
+  const runs = new Map<PipeName, Promise<boolean>>();
+
+  const runOne = async (name: PipeName): Promise<boolean> => {
+    // 当日已同步完整且非强制重跑 → 跳过（视为已满足，供依赖链继续）
+    if (!force && (await hasSuccessToday(name))) {
+      console.log(`[manual-sync] ${name}: skip (今日已同步)`);
+      return true;
     }
-    const ok = await wrapJob(job.name, RUNNERS[job.name])();
-    if (!ok) throw new Error(`${job.name} 执行失败，终止手动同步`);
-    done.add(job.name);
+    const ok = await wrapJob(name, RUNNERS[name])();
+    if (!ok) failed.push(name);
+    return ok;
+  };
+
+  // 1) 无依赖管道并行启动
+  for (const job of MANUAL_SYNC_JOBS) {
+    if (!job.dependsOn) runs.set(job.name, runOne(job.name));
+  }
+
+  // 2) 有依赖管道挂接到各自依赖的 Promise：依赖成功才跑，失败则跳过
+  for (const job of MANUAL_SYNC_JOBS) {
+    const { name, dependsOn } = job;
+    if (!dependsOn) continue;
+    runs.set(
+      name,
+      (async () => {
+        const depOk = await runs.get(dependsOn)!;
+        if (!depOk) {
+          console.warn(`[manual-sync] ${name}: 跳过（依赖 ${dependsOn} 未成功）`);
+          failed.push(`${name}（依赖 ${dependsOn} 未成功）`);
+          return false;
+        }
+        return runOne(name);
+      })(),
+    );
+  }
+
+  await Promise.all(runs.values());
+
+  if (failed.length > 0) {
+    throw new Error(`部分管道失败或跳过: ${failed.join("、")}`);
   }
 }

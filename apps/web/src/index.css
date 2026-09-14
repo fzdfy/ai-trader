@@ -34,6 +34,14 @@
   --chart-seq-3: #f5a623;
   --chart-seq-4: #30a46c;
 
+  /* 得分维度色板（主线六维 / 板块子指标 / 情绪维度共用） */
+  --chart-dim-0: #4c8dff;
+  --chart-dim-1: #e5484d;
+  --chart-dim-2: #f5a623;
+  --chart-dim-3: #30a46c;
+  --chart-dim-4: #9a6bff;
+  --chart-dim-5: #1ca0b8;
+
   /* 权益主色（回测） */
   --chart-equity: light-dark(#0d4a3a, #4cc38a);
 }
@@ -77,4 +85,45 @@ body {
 /* 数据数字：等宽对齐（表格/指标卡） */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 复盘模块动效 ---------- */
+
+/* 模块入场：逐卡上浮淡入 */
+@keyframes review-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.review-reveal {
+  animation: review-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 卡片 hover：轻微抬升 + 阴影（配合入场动画增强层级） */
+.review-card {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.review-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px light-dark(rgba(5, 54, 89, 0.08), rgba(0, 0, 0, 0.35));
+}
+
+/* 复盘六维模块：两列网格（窄屏降为单列） */
+.review-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-4, 16px);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .review-grid-2 {
+    grid-template-columns: 1fr;
+  }
 }

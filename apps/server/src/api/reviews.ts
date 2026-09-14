@@ -10,15 +10,12 @@
  *   GET  /mainline        规则化主线（独立接口，date/limit 可选）
  *   GET  /:date           回放某交易日复盘
  *
- * 八大模块（固定，代码写死顺序/标题/图表类型，与 skill「复盘模块」1~7 对齐）：
- *   1. fundflow        资金流向（行业 / 概念 / 个股 top5，来自 fund_flow_rank 表）
- *   2. mainline        主线（规则化：四维加权评分，来自涨停池 + 资金流 + 板块历史）
- *   3. limitup_pool    涨停池/连板梯队（连板梯队/封板/题材，来自 limit_up_pool 表）
- *   4. market_emotion  市场情绪温度（0~100，来自 limit_up_pool 口径化）
- *   5. boardchange     当日板块异动（top5，来自 board_history 表对比）
- *   6. limitup         3 连板及以上（top5，来自 bar1d_adj 表按涨幅阈值统计）
- *   7. stockpool       今日自选股票池（列表 + 与上一交易日变动）
- *   8. summary         总结（agent 生成，输入为全部结构化模块数据）
+ * 九项（固定，代码写死顺序/标题/图表类型）：
+ *   1~6. mainline_dim  主线六维（方向持续性/资金聚焦/龙头梯队/赚钱效应/题材催化/机构游资确认，
+ *                      每个维度含子指标得分与领先板块，来自主线规则引擎）
+ *   7.    mainline      主线（规则化：六维加权总分 top N 行业板块）
+ *   8.    stockpool     今日自选股票池（列表 + 与上一交易日变动）
+ *   9.    summary       总结（agent 生成，输入为全部结构化模块数据）
  *
  * 结构化模块全部从数据库直接组装（快、稳）；agent 仅生成总结（压轴），
  * 输入为精选后的结构化数据，输出为纯文本，无 JSON 解析风险。
@@ -29,8 +26,9 @@ import { db } from "../db";
 import { reviewSkill, reviewDaily } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
 import { ok, badRequest, serverError } from "../lib/response";
+import { getSyncTradeDate } from "../workers/sync-worker/calendar";
 import { mastra } from "../agent/mastra";
-import { loadDefaultMetric } from "../lib/metrics";
+import { loadDefaultMetric, MAINLINE_DEF } from "../lib/metrics";
 import {
   getFundFlowRankData,
   getDailyBoardChangesData,
@@ -49,30 +47,21 @@ const reviewsRoute = new Hono();
 /** 默认复盘方法论（首次读取时种子写入；导出供一次性脚本更新已存在的旧 skill 记录） */
 export const DEFAULT_INSTRUCTIONS = `你是专业的 A 股复盘分析师，负责对指定交易日进行复盘并产出「总结」。
 
-## 复盘模块（按此结构组织）
-1. 资金流向：行业/概念/个股主力净流入各 top5，识别资金聚焦方向。
-2. 主线：方向持续性 + 资金确认 + 龙头情绪 + 赚钱效应加权，总分 100（口径以 getMainline 返回的 metric.instruction 为准）。
-3. 涨停池/连板梯队：涨停家数、连板梯队（首板/二板/高度板）、炸板率、封板强度、题材归类。
-4. 市场情绪温度：涨停规模 + 封板质量 + 连板高度加权，0~100 越高越热（口径以 getMarketEmotion 返回的 metric.instruction 为准）。
-5. 板块异动：当日较上一交易日涨幅变化最大的板块（轮动信号）。
-6. 连板：3 连板及以上个股，判断市场高度与赚钱效应。
-7. 选股池：今日选股池与上一交易日的新增/移除，评估与主线匹配度。
+## 复盘结构（九项）
+1~6. 六个主线维度（每个维度含子指标得分与领先板块）：
+  - 方向持续性：近3日累计涨幅、近5日上涨天数
+  - 资金聚焦：主力净流入额、净占比、5日主力净流入
+  - 龙头梯队：涨停家数、最高连板数、封板强度
+  - 赚钱效应：板块涨幅、上涨家数占比、炸板率
+  - 题材催化：题材涨停集中度、题材归因强度
+  - 机构/游资确认：龙虎榜净买额、上榜家数
+7. 主线：六维加权总分 top N 行业板块（总分 100，口径以 getMainline 返回的 metric.instruction 为准）。
+8. 自选股：今日选股池与上一交易日的新增/移除，评估与主线匹配度。
+9. 总结
 
 ## 总结输出要求
 150 字左右，精炼、有观点，覆盖：大盘/资金面、主线方向、连板情绪（含情绪温度）、选股池点评、明日关注点。
 用 Markdown 列表；结论必须有数据支撑，不得虚构。`;
-
-/** 固定复盘模块（顺序 / 标题 / 图表类型写死，与 skill「复盘模块」1~7 对齐，前端按 type 渲染） */
-const REVIEW_MODULES = [
-  { type: "fundflow", title: "资金流向", chart: "fundflow" },
-  { type: "mainline", title: "主线", chart: "mainline" },
-  { type: "limitup_pool", title: "涨停池/连板梯队", chart: "limitup_pool" },
-  { type: "market_emotion", title: "市场情绪温度", chart: "market_emotion" },
-  { type: "boardchange", title: "当日板块异动", chart: "bar" },
-  { type: "limitup", title: "3 连板及以上", chart: "table" },
-  { type: "stockpool", title: "今日自选股票池", chart: "stockpool" },
-  { type: "summary", title: "总结", chart: "text" },
-] as const;
 
 /** 确保存在默认方法论，返回 instructions 字符串 */
 async function ensureInstructions(): Promise<string> {
@@ -139,8 +128,8 @@ function fmtYuan(v: number | null | undefined): string {
 }
 
 /**
- * 自描述复盘模块：type + title + chart（固定 REVIEW_MODULES）+ 渲染数据 data。
- * 前端据此动态渲染，按 type 分派到专用组件。
+ * 自描述复盘模块：type + title + chart + 渲染数据 data。
+ * 前端据此动态渲染，按 type / chart 分派到专用组件。
  */
 interface ReviewSection {
   type: string;
@@ -149,10 +138,10 @@ interface ReviewSection {
   data: unknown;
 }
 
-/** 八大模块的数据对象 */
+/** 九项复盘的数据对象（六维 + 主线 + 自选股 + 总结；其余字段供总结 agent 参考） */
 interface ReviewData {
   fundflow: { industry: unknown[]; concept: unknown[]; stock: unknown[] };
-  mainline: unknown[];
+  mainline: MainlineItem[];
   limitUpPool: LimitUpPoolItem[];
   boardChanges: unknown[];
   limitUp: unknown[];
@@ -161,42 +150,76 @@ interface ReviewData {
   summary: string;
 }
 
-/** 模块类型 → 数据源字段映射 */
-const DATA_SOURCES: Record<
-  string,
-  | "fundflow"
-  | "mainline"
-  | "limitUpPool"
-  | "marketEmotion"
-  | "boardChanges"
-  | "limitUp"
-  | "stockPool"
-  | "summary"
-> = {
-  fundflow: "fundflow",
-  mainline: "mainline",
-  limitup_pool: "limitUpPool",
-  market_emotion: "marketEmotion",
-  boardchange: "boardChanges",
-  limitup: "limitUp",
-  stockpool: "stockPool",
-  summary: "summary",
-};
+/** 维度子指标得分（板块在该维度某子指标上的贡献分） */
+interface DimensionSubScore {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+}
+
+/** 维度内单个板块的得分快照 */
+interface DimensionBoard {
+  boardName: string;
+  coreStocks: string[];
+  dimScore: number;
+  totalScore: number;
+  subs: DimensionSubScore[];
+}
+
+/** 维度模块数据：维度定义 + 该维度得分领先的板块（含子指标得分） */
+interface DimensionSectionData {
+  key: string;
+  label: string;
+  weight: number;
+  boards: DimensionBoard[];
+}
+
+/** 由主线 items + MAINLINE_DEF 组装六个维度模块数据（各取该维度得分前 5 板块） */
+function buildDimensionSections(items: MainlineItem[]): DimensionSectionData[] {
+  return MAINLINE_DEF.dims.map((dim) => {
+    const boards = items
+      .map((m) => ({
+        boardName: m.boardName,
+        coreStocks: m.coreStocks ?? [],
+        dimScore: m.dimScores?.[dim.key] ?? 0,
+        totalScore: m.score ?? 0,
+        subs: dim.subs.map((s) => ({
+          key: s.key,
+          label: s.label,
+          score: m.subScores?.[s.key] ?? 0,
+          weight: s.weightDefault,
+        })),
+      }))
+      .sort((a, b) => b.dimScore - a.dimScore)
+      .slice(0, 5);
+    return { key: dim.key, label: dim.label, weight: dim.weightDefault, boards };
+  });
+}
 
 /**
- * 依据固定 REVIEW_MODULES 与复盘数据，组装自描述的 sections。
+ * 组装自描述的 sections（九项：六维 + 主线 + 自选股 + 总结）。
  * 顺序、标题、图表类型写死；模块数据缺失时 data 为 null（前端按空状态处理）。
  */
 function buildSections(data: ReviewData): ReviewSection[] {
-  return REVIEW_MODULES.map((s) => {
-    const source = DATA_SOURCES[s.type];
-    return {
-      type: s.type,
-      title: s.title,
-      chart: s.chart,
-      data: source ? data[source] : null,
-    };
-  });
+  const sections: ReviewSection[] = [];
+  const items = data.mainline ?? [];
+
+  // 1~6. 主线六维（每个维度含子指标得分与领先板块）
+  for (const dim of buildDimensionSections(items)) {
+    sections.push({ type: "mainline_dim", title: dim.label, chart: "dimension", data: dim });
+  }
+
+  // 7. 主线（六维加权总分 top N 行业板块）
+  sections.push({ type: "mainline", title: "主线", chart: "mainline", data: items });
+
+  // 8. 自选股
+  sections.push({ type: "stockpool", title: "今日自选股票池", chart: "stockpool", data: data.stockPool });
+
+  // 9. 总结
+  sections.push({ type: "summary", title: "总结", chart: "text", data: data.summary });
+
+  return sections;
 }
 
 // ---------- 结构化数据获取（复用 agent 工具，全部从 DB 读取） ----------
@@ -261,9 +284,12 @@ function serializeReviewData(data: ReviewData): string {
   fundRows(data.fundflow.concept, "概念资金流向 Top5");
   fundRows(data.fundflow.stock, "个股资金流向 Top5");
 
-  lines.push("【主线】");
-  for (const m of (data.mainline as MainlineItem[]) ?? []) {
-    lines.push(`- ${m.boardName}: 核心股[${m.coreStocks.join("、")}] ${m.reason}`);
+  lines.push("【主线（六维加权）】");
+  for (const m of data.mainline ?? []) {
+    const dims = MAINLINE_DEF.dims
+      .map((d) => `${d.label}${(m.dimScores?.[d.key] ?? 0).toFixed(1)}`)
+      .join("/");
+    lines.push(`- ${m.boardName}（总分${m.score}）: ${dims}，核心股[${m.coreStocks.join("、")}]`);
   }
 
   // 涨停池连板梯队摘要（封板股按连板数降序，供 agent 点评梯队高度与题材）
@@ -447,13 +473,13 @@ reviewsRoute.post("/generate", async (c) => {
 //   error    { message }                           —— 出错
 //
 // 推送顺序：
-//   1. 结构化模块（fundflow/boardchange/limitup/stockpool，DB 读取）按固定顺序推送；
-//   2. mainline（规则化，查成分股）就绪后推送；
-//   3. 最后推送 summary（agent 总结压轴）。
+//   1. 六维 + 主线 + 自选股（DB 读取 + 规则化主线）按固定顺序推送；
+//   2. 最后推送 summary（agent 总结压轴）。
 // 不推 data=null 占位：前端按 index 填充，仅渲染已就绪模块。
 reviewsRoute.post("/generate/stream", async (c) => {
   const body = (await c.req.json()) as { date?: string };
-  const date = body.date?.trim() || formatDate(new Date());
+  // 同上：默认日期对齐「当前应同步交易日」，日历表缺失时回退运行日
+  const date = body.date?.trim() || (await getSyncTradeDate()) || formatDate(new Date());
 
   return streamSSE(c, async (stream) => {
     try {
@@ -470,46 +496,11 @@ reviewsRoute.post("/generate/stream", async (c) => {
         fetchStockPool(date),
         getMarketEmotionData(date),
       ]);
-      const dataMap: Record<string, unknown> = {
-        fundflow,
-        limitUpPool,
-        boardChanges,
-        limitUp,
-        stockPool,
-        marketEmotion,
-      };
 
-      // 2. 推送除 mainline / summary 外的结构化模块（fundflow/limitup_pool/market_emotion/boardchange/limitup/stockpool）
-      for (let i = 0; i < REVIEW_MODULES.length; i++) {
-        const s = REVIEW_MODULES[i]!;
-        if (s.type === "mainline" || s.type === "summary") continue;
-        await stream.writeSSE({
-          event: "section",
-          data: JSON.stringify({
-            index: i,
-            type: s.type,
-            title: s.title,
-            chart: s.chart,
-            data: dataMap[DATA_SOURCES[s.type]!],
-          }),
-        });
-      }
-
-      // 3. 规则化主线（查成分股，稍慢）→ 推送
+      // 2. 规则化主线（六维，查成分股稍慢）
       const mainline = await buildMainline(date);
-      const mainlineIndex = REVIEW_MODULES.findIndex((s) => s.type === "mainline");
-      await stream.writeSSE({
-        event: "section",
-        data: JSON.stringify({
-          index: mainlineIndex,
-          type: "mainline",
-          title: REVIEW_MODULES[mainlineIndex]!.title,
-          chart: "mainline",
-          data: mainline,
-        }),
-      });
 
-      // 4. agent 生成总结（压轴）→ 推送（注入当前主线/市场情绪口径）
+      // 3. 组装九项 sections（summary 暂空），推送除 summary 外的模块
       const data: ReviewData = {
         fundflow,
         mainline,
@@ -520,6 +511,17 @@ reviewsRoute.post("/generate/stream", async (c) => {
         marketEmotion,
         summary: "",
       };
+      const sections = buildSections(data);
+      for (let i = 0; i < sections.length; i++) {
+        const s = sections[i]!;
+        if (s.type === "summary") continue;
+        await stream.writeSSE({
+          event: "section",
+          data: JSON.stringify({ index: i, type: s.type, title: s.title, chart: s.chart, data: s.data }),
+        });
+      }
+
+      // 4. agent 生成总结（压轴）→ 推送（注入当前主线/市场情绪口径）
       const summary = await runSummaryAgent(
         date,
         instructions,
@@ -528,21 +530,21 @@ reviewsRoute.post("/generate/stream", async (c) => {
         ctx.marketEmotion?.instruction,
       );
       data.summary = summary;
-      const summaryIndex = REVIEW_MODULES.findIndex((s) => s.type === "summary");
+      const summaryIndex = sections.length - 1;
       await stream.writeSSE({
         event: "section",
         data: JSON.stringify({
           index: summaryIndex,
           type: "summary",
-          title: REVIEW_MODULES[summaryIndex]!.title,
+          title: sections[summaryIndex]!.title,
           chart: "text",
           data: summary,
         }),
       });
 
       // 5. 组装并落库（同日期覆盖）；skill 快照含口径，回放口径一致
-      const sections = buildSections(data);
-      await persistReview(date, sections, summary, {
+      const finalSections = buildSections(data);
+      await persistReview(date, finalSections, summary, {
         instructions,
         mainline: ctx.mainline,
         marketEmotion: ctx.marketEmotion,

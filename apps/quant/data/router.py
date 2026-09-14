@@ -276,7 +276,7 @@ def get_board_fund_flow(
 
 @router.get("/fund-flow-rank", response_model=list[FundFlowRankItem])
 def get_fund_flow_rank(
-    top_n: Annotated[int | None, Query(ge=1, le=300, description="返回前 N 名，不传返回全量个股")] = None,
+    top_n: Annotated[int | None, Query(ge=1, le=1000, description="返回前 N 名，不传返回全量个股")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> list[FundFlowRankItem]:
     """全市场个股资金流排行（按主力净流入降序）。来源：东财 push2 clist（独有）；降级：无。"""

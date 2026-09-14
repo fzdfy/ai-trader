@@ -20,8 +20,10 @@ import {
   chartUp,
   chartDown,
   chartCurrent,
+  chartDim,
   splitLineStyle,
   axisLineStyle,
+  hexToRgba,
 } from "../../../../lib/theme";
 import type {
   Review,
@@ -31,6 +33,8 @@ import type {
   ReviewStockPoolItem,
   LimitUpPoolItem,
   MarketEmotionResult,
+  DimensionSectionData,
+  DimensionBoard,
 } from "../../../../hooks/useReviews";
 import { fmtFlow } from "../../../../lib/format";
 
@@ -121,7 +125,8 @@ const BarChart = memo(function BarChart({
 
     chartRef.current.setOption(
       {
-        animation: false,
+        animationDuration: 700,
+        animationEasing: "cubicOut",
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "shadow" },
@@ -164,13 +169,221 @@ const BarChart = memo(function BarChart({
       ref={containerRef}
       style={{
         width: "100%",
-        height: Math.max(320, Math.min(560, rows.length * 26)),
+        height: Math.max(200, Math.min(340, rows.length * 22)),
         minHeight: 0,
         background: "var(--color-background-card)",
         borderRadius: "var(--radius-md, 8px)",
       }}
     />
   );
+});
+
+// ---------- 横向柱状图（ECharts，供各模块复用） ----------
+
+/** 单条横向柱：label 为类目轴文本，display 为 tooltip/数值标签展示文本 */
+interface HBarsItem {
+  label: string;
+  value: number;
+  color: string;
+  display?: string;
+}
+
+/**
+ * 通用横向柱状图：类目轴 + 值轴，柱体用「左浅右深」渐变填充。
+ * 相比逐条 HTML 条形，能一次性横向铺开所有项，节省纵向空间。
+ */
+const HorizontalBars = memo(function HorizontalBars({
+  items,
+  height = 220,
+  barWidth = 14,
+}: {
+  items: HBarsItem[];
+  height?: number;
+  barWidth?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ECharts | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    chartRef.current = echarts.init(containerRef.current, undefined, { renderer: "svg" });
+    const handleResize = () => chartRef.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.setOption(
+      {
+        animationDuration: 700,
+        animationEasing: "cubicOut",
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
+            if (!Array.isArray(params) || !params[0]) return "";
+            const d = items[params[0].dataIndex];
+            if (!d) return "";
+            const v = d.display ?? formatNumber(d.value);
+            return `<strong>${d.label}</strong><br/>${v}`;
+          },
+        },
+        grid: { left: 8, right: 52, top: 6, bottom: 6, containLabel: true },
+        xAxis: { type: "value", show: false },
+        yAxis: {
+          type: "category",
+          inverse: true,
+          data: items.map((d) => d.label),
+          axisLabel: { color: chartAxisText(), fontSize: 12 },
+          axisTick: { show: false },
+          ...axisLineStyle,
+        },
+        series: [
+          {
+            type: "bar",
+            barMaxWidth: barWidth,
+            data: items.map((d) => ({
+              value: d.value,
+              itemStyle: {
+                borderRadius: [0, 7, 7, 0],
+                color: {
+                  type: "linear",
+                  x: 0,
+                  y: 0,
+                  x2: 1,
+                  y2: 0,
+                  colorStops: [
+                    { offset: 0, color: hexToRgba(d.color, 0.35) },
+                    { offset: 1, color: d.color },
+                  ],
+                },
+              },
+            })),
+            label: {
+              show: true,
+              position: "right",
+              color: chartAxisText(),
+              fontSize: 11,
+              formatter: (p: { dataIndex: number; value: number }) => {
+                const d = items[p.dataIndex];
+                return d?.display ?? formatNumber(d?.value ?? p.value);
+              },
+            },
+          },
+        ],
+      },
+      { notMerge: true },
+    );
+  }, [items, barWidth]);
+
+  return <div ref={containerRef} style={{ width: "100%", height, minHeight: 0 }} />;
+});
+
+// ---------- 分组柱状图（ECharts，供维度模块展示板块×子指标） ----------
+
+/** 分组柱状图的单条序列：name 为图例/子指标名，data 与 categories 对齐 */
+interface GroupedColumnsSeries {
+  name: string;
+  color: string;
+  data: { value: number; display?: string }[];
+}
+
+/**
+ * 通用分组柱状图：x 轴为板块（从左到右按排名），每项并列多根子指标柱。
+ * value 传 0~100 的得分率，display 传 tooltip 展示的原始「得分/满分」。
+ */
+const GroupedColumns = memo(function GroupedColumns({
+  categories,
+  series,
+  height = 260,
+  categoryNote,
+}: {
+  categories: string[];
+  series: GroupedColumnsSeries[];
+  height?: number;
+  categoryNote?: string[];
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ECharts | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    chartRef.current = echarts.init(containerRef.current, undefined, { renderer: "svg" });
+    const handleResize = () => chartRef.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.setOption(
+      {
+        animationDuration: 700,
+        animationEasing: "cubicOut",
+        legend: {
+          top: 0,
+          textStyle: { color: chartAxisText(), fontSize: 11 },
+          itemWidth: 12,
+          itemHeight: 8,
+        },
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
+            if (!Array.isArray(params) || !params[0]) return "";
+            const ci = params[0].dataIndex;
+            const lines = params.map((p) => {
+              const s = series[p.seriesIndex ?? 0];
+              const d = s?.data[p.dataIndex];
+              const v = d?.display ?? formatNumber(Number(p.value));
+              return `${s?.name ?? ""}：${v}`;
+            });
+            const note = categoryNote?.[ci];
+            const head = `${categories[ci] ?? ""}${note ? `<br/>${note}` : ""}`;
+            return `<strong>${head}</strong><br/>${lines.join("<br/>")}`;
+          },
+        },
+        grid: { left: 8, right: 8, top: 36, bottom: 8, containLabel: true },
+        xAxis: {
+          type: "category",
+          data: categories,
+          axisLabel: {
+            color: chartAxisText(),
+            fontSize: 11,
+            interval: 0,
+            rotate: categories.length > 4 ? 18 : 0,
+          },
+          axisTick: { show: false },
+          ...axisLineStyle,
+        },
+        yAxis: {
+          type: "value",
+          max: 100,
+          axisLabel: { color: chartAxisText(), fontSize: 10, formatter: "{value}" },
+          ...splitLineStyle,
+        },
+        series: series.map((s) => ({
+          name: s.name,
+          type: "bar",
+          barMaxWidth: 22,
+          itemStyle: { borderRadius: [4, 4, 0, 0], color: s.color },
+          data: s.data.map((d) => d.value),
+        })),
+      },
+      { notMerge: true },
+    );
+  }, [categories, series, categoryNote]);
+
+  return <div ref={containerRef} style={{ width: "100%", height, minHeight: 0 }} />;
 });
 
 // ---------- 通用卡片列表 ----------
@@ -290,11 +503,20 @@ function FallbackBlock({ data }: { data: unknown }) {
 
 // ---------- 资金流向（行业 / 概念 / 个股 三档排行榜） ----------
 
-/** 单档资金流排行榜：纯 HTML 条形，轻量且红涨绿跌 */
+/** 单档资金流排行榜：横向柱状图，红涨绿跌 */
 function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowItem[] }) {
-  const maxAbs = rows.reduce((m, r) => Math.max(m, Math.abs(r.mainNetInflow ?? 0)), 0);
+  const items: HBarsItem[] = rows.map((r) => {
+    const inflow = r.mainNetInflow ?? 0;
+    return {
+      label: `${r.rank}. ${r.name}`,
+      value: inflow,
+      color: inflow >= 0 ? chartUp() : chartDown(),
+      display: fmtFlow(r.mainNetInflow),
+    };
+  });
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
@@ -303,62 +525,10 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
         minWidth: 0,
       }}
     >
-      <Text style={{ fontWeight: 700, fontSize: 14, marginBottom: "var(--spacing-3)" }}>
+      <Text style={{ fontWeight: 700, fontSize: 14, marginBottom: "var(--spacing-2)" }}>
         {title}
       </Text>
-      <VStack gap={2}>
-        {rows.map((r) => {
-          const inflow = r.mainNetInflow ?? 0;
-          const width = maxAbs > 0 ? (Math.abs(inflow) / maxAbs) * 100 : 0;
-          const color = inflow >= 0 ? chartUp() : chartDown();
-          return (
-            <div
-              key={r.code}
-              style={{ display: "flex", alignItems: "center", gap: "var(--spacing-2)" }}
-            >
-              <Text
-                size="sm"
-                style={{
-                  width: 16,
-                  textAlign: "right",
-                  flexShrink: 0,
-                  color: "var(--color-text-supporting)",
-                }}
-              >
-                {r.rank}
-              </Text>
-              <Text
-                size="sm"
-                style={{
-                  width: 68,
-                  flexShrink: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {r.name}
-              </Text>
-              <div
-                style={{
-                  flex: 1,
-                  height: 10,
-                  background: "var(--color-background-subtle)",
-                  borderRadius: 5,
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 5 }}
-                />
-              </div>
-              <Text size="sm" style={{ width: 62, textAlign: "right", flexShrink: 0, color }}>
-                {fmtFlow(r.mainNetInflow)}
-              </Text>
-            </div>
-          );
-        })}
-      </VStack>
+      <HorizontalBars items={items} height={200} />
     </div>
   );
 }
@@ -390,7 +560,70 @@ function FundFlowBlock({ data }: { data: unknown }) {
   );
 }
 
-// ---------- 主线（板块 + 核心个股） ----------
+// ---------- 主线（板块 + 核心个股 + 六维得分） ----------
+
+/** 六维标签与权重（与服务端 MAINLINE_DEF 对齐），用于主线卡片内的得分条 */
+const MAINLINE_DIMS = [
+  { label: "方向持续性", weight: 18, field: "directionScore", colorIndex: 0 },
+  { label: "资金聚焦", weight: 20, field: "fundScore", colorIndex: 1 },
+  { label: "龙头梯队", weight: 18, field: "leaderScore", colorIndex: 2 },
+  { label: "赚钱效应", weight: 12, field: "effectScore", colorIndex: 3 },
+  { label: "题材催化", weight: 16, field: "themeScore", colorIndex: 4 },
+  { label: "机构/游资确认", weight: 16, field: "dragonScore", colorIndex: 5 },
+] as const;
+
+/** 主线维度模块：板块（x 轴，按排名从左到右）× 子指标（并列柱）分组柱状图 */
+function DimensionBlock({ data }: { data: unknown }) {
+  const dim = data as DimensionSectionData | null;
+  if (!dim || dim.boards.length === 0) return <EmptyState />;
+
+  const boards = dim.boards;
+  // x 轴：领先板块名，按得分降序（rank 1 在最左）
+  const categories = boards.map((b, i) => `${i + 1}. ${b.boardName}`);
+  // 子指标作为并列序列（各维度子指标数量 2~3 个不等）
+  const subs = boards[0]?.subs ?? [];
+  const series: GroupedColumnsSeries[] = subs.map((sub, idx) => ({
+    name: sub.label,
+    color: chartDim(idx % 6),
+    data: boards.map((b) => {
+      const s = b.subs.find((x) => x.key === sub.key);
+      const score = s?.score ?? 0;
+      const weight = s?.weight ?? 0;
+      return {
+        value: weight > 0 ? Math.min((score / weight) * 100, 100) : 0,
+        display: `${score.toFixed(1)}/${weight}`,
+      };
+    }),
+  }));
+
+  return (
+    <div
+      className="review-card"
+      style={{
+        background: "var(--color-background-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md, 8px)",
+        padding: "var(--spacing-4)",
+        width: "100%",
+      }}
+    >
+      <VStack gap={3}>
+        <HStack gap={2} align="center">
+          <Text style={{ fontWeight: 700, fontSize: 16 }}>{dim.label}</Text>
+          <Text size="sm" type="supporting">
+            权重 {dim.weight} 分 · 各子指标按得分率（得分/满分）展示
+          </Text>
+        </HStack>
+        <GroupedColumns
+          categories={categories}
+          series={series}
+          categoryNote={boards.map((b) => `维度 ${b.dimScore.toFixed(1)} · 总分 ${b.totalScore.toFixed(1)}`)}
+          height={280}
+        />
+      </VStack>
+    </div>
+  );
+}
 
 function MainlineBlock({ data }: { data: unknown }) {
   const rows = (Array.isArray(data) ? data : []) as MainlineItem[];
@@ -406,12 +639,13 @@ function MainlineBlock({ data }: { data: unknown }) {
     >
       {rows.map((m, i) => (
         <div
-          key={`${m.boardName}-${i}`}
+          key={`${m.boardCode || m.boardName}-${i}`}
+          className="review-card"
           style={{
             background: "var(--color-background-card)",
             border: "1px solid var(--color-border)",
             borderRadius: "var(--radius-md, 8px)",
-            padding: "var(--spacing-5)",
+            padding: "var(--spacing-4)",
             position: "relative",
             overflow: "hidden",
           }}
@@ -427,13 +661,30 @@ function MainlineBlock({ data }: { data: unknown }) {
             }}
           />
           <VStack gap={3}>
-            <Text
-              style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 28, lineHeight: 1 }}
-            >
-              {String(i + 1).padStart(2, "0")}
-            </Text>
-            <Text style={{ fontWeight: 700, fontSize: 18 }}>{m.boardName}</Text>
-            {m.coreStocks.length > 0 && (
+            <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
+              <Text
+                style={{ color: "var(--color-accent)", fontWeight: 700, fontSize: 28, lineHeight: 1 }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </Text>
+              <Text style={{ fontWeight: 700, fontSize: 18, flex: 1 }}>{m.boardName}</Text>
+              <Text style={{ fontWeight: 700, fontSize: 22, color: "var(--color-accent)" }}>
+                {Number(m.score ?? 0).toFixed(1)}
+              </Text>
+            </HStack>
+            <HorizontalBars
+              items={MAINLINE_DIMS.map((dim) => {
+                const score = Number(m[dim.field] ?? 0);
+                return {
+                  label: dim.label,
+                  value: score,
+                  color: chartDim(dim.colorIndex),
+                  display: `${score.toFixed(1)}/${dim.weight}`,
+                };
+              })}
+              height={190}
+            />
+            {m.coreStocks?.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-2)" }}>
                 {m.coreStocks.map((s) => (
                   <span
@@ -535,6 +786,7 @@ function StockPoolBlock({ data }: { data: unknown }) {
 
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
@@ -618,6 +870,7 @@ function LimitUpPoolBlock({ data }: { data: unknown }) {
         {stats.map((s) => (
           <div
             key={s.label}
+            className="review-card"
             style={{
               background: "var(--color-background-card)",
               border: "1px solid var(--color-border)",
@@ -677,12 +930,76 @@ function emotionLabel(temp: number): string {
   return "冰点";
 }
 
-/** 市场情绪温度模块：大数字温度 + 0~100 温度条 + 三维度得分 + 原始指标 */
+/** 情绪温度仪表盘（ECharts gauge）：0~100 温度，红热绿冷，中心数字滚动 */
+const EmotionGauge = memo(function EmotionGauge({ temp }: { temp: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ECharts | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    chartRef.current = echarts.init(containerRef.current, undefined, { renderer: "svg" });
+    const handleResize = () => chartRef.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const color = emotionColor(temp);
+    chartRef.current.setOption(
+      {
+        animationDuration: 900,
+        animationEasing: "cubicOut",
+        series: [
+          {
+            type: "gauge",
+            startAngle: 210,
+            endAngle: -30,
+            min: 0,
+            max: 100,
+            radius: "100%",
+            pointer: { show: false },
+            progress: { show: true, width: 14, roundCap: true, itemStyle: { color } },
+            axisLine: { lineStyle: { width: 14, color: [[1, hexToRgba(color, 0.15)]] } },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: { show: false },
+            anchor: { show: false },
+            title: {
+              show: true,
+              offsetCenter: [0, "52%"],
+              fontSize: 13,
+              fontWeight: 700,
+              color,
+            },
+            detail: {
+              valueAnimation: true,
+              offsetCenter: [0, "10%"],
+              fontSize: 36,
+              fontWeight: 700,
+              color,
+              formatter: "{value}",
+            },
+            data: [{ value: temp, name: emotionLabel(temp) }],
+          },
+        ],
+      },
+      { notMerge: true },
+    );
+  }, [temp]);
+
+  return <div ref={containerRef} style={{ width: 168, height: 150, flexShrink: 0 }} />;
+});
+
+/** 市场情绪温度模块：温度仪表盘 + 三维度得分 + 原始指标 */
 function MarketEmotionBlock({ data }: { data: unknown }) {
   const e = data as MarketEmotionResult | null;
   if (!e) return <EmptyState />;
   const temp = Math.max(0, Math.min(100, e.temperature));
-  const color = emotionColor(temp);
 
   const dims = [
     { key: "scale", label: "涨停规模", score: e.dimScores?.scale ?? 0 },
@@ -697,72 +1014,28 @@ function MarketEmotionBlock({ data }: { data: unknown }) {
 
   return (
     <div
+      className="review-card"
       style={{
         background: "var(--color-background-card)",
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-md, 8px)",
-        padding: "var(--spacing-5)",
+        padding: "var(--spacing-4)",
         width: "100%",
       }}
     >
-      <HStack gap={5} align="center" style={{ flexWrap: "wrap" }}>
-        <VStack gap={1} align="center" style={{ minWidth: 132 }}>
-          <Text style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, color }}>
-            {Math.round(temp)}
-          </Text>
-          <Text size="sm" style={{ fontWeight: 700, color }}>
-            {emotionLabel(temp)}
-          </Text>
-        </VStack>
+      <HStack gap={6} align="center" style={{ flexWrap: "wrap" }}>
+        <EmotionGauge temp={temp} />
 
-        <VStack gap={4} style={{ flex: 1, minWidth: 260 }}>
-          <div style={{ width: "100%" }}>
-            <div
-              style={{
-                height: 10,
-                borderRadius: 5,
-                background: "var(--color-background-subtle)",
-                overflow: "hidden",
-              }}
-            >
-              <div style={{ width: `${temp}%`, height: "100%", background: color, borderRadius: 5 }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--spacing-1)" }}>
-              <Text size="sm" type="supporting">0</Text>
-              <Text size="sm" type="supporting">50</Text>
-              <Text size="sm" type="supporting">100</Text>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-2)" }}>
-            {dims.map((d) => (
-              <div key={d.key} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-3)" }}>
-                <Text size="sm" style={{ width: 72, flexShrink: 0 }}>
-                  {d.label}
-                </Text>
-                <div
-                  style={{
-                    flex: 1,
-                    height: 8,
-                    borderRadius: 4,
-                    background: "var(--color-background-subtle)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.min(Math.max(d.score, 0), 100)}%`,
-                      height: "100%",
-                      background: "var(--color-accent)",
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <Text size="sm" style={{ width: 40, textAlign: "right", flexShrink: 0 }}>
-                  {d.score.toFixed(1)}
-                </Text>
-              </div>
-            ))}
-          </div>
+        <VStack gap={3} style={{ flex: 1, minWidth: 240 }}>
+          <HorizontalBars
+            items={dims.map((d, idx) => ({
+              label: d.label,
+              value: Math.min(Math.max(d.score, 0), 100),
+              color: chartDim([1, 3, 0][idx] ?? idx),
+              display: d.score.toFixed(1),
+            }))}
+            height={130}
+          />
         </VStack>
 
         <VStack gap={2} style={{ minWidth: 120 }}>
@@ -799,6 +1072,8 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
   switch (type) {
     case "fundflow":
       return <FundFlowBlock data={data} />;
+    case "mainline_dim":
+      return <DimensionBlock data={data} />;
     case "mainline":
       return <MainlineBlock data={data} />;
     case "stockpool":
@@ -835,6 +1110,8 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
       return <FundFlowBlock data={data} />;
     case "mainline":
       return <MainlineBlock data={data} />;
+    case "dimension":
+      return <DimensionBlock data={data} />;
     case "limitup_pool":
       return <LimitUpPoolBlock data={data} />;
     case "market_emotion":
@@ -848,12 +1125,25 @@ function SectionRenderer({ section }: { section: ReviewSection }) {
 
 // ---------- 模块列表 ----------
 
-function ReviewSectionBlock({ section }: { section: ReviewSection }) {
+function ReviewSectionBlock({ section, index }: { section: ReviewSection; index: number }) {
   return (
-    <VStack gap={3}>
-      <Text style={{ fontWeight: 700, fontSize: 16 }}>{section.title}</Text>
-      <SectionRenderer section={section} />
-    </VStack>
+    <div className="review-reveal" style={{ animationDelay: `${Math.min(index, 10) * 55}ms` }}>
+      <VStack gap={3}>
+        <HStack gap={2} align="center">
+          <div
+            style={{
+              width: 3,
+              height: 16,
+              borderRadius: 2,
+              background: "var(--color-accent)",
+              flexShrink: 0,
+            }}
+          />
+          <Text style={{ fontWeight: 700, fontSize: 16 }}>{section.title}</Text>
+        </HStack>
+        <SectionRenderer section={section} />
+      </VStack>
+    </div>
   );
 }
 
@@ -865,10 +1155,20 @@ export function ReviewSections({ sections }: { sections: ReviewSection[] }) {
   if (sections.length === 0) {
     return <Text type="supporting">暂无可用模块。</Text>;
   }
+  // 六维模块（mainline_dim）两列并排，其余模块保持单列堆叠
+  const dims = sections.filter((s) => s.type === "mainline_dim");
+  const others = sections.filter((s) => s.type !== "mainline_dim");
   return (
     <VStack gap={4}>
-      {sections.map((section, i) => (
-        <ReviewSectionBlock key={`${section.type}-${i}`} section={section} />
+      {dims.length > 0 && (
+        <div className="review-grid-2">
+          {dims.map((section, i) => (
+            <ReviewSectionBlock key={`${section.type}-${i}`} section={section} index={i} />
+          ))}
+        </div>
+      )}
+      {others.map((section, i) => (
+        <ReviewSectionBlock key={`${section.type}-${i}`} section={section} index={dims.length + i} />
       ))}
     </VStack>
   );

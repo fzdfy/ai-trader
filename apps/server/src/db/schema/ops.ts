@@ -6,6 +6,7 @@ import {
   bigserial,
   unique,
   boolean,
+  date,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -43,6 +44,8 @@ export const syncCursor = pgTable(
 export const jobRun = pgTable("job_run", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   jobType: text("job_type").notNull(),
+  /** 本次同步对应的交易日（YYYY-MM-DD）；供 hasSuccessToday 按交易日幂等，日历表缺失时为 null */
+  tradeDate: date("trade_date"),
   symbol: text("symbol"),
   timeframe: text("timeframe"),
   rangeStart: timestamp("range_start"),

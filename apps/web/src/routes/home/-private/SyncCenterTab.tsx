@@ -117,11 +117,16 @@ function ModuleCard({ mod }: { mod: SyncModuleStatus }) {
           </VStack>
         )}
 
-        {/* 今日统计 + 处理量 */}
+        {/* 今日统计 + 处理量 + 耗时 */}
         <HStack gap={3} align="center">
           <Text size="sm" type="supporting">
             今日成功 {mod.todaySuccess} · 失败 {mod.todayFailed}
           </Text>
+          {!isRunning && mod.durationMs != null && (
+            <Text size="sm" type="supporting">
+              耗时 {formatDuration(mod.durationMs)}
+            </Text>
+          )}
           {mod.processed != null && mod.total != null && !isRunning && (
             <Text size="sm" type="supporting">
               处理 {mod.processed}/{mod.total}
