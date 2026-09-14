@@ -90,6 +90,14 @@ const STRATEGY_LABEL_MAP: Record<string, string> = {
   ...Object.fromEntries(STRATEGY_OPTIONS.map((s) => [s.value, s.label])),
 };
 
+/** 返回 YYYY-MM-DD（ISO 日期字符串） */
+function isoDate(d: Date): ISODateString {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}` as ISODateString;
+}
+
 const TRADE_COLUMNS = [
   { key: "entryTime" as const, header: "买入日", width: proportional(1.5) },
   { key: "exitTime" as const, header: "卖出日", width: proportional(1.5) },
@@ -350,8 +358,12 @@ function BacktestPage() {
   const [symbol, setSymbol] = useState("002594.SZ");
   const [strategy, setStrategy] = useState<string>("ma_cross");
   const [params, setParams] = useState<Record<string, number>>({});
-  const [startDate, setStartDate] = useState<ISODateString | undefined>("2024-01-01");
-  const [endDate, setEndDate] = useState<ISODateString | undefined>("2026-07-29");
+  const [startDate, setStartDate] = useState<ISODateString | undefined>(
+    isoDate(new Date(new Date().getFullYear(), 0, 1)),
+  );
+  const [endDate, setEndDate] = useState<ISODateString | undefined>(
+    isoDate(new Date()),
+  );
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [resultTab, setResultTab] = useState("overview");
