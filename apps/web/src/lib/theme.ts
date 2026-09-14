@@ -42,6 +42,13 @@ export const chartCurrent = () => cssVar("--chart-current", "#f5a623");
 export const chartSeq = (i: number) =>
   cssVar(`--chart-seq-${i}`, ["#e5484d", "#f76b15", "#f5a623", "#30a46c"][i - 1] ?? "#8a8f98");
 
+/** 得分维度色板（主线六维 / 板块子指标 / 情绪维度共用） */
+export const chartDim = (i: number) =>
+  cssVar(
+    `--chart-dim-${i}`,
+    ["#4c8dff", "#e5484d", "#f5a623", "#30a46c", "#9a6bff", "#1ca0b8"][i] ?? "#8a8f98",
+  );
+
 /** 权益主色 */
 export const chartEquity = () => cssVar("--chart-equity", "#0d4a3a");
 

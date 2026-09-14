@@ -20,6 +20,7 @@ import {
   chartUp,
   chartDown,
   chartCurrent,
+  chartDim,
   splitLineStyle,
   axisLineStyle,
   hexToRgba,
@@ -177,6 +178,214 @@ const BarChart = memo(function BarChart({
   );
 });
 
+// ---------- 横向柱状图（ECharts，供各模块复用） ----------
+
+/** 单条横向柱：label 为类目轴文本，display 为 tooltip/数值标签展示文本 */
+interface HBarsItem {
+  label: string;
+  value: number;
+  color: string;
+  display?: string;
+}
+
+/**
+ * 通用横向柱状图：类目轴 + 值轴，柱体用「左浅右深」渐变填充。
+ * 相比逐条 HTML 条形，能一次性横向铺开所有项，节省纵向空间。
+ */
+const HorizontalBars = memo(function HorizontalBars({
+  items,
+  height = 220,
+  barWidth = 14,
+}: {
+  items: HBarsItem[];
+  height?: number;
+  barWidth?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ECharts | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    chartRef.current = echarts.init(containerRef.current, undefined, { renderer: "svg" });
+    const handleResize = () => chartRef.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.setOption(
+      {
+        animationDuration: 700,
+        animationEasing: "cubicOut",
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
+            if (!Array.isArray(params) || !params[0]) return "";
+            const d = items[params[0].dataIndex];
+            if (!d) return "";
+            const v = d.display ?? formatNumber(d.value);
+            return `<strong>${d.label}</strong><br/>${v}`;
+          },
+        },
+        grid: { left: 8, right: 52, top: 6, bottom: 6, containLabel: true },
+        xAxis: { type: "value", show: false },
+        yAxis: {
+          type: "category",
+          inverse: true,
+          data: items.map((d) => d.label),
+          axisLabel: { color: chartAxisText(), fontSize: 12 },
+          axisTick: { show: false },
+          ...axisLineStyle,
+        },
+        series: [
+          {
+            type: "bar",
+            barMaxWidth: barWidth,
+            data: items.map((d) => ({
+              value: d.value,
+              itemStyle: {
+                borderRadius: [0, 7, 7, 0],
+                color: {
+                  type: "linear",
+                  x: 0,
+                  y: 0,
+                  x2: 1,
+                  y2: 0,
+                  colorStops: [
+                    { offset: 0, color: hexToRgba(d.color, 0.35) },
+                    { offset: 1, color: d.color },
+                  ],
+                },
+              },
+            })),
+            label: {
+              show: true,
+              position: "right",
+              color: chartAxisText(),
+              fontSize: 11,
+              formatter: (p: { dataIndex: number; value: number }) => {
+                const d = items[p.dataIndex];
+                return d?.display ?? formatNumber(d?.value ?? p.value);
+              },
+            },
+          },
+        ],
+      },
+      { notMerge: true },
+    );
+  }, [items, barWidth]);
+
+  return <div ref={containerRef} style={{ width: "100%", height, minHeight: 0 }} />;
+});
+
+// ---------- 分组柱状图（ECharts，供维度模块展示板块×子指标） ----------
+
+/** 分组柱状图的单条序列：name 为图例/子指标名，data 与 categories 对齐 */
+interface GroupedColumnsSeries {
+  name: string;
+  color: string;
+  data: { value: number; display?: string }[];
+}
+
+/**
+ * 通用分组柱状图：x 轴为板块（从左到右按排名），每项并列多根子指标柱。
+ * value 传 0~100 的得分率，display 传 tooltip 展示的原始「得分/满分」。
+ */
+const GroupedColumns = memo(function GroupedColumns({
+  categories,
+  series,
+  height = 260,
+  categoryNote,
+}: {
+  categories: string[];
+  series: GroupedColumnsSeries[];
+  height?: number;
+  categoryNote?: string[];
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ECharts | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    chartRef.current = echarts.init(containerRef.current, undefined, { renderer: "svg" });
+    const handleResize = () => chartRef.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.setOption(
+      {
+        animationDuration: 700,
+        animationEasing: "cubicOut",
+        legend: {
+          top: 0,
+          textStyle: { color: chartAxisText(), fontSize: 11 },
+          itemWidth: 12,
+          itemHeight: 8,
+        },
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params: TooltipComponentFormatterCallbackParams) => {
+            if (!Array.isArray(params) || !params[0]) return "";
+            const ci = params[0].dataIndex;
+            const lines = params.map((p) => {
+              const s = series[p.seriesIndex ?? 0];
+              const d = s?.data[p.dataIndex];
+              const v = d?.display ?? formatNumber(Number(p.value));
+              return `${s?.name ?? ""}：${v}`;
+            });
+            const note = categoryNote?.[ci];
+            const head = `${categories[ci] ?? ""}${note ? `<br/>${note}` : ""}`;
+            return `<strong>${head}</strong><br/>${lines.join("<br/>")}`;
+          },
+        },
+        grid: { left: 8, right: 8, top: 36, bottom: 8, containLabel: true },
+        xAxis: {
+          type: "category",
+          data: categories,
+          axisLabel: {
+            color: chartAxisText(),
+            fontSize: 11,
+            interval: 0,
+            rotate: categories.length > 4 ? 18 : 0,
+          },
+          axisTick: { show: false },
+          ...axisLineStyle,
+        },
+        yAxis: {
+          type: "value",
+          max: 100,
+          axisLabel: { color: chartAxisText(), fontSize: 10, formatter: "{value}" },
+          ...splitLineStyle,
+        },
+        series: series.map((s) => ({
+          name: s.name,
+          type: "bar",
+          barMaxWidth: 22,
+          itemStyle: { borderRadius: [4, 4, 0, 0], color: s.color },
+          data: s.data.map((d) => d.value),
+        })),
+      },
+      { notMerge: true },
+    );
+  }, [categories, series, categoryNote]);
+
+  return <div ref={containerRef} style={{ width: "100%", height, minHeight: 0 }} />;
+});
+
 // ---------- 通用卡片列表 ----------
 
 /** 无明确数值字段时的降级展示：对象数组 → 卡片（首个文本字段为标题，其余为描述） */
@@ -294,9 +503,17 @@ function FallbackBlock({ data }: { data: unknown }) {
 
 // ---------- 资金流向（行业 / 概念 / 个股 三档排行榜） ----------
 
-/** 单档资金流排行榜：纯 HTML 条形，轻量且红涨绿跌 */
+/** 单档资金流排行榜：横向柱状图，红涨绿跌 */
 function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowItem[] }) {
-  const maxAbs = rows.reduce((m, r) => Math.max(m, Math.abs(r.mainNetInflow ?? 0)), 0);
+  const items: HBarsItem[] = rows.map((r) => {
+    const inflow = r.mainNetInflow ?? 0;
+    return {
+      label: `${r.rank}. ${r.name}`,
+      value: inflow,
+      color: inflow >= 0 ? chartUp() : chartDown(),
+      display: fmtFlow(r.mainNetInflow),
+    };
+  });
   return (
     <div
       className="review-card"
@@ -308,63 +525,10 @@ function FundFlowLeaderboard({ title, rows }: { title: string; rows: FundFlowIte
         minWidth: 0,
       }}
     >
-      <Text style={{ fontWeight: 700, fontSize: 14, marginBottom: "var(--spacing-3)" }}>
+      <Text style={{ fontWeight: 700, fontSize: 14, marginBottom: "var(--spacing-2)" }}>
         {title}
       </Text>
-      <VStack gap={2}>
-        {rows.map((r) => {
-          const inflow = r.mainNetInflow ?? 0;
-          const width = maxAbs > 0 ? (Math.abs(inflow) / maxAbs) * 100 : 0;
-          const color = inflow >= 0 ? chartUp() : chartDown();
-          return (
-            <div
-              key={r.code}
-              style={{ display: "flex", alignItems: "center", gap: "var(--spacing-2)" }}
-            >
-              <Text
-                size="sm"
-                style={{
-                  width: 16,
-                  textAlign: "right",
-                  flexShrink: 0,
-                  color: "var(--color-text-supporting)",
-                }}
-              >
-                {r.rank}
-              </Text>
-              <Text
-                size="sm"
-                style={{
-                  width: 68,
-                  flexShrink: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {r.name}
-              </Text>
-              <div
-                style={{
-                  flex: 1,
-                  height: 8,
-                  background: "var(--color-background-subtle)",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  className="review-bar"
-                  style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 4 }}
-                />
-              </div>
-              <Text size="sm" style={{ width: 62, textAlign: "right", flexShrink: 0, color }}>
-                {fmtFlow(r.mainNetInflow)}
-              </Text>
-            </div>
-          );
-        })}
-      </VStack>
+      <HorizontalBars items={items} height={200} />
     </div>
   );
 }
@@ -400,47 +564,38 @@ function FundFlowBlock({ data }: { data: unknown }) {
 
 /** 六维标签与权重（与服务端 MAINLINE_DEF 对齐），用于主线卡片内的得分条 */
 const MAINLINE_DIMS = [
-  { label: "方向持续性", weight: 18, field: "directionScore" },
-  { label: "资金聚焦", weight: 20, field: "fundScore" },
-  { label: "龙头梯队", weight: 18, field: "leaderScore" },
-  { label: "赚钱效应", weight: 12, field: "effectScore" },
-  { label: "题材催化", weight: 16, field: "themeScore" },
-  { label: "机构/游资确认", weight: 16, field: "dragonScore" },
+  { label: "方向持续性", weight: 18, field: "directionScore", colorIndex: 0 },
+  { label: "资金聚焦", weight: 20, field: "fundScore", colorIndex: 1 },
+  { label: "龙头梯队", weight: 18, field: "leaderScore", colorIndex: 2 },
+  { label: "赚钱效应", weight: 12, field: "effectScore", colorIndex: 3 },
+  { label: "题材催化", weight: 16, field: "themeScore", colorIndex: 4 },
+  { label: "机构/游资确认", weight: 16, field: "dragonScore", colorIndex: 5 },
 ] as const;
 
-/** 标签 + 分数进度条（score/max 决定宽度），维度与子指标得分共用 */
-function ScoreBar({ label, score, max }: { label: string; score: number; max: number }) {
-  const pct = max > 0 ? Math.min(100, Math.max(0, (score / max) * 100)) : 0;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-2)" }}>
-      <Text size="sm" style={{ width: 96, flexShrink: 0, color: "var(--color-text-supporting)" }}>
-        {label}
-      </Text>
-      <div
-        style={{
-          flex: 1,
-          height: 6,
-          borderRadius: 3,
-          background: "var(--color-background-subtle)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          className="review-bar"
-          style={{ width: `${pct}%`, height: "100%", background: "var(--color-accent)", borderRadius: 3 }}
-        />
-      </div>
-      <Text size="sm" style={{ width: 60, textAlign: "right", flexShrink: 0 }}>
-        {score.toFixed(1)}/{max}
-      </Text>
-    </div>
-  );
-}
-
-/** 主线维度模块：单维度的子指标得分 + 该维度领先板块（各取前 5） */
+/** 主线维度模块：板块（x 轴，按排名从左到右）× 子指标（并列柱）分组柱状图 */
 function DimensionBlock({ data }: { data: unknown }) {
   const dim = data as DimensionSectionData | null;
   if (!dim || dim.boards.length === 0) return <EmptyState />;
+
+  const boards = dim.boards;
+  // x 轴：领先板块名，按得分降序（rank 1 在最左）
+  const categories = boards.map((b, i) => `${i + 1}. ${b.boardName}`);
+  // 子指标作为并列序列（各维度子指标数量 2~3 个不等）
+  const subs = boards[0]?.subs ?? [];
+  const series: GroupedColumnsSeries[] = subs.map((sub, idx) => ({
+    name: sub.label,
+    color: chartDim(idx % 6),
+    data: boards.map((b) => {
+      const s = b.subs.find((x) => x.key === sub.key);
+      const score = s?.score ?? 0;
+      const weight = s?.weight ?? 0;
+      return {
+        value: weight > 0 ? Math.min((score / weight) * 100, 100) : 0,
+        display: `${score.toFixed(1)}/${weight}`,
+      };
+    }),
+  }));
+
   return (
     <div
       className="review-card"
@@ -452,34 +607,19 @@ function DimensionBlock({ data }: { data: unknown }) {
         width: "100%",
       }}
     >
-      <VStack gap={4}>
+      <VStack gap={3}>
         <HStack gap={2} align="center">
           <Text style={{ fontWeight: 700, fontSize: 16 }}>{dim.label}</Text>
           <Text size="sm" type="supporting">
-            权重 {dim.weight} 分
+            权重 {dim.weight} 分 · 各子指标按得分率（得分/满分）展示
           </Text>
         </HStack>
-        {dim.boards.map((b) => (
-          <div
-            key={b.boardName}
-            style={{
-              borderTop: "1px solid var(--color-border)",
-              paddingTop: "var(--spacing-3)",
-            }}
-          >
-            <VStack gap={2}>
-              <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
-                <Text style={{ fontWeight: 600 }}>{b.boardName}</Text>
-                <Text size="sm" type="supporting">
-                  维度 {b.dimScore.toFixed(1)} · 总分 {b.totalScore.toFixed(1)}
-                </Text>
-              </HStack>
-              {b.subs.map((s) => (
-                <ScoreBar key={s.key} label={s.label} score={s.score} max={s.weight} />
-              ))}
-            </VStack>
-          </div>
-        ))}
+        <GroupedColumns
+          categories={categories}
+          series={series}
+          categoryNote={boards.map((b) => `维度 ${b.dimScore.toFixed(1)} · 总分 ${b.totalScore.toFixed(1)}`)}
+          height={280}
+        />
       </VStack>
     </div>
   );
@@ -532,16 +672,18 @@ function MainlineBlock({ data }: { data: unknown }) {
                 {Number(m.score ?? 0).toFixed(1)}
               </Text>
             </HStack>
-            <VStack gap={1}>
-              {MAINLINE_DIMS.map((dim) => (
-                <ScoreBar
-                  key={dim.label}
-                  label={dim.label}
-                  score={Number(m[dim.field] ?? 0)}
-                  max={dim.weight}
-                />
-              ))}
-            </VStack>
+            <HorizontalBars
+              items={MAINLINE_DIMS.map((dim) => {
+                const score = Number(m[dim.field] ?? 0);
+                return {
+                  label: dim.label,
+                  value: score,
+                  color: chartDim(dim.colorIndex),
+                  display: `${score.toFixed(1)}/${dim.weight}`,
+                };
+              })}
+              height={190}
+            />
             {m.coreStocks?.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--spacing-2)" }}>
                 {m.coreStocks.map((s) => (
@@ -885,35 +1027,15 @@ function MarketEmotionBlock({ data }: { data: unknown }) {
         <EmotionGauge temp={temp} />
 
         <VStack gap={3} style={{ flex: 1, minWidth: 240 }}>
-          {dims.map((d) => (
-            <div key={d.key} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-3)" }}>
-              <Text size="sm" style={{ width: 72, flexShrink: 0 }}>
-                {d.label}
-              </Text>
-              <div
-                style={{
-                  flex: 1,
-                  height: 8,
-                  borderRadius: 4,
-                  background: "var(--color-background-subtle)",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  className="review-bar"
-                  style={{
-                    width: `${Math.min(Math.max(d.score, 0), 100)}%`,
-                    height: "100%",
-                    background: "var(--color-accent)",
-                    borderRadius: 4,
-                  }}
-                />
-              </div>
-              <Text size="sm" style={{ width: 40, textAlign: "right", flexShrink: 0 }}>
-                {d.score.toFixed(1)}
-              </Text>
-            </div>
-          ))}
+          <HorizontalBars
+            items={dims.map((d, idx) => ({
+              label: d.label,
+              value: Math.min(Math.max(d.score, 0), 100),
+              color: chartDim([1, 3, 0][idx] ?? idx),
+              display: d.score.toFixed(1),
+            }))}
+            height={130}
+          />
         </VStack>
 
         <VStack gap={2} style={{ minWidth: 120 }}>
