@@ -398,8 +398,12 @@ export async function getMainlineData(
   }
 
   // ---------- symbol → 行业名 映射（题材归因 / 龙虎榜 个股级信号归因到行业） ----------
-  // 主源：board_constituent（type=industry）→ board 名称；辅源：涨停池已知行业（覆盖）。
+  // 一只股票可能同时挂在 一级/二级/三级 行业板块下（如「电子 / 元件 / 印制电路板」），
+  // 而候选行业来自涨停池的二级行业名（如「元件」）。若直接对 Map 末次覆盖，会落到
+  // board_constituent 返回顺序中的最后一个（通常是三级名称），导致龙虎榜/题材归因
+  // 无法归并到候选行业。故这里先按 symbol 汇总其全部行业名，再优先选与候选行业一致的名称。
   const symbolToIndustry = new Map<string, string>();
+  const candidateIndustryNames = new Set(byName.keys());
   const [consRows, boardNameRows] = await Promise.all([
     db
       .select({ boardCode: boardConstituent.boardCode, symbol: boardConstituent.symbol })
@@ -411,9 +415,16 @@ export async function getMainlineData(
       .where(eq(board.type, "industry")),
   ]);
   const boardNameMap = new Map(boardNameRows.map((r) => [r.code, r.name]));
+  const symbolBoardNames = new Map<string, string[]>();
   for (const c of consRows) {
     const nm = boardNameMap.get(c.boardCode);
-    if (nm) symbolToIndustry.set(c.symbol, nm);
+    if (!nm) continue;
+    const names = symbolBoardNames.get(c.symbol) ?? [];
+    if (!names.includes(nm)) names.push(nm);
+    symbolBoardNames.set(c.symbol, names);
+  }
+  for (const [symbol, names] of symbolBoardNames) {
+    symbolToIndustry.set(symbol, names.find((nm) => candidateIndustryNames.has(nm)) ?? names[0]!);
   }
   for (const r of poolRows) {
     if (r.industry) symbolToIndustry.set(r.symbol, r.industry.trim());

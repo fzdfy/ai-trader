@@ -114,3 +114,16 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px light-dark(rgba(5, 54, 89, 0.08), rgba(0, 0, 0, 0.35));
 }
+
+/* 复盘六维模块：两列网格（窄屏降为单列） */
+.review-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-4, 16px);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .review-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

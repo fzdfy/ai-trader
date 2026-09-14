@@ -1155,10 +1155,20 @@ export function ReviewSections({ sections }: { sections: ReviewSection[] }) {
   if (sections.length === 0) {
     return <Text type="supporting">暂无可用模块。</Text>;
   }
+  // 六维模块（mainline_dim）两列并排，其余模块保持单列堆叠
+  const dims = sections.filter((s) => s.type === "mainline_dim");
+  const others = sections.filter((s) => s.type !== "mainline_dim");
   return (
     <VStack gap={4}>
-      {sections.map((section, i) => (
-        <ReviewSectionBlock key={`${section.type}-${i}`} section={section} index={i} />
+      {dims.length > 0 && (
+        <div className="review-grid-2">
+          {dims.map((section, i) => (
+            <ReviewSectionBlock key={`${section.type}-${i}`} section={section} index={i} />
+          ))}
+        </div>
+      )}
+      {others.map((section, i) => (
+        <ReviewSectionBlock key={`${section.type}-${i}`} section={section} index={dims.length + i} />
       ))}
     </VStack>
   );
