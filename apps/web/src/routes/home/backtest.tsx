@@ -1,24 +1,22 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { TextInput } from "@astryxdesign/core/TextInput";
+import { DateInput } from "@astryxdesign/core/DateInput";
+import type { ISODateString } from "@astryxdesign/core/Calendar";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Table, proportional } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Section } from "@astryxdesign/core/Section";
 import { Card } from "@astryxdesign/core/Card";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { EquityChart } from "../../components/charts/EquityChart";
 import { TradeChart } from "../../components/charts/TradeChart";
-import { StrategyBuilder, type FactorMeta } from "../../components/StrategyBuilder";
 import {
-  COMBINE_MODES,
-  COMBINE_LABELS,
-  type CombineMode,
-  type EntryType,
+  useStrategiesQuery,
+  type StrategyConfig,
 } from "../../hooks/useStrategies";
 
 // ==============================
@@ -90,7 +88,6 @@ const STRATEGY_OPTIONS = [
 
 const STRATEGY_LABEL_MAP: Record<string, string> = {
   ...Object.fromEntries(STRATEGY_OPTIONS.map((s) => [s.value, s.label])),
-  composite: "自定义多因子",
 };
 
 const TRADE_COLUMNS = [
@@ -151,6 +148,82 @@ const PARAM_DEFS: Record<string, { key: string; label: string; defaultValue: num
 };
 
 // ==============================
+// Helper: 保存的自定义策略 configJson → quant composite 运行配置
+// ==============================
+
+/**
+ * 将保存的自定义策略 configJson（百分比 0-100）转换为 quant composite 引擎
+ * 所需的 0-1 小数配置。策略库中 weight/value/entry/exit/risk/position 均以
+ * 百分比存储，而 quant build_composite_strategy 期望 0-1 小数，此处统一 /100。
+ * cost 层（万分比/元）与枚举、布尔、整数类字段保持原值。
+ */
+function toRunConfig(config: StrategyConfig): Record<string, unknown> {
+  const pct = (v: number | undefined, def = 0): number =>
+    typeof v === "number" ? v / 100 : def;
+
+  return {
+    factors: (config.factors ?? []).map((f) => ({
+      name: f.name,
+      weight: pct(f.weight),
+      value: pct(f.value, 0.5),
+      direction: f.direction ?? 1,
+    })),
+    combine: config.combine ?? "weighted_sum",
+    entry: config.entry
+      ? {
+          type: config.entry.type ?? "threshold",
+          value: pct(config.entry.value),
+          volumeConfirm: !!config.entry.volumeConfirm,
+          limitFilter: !!config.entry.limitFilter,
+          stFilter: !!config.entry.stFilter,
+          marketFilter: !!config.entry.marketFilter,
+        }
+      : undefined,
+    exit: config.exit
+      ? {
+          type: config.exit.type ?? "threshold",
+          value: pct(config.exit.value),
+          maxHoldingDays: config.exit.maxHoldingDays ?? 0,
+        }
+      : undefined,
+    risk: config.risk
+      ? {
+          positionSize: pct(config.risk.positionSize),
+          stopLoss: pct(config.risk.stopLoss),
+          takeProfit: pct(config.risk.takeProfit),
+          stopType: config.risk.stopType ?? "fixed",
+          trailingStop: pct(config.risk.trailingStop),
+          atrStopMultiple: config.risk.atrStopMultiple ?? 2,
+          takeType: config.risk.takeType ?? "fixed",
+          trailingTake: pct(config.risk.trailingTake),
+          maxLossPerTrade: pct(config.risk.maxLossPerTrade),
+          maxConsecutiveLosses: config.risk.maxConsecutiveLosses ?? 0,
+        }
+      : undefined,
+    position: config.position
+      ? {
+          sizing: config.position.sizing ?? "fixed",
+          baseSize: pct(config.position.baseSize),
+          maxSize: pct(config.position.maxSize),
+          totalCap: pct(config.position.totalCap),
+          maxPositions: config.position.maxPositions ?? 1,
+          kellyFraction: pct(config.position.kellyFraction),
+          atrPeriod: config.position.atrPeriod ?? 14,
+          atrRiskBudget: pct(config.position.atrRiskBudget),
+          pyramiding: !!config.position.pyramiding,
+          firstEntry: pct(config.position.firstEntry),
+          addOnProfit: pct(config.position.addOnProfit),
+          addSize: pct(config.position.addSize),
+          maxAdds: config.position.maxAdds ?? 2,
+          partialExit: !!config.position.partialExit,
+          partialExitRatio: pct(config.position.partialExitRatio),
+        }
+      : undefined,
+    cost: config.cost ?? undefined,
+  };
+}
+
+// ==============================
 // Helper: 值格式化
 // ==============================
 
@@ -189,8 +262,12 @@ function ParamInputs({
         <TextInput
           key={f.key}
           label={f.label}
-          value={String(params[f.key] ?? f.defaultValue)}
-          onChange={(v) => onChange(f.key, Number(v) || 0)}
+          value={
+            typeof params[f.key] === "number" && Number.isFinite(params[f.key])
+              ? String(params[f.key])
+              : String(f.defaultValue)
+          }
+          onChange={(v) => onChange(f.key, v.trim() === "" ? NaN : Number(v))}
           style={{ width: 120 }}
         />
       ))}
@@ -266,119 +343,40 @@ function ReportHeader({
 // ==============================
 
 export const Route = createFileRoute("/home/backtest")({
-  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
-    tab: (search.tab as string) ?? "preset",
-  }),
   component: BacktestPage,
 });
 
 function BacktestPage() {
-  const mode = (Route.useSearch().tab ?? "preset") as "preset" | "custom";
-  const navigate = Route.useNavigate();
   const [symbol, setSymbol] = useState("002594.SZ");
   const [strategy, setStrategy] = useState<string>("ma_cross");
   const [params, setParams] = useState<Record<string, number>>({});
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<ISODateString | undefined>("2024-01-01");
+  const [endDate, setEndDate] = useState<ISODateString | undefined>("2026-07-29");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [resultTab, setResultTab] = useState("overview");
 
-  // ---- 自定义多因子配置 ----
-  const [factors, setFactors] = useState<FactorMeta[]>([]);
-  const [factorWeights, setFactorWeights] = useState<Record<string, number>>({
-    ma_trend_20: 30,
-    roc_20: 25,
-    rsi_14: 20,
-    volume_ratio_5: 25,
-  });
-  const [entryThreshold, setEntryThreshold] = useState(65);
-  const [exitThreshold, setExitThreshold] = useState(30);
-  const [positionSize, setPositionSize] = useState(95);
-  const [stopLoss, setStopLoss] = useState(8);
-  const [takeProfit, setTakeProfit] = useState(20);
-  const [combine, setCombine] = useState<CombineMode>("weighted_sum");
-  const [entryType, setEntryType] = useState<EntryType>("threshold");
-  const [volumeConfirm, setVolumeConfirm] = useState(false);
-  const [limitFilter, setLimitFilter] = useState(false);
-  const [stFilter, setStFilter] = useState(false);
-  const [marketFilter, setMarketFilter] = useState(false);
-
-  // 拉取因子注册表（仅在首次进入自定义模式时加载）
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/v1/backtests/factors")
-      .then((res) => res.json())
-      .then((json) => {
-        if (!cancelled) setFactors(json.data ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setFactors([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const toggleFactor = useCallback((name: string) => {
-    setFactorWeights((prev) => {
-      const next = { ...prev };
-      if ((prev[name] ?? 0) > 0) {
-        delete next[name];
-      } else {
-        next[name] = 10; // 新勾选因子默认 10%
-      }
-      return next;
-    });
-  }, []);
-
-  const changeWeight = useCallback((name: string, weight: number) => {
-    setFactorWeights((prev) => ({ ...prev, [name]: weight }));
-  }, []);
-
-  const selectedFactorCount = useMemo(
-    () => Object.values(factorWeights).filter((w) => w > 0).length,
-    [factorWeights],
-  );
+  // 已保存的自定义策略（并入「预设策略」下拉中的「自定义策略」分组）
+  const { data: savedStrategies = [] } = useStrategiesQuery();
+  const selectedCustomStrategy = useMemo(() => {
+    if (!strategy.startsWith("custom:")) return null;
+    const id = Number(strategy.slice("custom:".length));
+    return savedStrategies.find((s) => s.id === id) ?? null;
+  }, [strategy, savedStrategies]);
 
   const runBacktest = useCallback(async () => {
     if (!symbol) return;
-    if (mode === "custom" && selectedFactorCount === 0) return;
     setLoading(true);
     setResult(null);
 
     let body: Record<string, unknown>;
 
-    if (mode === "custom") {
-      // 归一化权重：百分比 → 合计为 1.0 的分数
-      const selected = Object.entries(factorWeights)
-        .filter(([, w]) => w > 0)
-        .map(([name, weight]) => ({ name, weight }));
-      const total = selected.reduce((sum, f) => sum + f.weight, 0);
+    if (selectedCustomStrategy) {
+      // 已保存的自定义策略：以 composite + 转换后的 configJson 运行
       body = {
         symbol,
         strategy: "composite",
-        config: {
-          factors: selected.map((f) => ({
-            name: f.name,
-            weight: total > 0 ? f.weight / total : 0,
-          })),
-          combine,
-          entry: {
-            type: entryType,
-            value: entryThreshold / 100,
-            volumeConfirm,
-            limitFilter,
-            stFilter,
-            marketFilter,
-          },
-          exit: { type: "threshold", value: exitThreshold / 100 },
-          risk: {
-            positionSize: positionSize / 100,
-            stopLoss: stopLoss / 100,
-            takeProfit: takeProfit / 100,
-          },
-        },
+        config: toRunConfig(selectedCustomStrategy.configJson),
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       };
@@ -386,7 +384,8 @@ function BacktestPage() {
       const resolved: Record<string, number> = {};
       const defs = STRATEGY_DEFAULTS[strategy] ?? {};
       for (const [k, dv] of Object.entries(defs)) {
-        resolved[k] = params[k] ?? dv;
+        const v = params[k];
+        resolved[k] = typeof v === "number" && Number.isFinite(v) ? v : dv;
       }
       body = {
         symbol,
@@ -408,23 +407,10 @@ function BacktestPage() {
   }, [
     symbol,
     strategy,
+    selectedCustomStrategy,
     params,
     startDate,
     endDate,
-    mode,
-    factorWeights,
-    entryThreshold,
-    exitThreshold,
-    positionSize,
-    stopLoss,
-    takeProfit,
-    combine,
-    entryType,
-    volumeConfirm,
-    limitFilter,
-    stFilter,
-    marketFilter,
-    selectedFactorCount,
   ]);
 
   /** 核心指标列表（对齐 AKQuant 12 项完整指标） */
@@ -456,77 +442,70 @@ function BacktestPage() {
       {/* 参数输入区 */}
       <Section>
         <VStack gap={4}>
-          {/* 策略模式切换 */}
-          <SegmentedControl
-            value={mode}
-            onChange={(v) =>
-              navigate({ search: { tab: v as "preset" | "custom" }, replace: true })
-            }
-            label="策略模式"
-            layout="hug"
-          >
-            <SegmentedControlItem value="preset" label="预设策略" />
-            <SegmentedControlItem value="custom" label="自定义多因子" />
-          </SegmentedControl>
-
           <HStack gap={3} align="end">
             <TextInput
               label="股票代码"
-              placeholder="如 000001.SZ"
               value={symbol}
               onChange={setSymbol}
               style={{ width: 160 }}
             />
-            <TextInput
+            <DateInput
               label="开始日期"
-              placeholder="2024-01-01"
               value={startDate}
               onChange={setStartDate}
-              style={{ width: 130 }}
+              placeholder=""
+              style={{ width: 140 }}
             />
-            <TextInput
+            <DateInput
               label="结束日期"
-              placeholder="2026-07-29"
               value={endDate}
               onChange={setEndDate}
-              style={{ width: 130 }}
+              placeholder=""
+              style={{ width: 140 }}
             />
-            {mode === "preset" && (
-              <VStack gap={1}>
-                <Text type="supporting" size="sm">
-                  策略
-                </Text>
-                <select
-                  value={strategy}
-                  onChange={(e) => setStrategy(e.target.value)}
-                  style={{
-                    height: 36,
-                    padding: "0 8px",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--color-border)",
-                    background: "var(--color-surface)",
-                    color: "var(--color-text)",
-                  }}
-                >
+            <VStack gap={1}>
+              <Text type="supporting" size="sm">
+                策略
+              </Text>
+              <select
+                value={strategy}
+                onChange={(e) => setStrategy(e.target.value)}
+                style={{
+                  height: 36,
+                  padding: "0 8px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-text)",
+                }}
+              >
+                <optgroup label="预设策略">
                   {STRATEGY_OPTIONS.map((s) => (
                     <option key={s.value} value={s.value}>
                       {s.label}
                     </option>
                   ))}
-                </select>
-              </VStack>
-            )}
+                </optgroup>
+                {savedStrategies.length > 0 && (
+                  <optgroup label="自定义策略">
+                    {savedStrategies.map((s) => (
+                      <option key={s.id} value={`custom:${s.id}`}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </VStack>
             <Button
               label={loading ? "运行中..." : "开始回测"}
               variant="primary"
-              isDisabled={
-                !symbol || loading || (mode === "custom" && selectedFactorCount === 0)
-              }
+              isDisabled={!symbol || loading}
               onClick={runBacktest}
             />
           </HStack>
 
-          {mode === "preset" && (
+          {!selectedCustomStrategy && (
             <ParamInputs
               strategy={strategy}
               params={params}
@@ -535,64 +514,6 @@ function BacktestPage() {
           )}
         </VStack>
       </Section>
-
-      {/* 自定义多因子策略构建器 */}
-      {mode === "custom" && (
-        <VStack gap={5}>
-          <Section>
-            <VStack gap={2}>
-              <Text type="supporting" size="sm">
-                信号合成方式
-              </Text>
-              <select
-                value={combine}
-                onChange={(e) => setCombine(e.target.value as CombineMode)}
-                style={{
-                  height: 36,
-                  padding: "0 8px",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--color-border)",
-                  background: "var(--color-surface)",
-                  color: "var(--color-text)",
-                  width: 240,
-                }}
-              >
-                {COMBINE_MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {COMBINE_LABELS[m]}
-                  </option>
-                ))}
-              </select>
-            </VStack>
-          </Section>
-          <StrategyBuilder
-            factors={factors}
-            weights={factorWeights}
-            onToggleFactor={toggleFactor}
-            onWeightChange={changeWeight}
-            entryThreshold={entryThreshold}
-            onEntryThresholdChange={setEntryThreshold}
-            exitThreshold={exitThreshold}
-            onExitThresholdChange={setExitThreshold}
-            positionSize={positionSize}
-            onPositionSizeChange={setPositionSize}
-            stopLoss={stopLoss}
-            onStopLossChange={setStopLoss}
-            takeProfit={takeProfit}
-            onTakeProfitChange={setTakeProfit}
-            entryType={entryType}
-            onEntryTypeChange={setEntryType}
-            volumeConfirm={volumeConfirm}
-            onVolumeConfirmChange={setVolumeConfirm}
-            limitFilter={limitFilter}
-            onLimitFilterChange={setLimitFilter}
-            stFilter={stFilter}
-            onStFilterChange={setStFilter}
-            marketFilter={marketFilter}
-            onMarketFilterChange={setMarketFilter}
-          />
-        </VStack>
-      )}
 
       {/* 加载状态 */}
       {loading && <Spinner size="sm" label="回测计算中，请稍候..." />}
@@ -603,7 +524,7 @@ function BacktestPage() {
           {/* 报告头部 — 直接使用 AKQuant report */}
           <ReportHeader
             report={result.report}
-            strategy={mode === "custom" ? "composite" : strategy}
+            strategy={selectedCustomStrategy?.name ?? strategy}
           />
 
           {/* 核心指标 — AKQuant 12 项 */}
