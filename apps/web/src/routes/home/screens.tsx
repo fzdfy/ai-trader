@@ -16,9 +16,12 @@ import { useFactorsQuery } from "../../hooks/useFactors";
 import { useBoardsQuery } from "../../hooks/useBoards";
 import {
   useRunScreen,
+  useScreenIndicators,
   type ScreenItem,
   type RunScreenInput,
+  type FactorViz,
 } from "../../hooks/useScreens";
+import { IndicatorThumbnail } from "../../components/charts/IndicatorThumbnail";
 import { useAddStockPool } from "../../hooks/useStockPool";
 
 // 选股结果行：原始结果 + 排名
@@ -46,8 +49,11 @@ const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "resultSet", label: "结果集合" },
 ];
 
-/** 结果表列定义（因子得分列依赖因子中文名映射） */
-function makeColumns(labelMap: Map<string, string>) {
+/** 结果表列定义（因子得分列依赖因子中文名映射，形态列依赖指标缩略图数据） */
+function makeColumns(
+  labelMap: Map<string, string>,
+  indicatorsBySymbol: Map<string, FactorViz[]>,
+) {
   return [
     {
       key: "rank" as const,
@@ -119,6 +125,27 @@ function makeColumns(labelMap: Map<string, string>) {
         );
       },
     },
+    {
+      key: "indicators" as const,
+      header: "形态",
+      width: proportional(3.6),
+      renderCell: (row: ScreenRow) => {
+        const vizzes = indicatorsBySymbol.get(row.symbol);
+        if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
+        return (
+          <HStack gap={3} align="start" style={{ flexWrap: "wrap" }}>
+            {vizzes.map((viz) => (
+              <VStack key={viz.name} gap={0} align="center">
+                <IndicatorThumbnail viz={viz} />
+                <Text size="sm" type="supporting">
+                  {viz.label}
+                </Text>
+              </VStack>
+            ))}
+          </HStack>
+        );
+      },
+    },
   ];
 }
 
@@ -173,7 +200,23 @@ function ScreensPage() {
     return items.map((item, i) => ({ ...item, rank: i + 1 }));
   }, [runScreen.data]);
 
-  const columns = useMemo(() => makeColumns(factorLabelMap), [factorLabelMap]);
+  // 选股结果出来后，拉取各标的的指标缩略图序列（按策略因子 + 结果股票池）
+  const indicatorSymbols = useMemo(
+    () => (runScreen.data?.items ?? []).map((i) => i.symbol),
+    [runScreen.data],
+  );
+  const indicators = useScreenIndicators(Number(strategyId) || 0, indicatorSymbols);
+
+  const indicatorsBySymbol = useMemo(() => {
+    const map = new Map<string, FactorViz[]>();
+    for (const item of indicators.data ?? []) map.set(item.symbol, item.factors);
+    return map;
+  }, [indicators.data]);
+
+  const columns = useMemo(
+    () => makeColumns(factorLabelMap, indicatorsBySymbol),
+    [factorLabelMap, indicatorsBySymbol],
+  );
 
   // 当前范围对应的板块选项（行业 / 概念）
   const boardOptions = useMemo(() => {

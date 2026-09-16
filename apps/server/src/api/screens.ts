@@ -60,10 +60,7 @@ screensRoute.post("/run", async (c) => {
 
   if (!Number.isInteger(strategyId)) return badRequest(c, "strategyId is required");
 
-  const rows = await db
-    .select()
-    .from(strategyConfig)
-    .where(eq(strategyConfig.id, strategyId));
+  const rows = await db.select().from(strategyConfig).where(eq(strategyConfig.id, strategyId));
   const strategy = rows[0];
   if (!strategy) return notFound(c, "Strategy not found");
 
@@ -93,7 +90,10 @@ screensRoute.post("/run", async (c) => {
     .where(
       and(
         eq(factorRegistry.isPublic, true),
-        inArray(factorRegistry.name, factors.map((f) => f.name)),
+        inArray(
+          factorRegistry.name,
+          factors.map((f) => f.name),
+        ),
       ),
     );
   if (validFactorRows.length === 0) {
@@ -133,6 +133,52 @@ screensRoute.post("/run", async (c) => {
     total: json.total ?? 0,
     strategy: { id: strategy.id, name: strategy.name },
   });
+});
+
+// POST /api/v1/screens/indicators — 根据策略因子为选股结果生成指标序列（缩略图数据）
+screensRoute.post("/indicators", async (c) => {
+  const body = (await c.req.json()) as { strategyId?: number; symbols?: string[] };
+  const strategyId = Number(body.strategyId);
+  const symbols = [...new Set((body.symbols ?? []).filter(Boolean))];
+
+  if (!Number.isInteger(strategyId)) return badRequest(c, "strategyId is required");
+  if (symbols.length === 0) return badRequest(c, "symbols is required");
+
+  const rows = await db.select().from(strategyConfig).where(eq(strategyConfig.id, strategyId));
+  const strategy = rows[0];
+  if (!strategy) return notFound(c, "Strategy not found");
+
+  // 策略 = 因子集合，提取因子名（内置 + 自定义）
+  const cfg = strategy.configJson as { factors?: { name: string }[] };
+  const names = [...new Set((cfg.factors ?? []).map((f) => f.name).filter(Boolean))];
+  if (names.length === 0) return ok(c, { items: [] });
+
+  // 从因子表补全 label 与 expression（自定义因子依赖 expression 求值）
+  const factorRows = await db
+    .select()
+    .from(factorRegistry)
+    .where(inArray(factorRegistry.name, names));
+  const byName = new Map(factorRows.map((r) => [r.name, r]));
+  const factors = names.map((name) => {
+    const r = byName.get(name);
+    return { name, label: r?.label ?? name, expression: r?.expression ?? null };
+  });
+
+  const res = await fetch(`${QUANT_URL}/api/v1/screens/indicators`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbols, factors }),
+  });
+  const json = (await res.json()) as { items?: unknown[]; detail?: string };
+
+  if (!res.ok) {
+    return c.json(
+      { success: false, error: json.detail ?? "Indicators failed" },
+      res.status as 400 | 404 | 500,
+    );
+  }
+
+  return ok(c, { items: json.items ?? [] });
 });
 
 export { screensRoute };

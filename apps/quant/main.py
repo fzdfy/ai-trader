@@ -10,6 +10,7 @@ from data_loader import compute_market_trend, is_st_symbol, load_kline
 from engine import get_strategy_list, run
 from factors import get_factor_list
 from feature_store import compute_features
+from indicators import build_indicators
 from logger import get_logger
 from middleware.request_id import RequestIdMiddleware
 from screener import screen
@@ -37,6 +38,17 @@ class ScreenRequest(BaseModel):
     topN: int = 20
     symbols: list[str] | None = None
     combine: str = "weighted_sum"
+
+
+class IndicatorsFactor(BaseModel):
+    name: str
+    label: str | None = None
+    expression: str | None = None
+
+
+class IndicatorsRequest(BaseModel):
+    symbols: list[str]
+    factors: list[IndicatorsFactor] = []
 
 
 app = FastAPI(title="AI Trader Quant", version="0.1.0")
@@ -147,6 +159,25 @@ def run_screen(req: ScreenRequest, request: Request) -> dict[str, Any]:
     except Exception as e:
         log.error("选股失败", request_id=request_id, error=str(e))
         raise HTTPException(500, f"Screen failed: {e}")
+
+
+@app.post("/api/v1/screens/indicators")
+def screen_indicators(req: IndicatorsRequest, request: Request) -> dict[str, Any]:
+    """选股结果指标序列：为指定股票池的每个因子生成缩略图所需数据。"""
+    request_id = getattr(request.state, "request_id", "-")
+    log.info(
+        "指标序列生成",
+        request_id=request_id,
+        symbols=len(req.symbols),
+        factors=[f.name for f in req.factors],
+    )
+    try:
+        factors = [f.model_dump() for f in req.factors]
+        items = build_indicators(req.symbols, factors)
+        return {"success": True, "items": items}
+    except Exception as e:
+        log.error("指标序列生成失败", request_id=request_id, error=str(e))
+        raise HTTPException(500, f"Indicators failed: {e}")
 
 
 @app.get("/health")
