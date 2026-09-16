@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { FactorViz, PaneSpec } from "../../hooks/useScreens";
-import { chartSeq, chartUp, chartDown, chartGrid } from "../../lib/theme";
+import { chartSeq, chartMa, chartUp, chartDown, chartGrid } from "../../lib/theme";
 
 /**
  * 指标缩略图 — 纯 SVG 折线/柱状迷你图，用于选股结果列表的「形态」列。
@@ -21,6 +21,12 @@ interface IndicatorThumbnailProps {
 const PAD_X = 4;
 const PAD_Y = 3;
 const GAP = 2;
+
+/** 均线系列名（如 MA5/MA10/MA20）→ 周期；非均线返回 null */
+function maPeriod(name: string): number | null {
+  const m = /^MA(\d+)$/.exec(name);
+  return m ? Number(m[1]) : null;
+}
 
 /** 把含 null 的序列拆成连续非空片段（[index, value][]），供断线渲染 */
 function toSegments(values: (number | null)[]) {
@@ -150,7 +156,8 @@ function PaneRenderer({ pane, width, height }: PaneProps) {
           );
         }
 
-        const color = chartSeq(si + 1);
+        const period = maPeriod(s.name);
+        const color = period != null ? chartMa(period) : chartSeq(si + 1);
         const segments = toSegments(s.values);
         return (
           <g key={s.name} fill="none" stroke={color} strokeWidth={1.2}>

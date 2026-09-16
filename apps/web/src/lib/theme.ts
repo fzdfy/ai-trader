@@ -42,6 +42,17 @@ export const chartCurrent = () => cssVar("--chart-current", "#f5a623");
 export const chartSeq = (i: number) =>
   cssVar(`--chart-seq-${i}`, ["#e5484d", "#f76b15", "#f5a623", "#30a46c"][i - 1] ?? "#8a8f98");
 
+/** 均线标准色（通达信/同花顺惯例：MA5 白、MA10 黄、MA20 紫、MA30 绿、MA60 蓝） */
+const MA_FALLBACK: Record<number, string> = {
+  5: "#1a1a1a",
+  10: "#d4a017",
+  20: "#9a4dff",
+  30: "#2e9e5b",
+  60: "#2f6fe0",
+};
+export const chartMa = (period: number) =>
+  cssVar(`--chart-ma-${period}`, MA_FALLBACK[period] ?? "#8a8f98");
+
 /** 得分维度色板（主线六维 / 板块子指标 / 情绪维度共用） */
 export const chartDim = (i: number) =>
   cssVar(

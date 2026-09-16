@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -400,17 +401,25 @@ def _evaluate_custom(rows: list[dict[str, Any]], symbol: str, expression: str) -
 
 
 def _viz_custom(rows: list[dict[str, Any]], symbol: str, expression: str) -> FactorViz:
-    """自定义因子：上 pane 价格 + 下 pane 因子值。"""
+    """自定义因子：上 pane 价格 +（可选）下 pane 因子值。
+
+    若表达式中含均线（Mean(Close, N)），则在价格 pane 中额外画出对应的
+    标准均线序列（如 MA5 / MA10 / MA20），并省略下方因子值 pane ——
+    均线形态本身已足够直观，因子值线信息重复。
+    不含均线的自定义因子（如信号类）仍保留「价格 + 因子值」双 pane。
+    """
     closes = np.asarray([float(r["close"]) for r in rows], dtype=float)
-    values = _evaluate_custom(rows, symbol, expression)
-    return FactorViz(
-        name="",
-        label="",
-        panes=[
-            PaneSpec("价格", series=[SeriesSpec(name="收盘", kind="line", values=_clean(closes))]),
-            PaneSpec("因子", series=[SeriesSpec(name="因子值", kind="line", values=values)]),
-        ],
-    )
+
+    periods = sorted({int(p) for p in re.findall(r"Mean\(\s*Close\s*,\s*(\d+)\s*\)", expression)})
+    price_series = [_line("收盘", closes)]
+    price_series += [_line(f"MA{p}", _sma(closes, p)) for p in periods]
+
+    panes = [PaneSpec("价格", series=price_series)]
+    if not periods:
+        values = _evaluate_custom(rows, symbol, expression)
+        panes.append(PaneSpec("因子", series=[SeriesSpec(name="因子值", kind="line", values=values)]))
+
+    return FactorViz(name="", label="", panes=panes)
 
 
 # ============================================================================

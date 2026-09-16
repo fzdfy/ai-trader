@@ -34,6 +34,13 @@
   --chart-seq-3: #f5a623;
   --chart-seq-4: #30a46c;
 
+  /* 均线标准色（通达信/同花顺惯例：MA5 白、MA10 黄、MA20 紫、MA30 绿、MA60 蓝） */
+  --chart-ma-5: light-dark(#1a1a1a, #ffffff);
+  --chart-ma-10: light-dark(#d4a017, #f5d90a);
+  --chart-ma-20: light-dark(#9a4dff, #e040fb);
+  --chart-ma-30: light-dark(#2e9e5b, #30a46c);
+  --chart-ma-60: light-dark(#2f6fe0, #4c8dff);
+
   /* 得分维度色板（主线六维 / 板块子指标 / 情绪维度共用） */
   --chart-dim-0: #4c8dff;
   --chart-dim-1: #e5484d;

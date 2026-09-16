@@ -73,7 +73,7 @@ function makeColumns(
     {
       key: "name" as const,
       header: "股票",
-      width: proportional(1.6),
+      width: proportional(1.0),
       renderCell: (row: ScreenRow) => (
         <VStack gap={0}>
           <Text style={{ fontWeight: 600 }}>{row.name}</Text>
@@ -84,9 +84,36 @@ function makeColumns(
       ),
     },
     {
+      key: "indicators" as const,
+      header: "形态",
+      width: proportional(2.0),
+      renderCell: (row: ScreenRow) => {
+        const vizzes = indicatorsBySymbol.get(row.symbol);
+        if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
+        return (
+          <HStack gap={3} align="start" style={{ flexWrap: "wrap" }}>
+            {vizzes.map((viz) => (
+              <VStack key={viz.name} gap={0} align="center">
+                <IndicatorThumbnail viz={viz} />
+                <Text size="sm" type="supporting">
+                  {viz.label}
+                </Text>
+              </VStack>
+            ))}
+          </HStack>
+        );
+      },
+    },
+    {
+      key: "close" as const,
+      header: "最新价",
+      width: proportional(0.8),
+      renderCell: (row: ScreenRow) => <Text>{row.close.toFixed(2)}</Text>,
+    },
+    {
       key: "score" as const,
       header: "综合得分",
-      width: proportional(2.2),
+      width: proportional(1.2),
       renderCell: (row: ScreenRow) => (
         <HStack gap={2} align="center" style={{ width: "100%" }}>
           <div style={{ flex: 1, minWidth: 80 }}>
@@ -104,12 +131,6 @@ function makeColumns(
       ),
     },
     {
-      key: "close" as const,
-      header: "最新价",
-      width: proportional(0.8),
-      renderCell: (row: ScreenRow) => <Text>{row.close.toFixed(2)}</Text>,
-    },
-    {
       key: "factorScores" as const,
       header: "因子得分",
       width: proportional(2.4),
@@ -122,27 +143,6 @@ function makeColumns(
               .map(([name, score]) => `${labelMap.get(name) ?? name} ${score.toFixed(0)}`)
               .join(" · ")}
           </Text>
-        );
-      },
-    },
-    {
-      key: "indicators" as const,
-      header: "形态",
-      width: proportional(3.6),
-      renderCell: (row: ScreenRow) => {
-        const vizzes = indicatorsBySymbol.get(row.symbol);
-        if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
-        return (
-          <HStack gap={3} align="start" style={{ flexWrap: "wrap" }}>
-            {vizzes.map((viz) => (
-              <VStack key={viz.name} gap={0} align="center">
-                <IndicatorThumbnail viz={viz} />
-                <Text size="sm" type="supporting">
-                  {viz.label}
-                </Text>
-              </VStack>
-            ))}
-          </HStack>
         );
       },
     },
