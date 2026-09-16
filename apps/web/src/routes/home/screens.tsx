@@ -73,7 +73,7 @@ function makeColumns(
     {
       key: "name" as const,
       header: "股票",
-      width: proportional(1.0),
+      width: proportional(0.6),
       renderCell: (row: ScreenRow) => (
         <VStack gap={0}>
           <Text style={{ fontWeight: 600 }}>{row.name}</Text>
@@ -86,7 +86,7 @@ function makeColumns(
     {
       key: "indicators" as const,
       header: "形态",
-      width: proportional(2.0),
+      width: proportional(1.0),
       renderCell: (row: ScreenRow) => {
         const vizzes = indicatorsBySymbol.get(row.symbol);
         if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
