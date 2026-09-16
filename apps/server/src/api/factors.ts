@@ -4,14 +4,12 @@ import { factorRegistry } from "../db/schema";
 import { eq, or } from "drizzle-orm";
 import { ok, created, badRequest, notFound, serverError } from "../lib/response";
 import { resolveCreatorNames } from "../lib/creators";
-import { ensureFactorsSeeded } from "../db/seed";
 import { mastra } from "../agent/mastra";
 
 const factorsRoute = new Hono();
 
 // GET /api/v1/factors — 因子列表（公开的 + 当前用户创建的）
 factorsRoute.get("/", async (c) => {
-  await ensureFactorsSeeded();
   const userId = c.req.header("X-User-Id");
 
   // 用户只能看到「公开的」和「自己创建的」因子

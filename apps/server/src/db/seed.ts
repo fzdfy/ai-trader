@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
  *  - category：因子分类（momentum/trend/volume/volatility）
  *  - direction：1=正向因子，-1=反向因子
  *  - description：因子描述
- *  - createdBy：创建者（system=内置，atrus=atrus 团队新增）
+ *  - createdBy：创建者（system=内置；真实用户 id=该用户创建）
  */
 interface SeedFactor {
   name: string;
@@ -43,7 +43,7 @@ const SEED_FACTORS: SeedFactor[] = [
     category: "momentum",
     direction: 1,
     description: "短期相对强弱指标",
-    createdBy: "atrus",
+    createdBy: "ZtRYsRFdJtVFUHh4iXC7csuJcDg0BtWd",
     isPublic: true,
   },
   {
@@ -66,7 +66,7 @@ const SEED_FACTORS: SeedFactor[] = [
     category: "trend",
     direction: 1,
     description: "收盘价相对5日均线偏离",
-    createdBy: "atrus",
+    createdBy: "ZtRYsRFdJtVFUHh4iXC7csuJcDg0BtWd",
     isPublic: true,
   },
   {
@@ -117,7 +117,7 @@ const SEED_FACTORS: SeedFactor[] = [
     category: "volatility",
     direction: 1,
     description: "收盘价在20日布林带中的相对位置",
-    createdBy: "atrus",
+    createdBy: "ZtRYsRFdJtVFUHh4iXC7csuJcDg0BtWd",
     isPublic: true,
   },
 ];

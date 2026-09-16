@@ -143,13 +143,20 @@ function ScreensPage() {
   const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(() => new Set());
   const [setName, setSetName] = useState("");
 
-  // 策略列表加载后默认选中第一个
+  // 有效因子名集合：仅公开内置因子可被 quant 识别，用于跳过含无效(custom)因子的策略，避免默认选中后选股为空
+  const validFactorNames = useMemo(
+    () => new Set(factors.filter((f) => f.isPublic).map((f) => f.name)),
+    [factors],
+  );
+
+  // 策略列表加载后默认选中第一个「至少含一个有效因子」的策略
   useEffect(() => {
-    const first = strategies[0];
-    if (first && !strategyId) {
-      setStrategyId(String(first.id));
-    }
-  }, [strategies, strategyId]);
+    if (strategyId) return;
+    const firstValid = strategies.find((s) =>
+      (s.configJson?.factors ?? []).some((f) => validFactorNames.has(f.name)),
+    );
+    if (firstValid) setStrategyId(String(firstValid.id));
+  }, [strategies, strategyId, validFactorNames]);
 
   const factorLabelMap = useMemo(
     () => new Map(factors.map((f) => [f.name, f.label])),

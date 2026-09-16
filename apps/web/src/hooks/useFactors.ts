@@ -145,28 +145,6 @@ export function useDeleteFactor() {
   });
 }
 
-/** 修改因子是否公开（仅创建者本人可改） */
-export function useUpdateFactorVisibility() {
-  const queryClient = useQueryClient();
-  const userId = authClient.useSession().data?.user.id;
-
-  return useMutation({
-    mutationFn: async (input: { name: string; isPublic: boolean }) => {
-      const res = await fetch(`/api/v1/factors/${encodeURIComponent(input.name)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
-        body: JSON.stringify({ isPublic: input.isPublic }),
-      });
-      const json = (await res.json()) as ApiResponse<Factor>;
-      if (!json.success) throw new Error((json as unknown as { error: string }).error);
-      return json.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["factors"] });
-    },
-  });
-}
-
 /** AI 根据描述生成因子表达式（返回表达式字符串，无法表达时返回「无法生成」） */
 export function useGenerateFactorExpression() {
   const userId = authClient.useSession().data?.user.id;

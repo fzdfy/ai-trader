@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { strategyConfig, boardConstituent } from "../db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { strategyConfig, boardConstituent, factorRegistry } from "../db/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { ok, badRequest, notFound } from "../lib/response";
 
 const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
@@ -80,13 +80,40 @@ screensRoute.post("/run", async (c) => {
   }));
   const combine = cfg.combine ?? "weighted_sum";
 
+  // 校验因子名是否存在于因子库，并为自定义因子附带 expression 供 quant 表达式引擎求值
+  if (factors.length === 0) {
+    return badRequest(c, "该策略没有配置选股因子");
+  }
+  const validFactorRows = await db
+    .select({
+      name: factorRegistry.name,
+      expression: factorRegistry.expression,
+    })
+    .from(factorRegistry)
+    .where(
+      and(
+        eq(factorRegistry.isPublic, true),
+        inArray(factorRegistry.name, factors.map((f) => f.name)),
+      ),
+    );
+  if (validFactorRows.length === 0) {
+    return badRequest(c, "该策略没有可用的选股因子，请检查策略的因子配置");
+  }
+
+  // 内置因子无 expression（quant 走 numpy），自定义因子带 expression（quant 走表达式引擎）
+  const expressionBy = new Map(validFactorRows.map((r) => [r.name, r.expression]));
+  const runFactors = factors.map((f) => ({
+    ...f,
+    expression: expressionBy.get(f.name) ?? null,
+  }));
+
   // 股票池范围：全部 / 行业 / 板块 / 结果集合 → 解析为 symbol 列表
   const symbols = await resolveSymbols(body);
 
   const res = await fetch(`${QUANT_URL}/api/v1/screens/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ factors, topN, combine, symbols }),
+    body: JSON.stringify({ factors: runFactors, topN, combine, symbols }),
   });
   const json = (await res.json()) as {
     items?: unknown[];

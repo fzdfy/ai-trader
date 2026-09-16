@@ -14,6 +14,8 @@ interface FactorEditDialogProps {
   factor: Factor | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 是否允许编辑（仅创建者本人为 true；他人创建的因子整表单只读） */
+  canEdit: boolean;
   onSubmit: (input: {
     name: string;
     label: string;
@@ -24,11 +26,17 @@ interface FactorEditDialogProps {
 }
 
 /**
- * 编辑因子弹框：label + description + expression + 是否公开。
+ * 因子编辑弹框：label + description + expression + 是否公开。
  * name 为因子唯一标识（主键），不可修改，仅用于定位提交。
- * expression 支持通过「AI 生成」按钮，根据 description 自动生成。
+ * 通过 canEdit 控制：本人创建可编辑，他人创建的所有输入框 disabled（只读展示）。
  */
-export function FactorEditDialog({ factor, isOpen, onOpenChange, onSubmit }: FactorEditDialogProps) {
+export function FactorEditDialog({
+  factor,
+  isOpen,
+  onOpenChange,
+  canEdit,
+  onSubmit,
+}: FactorEditDialogProps) {
   const [label, setLabel] = useState("");
   const [expression, setExpression] = useState("");
   const [description, setDescription] = useState("");
@@ -50,11 +58,13 @@ export function FactorEditDialog({ factor, isOpen, onOpenChange, onSubmit }: Fac
 
   // 手动修改表达式时，清空 AI 生成错误提示
   const handleExpressionChange = (value: string) => {
+    if (!canEdit) return;
     setExpression(value);
     if (generateError) setGenerateError("");
   };
 
   const handleGenerate = async () => {
+    if (!canEdit) return;
     const desc = description.trim();
     if (!desc) return;
     try {
@@ -71,7 +81,7 @@ export function FactorEditDialog({ factor, isOpen, onOpenChange, onSubmit }: Fac
   };
 
   const handleSubmit = () => {
-    if (!factor || !label.trim()) return;
+    if (!canEdit || !factor || !label.trim()) return;
     onSubmit({
       name: factor.name,
       label: label.trim(),
@@ -85,7 +95,9 @@ export function FactorEditDialog({ factor, isOpen, onOpenChange, onSubmit }: Fac
   return (
     <Dialog isOpen={isOpen} onOpenChange={onOpenChange} purpose="form" width={480}>
       <Layout
-        header={<DialogHeader title="编辑因子" onOpenChange={onOpenChange} />}
+        header={
+          <DialogHeader title={canEdit ? "编辑因子" : "因子详情"} onOpenChange={onOpenChange} />
+        }
         content={
           <LayoutContent>
             <VStack gap={4}>
@@ -97,44 +109,52 @@ export function FactorEditDialog({ factor, isOpen, onOpenChange, onSubmit }: Fac
                 value={label}
                 onChange={setLabel}
                 isRequired
+                isDisabled={!canEdit}
                 placeholder="如：乖离率"
-                hasAutoFocus
+                hasAutoFocus={canEdit}
               />
               <TextArea
                 label="描述"
                 value={description}
                 onChange={setDescription}
+                isDisabled={!canEdit}
                 placeholder="简要说明该因子的含义与用途，AI 将据此生成表达式"
               />
               <VStack gap={1}>
                 <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
                   <Text type="label">因子表达式</Text>
-                  <Button
-                    label="AI 生成"
-                    size="sm"
-                    variant="secondary"
-                    icon={<Sparkles size={14} />}
-                    isLoading={generateMutation.isPending}
-                    isDisabled={!description.trim()}
-                    tooltip={description.trim() ? "根据描述生成表达式" : "请先填写描述"}
-                    onClick={() => void handleGenerate()}
-                  />
+                  {canEdit ? (
+                    <Button
+                      label="AI 生成"
+                      size="sm"
+                      variant="secondary"
+                      icon={<Sparkles size={14} />}
+                      isLoading={generateMutation.isPending}
+                      isDisabled={!description.trim()}
+                      tooltip={description.trim() ? "根据描述生成表达式" : "请先填写描述"}
+                      onClick={() => void handleGenerate()}
+                    />
+                  ) : null}
                 </HStack>
                 <TextArea
                   label="因子表达式"
                   isLabelHidden
                   value={expression}
                   onChange={handleExpressionChange}
+                  isDisabled={!canEdit}
                   placeholder="如：Close / Ref(Close, 5) - 1"
-                  description="AKQuant 表达式，可点击「AI 生成」根据描述自动生成"
+                  description={
+                    canEdit ? "AKQuant 表达式，可点击「AI 生成」根据描述自动生成" : undefined
+                  }
                   status={generateError ? { type: "error", message: generateError } : undefined}
                 />
               </VStack>
               <Switch
                 label="是否公开"
-                description="开启后其他用户也能看到该因子"
+                description={canEdit ? "开启后其他用户也能看到该因子" : "仅创建者可修改公开状态"}
                 value={isPublic}
                 onChange={setIsPublic}
+                isDisabled={!canEdit}
               />
             </VStack>
           </LayoutContent>
@@ -142,8 +162,19 @@ export function FactorEditDialog({ factor, isOpen, onOpenChange, onSubmit }: Fac
         footer={
           <LayoutFooter hasDivider>
             <HStack gap={2} align="center" style={{ justifyContent: "flex-end" }}>
-              <Button label="取消" variant="ghost" onClick={() => onOpenChange(false)} />
-              <Button label="保存" variant="primary" isDisabled={!label.trim()} onClick={handleSubmit} />
+              <Button
+                label={canEdit ? "取消" : "关闭"}
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+              />
+              {canEdit ? (
+                <Button
+                  label="保存"
+                  variant="primary"
+                  isDisabled={!label.trim()}
+                  onClick={handleSubmit}
+                />
+              ) : null}
             </HStack>
           </LayoutFooter>
         }

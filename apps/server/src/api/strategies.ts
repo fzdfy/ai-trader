@@ -4,7 +4,6 @@ import { strategyConfig } from "../db/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { ok, created, badRequest, notFound } from "../lib/response";
 import { resolveCreatorNames } from "../lib/creators";
-import { ensureStrategiesSeeded, ensureAtrusStrategiesSeeded } from "../db/seed";
 
 const strategiesRoute = new Hono();
 
@@ -317,8 +316,6 @@ function buildConfigJson(
 
 // GET /api/v1/strategies — 公开策略 + 当前用户策略
 strategiesRoute.get("/", async (c) => {
-  await ensureStrategiesSeeded();
-  await ensureAtrusStrategiesSeeded();
   const userId = c.req.header("X-User-Id");
 
   // 用户只能看到「公开的」和「自己创建的」策略
