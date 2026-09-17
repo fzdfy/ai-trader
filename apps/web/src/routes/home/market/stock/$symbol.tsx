@@ -3,18 +3,48 @@ import { createFileRoute, useParams, Link } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Button } from "@astryxdesign/core/Button";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { init, dispose, type Chart } from "klinecharts";
+import {
+  init,
+  dispose,
+  type Chart,
+  type IndicatorFigure,
+  type IndicatorFigureStyle,
+} from "klinecharts";
 import type { KlineTf } from "../../../../hooks/useInstruments";
-import { chartDown, chartFlat, chartUp } from "../../../../lib/theme";
+import { chartDown, chartFlat, chartUp, chartMa, chartGrid } from "../../../../lib/theme";
 
 export const Route = createFileRoute("/home/market/stock/$symbol")({
-  validateSearch: (search: Record<string, unknown>): { tf?: KlineTf } => ({
+  validateSearch: (search: Record<string, unknown>): { tf?: KlineTf; from?: string } => ({
     tf: (search.tf as KlineTf) ?? "1d",
+    from: search.from as string | undefined,
   }),
   component: StockDetailPage,
 });
 
 const INDICATORS = ["MA", "MACD", "KDJ", "RSI"] as const;
+
+/** MACD 指标单根计算结果 */
+type MacdResult = { macd?: number };
+
+/**
+ * MACD 指标 figures 覆盖：内置柱体在 MACD 放大时绘制为空心(stroke)、
+ * 缩小时实心(fill)，这里统一强制为红涨绿跌实心。
+ */
+const MACD_FIGURES: IndicatorFigure[] = [
+  { key: "dif", title: "DIF: ", type: "line" },
+  { key: "dea", title: "DEA: ", type: "line" },
+  {
+    key: "macd",
+    title: "MACD: ",
+    type: "bar",
+    baseValue: 0,
+    styles: ({ data }) => {
+      const currentMacd = (data.current as MacdResult | null | undefined)?.macd ?? Number.MIN_SAFE_INTEGER;
+      const color = currentMacd > 0 ? chartUp() : currentMacd < 0 ? chartDown() : chartFlat();
+      return { style: "fill", color, borderColor: color } as unknown as IndicatorFigureStyle;
+    },
+  },
+];
 
 /** 周期选项：tf → klinecharts period 映射 */
 const PERIOD_OPTIONS: { value: KlineTf; label: string }[] = [
@@ -42,7 +72,8 @@ function periodForTf(tf: KlineTf): { span: number; type: "minute" | "day" | "wee
 
 function StockDetailPage() {
   const { symbol } = useParams({ from: "/home/market/stock/$symbol" });
-  const tf = Route.useSearch().tf ?? "1d";
+  const { tf: tfParam, from } = Route.useSearch();
+  const tf = tfParam ?? "1d";
   const navigate = Route.useNavigate();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
@@ -52,12 +83,19 @@ function StockDetailPage() {
 
     const chart = init(chartRef.current, {
       styles: {
-        grid: { horizontal: { color: "var(--color-border, #eee)" } },
+        grid: { horizontal: { color: chartGrid() } },
         candle: {
+          type: "candle_solid",
           bar: {
             upColor: chartUp(),
             downColor: chartDown(),
             noChangeColor: chartFlat(),
+            upBorderColor: chartUp(),
+            downBorderColor: chartDown(),
+            noChangeBorderColor: chartFlat(),
+            upWickColor: chartUp(),
+            downWickColor: chartDown(),
+            noChangeWickColor: chartFlat(),
           },
         },
       },
@@ -91,9 +129,44 @@ function StockDetailPage() {
         callback(data, { forward: false, backward: false });
 
         // 数据加载完成后创建指标
-        chart.createIndicator({ name: "MA", paneId: "candle_pane" }, true);
-        chart.createIndicator({ name: "MACD" }, true);
-        chart.createIndicator({ name: "VOL" }, true);
+        chart.createIndicator(
+          {
+            name: "MA",
+            calcParams: [5, 10, 20, 30, 60, 120, 250],
+            paneId: "candle_pane",
+            styles: {
+              lines: [5, 10, 20, 30, 60, 120, 250].map((p) => ({ color: chartMa(p) })),
+            },
+          },
+          true,
+        );
+        chart.createIndicator(
+          {
+            name: "MACD",
+            styles: {
+              // 通达信标准：DIF 白、DEA 黄；柱红涨绿跌
+              lines: [{ color: chartMa(5) }, { color: chartMa(10) }],
+              bars: [
+                { upColor: chartUp(), downColor: chartDown(), noChangeColor: chartFlat() },
+              ],
+            },
+            figures: MACD_FIGURES,
+          },
+          true,
+        );
+        chart.createIndicator(
+          {
+            name: "VOL",
+            styles: {
+              // 量均线沿用均线标准色（MA5 白 / MA10 黄 / MA20 紫）；柱红涨绿跌
+              lines: [{ color: chartMa(5) }, { color: chartMa(10) }, { color: chartMa(20) }],
+              bars: [
+                { upColor: chartUp(), downColor: chartDown(), noChangeColor: chartFlat() },
+              ],
+            },
+          },
+          true,
+        );
         // for (const name of INDICATORS.slice(1)) {
         //   chart.createIndicator({ name });
         // }
@@ -110,10 +183,19 @@ function StockDetailPage() {
   return (
     <VStack gap={4} style={{ height: "100%" }}>
       <HStack gap={2} align="center">
-        <Link to="/home/market/stock" search={{ tab: "stock" }} style={{ textDecoration: "none" }}>
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
-        <TabList value={tf} onChange={(v) => navigate({ search: { tf: v as KlineTf }, replace: true })}>
+        {from === "screens" ? (
+          <Link to="/home/screens" style={{ textDecoration: "none" }}>
+            <Button label="← 返回" variant="ghost" size="sm" />
+          </Link>
+        ) : (
+          <Link to="/home/market/stock" search={{ tab: "stock" }} style={{ textDecoration: "none" }}>
+            <Button label="← 返回" variant="ghost" size="sm" />
+          </Link>
+        )}
+        <TabList
+          value={tf}
+          onChange={(v) => navigate({ search: { tf: v as KlineTf, from }, replace: true })}
+        >
           {PERIOD_OPTIONS.map((p) => (
             <Tab key={p.value} value={p.value} label={p.label} />
           ))}

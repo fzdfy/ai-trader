@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import type { QueryKey } from "@tanstack/react-query";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -21,6 +21,7 @@ import {
   useScreenResult,
   useScreenIndicators,
   type ScreenItem,
+  type ScreenResult,
   type RunScreenInput,
   type FactorViz,
 } from "../../hooks/useScreens";
@@ -87,12 +88,19 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
       header: "股票",
       width: proportional(0.6),
       renderCell: (row: ScreenRow) => (
-        <VStack gap={0}>
-          <Text style={{ fontWeight: 600 }}>{row.name}</Text>
-          <Text type="supporting" size="sm">
-            {row.symbol}
-          </Text>
-        </VStack>
+        <Link
+          to="/home/market/stock/$symbol"
+          params={{ symbol: row.symbol }}
+          search={{ from: "screens" }}
+          style={{ textDecoration: "none" }}
+        >
+          <VStack gap={0}>
+            <Text style={{ fontWeight: 600, color: "var(--color-accent)" }}>{row.name}</Text>
+            <Text type="supporting" size="sm">
+              {row.symbol}
+            </Text>
+          </VStack>
+        </Link>
       ),
     },
     {

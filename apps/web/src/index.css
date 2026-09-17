@@ -40,6 +40,8 @@
   --chart-ma-20: light-dark(#9a4dff, #e040fb);
   --chart-ma-30: light-dark(#2e9e5b, #30a46c);
   --chart-ma-60: light-dark(#2f6fe0, #4c8dff);
+  --chart-ma-120: light-dark(#808080, #9e9e9e);
+  --chart-ma-250: light-dark(#e5484d, #ff6b6b);
 
   /* 得分维度色板（主线六维 / 板块子指标 / 情绪维度共用） */
   --chart-dim-0: #4c8dff;

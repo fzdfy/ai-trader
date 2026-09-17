@@ -10,7 +10,27 @@
 export function cssVar(name: string, fallback: string): string {
   const root = document.documentElement;
   const value = getComputedStyle(root).getPropertyValue(name).trim();
-  return value || fallback;
+  return value ? resolveColor(value) : fallback;
+}
+
+/**
+ * 将 light-dark() 解析为实际颜色。
+ * getComputedStyle 读取自定义属性时返回原始 token 流，light-dark() 不会
+ * 被浏览器解析成具体颜色（canvas/echarts 无法识别），需手动解析。
+ * 项目当前为浅色主题（body 白底），统一取 light 分支。
+ */
+function resolveColor(value: string): string {
+  const v = value.trim();
+  if (!v.startsWith("light-dark(") || !v.endsWith(")")) return v;
+  const inner = v.slice("light-dark(".length, -1);
+  let depth = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if (c === "(") depth += 1;
+    else if (c === ")") depth -= 1;
+    else if (c === "," && depth === 0) return inner.slice(0, i).trim();
+  }
+  return v;
 }
 
 /** 将 #rrggbb 转为 rgba() 字符串（用于渐变/面积填充） */
@@ -49,6 +69,8 @@ const MA_FALLBACK: Record<number, string> = {
   20: "#9a4dff",
   30: "#2e9e5b",
   60: "#2f6fe0",
+  120: "#808080",
+  250: "#e5484d",
 };
 export const chartMa = (period: number) =>
   cssVar(`--chart-ma-${period}`, MA_FALLBACK[period] ?? "#8a8f98");
