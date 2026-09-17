@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 
 // ---------- types ----------
 
@@ -67,7 +67,9 @@ export interface RunScreenInput {
 
 // ---------- hooks ----------
 
-export function useRunScreen() {
+/** 执行选股：请求成功后把结果写入 useQuery 缓存（queryKey 由调用方的 search 参数派生） */
+export function useRunScreen(queryKey: QueryKey) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: RunScreenInput): Promise<ScreenResult> => {
       const res = await fetch("/api/v1/screens/run", {
@@ -79,6 +81,18 @@ export function useRunScreen() {
       if (!json.success) throw new Error(json.error ?? "选股失败");
       return json.data;
     },
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKey, data);
+    },
+  });
+}
+
+/** 只读缓存查询：按 queryKey 读取上次选股结果，不发起请求（结果由 useRunScreen 写入） */
+export function useScreenResult(queryKey: QueryKey) {
+  return useQuery<ScreenResult | undefined, Error, ScreenResult | undefined, QueryKey>({
+    queryKey,
+    enabled: false,
+    staleTime: Infinity,
   });
 }
 

@@ -259,6 +259,17 @@ function getUserId() {
   return authClient.useSession().data?.user.id;
 }
 
+// ---------- 请求函数（hook 与 Route loader 共用） ----------
+
+/** 拉取策略列表；loader 中无 React 上下文，故不依赖 useSession，由调用方传入 userId */
+export async function fetchStrategies(userId: string): Promise<Strategy[]> {
+  const res = await fetch("/api/v1/strategies", {
+    headers: { "X-User-Id": userId },
+  });
+  const json = (await res.json()) as ApiResponse<Strategy[]>;
+  return json.success ? json.data : [];
+}
+
 // ---------- hooks ----------
 
 export function useStrategiesQuery() {
@@ -266,13 +277,7 @@ export function useStrategiesQuery() {
 
   return useQuery({
     queryKey: ["strategies", userId],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/strategies", {
-        headers: { "X-User-Id": userId ?? "" },
-      });
-      const json = (await res.json()) as ApiResponse<Strategy[]>;
-      return json.success ? json.data : [];
-    },
+    queryFn: () => fetchStrategies(userId ?? ""),
   });
 }
 

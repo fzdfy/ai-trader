@@ -30,6 +30,17 @@ export const FACTOR_CATEGORY_LABELS: Record<string, string> = {
   custom: "自定义",
 };
 
+// ---------- 请求函数（hook 与 Route loader 共用） ----------
+
+/** 拉取因子列表（含自己的私有因子）；loader 中无 React 上下文，由调用方传入 userId */
+export async function fetchFactors(userId: string): Promise<Factor[]> {
+  const res = await fetch("/api/v1/factors", {
+    headers: { "X-User-Id": userId },
+  });
+  const json = (await res.json()) as ApiResponse<Factor[]>;
+  return json.success ? json.data : [];
+}
+
 // ---------- hooks ----------
 
 export function useFactorsQuery() {
@@ -38,13 +49,7 @@ export function useFactorsQuery() {
 
   return useQuery({
     queryKey: ["factors", userId],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/factors", {
-        headers: { "X-User-Id": userId ?? "" },
-      });
-      const json = (await res.json()) as ApiResponse<Factor[]>;
-      return json.success ? json.data : [];
-    },
+    queryFn: () => fetchFactors(userId ?? ""),
   });
 }
 

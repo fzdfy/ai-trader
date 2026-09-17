@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import type { QueryKey } from "@tanstack/react-query";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
@@ -11,11 +12,13 @@ import { Selector } from "@astryxdesign/core/Selector";
 import { MultiSelector } from "@astryxdesign/core/MultiSelector";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
-import { useStrategiesQuery } from "../../hooks/useStrategies";
-import { useFactorsQuery } from "../../hooks/useFactors";
-import { useBoardsQuery } from "../../hooks/useBoards";
+import { fetchStrategies } from "../../hooks/useStrategies";
+import { fetchFactors } from "../../hooks/useFactors";
+import { fetchBoards } from "../../hooks/useBoards";
+import { authClient } from "../../lib/auth-client";
 import {
   useRunScreen,
+  useScreenResult,
   useScreenIndicators,
   type ScreenItem,
   type RunScreenInput,
@@ -49,11 +52,20 @@ const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "resultSet", label: "结果集合" },
 ];
 
+function isScope(v: unknown): v is ScopeValue {
+  return v === "all" || v === "industry" || v === "concept" || v === "resultSet";
+}
+
+// URL search 参数：选股的查询条件（作为 useQuery 的缓存键来源）
+interface ScreenSearch {
+  strategyId: number;
+  topN: number;
+  scope: ScopeValue;
+  boardCodes: string[];
+}
+
 /** 结果表列定义（因子得分列依赖因子中文名映射，形态列依赖指标缩略图数据） */
-function makeColumns(
-  labelMap: Map<string, string>,
-  indicatorsBySymbol: Map<string, FactorViz[]>,
-) {
+function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<string, FactorViz[]>) {
   return [
     {
       key: "rank" as const,
@@ -86,7 +98,7 @@ function makeColumns(
     {
       key: "indicators" as const,
       header: "形态",
-      width: proportional(1.0),
+      width: proportional(3.6),
       renderCell: (row: ScreenRow) => {
         const vizzes = indicatorsBySymbol.get(row.symbol);
         if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
@@ -117,12 +129,7 @@ function makeColumns(
       renderCell: (row: ScreenRow) => (
         <HStack gap={2} align="center" style={{ width: "100%" }}>
           <div style={{ flex: 1, minWidth: 80 }}>
-            <ProgressBar
-              value={row.score}
-              max={100}
-              label={`${row.name}综合得分`}
-              isLabelHidden
-            />
+            <ProgressBar value={row.score} max={100} label={`${row.name}综合得分`} isLabelHidden />
           </div>
           <Text style={{ width: 42, textAlign: "right", fontWeight: 600 }}>
             {row.score.toFixed(1)}
@@ -150,62 +157,89 @@ function makeColumns(
 }
 
 export const Route = createFileRoute("/home/screens")({
+  validateSearch: (search: Record<string, unknown>): ScreenSearch => ({
+    strategyId: typeof search.strategyId === "number" ? search.strategyId : 0,
+    topN: typeof search.topN === "number" ? search.topN : 20,
+    scope: isScope(search.scope) ? search.scope : "all",
+    boardCodes: Array.isArray(search.boardCodes)
+      ? search.boardCodes.filter((x): x is string => typeof x === "string")
+      : [],
+  }),
+  // 选项数据（策略 / 因子 / 行业 / 概念）在 loader 中并行取好：渲染时即为终态，无需 loading 态
+  staleTime: 60_000,
+  loader: async () => {
+    // loader 不在 React 上下文中，用户 id 直接取当前会话
+    const { data: session } = await authClient.getSession();
+    const userId = session?.user.id ?? "";
+    const [strategies, factors, industryBoards, conceptBoards] = await Promise.all([
+      fetchStrategies(userId),
+      fetchFactors(userId),
+      fetchBoards("industry"),
+      fetchBoards("concept"),
+    ]);
+    return { strategies, factors, industryBoards, conceptBoards };
+  },
   component: ScreensPage,
 });
 
 function ScreensPage() {
-  const { data: strategies = [], isLoading: strategiesLoading } = useStrategiesQuery();
-  const { data: factors = [] } = useFactorsQuery();
-  const { data: industryBoards = [] } = useBoardsQuery("industry");
-  const { data: conceptBoards = [] } = useBoardsQuery("concept");
-  const runScreen = useRunScreen();
+  const { strategies, factors, industryBoards, conceptBoards } = Route.useLoaderData();
   const addStockPool = useAddStockPool();
 
-  const [strategyId, setStrategyId] = useState("");
-  const [topN, setTopN] = useState(20);
-  const [scope, setScope] = useState<ScopeValue>("all");
-  const [boardCodes, setBoardCodes] = useState<string[]>([]);
-  const [selectedResultSetIds, setSelectedResultSetIds] = useState<string[]>([]);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  // 结果集合等页面本地交互态（不进入 search：集合内容为会话内临时数据）
   const [resultSets, setResultSets] = useState<ResultSet[]>([]);
+  const [selectedResultSetIds, setSelectedResultSetIds] = useState<string[]>([]);
   const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(() => new Set());
   const [setName, setSetName] = useState("");
 
-  // 有效因子名集合：仅公开内置因子可被 quant 识别，用于跳过含无效(custom)因子的策略，避免默认选中后选股为空
-  const validFactorNames = useMemo(
-    () => new Set(factors.filter((f) => f.isPublic).map((f) => f.name)),
-    [factors],
-  );
-
-  // 策略列表加载后默认选中第一个「至少含一个有效因子」的策略
-  useEffect(() => {
-    if (strategyId) return;
-    const firstValid = strategies.find((s) =>
-      (s.configJson?.factors ?? []).some((f) => validFactorNames.has(f.name)),
-    );
-    if (firstValid) setStrategyId(String(firstValid.id));
-  }, [strategies, strategyId, validFactorNames]);
-
-  const factorLabelMap = useMemo(
-    () => new Map(factors.map((f) => [f.name, f.label])),
-    [factors],
-  );
+  const factorLabelMap = useMemo(() => new Map(factors.map((f) => [f.name, f.label])), [factors]);
 
   const strategyOptions = useMemo(
     () => strategies.map((s) => ({ value: String(s.id), label: s.name })),
     [strategies],
   );
 
+  // 未显式选择策略时默认取第一个「至少含一个有效因子」的策略：仅公开内置因子能被 quant 识别，
+  // 否则默认选中后会选出空结果（原先靠 useEffect 回写 search，这里改为渲染期派生，省掉一轮渲染与导航）
+  const strategyId = useMemo(() => {
+    if (search.strategyId) return search.strategyId;
+    const validFactorNames = new Set(factors.filter((f) => f.isPublic).map((f) => f.name));
+    const firstValid = strategies.find((s) =>
+      (s.configJson?.factors ?? []).some((f) => validFactorNames.has(f.name)),
+    );
+    return firstValid?.id ?? 0;
+  }, [search.strategyId, strategies, factors]);
+
+  // 统一更新 search 参数（表单控件 onChange 都走这里，replace 避免历史堆积）
+  const updateSearch = (patch: Partial<ScreenSearch>) => {
+    navigate({ search: { ...search, ...patch }, replace: true });
+  };
+
+  // queryKey 直接由 search 参数派生：一个查询条件对应一份缓存结果
+  const screenQueryKey: QueryKey = useMemo(
+    () => ["screen-result", strategyId, search.topN, search.scope, search.boardCodes],
+    [strategyId, search],
+  );
+
+  // useMutation 执行选股并写入缓存；useQuery 只读缓存（进入页面按 search 恢复上次结果）
+  const runScreen = useRunScreen(screenQueryKey);
+  const screenResult = useScreenResult(screenQueryKey);
+  const screenData = screenResult.data;
+
   const rows: ScreenRow[] = useMemo(() => {
-    const items = runScreen.data?.items ?? [];
+    const items = screenData?.items ?? [];
     return items.map((item, i) => ({ ...item, rank: i + 1 }));
-  }, [runScreen.data]);
+  }, [screenData]);
 
   // 选股结果出来后，拉取各标的的指标缩略图序列（按策略因子 + 结果股票池）
   const indicatorSymbols = useMemo(
-    () => (runScreen.data?.items ?? []).map((i) => i.symbol),
-    [runScreen.data],
+    () => (screenData?.items ?? []).map((i) => i.symbol),
+    [screenData],
   );
-  const indicators = useScreenIndicators(Number(strategyId) || 0, indicatorSymbols);
+  const indicators = useScreenIndicators(strategyId, indicatorSymbols);
 
   const indicatorsBySymbol = useMemo(() => {
     const map = new Map<string, FactorViz[]>();
@@ -220,9 +254,9 @@ function ScreensPage() {
 
   // 当前范围对应的板块选项（行业 / 概念）
   const boardOptions = useMemo(() => {
-    const list = scope === "industry" ? industryBoards : conceptBoards;
+    const list = search.scope === "industry" ? industryBoards : conceptBoards;
     return list.map((b) => ({ value: b.code, label: b.name }));
-  }, [scope, industryBoards, conceptBoards]);
+  }, [search.scope, industryBoards, conceptBoards]);
 
   const resultSetOptions = useMemo(
     () =>
@@ -247,8 +281,7 @@ function ScreensPage() {
     onSelectAll: ({ isAllSelected }) => {
       setSelectedSymbols(isAllSelected ? new Set(rows.map((r) => r.symbol)) : new Set());
     },
-    getIsAllSelected: () =>
-      rows.length > 0 && rows.every((r) => selectedSymbols.has(r.symbol)),
+    getIsAllSelected: () => rows.length > 0 && rows.every((r) => selectedSymbols.has(r.symbol)),
     getIsIndeterminate: () => {
       const count = rows.reduce((n, r) => n + (selectedSymbols.has(r.symbol) ? 1 : 0), 0);
       return count > 0 && count < rows.length;
@@ -263,10 +296,14 @@ function ScreensPage() {
   );
 
   const handleRun = () => {
-    const input: RunScreenInput = { strategyId: Number(strategyId), topN, scope };
-    if (scope === "industry" || scope === "concept") {
-      input.boardCodes = boardCodes;
-    } else if (scope === "resultSet") {
+    const input: RunScreenInput = {
+      strategyId,
+      topN: search.topN,
+      scope: search.scope,
+    };
+    if (search.scope === "industry" || search.scope === "concept") {
+      input.boardCodes = search.boardCodes;
+    } else if (search.scope === "resultSet") {
       const selected = resultSets.filter((r) => selectedResultSetIds.includes(r.id));
       input.symbols = [...new Set(selected.flatMap((r) => r.items.map((i) => i.symbol)))];
     }
@@ -274,9 +311,8 @@ function ScreensPage() {
   };
 
   const handleScopeChange = (v: string) => {
-    setScope(v as ScopeValue);
-    setBoardCodes([]);
     setSelectedResultSetIds([]);
+    updateSearch({ scope: v as ScopeValue, boardCodes: [] });
   };
 
   const handleAddToResultSet = () => {
@@ -304,7 +340,7 @@ function ScreensPage() {
   const handleAddToStockPool = () => {
     const selected = rows.filter((r) => selectedSymbols.has(r.symbol));
     if (selected.length === 0) return;
-    const source = runScreen.data?.strategy.name ?? "选股";
+    const source = screenData?.strategy.name ?? "选股";
     addStockPool.mutate(
       {
         items: selected.map((r) => ({
@@ -332,25 +368,25 @@ function ScreensPage() {
           <Selector
             label="策略"
             options={strategyOptions}
-            value={strategyId}
-            onChange={setStrategyId}
+            value={strategyId ? String(strategyId) : ""}
+            onChange={(v) => updateSearch({ strategyId: Number(v) })}
             placeholder="选择策略"
-            isDisabled={strategiesLoading || strategyOptions.length === 0}
+            isDisabled={strategyOptions.length === 0}
             width={240}
           />
           <Selector
             label="股票池范围"
             options={SCOPE_OPTIONS}
-            value={scope}
+            value={search.scope}
             onChange={handleScopeChange}
             width={160}
           />
-          {scope === "industry" && (
+          {search.scope === "industry" && (
             <MultiSelector
               label="行业"
               options={boardOptions}
-              value={boardCodes}
-              onChange={setBoardCodes}
+              value={search.boardCodes}
+              onChange={(v) => updateSearch({ boardCodes: v })}
               placeholder="选择行业（可多选）"
               hasSearch
               hasSelectAll
@@ -358,12 +394,12 @@ function ScreensPage() {
               width={280}
             />
           )}
-          {scope === "concept" && (
+          {search.scope === "concept" && (
             <MultiSelector
               label="板块"
               options={boardOptions}
-              value={boardCodes}
-              onChange={setBoardCodes}
+              value={search.boardCodes}
+              onChange={(v) => updateSearch({ boardCodes: v })}
               placeholder="选择板块（可多选）"
               hasSearch
               hasSelectAll
@@ -371,7 +407,7 @@ function ScreensPage() {
               width={280}
             />
           )}
-          {scope === "resultSet" && (
+          {search.scope === "resultSet" && (
             <MultiSelector
               label="结果集合"
               options={resultSetOptions}
@@ -387,8 +423,8 @@ function ScreensPage() {
           <Selector
             label="返回数量"
             options={TOPN_OPTIONS}
-            value={String(topN)}
-            onChange={(v) => setTopN(Number(v))}
+            value={String(search.topN)}
+            onChange={(v) => updateSearch({ topN: Number(v) })}
             width={140}
           />
           <Button
@@ -408,14 +444,16 @@ function ScreensPage() {
         </Text>
       )}
 
-      {runScreen.data && (
+      {screenData && (
         <VStack gap={3}>
           <Text type="supporting">
-            策略「{runScreen.data.strategy.name}」 · 共 {runScreen.data.total} 只标的参与打分 ·
-            显示前 {rows.length} 名
+            策略「{screenData.strategy.name}」 · 共 {screenData.total} 只标的参与打分 · 显示前{" "}
+            {rows.length} 名
           </Text>
           {rows.length === 0 ? (
-            <Text type="supporting">股票池中没有可用数据（请调整范围或先在「个股」页面添加自选）</Text>
+            <Text type="supporting">
+              股票池中没有可用数据（请调整范围或先在「个股」页面添加自选）
+            </Text>
           ) : (
             <VStack gap={3}>
               <HStack gap={3} align="end" style={{ flexWrap: "wrap" }}>
@@ -427,7 +465,9 @@ function ScreensPage() {
                   width={200}
                 />
                 <Button
-                  label={selectedCount > 0 ? `加入结果集合（已选 ${selectedCount} 只）` : "加入结果集合"}
+                  label={
+                    selectedCount > 0 ? `加入结果集合（已选 ${selectedCount} 只）` : "加入结果集合"
+                  }
                   variant="secondary"
                   isDisabled={selectedCount === 0}
                   onClick={handleAddToResultSet}
@@ -474,15 +514,16 @@ function ScreensPage() {
           <VStack gap={3}>
             <Text style={{ fontWeight: 600 }}>已保存的结果集合</Text>
             {resultSets.map((rs) => (
-              <HStack key={rs.id} gap={3} align="center" style={{ justifyContent: "space-between" }}>
+              <HStack
+                key={rs.id}
+                gap={3}
+                align="center"
+                style={{ justifyContent: "space-between" }}
+              >
                 <Text>
                   {rs.name} · {rs.items.length} 只标的
                 </Text>
-                <Button
-                  label="删除"
-                  variant="ghost"
-                  onClick={() => handleDeleteResultSet(rs.id)}
-                />
+                <Button label="删除" variant="ghost" onClick={() => handleDeleteResultSet(rs.id)} />
               </HStack>
             ))}
           </VStack>
