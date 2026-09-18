@@ -415,7 +415,7 @@ export function validateFactorExpression(expression: string): FactorExpressionVa
 export const factorGenerator = new Agent({
   id: "factor-generator",
   name: "因子表达式生成器",
-  model: "deepseek/deepseek-v4-pro",
+  model: "deepseek/deepseek-v4-flash",
   instructions: `你是一个专业的 AKQuant 因子表达式生成器。用户会给你一段因子的中文描述，你的任务是把它转换成一条合法的 AKQuant 因子表达式。
 
 ## 可用行情列（仅限这些，禁止使用其他列名）
