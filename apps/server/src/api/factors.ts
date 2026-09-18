@@ -5,6 +5,10 @@ import { eq, or } from "drizzle-orm";
 import { ok, created, badRequest, notFound, serverError } from "../lib/response";
 import { resolveCreatorNames } from "../lib/creators";
 import { mastra } from "../agent/mastra";
+import {
+  FACTOR_GENERATION_FAILURE,
+  validateFactorExpression,
+} from "../agent/mastra/agents/factor-generator";
 
 const factorsRoute = new Hono();
 
@@ -148,6 +152,24 @@ factorsRoute.post("/generate", async (c) => {
     const agent = mastra.getAgent("factorGenerator");
     const response = await agent.generate(description);
     const expression = response.text.trim();
+
+    // 模型明确判定「无法表达」时，直接透传哨兵文案（前端据此给出提示）
+    if (expression === FACTOR_GENERATION_FAILURE) {
+      return ok(c, { expression: FACTOR_GENERATION_FAILURE });
+    }
+
+    // 强制校验：表达式只能由白名单内的「行情列 / 算子 / 运算符与语法」构成
+    const validation = validateFactorExpression(expression);
+    if (!validation.ok) {
+      console.warn(
+        "[factors] 因子表达式未通过校验：",
+        validation.reason,
+        "| 原始输出：",
+        expression,
+      );
+      return ok(c, { expression: FACTOR_GENERATION_FAILURE });
+    }
+
     return ok(c, { expression });
   } catch (err) {
     console.error("[factors] generate expression error:", err);
