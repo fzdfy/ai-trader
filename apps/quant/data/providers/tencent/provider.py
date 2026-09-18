@@ -2,7 +2,7 @@
 
 能力：
 - quote        实时行情（qt.gtimg.cn，GBK `~` 分隔，含 PE/PB/市值/换手率/涨跌停/指数/ETF）
-- kline       个股日 K 线（web.ifzq.gtimg.cn/appstock/app/fqkline/get，前/后复权 qfq/hfq）
+- kline       个股日 K 线（ifzq.gtimg.cn/appstock/app/fqkline/get，前/后复权 qfq/hfq）
 
 数据来源均为腾讯财经 HTTP GET，不封 IP（连续 5000+ 次才触发限流返回空，属限流
 非封禁，降速即可恢复）。用 stdlib urllib 直连，不引入第三方 HTTP 库。
@@ -20,7 +20,9 @@ from ...schemas import KlineBar, Quote
 # 前复权日 K 线端点：param={前缀}{代码},day,{start},{end},{count},qfq
 # 返回 JSON `data.{前缀}{代码}.qfqday`，每行 [日期, 开, 收, 高, 低, 量(手)]，
 # 注意腾讯字段顺序是「开/收/高/低」（收在高/低之前），与常规 OHLC 不同。
-_FQKLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+# 注意：web.ifzq.gtimg.cn / ifzq.gtimg.cn 都会被腾讯 WAF 以 501 拦截，
+# 换用 proxy.finance.qq.com 反代（同一后端、返回格式一致、不触发 WAF）。
+_FQKLINE_URL = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get"
 
 
 class TencentProvider(MarketProvider):
@@ -102,7 +104,7 @@ class TencentProvider(MarketProvider):
     ) -> list[KlineBar]:
         """个股日 K 线（腾讯财经，前/后复权）。
 
-        来源：腾讯 web.ifzq.gtimg.cn/appstock/app/fqkline/get，不封 IP，是
+        来源：腾讯 proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get，不封 IP，是
         skill 优先级里「自带复权」的日 K 首选源（mootdx/百度不复权需另算复权因子）。
 
         tf：腾讯 fqkline 仅支持日线（1d），无分钟/周/月复权接口；收到非 1d 抛
@@ -141,6 +143,10 @@ class TencentProvider(MarketProvider):
         node = data.get("data", {}).get(key, {})
         adjust_key = {"qfq": "qfqday", "hfq": "hfqday", "none": "day"}[adjust]
         rows = node.get(adjust_key) or []
+        # 无除权记录的标的腾讯不返回 qfqday/hfqday，仅返回 day（此时复权=不复权等价），
+        # 需回退到 day，否则会被误判为空导致整只标的漏同步。
+        if not rows and adjust != "none":
+            rows = node.get("day") or []
         if not rows:
             return []
 

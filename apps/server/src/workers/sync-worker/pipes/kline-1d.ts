@@ -65,12 +65,8 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     const out: StockKlineBar[] = [];
     let end = today;
     for (;;) {
-      const chunk = await quant
-        .stockKline(symbol, KLINE_PAGE, undefined, end, "qfq", "tencent")
-        .catch((error) => {
-          console.error(`[kline-1d] ${symbol} full fetch failed:`, error);
-          return [];
-        });
+      // 移除 catch：异常向上抛给 fetchWithRetry 统一退避重试，避免空结果/异常被静默吞掉。
+      const chunk = await quant.stockKline(symbol, KLINE_PAGE, undefined, end, "qfq", "tencent");
       if (chunk.length === 0) break;
       out.push(...chunk);
       if (chunk.length < KLINE_PAGE) break; // 不足一页说明已拉到底
@@ -86,28 +82,64 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     return out;
   };
 
-  const syncOne = async (symbol: string): Promise<number> => {
-    let klines: StockKlineBar[];
+  // 拉取重试：腾讯 fqkline 连续大量请求会限流「返回空」（非封禁，降速即可恢复），
+  // 单次空结果/异常不可靠，退避重试到有数据或耗尽次数为止，避免静默跳过导致数据断更。
+  const MAX_FETCH_ATTEMPTS = 3;
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-    if (opts?.forceFull) {
-      klines = await fetchFullKlines(symbol);
-    } else {
-      const startDate = latestBySymbol.get(symbol);
-      if (startDate) {
-        // 增量：从已入库的最新日线日期开始（区间短，500 根足够）
-        klines = await quant
-          .stockKline(symbol, 500, startDate, today, "qfq", "tencent")
-          .catch((error) => {
-            console.error(`[kline-1d] ${symbol} failed:`, error);
-            return [];
-          });
-      } else {
-        // 无历史记录：走全量分页，避免只拉 500 根导致首次部署/重建后历史不完整
-        klines = await fetchFullKlines(symbol);
+  const fetchWithRetry = async (
+    fetchFn: () => Promise<StockKlineBar[]>,
+    symbol: string,
+  ): Promise<StockKlineBar[]> => {
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
+      try {
+        const bars = await fetchFn();
+        if (bars.length > 0) return bars;
+        if (attempt < MAX_FETCH_ATTEMPTS) {
+          console.warn(`[kline-1d] ${symbol} 返回空，${attempt}/${MAX_FETCH_ATTEMPTS} 次后退避重试`);
+        }
+      } catch (error) {
+        lastError = error;
+        if (attempt < MAX_FETCH_ATTEMPTS) {
+          console.warn(`[kline-1d] ${symbol} 拉取失败，${attempt}/${MAX_FETCH_ATTEMPTS} 次后退避重试:`, error);
+        }
       }
+      if (attempt < MAX_FETCH_ATTEMPTS) await sleep(5000 * attempt);
+    }
+    if (lastError != null) {
+      console.error(`[kline-1d] ${symbol} 重试 ${MAX_FETCH_ATTEMPTS} 次后仍失败:`, lastError);
+    }
+    return [];
+  };
+
+  const syncOne = async (symbol: string): Promise<number> => {
+    const startDate = opts?.forceFull ? undefined : latestBySymbol.get(symbol);
+    const isIncremental = startDate != null;
+
+    let klines: StockKlineBar[];
+    if (startDate != null) {
+      // 增量：已有历史，空结果/异常几乎必然是上游限流/临时故障，退避重试后仍空才判失败。
+      klines = await fetchWithRetry(
+        () => quant.stockKline(symbol, 500, startDate, today, "qfq", "tencent"),
+        symbol,
+      );
+    } else {
+      // 无历史记录：走全量分页（退避重试；失败/空仍仅告警，历史补全交给 refresh:kline1d 显式执行）。
+      klines = await fetchWithRetry(() => fetchFullKlines(symbol), symbol);
     }
 
-    if (klines.length === 0) return 0;
+    if (klines.length === 0) {
+      // 已有历史的标的增量返回空必然是上游故障/限流，记失败由末尾判定触发重跑；
+      // 无历史标的返回空可能是新上市/边缘标的，仅告警不判失败。
+      if (isIncremental) {
+        incrementalFailed++;
+        console.error(`[kline-1d] ${symbol} 增量同步返回空（判定失败）`);
+      } else {
+        console.warn(`[kline-1d] ${symbol} 全量拉取为空（无历史或上游限流）`);
+      }
+      return 0;
+    }
 
     const batch = klines.map((k) => ({
       time: new Date(k.time),
@@ -152,9 +184,13 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
   // 并发 5 与 constituents/board-kline 保持一致，避免串行 5000+ 标的耗时过长导致
   // 依赖 kline-1d 的 features（16:00–18:50 窗口）错过当日执行。
   // 注：前复权遇除权会整体漂移历史价，建议定期全量重刷对齐口径。
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 2;
+  // 限流降速：腾讯 fqkline 持续高频请求会触发限流（返回空/超时），全量回补时
+  // 每个标的之间留出间隔，配合并发 2 将请求速率压到限流阈值之下。
+  const THROTTLE_MS = 800;
   let total = 0;
   let done = 0;
+  let incrementalFailed = 0;
   updateProgress(0, symbols.length, "开始同步日线 K 线");
 
   const queue = symbols.map((s) => s.symbol);
@@ -169,6 +205,7 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
       if (done % 50 === 0 || done === symbols.length) {
         updateProgress(done, symbols.length, `同步日线 ${done}/${symbols.length}`);
       }
+      await sleep(THROTTLE_MS);
     }
   };
 
@@ -178,6 +215,14 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
 
   if (total === 0) {
     throw new Error(`[kline-1d] ${symbols.length} 只标的日线均无数据，未写入任何记录`);
+  }
+
+  // 已有历史却拉不到增量数据的标的一律判失败：抛错触发上层 deadline 重试，
+  // 杜绝「部分标的数据断更但任务仍报 success」的假成功。
+  if (incrementalFailed > 0) {
+    throw new Error(
+      `[kline-1d] ${incrementalFailed}/${symbols.length} 只已有历史标的增量同步返回空，任务未完全成功`,
+    );
   }
 
   console.log(`[kline-1d] done. ${total} bars total`);

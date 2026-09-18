@@ -38,20 +38,28 @@ DATABASE_URL = os.getenv(
 # 因子计算所需历史窗口（覆盖最长因子周期 60，如 ma_trend_60 / macd 慢线 26+9）
 HISTORY_COUNT = 61
 
+# 自定义因子（AKQuant 表达式）历史窗口：需覆盖最长窗口算子（如 250 日均线年线）。
+# Ts_Mean(Close,250) 至少需要 250 根，叠加 Delay(...,1) 后再比较需 251 根。
+CUSTOM_HISTORY_COUNT = 251
+
 
 def _get_conn() -> psycopg2.extensions.connection:
     return psycopg2.connect(DATABASE_URL)
 
 
 def _get_universe(conn: psycopg2.extensions.connection) -> list[dict[str, Any]]:
-    """获取有日线数据的股票池（symbol + 中文名）。"""
+    """获取有日线数据的股票池（symbol + 中文名）。
+
+    直接读 instrument（5564 行，主键索引）而非对 bar1d_adj（1600 万行）做
+    DISTINCT 全表扫描——后者单次约 35s，会让选股请求超出网关超时。没有日线的
+    标的会在后续按历史长度被跳过，因此结果集不变。
+    """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT DISTINCT b.symbol, COALESCE(i.name, b.symbol) AS name
-            FROM bar1d_adj b
-            LEFT JOIN instrument i ON i.symbol = b.symbol
-            ORDER BY b.symbol
+            SELECT symbol, COALESCE(name, symbol) AS name
+            FROM instrument
+            ORDER BY symbol
             """
         )
         return cur.fetchall()
@@ -78,38 +86,46 @@ def _load_recent_bars(conn: psycopg2.extensions.connection, symbol: str) -> list
 def _load_universe_frame(
     conn: psycopg2.extensions.connection, universe: list[dict[str, Any]]
 ) -> pl.DataFrame:
-    """一次性加载股票池全部标的最近 HISTORY_COUNT 根日线，构造 Polars DataFrame。
+    """一次性加载股票池全部标的最近 CUSTOM_HISTORY_COUNT 根日线，构造 Polars DataFrame。
 
     列：symbol / date / high / low / close / volume，按 symbol、date 升序。
-    供自定义因子表达式（AKQuant）在横截面上求值使用。
+    供自定义因子表达式（AKQuant）在横截面上求值使用。窗口取较长历史以满足
+    250 日均线（年线）等长周期算子的最小样本要求。
+
+    性能要点：
+      - LATERAL + (symbol, time) 索引逐标的取最近 N 根，避免全表 ROW_NUMBER 排序；
+      - SQL 侧 ::float8 转换 + 普通游标（非 RealDictCursor），避免 130 万行 numeric→Decimal
+        与字典构造开销（实测 50s → 7s）；
+      - 排序改由 Polars 完成（比 SQL 排序 130 万行更快）。
     """
     symbols = [u["symbol"] for u in universe]
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+    with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT symbol, time, high, low, close, volume
-            FROM (
-                SELECT symbol, time, high, low, close, volume,
-                       ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY time DESC) AS rn
+            SELECT u.symbol, b.time,
+                   b.high::float8, b.low::float8, b.close::float8, b.volume::float8
+            FROM unnest(%s::text[]) AS u(symbol)
+            CROSS JOIN LATERAL (
+                SELECT time, high, low, close, volume
                 FROM bar1d_adj
-                WHERE symbol = ANY(%s)
-            ) t
-            WHERE rn <= %s
-            ORDER BY symbol, time ASC
+                WHERE symbol = u.symbol
+                ORDER BY time DESC
+                LIMIT %s
+            ) AS b
             """,
-            (symbols, HISTORY_COUNT),
+            (symbols, CUSTOM_HISTORY_COUNT),
         )
         rows = cur.fetchall()
     return pl.DataFrame(
         {
-            "symbol": [r["symbol"] for r in rows],
-            "date": [r["time"] for r in rows],
-            "high": [float(r["high"]) for r in rows],
-            "low": [float(r["low"]) for r in rows],
-            "close": [float(r["close"]) for r in rows],
-            "volume": [float(r["volume"]) for r in rows],
+            "symbol": [r[0] for r in rows],
+            "date": [r[1] for r in rows],
+            "high": [r[2] for r in rows],
+            "low": [r[3] for r in rows],
+            "close": [r[4] for r in rows],
+            "volume": [r[5] for r in rows],
         }
-    )
+    ).sort(["symbol", "date"])
 
 
 def _eval_expression(frame: pl.DataFrame, expr_str: str) -> dict[str, float]:
