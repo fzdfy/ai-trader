@@ -28,6 +28,7 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "limit-up-pool-backfill", name: "涨停池回补" },
   { jobType: "dragon-tiger-backfill", name: "龙虎榜回补" },
   { jobType: "hot-reason-backfill", name: "题材归因回补" },
+  { jobType: "kline-1d-backfill", name: "日 K 线回补" },
   { jobType: "sync-manual", name: "手动同步" },
 ];
 
@@ -49,6 +50,7 @@ const WORKER_MARKET_JOBS = [
   "limit-up-pool-backfill",
   "dragon-tiger-backfill",
   "hot-reason-backfill",
+  "kline-1d-backfill",
 ];
 
 /** 查询最近一次数据更新时间（取 board 表最新 updated_at 作为行情数据新鲜度） */

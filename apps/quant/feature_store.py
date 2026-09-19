@@ -2,7 +2,7 @@
 
 直读 PostgreSQL 的 bar1d_adj 日线，用 factors.registry 内置因子，
 对每个标的按交易日滑动窗口计算因子值，写入 feature_value 表。
-同时负责初始化 factor_registry（因子元数据）与 feature_set（默认特征集）。
+同时负责初始化 feature_set（默认特征集）。
 
 用法：
     from feature_store import compute_features
@@ -36,23 +36,6 @@ HISTORY_COUNT = 61
 
 def _get_conn() -> psycopg2.extensions.connection:
     return psycopg2.connect(DATABASE_URL)
-
-
-def _init_factor_registry(cur: psycopg2.extensions.cursor) -> None:
-    """将内置因子元数据同步到 factor_registry 表（幂等 upsert）。"""
-    for f in get_factor_list():
-        cur.execute(
-            """
-            INSERT INTO factor_registry (name, label, category, direction, description)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (name) DO UPDATE SET
-              label = EXCLUDED.label,
-              category = EXCLUDED.category,
-              direction = EXCLUDED.direction,
-              description = EXCLUDED.description
-            """,
-            (f["name"], f["label"], f["category"], f["direction"], f["description"]),
-        )
 
 
 def _ensure_feature_set(cur: psycopg2.extensions.cursor) -> int:
@@ -116,7 +99,6 @@ def compute_features(symbols: list[str] | None = None) -> dict[str, int]:
     conn = _get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            _init_factor_registry(cur)
             feature_set_id = _ensure_feature_set(cur)
 
             if symbols is None:

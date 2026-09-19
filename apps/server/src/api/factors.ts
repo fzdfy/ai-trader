@@ -58,6 +58,13 @@ factorsRoute.post("/", async (c) => {
   const name = body.name?.trim();
   if (!name) return badRequest(c, "name is required");
 
+  // 表达式若提供，必须能被 AKQuant 引擎解析（与 /generate 同一套白名单）
+  const expression = body.expression?.trim() || null;
+  if (expression) {
+    const validation = validateFactorExpression(expression);
+    if (!validation.ok) return badRequest(c, `因子表达式不合法：${validation.reason}`);
+  }
+
   // 记录创建者：优先取请求头中的用户 ID，缺省为 system
   const createdBy = c.req.header("X-User-Id") ?? "system";
 
@@ -70,7 +77,7 @@ factorsRoute.post("/", async (c) => {
       category: "custom",
       direction: 1,
       description: body.description?.trim() ?? "",
-      expression: body.expression?.trim() ?? null,
+      expression,
       createdBy,
       isPublic: body.isPublic ?? false, // 用户自定义因子默认私有
     })
@@ -107,6 +114,13 @@ factorsRoute.patch("/:name", async (c) => {
 
   // 仅创建者本人可编辑
   if (row.createdBy !== userId) return c.json({ success: false, error: "Forbidden" }, 403);
+
+  // 表达式若提供且非空，必须能被 AKQuant 引擎解析（与 POST 同一套白名单）
+  const nextExpression = body.expression?.trim() || null;
+  if (nextExpression) {
+    const validation = validateFactorExpression(nextExpression);
+    if (!validation.ok) return badRequest(c, `因子表达式不合法：${validation.reason}`);
+  }
 
   const updated = (
     await db

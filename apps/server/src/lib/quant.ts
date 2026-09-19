@@ -116,6 +116,12 @@ export interface StockKlineBar {
   adj_factor: number | null;
 }
 
+/** 个股复权因子一条（quant /adjust-factor 返回；date 为 YYYY-MM-DD） */
+export interface AdjustFactor {
+  date: string;
+  factor: number;
+}
+
 /** 同花顺强势股 + 题材归因一条（quant /hot-reason 返回；code 为 6 位裸代码） */
 export interface HotReasonItem {
   code: string;

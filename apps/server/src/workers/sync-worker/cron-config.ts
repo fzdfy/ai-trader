@@ -42,10 +42,14 @@ export const CRON_JOBS: CronJobConfig[] = [
   // 与当日同步彻底分离：回补只补「窗口内缺失的历史交易日」（显式排除当日），
   // 各自拥有独立 jobType / 幂等状态 / 重试窗口，互不连累。
   // 时机：晚于当日任务 deadline（18:00）再启动，避免与当日全市场拉取争抢上游限流；
-  //      三个回补错峰 5 分钟（limit-up-pool / dragon-tiger 同走东财全局串行限流）。
+  //      三个快照回补错峰 5 分钟（limit-up-pool / dragon-tiger 同走东财全局串行限流）。
+  //      kline-1d-backfill 排在 19:30：既晚于当日 kline-1d（deadline 18:00），也晚于
+  //      上述快照回补，避免与其争抢腾讯 fqkline / 东财限流；自身请求量大（全量分页），
+  //      故留出间隔单独运行。
   { name: "limit-up-pool-backfill", cron: "0 19 * * 1-5",  enabled: true, marketCloseOnly: true, deadline: "22:00" },
   { name: "dragon-tiger-backfill",  cron: "5 19 * * 1-5",  enabled: true, marketCloseOnly: true, deadline: "22:00" },
   { name: "hot-reason-backfill",    cron: "10 19 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "22:00" },
+  { name: "kline-1d-backfill",      cron: "30 19 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "22:00" },
   // 交易日历：每周一凌晨 2 点一次性补未来交易日
   { name: "calendar",      cron: "0 2 * * 1",      enabled: true },
 ];

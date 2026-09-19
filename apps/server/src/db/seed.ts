@@ -3,68 +3,6 @@ import { strategyConfig } from "./schema";
 import { eq } from "drizzle-orm";
 
 /**
- * 内置系统策略种子数据。
- * 策略 = 因子集合，每个因子带 value（信号阈值/参数值 0-100）与 weight（权重 0-100）。
- */
-const SEED_STRATEGIES = [
-  {
-    name: "趋势跟随",
-    description: "均线趋势 + 动量组合",
-    factors: [
-      { name: "ma_trend_20", weight: 40, value: 60 },
-      { name: "roc_20", weight: 30, value: 50 },
-      { name: "volume_ratio_5", weight: 30, value: 50 },
-    ],
-  },
-  {
-    name: "超跌反弹",
-    description: "RSI 超卖 + 波动率",
-    factors: [
-      { name: "rsi_14", weight: 50, value: 30 },
-      { name: "atr_ratio_14", weight: 50, value: 50 },
-    ],
-  },
-  {
-    name: "量价共振",
-    description: "MACD + 资金流 + 量比",
-    factors: [
-      { name: "macd_diff", weight: 40, value: 50 },
-      { name: "mfi_14", weight: 30, value: 50 },
-      { name: "volume_ratio_5", weight: 30, value: 50 },
-    ],
-  },
-];
-
-/** 内置策略默认风控参数（0-100 百分比，对齐 quant composite 引擎默认值） */
-const DEFAULT_TRADE_CONFIG = {
-  combine: "weighted_sum",
-  entry: { type: "threshold", value: 65 },
-  exit: { type: "threshold", value: 30 },
-  risk: { positionSize: 95, stopLoss: 8, takeProfit: 20 },
-};
-
-/** 幂等地初始化系统策略（仅在无系统策略时写入）。 */
-export async function ensureStrategiesSeeded() {
-  const existing = await db
-    .select()
-    .from(strategyConfig)
-    .where(eq(strategyConfig.isSystem, true))
-    .limit(1);
-  if (existing.length > 0) return;
-
-  await db.insert(strategyConfig).values(
-    SEED_STRATEGIES.map((s) => ({
-      userId: "system",
-      name: s.name,
-      description: s.description,
-      configJson: { factors: s.factors, ...DEFAULT_TRADE_CONFIG },
-      isSystem: true,
-      isPublic: true, // 系统策略默认公开
-    })),
-  );
-}
-
-/**
  * atrus 团队 5 个 2026 年 A 股多因子策略（创建者 atrus，公开）。
  * 配置结构与 buildConfigJson 输出一致（百分比 0-100，费率万分比，金额元），
  * 完整覆盖信号层 / 入场层 / 出场层 / 仓位层 / 风控层 / 成本层。

@@ -17,7 +17,7 @@ import { jobRun } from "../../db/schema";
 import { getSyncTradeDate } from "./calendar";
 import { runWithProgress } from "./progress";
 import { kline1mPipe } from "./pipes/kline-1m";
-import { kline1dPipeRun } from "./pipes/kline-1d";
+import { kline1dPipeRun, kline1dBackfillRun } from "./pipes/kline-1d";
 import { gapDetectPipe } from "./pipes/gap-detect";
 import { newsPipeRun } from "./pipes/news";
 import { boardsPipeRun } from "./pipes/boards";
@@ -51,7 +51,8 @@ export type PipeName =
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
-  | "hot-reason-backfill";
+  | "hot-reason-backfill"
+  | "kline-1d-backfill";
 
 export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "kline-1m": () => kline1mPipe.run(),
@@ -72,6 +73,7 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),
+  "kline-1d-backfill": () => kline1dBackfillRun(),
 };
 
 const running = new Set<string>();
