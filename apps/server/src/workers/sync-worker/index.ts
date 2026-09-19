@@ -5,7 +5,7 @@ import { jobRun, tradingCalendar } from "../../db/schema";
 import { CRON_JOBS, type CronJobConfig } from "./cron-config";
 import { isTradeDay, isAfterMarketClose, localDateStr } from "./calendar";
 import { calendarPipeRun } from "./pipes/calendar";
-import { wrapJob, hasSuccessToday, isManualSyncRunning, RUNNERS, type PipeName } from "./runner";
+import { wrapJob, hasSuccessToday, cleanupStaleRuns, RUNNERS, type PipeName } from "./runner";
 
 /**
  * 启动清理：cron 任务由本进程执行，进程重启后任务中断且 status 停在 running，
@@ -28,7 +28,7 @@ const MARKET_HOURS_END = 23 * 60;
 
 /**
  * 构造调度执行函数：按 job 标志叠加守卫，cron 与启动触发复用同一份逻辑。
- *   - marketCloseOnly：交易日收盘后 + 与手动同步互斥 + 今日幂等
+ *   - marketCloseOnly：交易日收盘后 + 今日幂等；手动同步进行中时在管道内等待（waitManualSync）
  *   - marketHoursOnly：交易日活跃时段
  *   - dependsOn：前置 jobType 今日已成功
  */
@@ -37,6 +37,8 @@ function makeRunner(job: CronJobConfig): () => Promise<void> {
     dependsOn: job.dependsOn,
     deadline: job.deadline,
     retryIntervalMs: job.retryIntervalMs,
+    // 手动同步（sync-manual）会写同一批行情表，需互斥：在管道内等待其结束而非跳过整批
+    waitManualSync: job.marketCloseOnly,
   });
 
   if (!job.marketCloseOnly && !job.marketHoursOnly) {
@@ -55,11 +57,6 @@ function makeRunner(job: CronJobConfig): () => Promise<void> {
       }
       if (!(await isTradeDay(now))) {
         console.log(`[sync-worker] ${job.name}: skip (非交易日)`);
-        return;
-      }
-      // 手动同步（sync-manual）会写同一批行情表，与其互斥
-      if (await isManualSyncRunning()) {
-        console.log(`[sync-worker] ${job.name}: skip (手动同步进行中)`);
         return;
       }
       // 幂等：今日已成功则跳过，避免收盘后重启导致重复全市场拉取
@@ -116,6 +113,13 @@ async function bootstrapCalendarIfNeeded(): Promise<boolean> {
 
 console.log("[sync-worker] starting (cron mode)...");
 void cleanupInterruptedJobs();
+
+// 周期清理僵尸 running 任务：不依赖 server 端查询接口被访问，
+// 确保崩溃遗留的 sync-manual 行能自愈（否则会阻塞后续收盘批次）。
+const STALE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  void cleanupStaleRuns();
+}, STALE_CLEANUP_INTERVAL_MS);
 
 for (const job of CRON_JOBS) {
   if (!job.enabled) continue;

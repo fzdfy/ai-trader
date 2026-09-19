@@ -1,8 +1,12 @@
 /**
- * limit-up-pool 管道 — 同步当日涨停池到 limit_up_pool 表。
+ * limit-up-pool 管道 — 同步涨停池到 limit_up_pool 表。
  *
- * 数据源：quant 数据服务东方财富涨停池接口（收盘后同步为当日快照）：
- *   quant.limitUpPool(today)
+ * 数据源：quant 数据服务东方财富涨停池接口（可按交易日查询历史快照）：
+ *   quant.limitUpPool(date)
+ *
+ * 时间语义：当日与回补分离，由调度层分别触发（东财 getTopicZTPool 支持任意历史日，见 snapshot-backfill）：
+ *   - limitUpPoolPipeRun      —— 只同步目标交易日当天，空数据抛错触发重试。
+ *   - limitUpPoolBackfillRun  —— 只回补窗口内缺失的历史交易日，空数据跳过。
  *
  * 写入策略：upsert（date + symbol 主键，同日覆盖为当天最后一次同步结果）。
  * 上游返回 6 位裸代码（如 600519），落库前转换为标准 symbol（600519.SH），
@@ -13,9 +17,8 @@ import { quant } from "../../../lib/quant";
 import type { LimitUpPoolItem } from "../../../lib/quant";
 import { db } from "../../../db";
 import { limitUpPool } from "../../../db/schema";
-import { sql } from "drizzle-orm";
-import { updateProgress } from "../progress";
-import { getSyncTradeDate } from "../calendar";
+import { sql, inArray } from "drizzle-orm";
+import { runDailySnapshot, runSnapshotBackfill, type SnapshotSyncOpts } from "../snapshot-backfill";
 
 /** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ） */
 function codeToSymbol(code: string): string {
@@ -39,9 +42,9 @@ function toDateTime(v: string | null): Date | null {
 }
 
 /** upsert 涨停池到 limit_up_pool，返回写入条数 */
-async function upsertPool(today: string, rows: LimitUpPoolItem[]): Promise<number> {
+async function upsertPool(date: string, rows: LimitUpPoolItem[]): Promise<number> {
   const values = rows.map((r) => ({
-    date: today,
+    date,
     symbol: codeToSymbol(r.code),
     name: r.name,
     limitUpCount: r.limit_up_count,
@@ -85,29 +88,41 @@ async function upsertPool(today: string, rows: LimitUpPoolItem[]): Promise<numbe
   return values.length;
 }
 
-export async function limitUpPoolPipeRun(): Promise<void> {
-  const today = await getSyncTradeDate();
-  if (!today) throw new Error("[limit-up-pool] 无可用交易日（交易日历为空或异常）");
+/** 组装共享配置：当日入口与回补入口复用同一套「取数 / 查已落库 / 写入」逻辑 */
+function limitUpPoolOpts(label: string, date?: string): SnapshotSyncOpts<LimitUpPoolItem> {
+  return {
+    label,
+    title: "涨停池",
+    date,
+    existingDates: async (dates) => {
+      const rows = await db
+        .selectDistinct({ date: limitUpPool.date })
+        .from(limitUpPool)
+        .where(inArray(limitUpPool.date, dates));
+      return new Set(rows.map((r) => r.date));
+    },
+    fetchDate: (d) => quant.limitUpPool(d),
+    upsert: (d, rows) => upsertPool(d, rows),
+  };
+}
 
-  updateProgress(0, 1, "开始同步涨停池");
+/** 当日同步：只处理目标交易日（cron 收盘后 / 手动同步） */
+export async function limitUpPoolPipeRun(date?: string): Promise<void> {
   try {
-    const pool = await quant.limitUpPool(today);
-    console.log(`[limit-up-pool] got ${pool.length} rows (snapshot ${today})`);
-
-    if (pool.length === 0) {
-      // marketCloseOnly 已保证进入此处必为交易日收盘后，空池几乎只会是「数据未就绪」；
-      // throw 让 wrapJob 标记 failed 触发重试，避免空池静默 success 后 hasSuccessToday 幂等
-      // 导致当天后续重试全部跳过、涨停池数据永久缺失。
-      throw new Error("[limit-up-pool] 涨停池为空（数据未就绪），等待重试");
-    }
-
-    const count = await upsertPool(today, pool);
-    updateProgress(1, 1, `涨停池同步完成（${count} 条）`);
-    console.log(`[limit-up-pool] done. ${count} rows upserted (snapshot ${today})`);
+    await runDailySnapshot(limitUpPoolOpts("limit-up-pool", date));
   } catch (error) {
+    // 拉取 / 写入失败需 rethrow，让 wrapJob 标记 failed 触发重试，避免静默"假成功"
     console.error("[limit-up-pool] failed:", (error as Error).message ?? error);
-    updateProgress(1, 1, `涨停池同步失败：${(error as Error).message ?? error}`);
-    // 源拉取失败需 rethrow，让 wrapJob 标记 failed 触发重试，避免静默"假成功"
+    throw error;
+  }
+}
+
+/** 历史回补：只补窗口内缺失的历史交易日（独立调度，与当日任务互不重叠） */
+export async function limitUpPoolBackfillRun(date?: string): Promise<void> {
+  try {
+    await runSnapshotBackfill(limitUpPoolOpts("limit-up-pool-backfill", date));
+  } catch (error) {
+    console.error("[limit-up-pool-backfill] failed:", (error as Error).message ?? error);
     throw error;
   }
 }

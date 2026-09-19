@@ -1,8 +1,12 @@
 /**
  * dragon-tiger 管道 — 同步全市场龙虎榜到 dragon_tiger_daily 表。
  *
- * 数据源：quant 数据服务东方财富龙虎榜（RPT_DAILYBILLBOARD_DETAILSNEW）：
- *   quant.dailyDragonTiger(today)
+ * 数据源：quant 数据服务东方财富龙虎榜（RPT_DAILYBILLBOARD_DETAILSNEW，支持按 TRADE_DATE 查询历史）：
+ *   quant.dailyDragonTiger(date)
+ *
+ * 时间语义：当日与回补分离，由调度层分别触发（东财该报表可按交易日回查，见 snapshot-backfill）：
+ *   - dragonTigerPipeRun      —— 只同步目标交易日当天，空数据抛错触发重试。
+ *   - dragonTigerBackfillRun  —— 只回补窗口内缺失的历史交易日，空数据跳过。
  *
  * 写入策略：upsert（date + symbol 主键，同日覆盖为当天最后一次同步结果）。
  * 上游返回 6 位裸代码（如 600519），落库前转换为标准 symbol（600519.SH）。金额单位：万元。
@@ -12,9 +16,8 @@ import { quant } from "../../../lib/quant";
 import type { DragonTigerStock } from "../../../lib/quant";
 import { db } from "../../../db";
 import { dragonTigerDaily } from "../../../db/schema";
-import { sql } from "drizzle-orm";
-import { updateProgress } from "../progress";
-import { getSyncTradeDate } from "../calendar";
+import { sql, inArray } from "drizzle-orm";
+import { runDailySnapshot, runSnapshotBackfill, type SnapshotSyncOpts } from "../snapshot-backfill";
 
 /** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ） */
 function codeToSymbol(code: string): string {
@@ -31,7 +34,7 @@ function toStr(v: number | null | undefined): string | null {
 }
 
 /** upsert 全市场龙虎榜到 dragon_tiger_daily，返回写入条数 */
-async function upsertDragonTiger(today: string, stocks: DragonTigerStock[]): Promise<number> {
+async function upsertDragonTiger(date: string, stocks: DragonTigerStock[]): Promise<number> {
   // 东财龙虎榜同一股票当天可能因多个榜单（如「日涨幅偏离值达7%」「日换手率达20%」）
   // 返回多条记录，而表主键为 (date, symbol)；若不先去重，同一批次会因重复冲突键触发
   // PostgreSQL「ON CONFLICT DO UPDATE command cannot affect row a second time」。
@@ -47,8 +50,8 @@ async function upsertDragonTiger(today: string, stocks: DragonTigerStock[]): Pro
     }
   }
 
-  const values = Array.from(bySymbol.values()).map((r) => ({
-    date: today,
+  const values = [...bySymbol.values()].map((r) => ({
+    date,
     symbol: r.code,
     name: r.name,
     reason: r.reasons.length > 0 ? r.reasons.join("；") : null,
@@ -82,28 +85,43 @@ async function upsertDragonTiger(today: string, stocks: DragonTigerStock[]): Pro
   return values.length;
 }
 
-export async function dragonTigerPipeRun(): Promise<void> {
-  const today = await getSyncTradeDate();
-  if (!today) throw new Error("[dragon-tiger] 无可用交易日（交易日历为空或异常）");
+/** 组装共享配置：当日入口与回补入口复用同一套「取数 / 查已落库 / 写入」逻辑 */
+function dragonTigerOpts(label: string, date?: string): SnapshotSyncOpts<DragonTigerStock> {
+  return {
+    label,
+    title: "龙虎榜",
+    date,
+    existingDates: async (dates) => {
+      const rows = await db
+        .selectDistinct({ date: dragonTigerDaily.date })
+        .from(dragonTigerDaily)
+        .where(inArray(dragonTigerDaily.date, dates));
+      return new Set(rows.map((r) => r.date));
+    },
+    fetchDate: async (d) => {
+      const res = await quant.dailyDragonTiger(d);
+      return res.stocks;
+    },
+    upsert: (d, rows) => upsertDragonTiger(d, rows),
+  };
+}
 
-  updateProgress(0, 1, "开始同步龙虎榜");
+/** 当日同步：只处理目标交易日 */
+export async function dragonTigerPipeRun(date?: string): Promise<void> {
   try {
-    const { stocks } = await quant.dailyDragonTiger(today);
-    console.log(`[dragon-tiger] got ${stocks.length} stocks (snapshot ${today})`);
-
-    if (stocks.length === 0) {
-      // marketCloseOnly 已保证进入此处必为交易日收盘后，空榜几乎只会是「数据未就绪」；
-      // throw 让 wrapJob 标记 failed 触发重试，避免空榜静默 success 后 hasSuccessToday 幂等
-      // 导致当天后续重试全部跳过、龙虎榜数据永久缺失。
-      throw new Error("[dragon-tiger] 龙虎榜为空（数据未就绪），等待重试");
-    }
-
-    const count = await upsertDragonTiger(today, stocks);
-    updateProgress(1, 1, `龙虎榜同步完成（${count} 条）`);
-    console.log(`[dragon-tiger] done. ${count} rows upserted (snapshot ${today})`);
+    await runDailySnapshot(dragonTigerOpts("dragon-tiger", date));
   } catch (error) {
     console.error("[dragon-tiger] failed:", (error as Error).message ?? error);
-    updateProgress(1, 1, `龙虎榜同步失败：${(error as Error).message ?? error}`);
+    throw error;
+  }
+}
+
+/** 历史回补：只补窗口内缺失的历史交易日（独立调度，与当日任务互不重叠） */
+export async function dragonTigerBackfillRun(date?: string): Promise<void> {
+  try {
+    await runSnapshotBackfill(dragonTigerOpts("dragon-tiger-backfill", date));
+  } catch (error) {
+    console.error("[dragon-tiger-backfill] failed:", (error as Error).message ?? error);
     throw error;
   }
 }

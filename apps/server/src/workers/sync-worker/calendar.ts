@@ -11,7 +11,7 @@
 
 import { db } from "../../db";
 import { tradingCalendar } from "../../db/schema";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt, lte } from "drizzle-orm";
 
 /** A 股交易时段常量 */
 const AM_START = { hour: 9, minute: 30 };
@@ -152,6 +152,28 @@ export async function getPrevTradeDate(beforeDate: string): Promise<string | nul
     .limit(1);
 
   return row?.tradeDate ?? null;
+}
+
+/**
+ * 列出「截至 upTo（含）」的最近 lookback 个交易日，按时间正序返回。
+ *
+ * 用途：快照类管道（涨停池 / 龙虎榜 / 题材归因）判断"最近哪些交易日尚未落库"，
+ * 以便在下次运行时顺序回补因宕机 / 停跑而缺失的交易日快照（这些管道只会同步
+ * getSyncTradeDate() 当日，错过即永久缺失）。
+ *
+ * @param lookback 最多返回的交易日数量（回补窗口上限）
+ * @param upTo     截止交易日（含），缺省为当前应同步交易日
+ */
+export async function listRecentTradeDates(lookback: number, upTo?: string): Promise<string[]> {
+  const end = upTo ?? (await getSyncTradeDate());
+  if (!end) return [];
+  const rows = await db
+    .select({ tradeDate: tradingCalendar.tradeDate })
+    .from(tradingCalendar)
+    .where(and(eq(tradingCalendar.isTradingDay, true), lte(tradingCalendar.tradeDate, end)))
+    .orderBy(desc(tradingCalendar.tradeDate))
+    .limit(lookback);
+  return rows.map((r) => r.tradeDate).reverse();
 }
 
 /**

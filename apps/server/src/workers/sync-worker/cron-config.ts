@@ -38,6 +38,14 @@ export const CRON_JOBS: CronJobConfig[] = [
   { name: "hot-reason", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
   { name: "kline-period",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
   { name: "features",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
+  // ======================= 历史回补（独立任务） =======================
+  // 与当日同步彻底分离：回补只补「窗口内缺失的历史交易日」（显式排除当日），
+  // 各自拥有独立 jobType / 幂等状态 / 重试窗口，互不连累。
+  // 时机：晚于当日任务 deadline（18:00）再启动，避免与当日全市场拉取争抢上游限流；
+  //      三个回补错峰 5 分钟（limit-up-pool / dragon-tiger 同走东财全局串行限流）。
+  { name: "limit-up-pool-backfill", cron: "0 19 * * 1-5",  enabled: true, marketCloseOnly: true, deadline: "22:00" },
+  { name: "dragon-tiger-backfill",  cron: "5 19 * * 1-5",  enabled: true, marketCloseOnly: true, deadline: "22:00" },
+  { name: "hot-reason-backfill",    cron: "10 19 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "22:00" },
   // 交易日历：每周一凌晨 2 点一次性补未来交易日
   { name: "calendar",      cron: "0 2 * * 1",      enabled: true },
 ];

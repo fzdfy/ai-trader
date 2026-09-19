@@ -1,8 +1,13 @@
 /**
  * hot-reason 管道 — 同步同花顺强势股 + 题材归因到 hot_reason 表。
  *
- * 数据源：quant 数据服务同花顺强势股题材归因：
- *   quant.hotReason(today)
+ * 数据源：quant 数据服务同花顺强势股题材归因（可按交易日查询历史快照）：
+ *   quant.hotReason(date)
+ *
+ * 时间语义：当日与回补分离，由调度层分别触发（同花顺 getharden/date/{date} 支持历史日，
+ * 但受上游保留期限制，见 snapshot-backfill）：
+ *   - hotReasonPipeRun      —— 只同步目标交易日当天，空数据抛错触发重试。
+ *   - hotReasonBackfillRun  —— 只回补窗口内缺失的历史交易日，空数据跳过。
  *
  * 写入策略：upsert（date + symbol 主键，同日覆盖为当天最后一次同步结果）。
  * 上游返回 6 位裸代码（如 600519），落库前转换为标准 symbol（600519.SH）。
@@ -12,9 +17,8 @@ import { quant } from "../../../lib/quant";
 import type { HotReasonItem } from "../../../lib/quant";
 import { db } from "../../../db";
 import { hotReason } from "../../../db/schema";
-import { sql } from "drizzle-orm";
-import { updateProgress } from "../progress";
-import { getSyncTradeDate } from "../calendar";
+import { sql, inArray } from "drizzle-orm";
+import { runDailySnapshot, runSnapshotBackfill, type SnapshotSyncOpts } from "../snapshot-backfill";
 
 /** 东财原始 6 位代码 → 标准 symbol（60x/68x→.SH，00x/30x→.SZ，43/83/87/88/92→.BJ） */
 function codeToSymbol(code: string): string {
@@ -31,9 +35,9 @@ function toStr(v: number | null | undefined): string | null {
 }
 
 /** upsert 同花顺强势股 + 题材归因到 hot_reason，返回写入条数 */
-async function upsertHotReason(today: string, rows: HotReasonItem[]): Promise<number> {
+async function upsertHotReason(date: string, rows: HotReasonItem[]): Promise<number> {
   const values = rows.map((r) => ({
-    date: today,
+    date,
     symbol: codeToSymbol(r.code),
     name: r.name,
     reason: r.reason || null,
@@ -71,28 +75,41 @@ async function upsertHotReason(today: string, rows: HotReasonItem[]): Promise<nu
   return values.length;
 }
 
-export async function hotReasonPipeRun(): Promise<void> {
-  const today = await getSyncTradeDate();
-  if (!today) throw new Error("[hot-reason] 无可用交易日（交易日历为空或异常）");
+/** 组装共享配置：当日入口与回补入口复用同一套「取数 / 查已落库 / 写入」逻辑 */
+function hotReasonOpts(label: string, date?: string): SnapshotSyncOpts<HotReasonItem> {
+  return {
+    label,
+    title: "题材归因",
+    date,
+    existingDates: async (dates) => {
+      const rows = await db
+        .selectDistinct({ date: hotReason.date })
+        .from(hotReason)
+        .where(inArray(hotReason.date, dates));
+      return new Set(rows.map((r) => r.date));
+    },
+    fetchDate: (d) => quant.hotReason(d),
+    upsert: (d, rows) => upsertHotReason(d, rows),
+  };
+}
 
-  updateProgress(0, 1, "开始同步题材归因");
+/** 当日同步：只处理目标交易日 */
+export async function hotReasonPipeRun(date?: string): Promise<void> {
   try {
-    const rows = await quant.hotReason(today);
-    console.log(`[hot-reason] got ${rows.length} rows (snapshot ${today})`);
-
-    if (rows.length === 0) {
-      // marketCloseOnly 已保证进入此处必为交易日收盘后，空列表几乎只会是「数据未就绪」；
-      // throw 让 wrapJob 标记 failed 触发重试，避免空列表静默 success 后 hasSuccessToday 幂等
-      // 导致当天后续重试全部跳过、题材归因数据永久缺失。
-      throw new Error("[hot-reason] 题材归因为空（数据未就绪），等待重试");
-    }
-
-    const count = await upsertHotReason(today, rows);
-    updateProgress(1, 1, `题材归因同步完成（${count} 条）`);
-    console.log(`[hot-reason] done. ${count} rows upserted (snapshot ${today})`);
+    await runDailySnapshot(hotReasonOpts("hot-reason", date));
   } catch (error) {
+    // 拉取 / 写入失败需 rethrow，让 wrapJob 标记 failed 触发重试，避免静默"假成功"
     console.error("[hot-reason] failed:", (error as Error).message ?? error);
-    updateProgress(1, 1, `题材归因同步失败：${(error as Error).message ?? error}`);
+    throw error;
+  }
+}
+
+/** 历史回补：只补窗口内缺失的历史交易日（独立调度，与当日任务互不重叠） */
+export async function hotReasonBackfillRun(date?: string): Promise<void> {
+  try {
+    await runSnapshotBackfill(hotReasonOpts("hot-reason-backfill", date));
+  } catch (error) {
+    console.error("[hot-reason-backfill] failed:", (error as Error).message ?? error);
     throw error;
   }
 }

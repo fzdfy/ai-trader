@@ -1,19 +1,12 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { sql, and, eq, isNull, isNotNull, desc, count, lt, gte, lte, inArray } from "drizzle-orm";
+import { sql, and, eq, isNull, isNotNull, desc, count, gte, inArray, max } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 import { jobRun } from "../db/schema";
-import { localDateStr } from "../workers/sync-worker/calendar";
-import { runManualSync } from "../workers/sync-worker/runner";
+import { localDateStr, getSyncTradeDate } from "../workers/sync-worker/calendar";
+import { runManualSync, cleanupStaleRuns } from "../workers/sync-worker/runner";
 
 const syncRoute = new Hono();
-
-/**
- * 僵尸任务判定阈值：running 超过 3 小时视为异常（进程崩溃 / 请求断开悬挂），
- * 在查询接口（modules / status / records）与手动触发前自动清理为 failed。
- * 说明：手动同步包含全市场日线（5000+ 标的串行），3 小时足够覆盖正常任务时长。
- */
-const STALE_RUN_MS = 3 * 60 * 60 * 1000;
 
 /** 已知同步模块元信息（与 sync-worker cron-config 对齐） */
 export const SYNC_MODULES: { jobType: string; name: string }[] = [
@@ -31,11 +24,16 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "hot-reason", name: "题材归因" },
   { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
+  // 历史回补：与当日同步分离的独立任务（收盘后错峰运行，只补窗口内缺失的历史交易日）
+  { jobType: "limit-up-pool-backfill", name: "涨停池回补" },
+  { jobType: "dragon-tiger-backfill", name: "龙虎榜回补" },
+  { jobType: "hot-reason-backfill", name: "题材归因回补" },
   { jobType: "sync-manual", name: "手动同步" },
 ];
 
 /** 与手动同步写同一批行情表、需互斥的 worker 定时任务
- *  （手动同步执行 boards / kline-1d / kline-period，三者都必须互斥，避免并发写冲突） */
+ *  （手动同步执行 boards / kline-1d / kline-period，三者都必须互斥，避免并发写冲突；
+ *   回补任务写 limit_up_pool / dragon_tiger_daily / hot_reason，与手动同步同表，同样互斥） */
 const WORKER_MARKET_JOBS = [
   "boards",
   "kline-1d",
@@ -48,6 +46,9 @@ const WORKER_MARKET_JOBS = [
   "dragon-tiger",
   "hot-reason",
   "features",
+  "limit-up-pool-backfill",
+  "dragon-tiger-backfill",
+  "hot-reason-backfill",
 ];
 
 /** 查询最近一次数据更新时间（取 board 表最新 updated_at 作为行情数据新鲜度） */
@@ -59,11 +60,14 @@ async function queryLastUpdated(): Promise<string | null> {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/** 今日是否已有成功的手动同步（sync-manual）记录（按运行日去重，防止同一天重复触发；跨天数据幂等由管道级 hasSuccessToday 按 trade_date 保证） */
+/**
+ * 当前应同步交易日是否已有成功的手动同步（sync-manual）记录，用于防止同日重复触发。
+ * 与管道级 hasSuccessToday 口径一致，均按 trade_date 判定（而非 startedAt 的自然日，
+ * 避免 23:59 / 00:30 跨日执行被错判）；日历缺失（tradeDate 为 null）时不拦截。
+ */
 async function hasManualSuccessToday(): Promise<boolean> {
-  const today = localDateStr();
-  const start = new Date(`${today}T00:00:00`);
-  const end = new Date(`${today}T23:59:59.999`);
+  const tradeDate = await getSyncTradeDate();
+  if (!tradeDate) return false;
   const rows = await db
     .select({ id: jobRun.id })
     .from(jobRun)
@@ -71,26 +75,11 @@ async function hasManualSuccessToday(): Promise<boolean> {
       and(
         eq(jobRun.jobType, "sync-manual"),
         eq(jobRun.status, "success"),
-        gte(jobRun.startedAt, start),
-        lte(jobRun.startedAt, end),
+        eq(jobRun.tradeDate, tradeDate),
       ),
     )
     .limit(1);
   return rows.length > 0;
-}
-
-/**
- * 清理僵尸 running 任务：进程崩溃 / 请求断开悬挂导致 status 停在 running，
- * 超过 STALE_RUN_MS 后自动标记为 failed（interrupted），避免界面永远显示「运行中」。
- * 查询类接口统一在开头调用，幂等，返回清理条数。
- */
-async function cleanupStaleRuns(): Promise<number> {
-  const cutoff = new Date(Date.now() - STALE_RUN_MS);
-  const res = await db
-    .update(jobRun)
-    .set({ status: "failed", error: "interrupted (stale)", finishedAt: new Date() })
-    .where(and(eq(jobRun.status, "running"), isNull(jobRun.finishedAt), lt(jobRun.startedAt, cutoff)));
-  return res.rowCount ?? 0;
 }
 
 // GET /api/v1/sync/last-updated — 最近数据更新时间
@@ -165,27 +154,41 @@ syncRoute.get("/records", async (c) => {
  */
 syncRoute.get("/modules", async (c) => {
   await cleanupStaleRuns();
-  const rows = await db.select().from(jobRun).orderBy(desc(jobRun.id));
+
+  const today = localDateStr();
+  const todayStart = new Date(`${today}T00:00:00`);
+
+  // 每个模块仅取最新一条（DISTINCT ON），今日统计与全局最近成功时间各用聚合查询，
+  // 避免全表扫描：job_run 由 news 每 2 分钟写入一行，前端每 3 秒轮询，无界查询会持续劣化。
+  const latestRows = await db
+    .selectDistinctOn([jobRun.jobType])
+    .from(jobRun)
+    .orderBy(jobRun.jobType, desc(jobRun.id));
+
+  const todayAgg = await db
+    .select({ jobType: jobRun.jobType, status: jobRun.status, value: count() })
+    .from(jobRun)
+    .where(gte(jobRun.startedAt, todayStart))
+    .groupBy(jobRun.jobType, jobRun.status);
+
+  const [lastSuccess] = await db
+    .select({ at: max(jobRun.finishedAt) })
+    .from(jobRun)
+    .where(eq(jobRun.status, "success"));
 
   // 每个模块取最新一条 + 聚合今日统计
-  const latestByType = new Map<string, (typeof rows)[number]>();
-  const today = localDateStr();
-  const todayStats = new Map<string, { success: number; failed: number }>();
-  let lastSuccessAt: Date | null = null;
+  const latestByType = new Map<string, (typeof latestRows)[number]>();
+  for (const r of latestRows) latestByType.set(r.jobType, r);
 
-  for (const r of rows) {
-    if (!latestByType.has(r.jobType)) latestByType.set(r.jobType, r);
-    if (r.status === "success" && r.finishedAt) {
-      if (lastSuccessAt == null || r.finishedAt > lastSuccessAt) lastSuccessAt = r.finishedAt;
-    }
-    const started = r.startedAt ? localDateStr(r.startedAt) : null;
-    if (started === today) {
-      const s = todayStats.get(r.jobType) ?? { success: 0, failed: 0 };
-      if (r.status === "success") s.success++;
-      else if (r.status === "failed") s.failed++;
-      todayStats.set(r.jobType, s);
-    }
+  const todayStats = new Map<string, { success: number; failed: number }>();
+  for (const r of todayAgg) {
+    const s = todayStats.get(r.jobType) ?? { success: 0, failed: 0 };
+    if (r.status === "success") s.success += Number(r.value);
+    else if (r.status === "failed") s.failed += Number(r.value);
+    todayStats.set(r.jobType, s);
   }
+
+  const lastSuccessAt = lastSuccess?.at ?? null;
 
   const modules = SYNC_MODULES.map((m) => {
     const latest = latestByType.get(m.jobType);
@@ -272,19 +275,31 @@ syncRoute.post("/run", async (c) => {
 
   const inserted = await db
     .insert(jobRun)
-    .values({ jobType: "sync-manual", status: "running", startedAt: new Date() })
+    .values({
+      jobType: "sync-manual",
+      status: "running",
+      startedAt: new Date(),
+      // 落库 tradeDate：与管道级 hasSuccessToday / hasManualSuccessToday 的幂等口径一致
+      tradeDate: await getSyncTradeDate(),
+    })
     .returning({ id: jobRun.id });
   const runId = inserted[0]?.id ?? null;
 
   // 后台执行，不阻塞请求；结束后落终态（success / failed）
   void (async () => {
     try {
-      await runManualSync({ force });
+      const { executed, skipped } = await runManualSync({ force });
 
       if (runId != null) {
+        // 全部管道因「今日已同步」跳过 → 本次无实际拉取，标记成功但写明说明文案
+        const noop = executed.length === 0 && skipped.length > 0;
         await db
           .update(jobRun)
-          .set({ status: "success", finishedAt: new Date() })
+          .set({
+            status: "success",
+            finishedAt: new Date(),
+            ...(noop ? { message: `今日已同步，本次未实际拉取（跳过 ${skipped.length} 个管道）` } : {}),
+          })
           .where(eq(jobRun.id, runId));
       }
     } catch (error) {
