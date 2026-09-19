@@ -95,7 +95,7 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
           style={{ textDecoration: "none" }}
         >
           <VStack gap={0}>
-            <Text style={{ fontWeight: 600, color: "var(--color-accent)" }}>{row.name}</Text>
+            <Text style={{ fontWeight: 600, color: "var(--color-text-blue)" }}>{row.name}</Text>
             <Text type="supporting" size="sm">
               {row.symbol}
             </Text>
@@ -106,7 +106,7 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
     {
       key: "indicators" as const,
       header: "形态",
-      width: proportional(3.6),
+      width: proportional(1.2),
       renderCell: (row: ScreenRow) => {
         const vizzes = indicatorsBySymbol.get(row.symbol);
         if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
