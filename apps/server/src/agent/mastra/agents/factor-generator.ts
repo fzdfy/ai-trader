@@ -21,35 +21,6 @@ const COLUMNS = ["Close", "Open", "High", "Low", "Volume"];
 /** 行情列（小写）集合：AKQuant 解析列名时会统一转小写，故校验不区分大小写 */
 const COLUMN_SET = new Set(COLUMNS.map((column) => column.toLowerCase()));
 
-/** 内置因子示例（帮助模型理解表达式的书写风格与算子的组合方式） */
-const FACTOR_EXAMPLES: Array<{ name: string; expression: string }> = [
-  { name: "roc_5", expression: "Close / Ref(Close, 5) - 1" },
-  { name: "roc_20", expression: "Close / Ref(Close, 20) - 1" },
-  {
-    name: "rsi_14",
-    expression:
-      "100 - 100 / (1 + Mean(If(Delta(Close,1) > 0, Delta(Close,1), 0), 14) / Mean(If(Delta(Close,1) < 0, -Delta(Close,1), 0), 14))",
-  },
-  {
-    name: "macd_diff",
-    expression:
-      "Mean(Close,12) - Mean(Close,26) - Mean(Mean(Close,12) - Mean(Close,26), 9)",
-  },
-  { name: "ma_trend_20", expression: "Close / Mean(Close, 20) - 1" },
-  { name: "ma_trend_60", expression: "Close / Mean(Close, 60) - 1" },
-  {
-    name: "close_position",
-    expression: "(Close - Min(Low, 20)) / (Max(High, 20) - Min(Low, 20))",
-  },
-  { name: "volume_ratio_5", expression: "Volume / Mean(Volume, 5)" },
-  {
-    name: "mfi_14",
-    expression:
-      "100 - 100 / (1 + Sum(If(Delta(Close,1) > 0, Close*Volume, 0), 14) / Sum(If(Delta(Close,1) < 0, Close*Volume, 0), 14))",
-  },
-  { name: "atr_ratio_14", expression: "Mean(High - Low, 14) / Close" },
-];
-
 // ---------------------------------------------------------------------------
 // 算子白名单（结构化）
 // 与 AKQuant 的 OPS_MAP 一一对应；params 的个数即该算子的参数个数约束。
@@ -426,9 +397,6 @@ ${OPERATORS}
 
 ## 支持的运算符与语法
 ${SYNTAX}
-
-## 内置因子示例（供你参考书写风格与算子组合方式）
-${FACTOR_EXAMPLES.map((f) => `- ${f.name}: ${f.expression}`).join("\n")}
 
 ## 生成规则（必须严格遵守）
 1. 只能使用上面列出的「行情列」「算子」「运算符与语法」来构造表达式。
