@@ -169,7 +169,7 @@ syncRoute.get("/modules", async (c) => {
 
   // 每个模块取最新一条 + 聚合今日统计
   const latestByType = new Map<string, (typeof rows)[number]>();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   const todayStats = new Map<string, { success: number; failed: number }>();
   let lastSuccessAt: Date | null = null;
 
@@ -178,7 +178,7 @@ syncRoute.get("/modules", async (c) => {
     if (r.status === "success" && r.finishedAt) {
       if (lastSuccessAt == null || r.finishedAt > lastSuccessAt) lastSuccessAt = r.finishedAt;
     }
-    const started = r.startedAt ? r.startedAt.toISOString().slice(0, 10) : null;
+    const started = r.startedAt ? localDateStr(r.startedAt) : null;
     if (started === today) {
       const s = todayStats.get(r.jobType) ?? { success: 0, failed: 0 };
       if (r.status === "success") s.success++;

@@ -135,6 +135,26 @@ export async function getSyncTradeDate(now: Date = new Date()): Promise<string |
 }
 
 /**
+ * 获取严格早于给定日期的最近一个交易日（YYYY-MM-DD）。
+ *
+ * 用途：确定「可交易标的」基准 —— 上一个交易日仍有行情的标的视为可交易，
+ * 停牌/长期无行情标的不计入同步覆盖率的分母。
+ *
+ * @param beforeDate 基准日期（YYYY-MM-DD，通常为本次同步的目标交易日）
+ * @returns 上一交易日；日历表无更早交易日时返回 null
+ */
+export async function getPrevTradeDate(beforeDate: string): Promise<string | null> {
+  const [row] = await db
+    .select({ tradeDate: tradingCalendar.tradeDate })
+    .from(tradingCalendar)
+    .where(and(eq(tradingCalendar.isTradingDay, true), lt(tradingCalendar.tradeDate, beforeDate)))
+    .orderBy(desc(tradingCalendar.tradeDate))
+    .limit(1);
+
+  return row?.tradeDate ?? null;
+}
+
+/**
  * 根据交易日类型生成应有的分钟时间点。
  *
  * - full    → 上午 09:30-11:30 + 下午 13:00-15:00（240 分钟）

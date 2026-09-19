@@ -18,5 +18,13 @@ export async function featuresPipeRun(): Promise<void> {
   }
 
   const json = (await res.json()) as { symbols?: number; rows?: number };
-  console.log(`[features] done: ${json.symbols ?? 0} symbols, ${json.rows ?? 0} rows`);
+  const symbols = json.symbols ?? 0;
+  const rows = json.rows ?? 0;
+  console.log(`[features] done: ${symbols} symbols, ${rows} rows`);
+
+  // 有自选标的却未写入任何特征行：说明 kline-1d 数据不足或因子计算异常，
+  // 属「未同步完全」，抛错触发 deadline 重试，避免静默 success 后当日被幂等跳过。
+  if (symbols > 0 && rows === 0) {
+    throw new Error(`[features] ${symbols} 只标的均未写入特征行，任务未完全成功`);
+  }
 }

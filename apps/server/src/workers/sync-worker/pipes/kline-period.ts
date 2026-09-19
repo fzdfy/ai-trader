@@ -17,13 +17,18 @@
  */
 
 import { db } from "../../../db";
+import { getPrevTradeDate, getSyncTradeDate } from "../calendar";
 import { instrument } from "../../../db/schema";
 import { sql, eq } from "drizzle-orm";
 import { updateProgress } from "../progress";
+import dayjs from "dayjs";
 
 export type Period = "5d" | "1w" | "1mo";
 
 export const PERIODS: Period[] = ["5d", "1w", "1mo"];
+
+/** 全量覆盖容差：可交易标的中未聚合出当日周期线的数量 ≤ 该值仍判成功 */
+const MISSING_TOLERANCE = 10;
 
 /**
  * 计算某 symbol 最新交易日所属周期的起点（该周期内第一根日线的日期）。
@@ -171,10 +176,42 @@ export async function klinePeriodPipeRun(): Promise<void> {
     return;
   }
 
+  // 期望落库到的最新交易日（口径与 kline-1d / board-kline 一致）
+  const expectedDate = (await getSyncTradeDate()) ?? dayjs().format("YYYY-MM-DD");
+
+  // 一次性查出所有标的的最新日线日期：用于确定「可交易标的」分母与「当日已同步」分子。
+  // 周期线由日线聚合而来，其最新日期不会超过日线；故以日线是否到达期望交易日为准。
+  const latestRes = await db.execute(sql`
+    SELECT symbol, MAX(time) AS latest FROM bar1d_adj GROUP BY symbol
+  `);
+  const latestBySymbol = new Map<string, string>();
+  for (const row of latestRes.rows) {
+    const r = row as { symbol: string; latest: Date | string | null };
+    if (r.latest == null) continue;
+    latestBySymbol.set(r.symbol, dayjs(r.latest).format("YYYY-MM-DD"));
+  }
+
+  // 「可交易标的」基准（分母）：上一交易日仍有日线的标的（停牌/长期无行情不计入）。
+  const prevTradeDate = await getPrevTradeDate(expectedDate);
+  const tradable = new Set<string>();
+  for (const { symbol } of symbols) {
+    const latest = latestBySymbol.get(symbol);
+    if (latest == null) continue;
+    if (prevTradeDate == null || latest >= prevTradeDate) tradable.add(symbol);
+  }
+  // 兜底：无任何日线（首次同步）或交易日历缺失时，退化为全部上市标的
+  if (tradable.size === 0) for (const { symbol } of symbols) tradable.add(symbol);
+  const tradableTotal = tradable.size;
+  console.log(
+    `[kline-period] 可交易标的 ${tradableTotal} 只（上市 ${symbols.length} 只，上一交易日 ${prevTradeDate ?? "未知"}）`,
+  );
+
   console.log(`[kline-period] incremental for ${symbols.length} symbols`);
-  updateProgress(0, symbols.length, "开始聚合周期 K 线");
+  updateProgress(0, tradableTotal, "开始同步周期 K 线");
   let total = 0;
   let done = 0;
+  let synced = 0;
+  const missingSample: string[] = [];
   for (const { symbol } of symbols) {
     for (const period of PERIODS) {
       const start = await periodStart(symbol, period);
@@ -182,17 +219,33 @@ export async function klinePeriodPipeRun(): Promise<void> {
       total += await aggregateSymbol(symbol, period, start);
     }
     done++;
+    // 仅统计可交易标的：日线已到达期望交易日者，其周期线必然已聚合出当日数据。
+    if (tradable.has(symbol)) {
+      const latest = latestBySymbol.get(symbol)!;
+      if (latest >= expectedDate) synced++;
+      else if (missingSample.length < 20) missingSample.push(symbol);
+    }
     // 每处理 50 个标的上报一次进度（全市场 5000+ 标的，逐条上报写库过频）
     if (done % 50 === 0 || done === symbols.length) {
-      updateProgress(done, symbols.length, `聚合周期线 ${done}/${symbols.length}`);
+      updateProgress(synced, tradableTotal, `已同步周期线 ${synced}/${tradableTotal}`);
     }
   }
 
-  if (total === 0) {
-    throw new Error(`[kline-period] ${symbols.length} 只标的周期线均无数据，未写入任何记录`);
+  if (synced === 0) {
+    throw new Error(`[kline-period] 未聚合出 ${expectedDate} 当日任何周期线数据，未写入有效记录`);
   }
 
-  console.log(`[kline-period] done. ${total} bars total`);
+  // 全量覆盖判据：可交易标的中只要未同步数超出容差即判失败，抛错触发上层 deadline 重试，
+  // 杜绝「部分标的周期线断更但任务仍报 success」的假成功。
+  const missing = tradableTotal - synced;
+  if (missing > MISSING_TOLERANCE) {
+    throw new Error(
+      `[kline-period] 可交易标的 ${tradableTotal} 只中仍有 ${missing} 只未聚合出 ${expectedDate} 当日周期线（容差 ${MISSING_TOLERANCE}），任务未完全成功` +
+        (missingSample.length > 0 ? `。示例：${missingSample.slice(0, 5).join(", ")}` : ""),
+    );
+  }
+
+  console.log(`[kline-period] done. 已同步 ${synced}/${tradableTotal} 只可交易标的，${total} bars total`);
 }
 
 /**

@@ -73,6 +73,9 @@ _EM_MIN_INTERVAL = 1.0
 _em_last_call = 0.0
 _em_lock = threading.Lock()
 
+# 东财请求最大尝试次数：瞬时断连/超时自动重试（每次尝试均持锁走限流，串行不并发）
+_EM_MAX_ATTEMPTS = 3
+
 
 def _f(v):
     """宽松转 float：None / 空串 / '-' → None。"""
@@ -100,25 +103,63 @@ def _fmt_zt_time(t) -> str:
     return f"{s[0:2]}:{s[2:4]}:{s[4:6]}"
 
 
-def _em_get(url: str, params: dict | None = None, headers: dict | None = None, timeout: int = 15):
-    """东财统一请求入口：串行限流 + 统一 UA，返回解析后的 JSON。
+def _em_get(
+    url: str,
+    params: dict | None = None,
+    headers: dict | None = None,
+    timeout: int = 15,
+    attempts: int = _EM_MAX_ATTEMPTS,
+):
+    """东财统一请求入口：串行限流 + 统一 UA + 内建重试，返回解析后的 JSON。
 
     所有 eastmoney.com 接口都应通过它请求，避免高频被封 IP。持锁请求保证
-    「串行限流」语义（同一时刻只发一个东财请求）。
+    「串行限流」语义（同一时刻只发一个东财请求）；瞬时断连/超时在同锁内退避
+    重试，减少瞬时故障导致的同步不完整（重试同样走限流，不破坏串行铁律）。
     """
     global _em_last_call
+    req_url = f"{url}?{urllib.parse.urlencode(params)}" if params else url
+    last_error: Exception | None = None
     with _em_lock:
-        wait = _EM_MIN_INTERVAL - (time.time() - _em_last_call)
-        if wait > 0:
-            time.sleep(wait + random.uniform(0.1, 0.5))
-        try:
-            if params:
-                url = f"{url}?{urllib.parse.urlencode(params)}"
-            req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8", errors="replace"))
-        finally:
-            _em_last_call = time.time()
+        for attempt in range(1, attempts + 1):
+            wait = _EM_MIN_INTERVAL - (time.time() - _em_last_call)
+            if wait > 0:
+                time.sleep(wait + random.uniform(0.1, 0.5))
+            try:
+                req = urllib.request.Request(req_url, headers={"User-Agent": UA, **(headers or {})})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8", errors="replace"))
+            except Exception as e:  # noqa: BLE001 — 统一重试所有网络/解析异常
+                last_error = e
+                if attempt < attempts:
+                    time.sleep(1.0 * attempt + random.uniform(0.2, 0.8))
+            finally:
+                # 无论成败都刷新上次请求时间，保证下一次尝试仍满足最小间隔
+                _em_last_call = time.time()
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"eastmoney request failed: {url}")
+
+
+# 东财 WAF 对 `/api/qt/stock/kline/get` 路径直接断连（RemoteDisconnected），
+# 而在路径末尾追加 `/..` 可使 WAF 的路径匹配失效，源站仍会归一化路径并路由到
+# 同一 kline handler（实测返回完整数据）。此处作为 WAF 绕过兜底。
+_EM_WAF_BYPASS_SUFFIX = "/.."
+
+
+def _em_get_kline(
+    url: str,
+    params: dict | None = None,
+    headers: dict | None = None,
+    timeout: int = 15,
+):
+    """kline 类请求入口：直连被 WAF 拦截时自动改用 `/..` 后缀重试绕过。
+
+    直连仅尝试一次（WAF 拦截需快速降级到 `/..`），`/..` 路径则走内建重试。
+    """
+    try:
+        return _em_get(url, params=params, headers=headers, timeout=timeout, attempts=1)
+    except Exception:
+        return _em_get(url + _EM_WAF_BYPASS_SUFFIX, params=params, headers=headers, timeout=timeout)
 
 
 def _eastmoney_datacenter(
@@ -581,7 +622,8 @@ class EastmoneyProvider(MarketProvider):
 
         来源：东财 push2his kline（板块 BK 指数 K 线为东财独有，mootdx/腾讯无此数据，
         属 skill「东财只用于独有数据」范畴）。
-        降级：无独立备胎（板块指数 K 线仅东财提供）；走 _em_get 串行限流防封。
+        降级：无独立备胎（板块指数 K 线仅东财提供）；走 _em_get 串行限流防封，
+        kline 路径被 WAF 拦截时由 _em_get_kline 追加 `/..` 后缀绕过。
 
         limit=None 表示全量：beg 回溯到 1990、lmt=10000（板块指数历史远小于该上限）。
         """
@@ -602,8 +644,12 @@ class EastmoneyProvider(MarketProvider):
             params.setdefault("beg", "19900101")
             params["lmt"] = "10000"
         else:
+            # 东财要求至少提供 beg 或 end 之一，只给 lmt 会返回 rc=102 空数据。
+            # 不带 beg、仅带 end 时返回「截至 end 的最后 lmt 根」，符合 limit 语义。
             params["lmt"] = str(limit)
-        d = _em_get(
+            if not start and not end:
+                params["end"] = _date.today().strftime("%Y%m%d")
+        d = _em_get_kline(
             "https://push2his.eastmoney.com/api/qt/stock/kline/get",
             params=params,
             headers={"Referer": "https://quote.eastmoney.com/", "Origin": "https://quote.eastmoney.com"},

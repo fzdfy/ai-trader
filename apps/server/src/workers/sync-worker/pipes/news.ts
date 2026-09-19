@@ -29,6 +29,20 @@ const UA =
 
 const FETCH_TIMEOUT = 15_000;
 
+/**
+ * 数据源拉取结果。
+ *   ok：拉取+解析是否成功（与「有无新增」无关 —— 新闻按 (source,url) 去重，0 新增属正常）
+ *   inserted：实际写入条数
+ * 用于区分「上游故障」与「本次无新数据」，避免把源故障静默当成任务成功。
+ */
+interface SourceResult {
+  ok: boolean;
+  inserted: number;
+}
+
+/** 个股新闻源失败占比阈值：超过则视为该源整体故障（单股偶发失败可容忍） */
+const STOCK_FAIL_RATIO = 0.5;
+
 /** 带超时的 fetch */
 async function fetchWithTimeout(
   url: string,
@@ -159,7 +173,9 @@ async function upsertArticles(
         inserted++;
       }
     } catch (error) {
+      // 入库失败 = 数据丢失，向上抛出（由调用方标记该源失败），不可静默吞掉
       console.error(`[news] batch insert failed (offset=${i}):`, (error as Error).message ?? error);
+      throw error;
     }
   }
 
@@ -190,7 +206,7 @@ function clsSign(params: Record<string, string>): string {
   return crypto.createHash("md5").update(sha1Hex).digest("hex");
 }
 
-async function fetchClsTelegraph(): Promise<number> {
+async function fetchClsTelegraph(): Promise<SourceResult> {
   console.log("[news:cls] fetching telegraph...");
   const params: Record<string, string> = {
     app: "CailianpressWeb",
@@ -208,7 +224,7 @@ async function fetchClsTelegraph(): Promise<number> {
     });
     if (!res.ok) {
       console.error(`[news:cls] HTTP ${res.status}`);
-      return 0;
+      return { ok: false, inserted: 0 };
     }
     const json = (await res.json()) as {
       errno?: number;
@@ -217,13 +233,13 @@ async function fetchClsTelegraph(): Promise<number> {
     };
     if (json.errno !== 0) {
       console.error(`[news:cls] API error: errno=${json.errno}, msg=${json.msg ?? ""}`);
-      return 0;
+      return { ok: false, inserted: 0 };
     }
 
     const rollData = json.data?.roll_data as any[] | undefined;
     if (!rollData?.length) {
       console.log("[news:cls] no new data");
-      return 0;
+      return { ok: true, inserted: 0 };
     }
 
     const articles = rollData
@@ -240,10 +256,10 @@ async function fetchClsTelegraph(): Promise<number> {
 
     const count = await upsertArticles(articles);
     console.log(`[news:cls] done, new=${count}/${rollData.length}`);
-    return count;
+    return { ok: true, inserted: count };
   } catch (error) {
     console.error("[news:cls] fetch failed:", (error as Error).message ?? error);
-    return 0;
+    return { ok: false, inserted: 0 };
   }
 }
 
@@ -269,7 +285,7 @@ interface EastMoneyNewsItem {
   ctime?: string | number;
 }
 
-async function fetchEastMoneyGlobal(): Promise<number> {
+async function fetchEastMoneyGlobal(): Promise<SourceResult> {
   console.log("[news:em_global] fetching 7×24 news...");
 
   // 东财全球快讯 API（可能随版本变化，这里是主流可用端点）
@@ -288,7 +304,7 @@ async function fetchEastMoneyGlobal(): Promise<number> {
     });
     if (!res.ok) {
       console.error(`[news:em_global] HTTP ${res.status}`);
-      return 0;
+      return { ok: false, inserted: 0 };
     }
     const json = (await res.json()) as {
       data?: { fastNewsList?: EastMoneyNewsItem[]; list?: EastMoneyNewsItem[] };
@@ -297,7 +313,7 @@ async function fetchEastMoneyGlobal(): Promise<number> {
 
     if (!list.length) {
       console.log("[news:em_global] no new data");
-      return 0;
+      return { ok: true, inserted: 0 };
     }
 
     const articles = list
@@ -314,10 +330,10 @@ async function fetchEastMoneyGlobal(): Promise<number> {
 
     const count = await upsertArticles(articles);
     console.log(`[news:em_global] done, new=${count}/${list.length}`);
-    return count;
+    return { ok: true, inserted: count };
   } catch (error) {
     console.error("[news:em_global] fetch failed:", (error as Error).message ?? error);
-    return 0;
+    return { ok: false, inserted: 0 };
   }
 }
 
@@ -341,7 +357,7 @@ function parseEastMoneyTime(t: string | number | undefined): Date | undefined {
  *
  * TODO: 该接口返回 JSONP（jQuery...(...)），需要 strip 前后缀再 JSON.parse。
  */
-async function fetchStockNews(symbol: string): Promise<number> {
+async function fetchStockNews(symbol: string): Promise<SourceResult> {
   // 去掉 symbol 的前缀 (sh/sz/bj)，只留 6 位代码
   const code = symbol.includes(".") ? symbol.split(".")[0] : symbol;
 
@@ -363,7 +379,7 @@ async function fetchStockNews(symbol: string): Promise<number> {
     });
     if (!res.ok) {
       console.error(`[news:stock] ${symbol} HTTP ${res.status}`);
-      return 0;
+      return { ok: false, inserted: 0 };
     }
 
     const text = await res.text();
@@ -371,13 +387,13 @@ async function fetchStockNews(symbol: string): Promise<number> {
     const jsonpMatch = text.match(/^[^(]*\(([\s\S]*)\)?;?\s*$/);
     if (!jsonpMatch) {
       console.error(`[news:stock] ${symbol} JSONP parse failed`);
-      return 0;
+      return { ok: false, inserted: 0 };
     }
 
     const json = JSON.parse(jsonpMatch[1]!);
     const list: any[] = json.Data ?? json.data ?? [];
 
-    if (!list.length) return 0;
+    if (!list.length) return { ok: true, inserted: 0 };
 
     const articles = list
       .filter((r: any) => r.Title || r.title)
@@ -397,10 +413,10 @@ async function fetchStockNews(symbol: string): Promise<number> {
 
     const count = await upsertArticles(articles);
     if (count > 0) console.log(`[news:stock] ${symbol} new=${count}`);
-    return count;
+    return { ok: true, inserted: count };
   } catch (error) {
     console.error(`[news:stock] ${symbol} fetch failed:`, (error as Error).message ?? error);
-    return 0;
+    return { ok: false, inserted: 0 };
   }
 }
 
@@ -421,38 +437,60 @@ export async function newsPipeRun(): Promise<void> {
   console.log("[news] === start ===");
   const startTime = Date.now();
   let total = 0;
+  const failures: string[] = [];
 
-  // ① 财联社电报
+  // ① 财联社电报（单次源：HTTP/签名/解析任一失败即视为源故障）
   try {
-    total += await fetchClsTelegraph();
+    const r = await fetchClsTelegraph();
+    total += r.inserted;
+    if (!r.ok) failures.push("财联社电报");
   } catch (error) {
     console.error("[news:cls] unexpected error:", error);
+    failures.push("财联社电报");
   }
 
-  // ② 东财全球资讯
+  // ② 东财全球资讯（单次源）
   try {
-    total += await fetchEastMoneyGlobal();
+    const r = await fetchEastMoneyGlobal();
+    total += r.inserted;
+    if (!r.ok) failures.push("东财全球资讯");
   } catch (error) {
     console.error("[news:em_global] unexpected error:", error);
+    failures.push("东财全球资讯");
   }
 
-  // ③ 个股新闻 — 按自选股逐个拉取（有间隔防封）
+  // ③ 个股新闻 — 按自选股逐个拉取（有间隔防封）；单股偶发失败可容忍，
+  //    但多数自选股失败则视为源故障（接口整体不可用），避免静默漏数据。
   try {
     const symbols = await getWatchlistSymbols();
     console.log(`[news:stock] fetching for ${symbols.length} symbols`);
+    let stockFailed = 0;
     for (const symbol of symbols) {
       try {
-        total += await fetchStockNews(symbol);
-      } catch {
-        // 单股失败不阻塞
+        const r = await fetchStockNews(symbol);
+        total += r.inserted;
+        if (!r.ok) stockFailed++;
+      } catch (error) {
+        console.error(`[news:stock] ${symbol} unexpected error:`, error);
+        stockFailed++;
       }
       // 个股接口间隔 200ms，避免触发东财反爬
       await new Promise((r) => setTimeout(r, 200));
     }
+    if (symbols.length > 0 && stockFailed / symbols.length >= STOCK_FAIL_RATIO) {
+      failures.push(`个股新闻(${stockFailed}/${symbols.length} 失败)`);
+    }
   } catch (error) {
     console.error("[news:stock] unexpected error:", error);
+    failures.push("个股新闻");
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`[news] === done. new=${total} elapsed=${elapsed}s ===`);
+
+  // 任一数据源拉取失败：本次同步不完整，抛错使 job_run 标 failed，而非静默 success。
+  // 说明：新闻按 (source,url) 去重，「0 新增」属正常不触发失败；仅上游故障才抛错。
+  if (failures.length > 0) {
+    throw new Error(`[news] 数据源拉取失败，本次同步不完整: ${failures.join("、")}`);
+  }
 }

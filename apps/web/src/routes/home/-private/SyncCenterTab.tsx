@@ -117,7 +117,7 @@ function ModuleCard({ mod }: { mod: SyncModuleStatus }) {
           </VStack>
         )}
 
-        {/* 今日统计 + 处理量 + 耗时 */}
+        {/* 今日统计 + 已同步量 + 耗时 */}
         <HStack gap={3} align="center">
           <Text size="sm" type="supporting">
             今日成功 {mod.todaySuccess} · 失败 {mod.todayFailed}
@@ -129,7 +129,7 @@ function ModuleCard({ mod }: { mod: SyncModuleStatus }) {
           )}
           {mod.processed != null && mod.total != null && !isRunning && (
             <Text size="sm" type="supporting">
-              处理 {mod.processed}/{mod.total}
+              已同步 {mod.processed}/{mod.total}
             </Text>
           )}
         </HStack>
@@ -173,7 +173,7 @@ const RECORD_COLUMNS = [
   },
   {
     key: "progress",
-    header: "进度",
+    header: "已同步",
     width: proportional(1.2),
     renderCell: (r: SyncRecord) =>
       r.processed != null && r.total != null ? (

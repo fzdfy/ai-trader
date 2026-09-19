@@ -1,5 +1,5 @@
 import { db } from "../../../db";
-import { isTradeDay } from "../calendar";
+import { getPrevTradeDate, getSyncTradeDate, isTradeDay } from "../calendar";
 import { quant, type StockKlineBar } from "../../../lib/quant";
 import { sql, eq } from "drizzle-orm";
 import { bar1dAdj, instrument } from "../../../db/schema";
@@ -41,6 +41,19 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
 
   const today = dayjs().format("YYYYMMDD");
 
+  // 期望落库到的最新交易日（收盘后的交易日=今天，盘中/非交易日=最近已收盘交易日），
+  // 口径与 boards / fundflow 等管道一致，用于判定增量结果是否真的取到了当日数据。
+  const expectedDate = (await getSyncTradeDate()) ?? dayjs().format("YYYY-MM-DD");
+
+  // 腾讯 fqkline 按「精确的 param 字符串」做服务端缓存（实测：同一 symbol 下
+  // `...day,2026-09-17,2026-09-18,500,qfq` 在晚间仍返回截至 09-17 的截断结果，而把 limit
+  // 换成 501 即返回含 09-18 的完整数据）。交易日收盘后首次请求若恰逢当日数据尚未发布，就会
+  // 缓存该截断响应；而 deadline 重试（每 5 分钟一次）会重新生成完全相同的 param，从而始终
+  // 命中陈旧缓存、直到 18:00 判定失败。这里把增量请求的 limit 按 5 分钟时间桶轮换
+  // （501–600，增量窗口仅 1~2 根，轮换不影响返回内容），使每次重试的 param 必然不同以绕过
+  // 陈旧缓存；上游一旦发布当日数据，首个使用新 limit 的请求即可取到。
+  const incrementalLimit = 501 + (Math.floor(Date.now() / 300_000) % 100);
+
   // 一次性查出所有标的的最新日线时间，作为增量起点（无历史记录的标的走全量）
   const latestRes = await db.execute(sql`
     SELECT symbol, MAX(time) AS latest FROM bar1d_adj GROUP BY symbol
@@ -53,6 +66,24 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     if (Number.isNaN(d.getTime())) continue;
     latestBySymbol.set(r.symbol, dayjs(d).format("YYYYMMDD"));
   }
+
+  // 「可交易标的」基准（同步覆盖率的分母）：上个交易日仍有行情的标的。
+  // 停牌 / 长期无行情的标的不计入分母，避免把正常停牌误判为「未同步」。
+  // 判定方式：标的的最新日线日期 >= 上一交易日即为可交易标的。
+  const prevTradeDate = await getPrevTradeDate(expectedDate);
+  const prevTradeDateKey = prevTradeDate ? prevTradeDate.replace(/-/g, "") : null;
+  const tradable = new Set<string>();
+  for (const s of symbols) {
+    const latest = latestBySymbol.get(s.symbol);
+    if (latest == null) continue;
+    if (prevTradeDateKey == null || latest >= prevTradeDateKey) tradable.add(s.symbol);
+  }
+  // 兜底：无任何历史（首次全量同步）或交易日历缺失时，退化为全部上市标的
+  if (tradable.size === 0) for (const s of symbols) tradable.add(s.symbol);
+  const tradableTotal = tradable.size;
+  console.log(
+    `[kline-1d] 可交易标的 ${tradableTotal} 只（上市 ${symbols.length} 只，上一交易日 ${prevTradeDate ?? "未知"}）`,
+  );
 
   // 全量重刷单次分页根数。腾讯 fqkline 单次返回根数有上限（约 640），quant 端
   // /kline 虽放行到 5000，但传超过上游上限的值会被腾讯静默截断，导致"不足一页即到底"
@@ -113,15 +144,15 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     return [];
   };
 
-  const syncOne = async (symbol: string): Promise<number> => {
+  const syncOne = async (symbol: string): Promise<{ bars: number; reached: boolean }> => {
     const startDate = opts?.forceFull ? undefined : latestBySymbol.get(symbol);
-    const isIncremental = startDate != null;
 
     let klines: StockKlineBar[];
     if (startDate != null) {
       // 增量：已有历史，空结果/异常几乎必然是上游限流/临时故障，退避重试后仍空才判失败。
+      // limit 用轮换值（见 incrementalLimit）绕过腾讯按 param 缓存当日截断结果的问题。
       klines = await fetchWithRetry(
-        () => quant.stockKline(symbol, 500, startDate, today, "qfq", "tencent"),
+        () => quant.stockKline(symbol, incrementalLimit, startDate, today, "qfq", "tencent"),
         symbol,
       );
     } else {
@@ -130,15 +161,9 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     }
 
     if (klines.length === 0) {
-      // 已有历史的标的增量返回空必然是上游故障/限流，记失败由末尾判定触发重跑；
-      // 无历史标的返回空可能是新上市/边缘标的，仅告警不判失败。
-      if (isIncremental) {
-        incrementalFailed++;
-        console.error(`[kline-1d] ${symbol} 增量同步返回空（判定失败）`);
-      } else {
-        console.warn(`[kline-1d] ${symbol} 全量拉取为空（无历史或上游限流）`);
-      }
-      return 0;
+      // 空结果无法判定是否同步到当日数据，统一记为「未同步」，由末尾覆盖率判据决定是否重跑。
+      console.warn(`[kline-1d] ${symbol} 拉取为空（无历史或上游限流），记为未同步`);
+      return { bars: 0, reached: false };
     }
 
     const batch = klines.map((k) => ({
@@ -177,7 +202,21 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
         });
     }
 
-    return batch.length;
+    // 是否真的取到了期望交易日的数据：非空但止于上一交易日视为「未同步」。
+    // 腾讯前复权序列收盘后当晚常延迟发布当日数据，此时会返回上一交易日为止的非空窗口，
+    // 若仅判空则会被误当成功。已取到的历史仍写入（幂等覆盖，防数据回退）。
+    let latestFetched = klines[0]!.time;
+    for (const k of klines) {
+      if (k.time > latestFetched) latestFetched = k.time;
+    }
+    const reached = latestFetched >= expectedDate;
+    if (!reached) {
+      console.warn(
+        `[kline-1d] ${symbol} 最新仅到 ${latestFetched}（期望 ${expectedDate}），疑似上游尚未发布当日数据`,
+      );
+    }
+
+    return { bars: batch.length, reached };
   };
 
   // 受控并发拉取（quant 侧 K 线主源腾讯 fqkline 前复权，降级 mootdx/百度，均为不封 IP 源）。
@@ -188,22 +227,32 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
   // 限流降速：腾讯 fqkline 持续高频请求会触发限流（返回空/超时），全量回补时
   // 每个标的之间留出间隔，配合并发 2 将请求速率压到限流阈值之下。
   const THROTTLE_MS = 800;
+  // 全量覆盖容差：可交易标的中未取到当日数据的数量 ≤ 该值仍判成功（覆盖当日新停牌等正常情形）。
+  const MISSING_TOLERANCE = 10;
+
   let total = 0;
   let done = 0;
-  let incrementalFailed = 0;
-  updateProgress(0, symbols.length, "开始同步日线 K 线");
+  // 已同步数：取到期望交易日当日日线的可交易标的数（进度分母为可交易标的总数）。
+  let synced = 0;
+  const missingSample: string[] = [];
+  updateProgress(0, tradableTotal, "开始同步日线 K 线");
 
   const queue = symbols.map((s) => s.symbol);
   let idx = 0;
   const worker = async () => {
     while (idx < queue.length) {
       const symbol = queue[idx++]!;
-      const n = await syncOne(symbol);
-      total += n;
+      const { bars, reached } = await syncOne(symbol);
+      total += bars;
       done++;
+      // 仅统计可交易标的：已取到当日数据计入已同步，未取到则记入缺失样本
+      if (tradable.has(symbol)) {
+        if (reached) synced++;
+        else if (missingSample.length < 20) missingSample.push(symbol);
+      }
       // 每处理 50 个标的上报一次进度（全市场 5000+ 标的，逐条上报写库过频）
       if (done % 50 === 0 || done === symbols.length) {
-        updateProgress(done, symbols.length, `同步日线 ${done}/${symbols.length}`);
+        updateProgress(synced, tradableTotal, `已同步日线 ${synced}/${tradableTotal}`);
       }
       await sleep(THROTTLE_MS);
     }
@@ -213,17 +262,19 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     Array.from({ length: Math.min(CONCURRENCY, symbols.length) }, () => worker()),
   );
 
-  if (total === 0) {
-    throw new Error(`[kline-1d] ${symbols.length} 只标的日线均无数据，未写入任何记录`);
+  if (synced === 0) {
+    throw new Error(`[kline-1d] 未取到 ${expectedDate} 当日任何日线数据，未写入有效记录`);
   }
 
-  // 已有历史却拉不到增量数据的标的一律判失败：抛错触发上层 deadline 重试，
+  // 全量覆盖判据：可交易标的中只要未同步数超出容差即判失败，抛错触发上层 deadline 重试，
   // 杜绝「部分标的数据断更但任务仍报 success」的假成功。
-  if (incrementalFailed > 0) {
+  const missing = tradableTotal - synced;
+  if (missing > MISSING_TOLERANCE) {
     throw new Error(
-      `[kline-1d] ${incrementalFailed}/${symbols.length} 只已有历史标的增量同步返回空，任务未完全成功`,
+      `[kline-1d] 可交易标的 ${tradableTotal} 只中仍有 ${missing} 只未取到 ${expectedDate} 当日日线（容差 ${MISSING_TOLERANCE}），任务未完全成功` +
+        (missingSample.length > 0 ? `。示例：${missingSample.slice(0, 5).join(", ")}` : ""),
     );
   }
 
-  console.log(`[kline-1d] done. ${total} bars total`);
+  console.log(`[kline-1d] done. 已同步 ${synced}/${tradableTotal} 只可交易标的，${total} bars total`);
 }
