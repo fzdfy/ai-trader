@@ -57,7 +57,7 @@ type ScopeValue =
 const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "all", label: "全部选股" },
   { value: "industry", label: "行业选股" },
-  { value: "concept", label: "板块选股" },
+  { value: "concept", label: "概念选股" },
   { value: "resultSet", label: "结果集合" },
   { value: "gain3", label: "涨幅榜(≥3%)" },
   { value: "amount1b", label: "成交额榜(≥10亿)" },
@@ -137,7 +137,7 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
     },
     {
       key: "sectors" as const,
-      header: "板块",
+      header: "概念",
       width: proportional(1.3),
       renderCell: (row: ScreenRow) => {
         const list = row.sectors ?? [];
@@ -426,7 +426,7 @@ function ScreensPage() {
       <VStack gap={1}>
         <Heading level={2}>选股</Heading>
         <Text type="supporting">
-          根据策略的因子组合，对股票池打分并排名；股票池可限定为全部、行业、板块、已保存的结果集合，或涨幅榜、成交额榜、百日内涨停榜等固定阈值范围。
+          根据策略的因子组合，对股票池打分并排名；股票池可限定为全部、行业、概念、已保存的结果集合，或涨幅榜、成交额榜、百日内涨停榜等固定阈值范围。
         </Text>
       </VStack>
 
@@ -463,11 +463,11 @@ function ScreensPage() {
           )}
           {search.scope === "concept" && (
             <MultiSelector
-              label="板块"
+              label="概念"
               options={boardOptions}
               value={search.boardCodes}
               onChange={(v) => updateSearch({ boardCodes: v })}
-              placeholder="选择板块（可多选）"
+              placeholder="选择概念（可多选）"
               hasSearch
               hasSelectAll
               hasClear
