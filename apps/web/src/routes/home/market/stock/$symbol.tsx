@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { createFileRoute, useParams, Link } from "@tanstack/react-router";
+import { createFileRoute, useParams, Link, useRouter } from "@tanstack/react-router";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Button } from "@astryxdesign/core/Button";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
@@ -75,6 +75,7 @@ function StockDetailPage() {
   const { tf: tfParam, from } = Route.useSearch();
   const tf = tfParam ?? "1d";
   const navigate = Route.useNavigate();
+  const router = useRouter();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
@@ -184,9 +185,14 @@ function StockDetailPage() {
     <VStack gap={4} style={{ height: "100%" }}>
       <HStack gap={2} align="center">
         {from === "screens" ? (
-          <Link to="/home/screens" style={{ textDecoration: "none" }}>
-            <Button label="← 返回" variant="ghost" size="sm" />
-          </Link>
+          // 回到选股页：走浏览器历史回退，保留选股页原先的 URL search（策略/范围/返回数量等），
+          // 否则直接 Link 到 /home/screens 会丢失这些条件、页面回到默认状态
+          <Button
+            label="← 返回"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.history.back()}
+          />
         ) : (
           <Link to="/home/market/stock" search={{ tab: "stock" }} style={{ textDecoration: "none" }}>
             <Button label="← 返回" variant="ghost" size="sm" />

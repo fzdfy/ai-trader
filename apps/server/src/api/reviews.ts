@@ -7,6 +7,7 @@
  *   POST /generate        生成/重新生成某交易日复盘（一次性返回）
  *   POST /generate/stream 流式生成（结构化模块就绪即推送，总结压轴）
  *   GET  /list            复盘日期列表（回放选择用）
+ *   GET  /current-date    当前应复盘的交易日（最近一个已收盘交易日，前端「今日复盘」用）
  *   GET  /mainline        规则化主线（独立接口，date/limit 可选）
  *   GET  /:date           回放某交易日复盘
  *
@@ -413,7 +414,8 @@ reviewsRoute.put("/skill", async (c) => {
 // POST /api/v1/reviews/generate — 生成/重新生成复盘（一次性返回）
 reviewsRoute.post("/generate", async (c) => {
   const body = (await c.req.json()) as { date?: string };
-  const date = body.date?.trim() || formatDate(new Date());
+  // 默认日期对齐「当前应复盘的交易日」（同 stream），而非自然日；日历缺失时回退运行日
+  const date = body.date?.trim() || (await getSyncTradeDate()) || formatDate(new Date());
 
   try {
     const instructions = await ensureInstructions();
@@ -589,6 +591,17 @@ reviewsRoute.get("/list", async (c) => {
     .from(reviewDaily)
     .orderBy(desc(reviewDaily.date));
   return ok(c, rows);
+});
+
+// GET /api/v1/reviews/current-date — 当前应复盘的交易日（最近一个已收盘交易日）
+//
+// 规则（复用交易日历 getSyncTradeDate，勿用自然日）：
+//   - 今天为交易日且已收盘（15:00 后）→ 今天；
+//   - 今天非交易日，或今天虽为交易日但尚未收盘（开盘前/盘中）→ 回溯最近一个已收盘交易日。
+// 例：周日 → 上周五；交易日上午 → 上一交易日。日历缺失时回退到运行日。
+reviewsRoute.get("/current-date", async (c) => {
+  const date = (await getSyncTradeDate()) ?? formatDate(new Date());
+  return ok(c, { date });
 });
 
 // GET /api/v1/reviews/:date — 回放某交易日复盘

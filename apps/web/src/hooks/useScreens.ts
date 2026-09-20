@@ -8,6 +8,9 @@ export interface ScreenItem {
   score: number; // 综合得分 0-100
   close: number; // 最新收盘价
   factorScores: Record<string, number>; // 因子名 → 得分 0-100
+  industry?: string | null; // 所属行业（三级行业链条，/ 连接）
+  sectors?: string[]; // 所属概念板块（全部，按热度排序；列表展示前 3 个，hover 展示全部）
+  sectorTotal?: number; // 所属概念板块总数
 }
 
 export interface ScreenResult {
@@ -57,8 +60,8 @@ interface ApiResponse<T> {
 export interface RunScreenInput {
   strategyId: number;
   topN: number;
-  /** 股票池范围：全部 / 行业 / 板块 / 前端结果集合 */
-  scope?: "all" | "industry" | "concept" | "resultSet";
+  /** 股票池范围：全部 / 行业 / 板块 / 前端结果集合 / 涨幅榜 / 成交额榜 / 百日涨停榜 */
+  scope?: "all" | "industry" | "concept" | "resultSet" | "gain3" | "amount1b" | "limitUp2";
   /** scope=industry|concept 时，选中的板块代码（多选） */
   boardCodes?: string[];
   /** scope=resultSet 时，前端结果集合中的完整 symbol 列表 */

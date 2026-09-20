@@ -14,12 +14,22 @@ import { db } from "../db";
 import { stockPool } from "../db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
+import { getSyncTradeDate } from "../workers/sync-worker/calendar";
 
 const stockPoolRoute = new Hono();
 
 function formatDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * 选股池归属日期 = 最近一个已收盘交易日（与复盘口径一致）。
+ * 选股基于库内最新一根 K 线，用自然日会与复盘（按交易日查询）错配，
+ * 导致周末/盘前/盘中加入的选股池在「今日复盘」中读不到。
+ */
+async function resolveTradeDate(): Promise<string> {
+  return (await getSyncTradeDate()) ?? formatDate(new Date());
 }
 
 interface PoolItem {
@@ -32,7 +42,7 @@ interface PoolItem {
 // POST /api/v1/stock-pool — 批量加入选股池
 stockPoolRoute.post("/", async (c) => {
   const body = (await c.req.json()) as { date?: string; items?: PoolItem[] };
-  const date = body.date?.trim() || formatDate(new Date());
+  const date = body.date?.trim() || (await resolveTradeDate());
   const items = (body.items ?? []).filter((i) => i.symbol && i.name);
   if (items.length === 0) return badRequest(c, "items is required");
 
@@ -68,9 +78,9 @@ stockPoolRoute.get("/dates", async (c) => {
   return ok(c, rows.map((r) => r.date));
 });
 
-// GET /api/v1/stock-pool?date=YYYY-MM-DD — 回放某交易日选股池
+// GET /api/v1/stock-pool?date=YYYY-MM-DD — 回放某交易日选股池（缺省取最近交易日）
 stockPoolRoute.get("/", async (c) => {
-  const date = c.req.query("date") ?? formatDate(new Date());
+  const date = c.req.query("date")?.trim() || (await resolveTradeDate());
   const rows = await db
     .select({
       symbol: stockPool.symbol,

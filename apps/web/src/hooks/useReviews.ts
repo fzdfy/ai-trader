@@ -223,6 +223,24 @@ export function useReviewQuery(date: string | null) {
   });
 }
 
+/**
+ * 当前应复盘的交易日（服务端按交易日历计算，「最近一个已收盘交易日」）。
+ *
+ * 不用浏览器自然日：周末/节假日/盘中会拿到非交易日或未收盘的当日，
+ * 导致复盘取不到数据。服务端 getSyncTradeDate 已按 A 股日历回溯。
+ */
+export function useReviewCurrentDateQuery() {
+  return useQuery({
+    queryKey: ["reviews", "current-date"],
+    queryFn: async () => {
+      const res = await fetch("/api/v1/reviews/current-date");
+      const json = (await res.json()) as ApiResponse<{ date: string }>;
+      return json.success ? json.data.date : null;
+    },
+    staleTime: 60_000,
+  });
+}
+
 // ---------- 流式生成 ----------
 
 export type ReviewStreamStatus = "idle" | "streaming" | "done" | "error";

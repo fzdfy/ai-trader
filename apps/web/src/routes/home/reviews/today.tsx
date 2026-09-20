@@ -17,27 +17,40 @@ import { Section } from "@astryxdesign/core/Section";
 import {
   useGenerateReviewStream,
   useReviewQuery,
+  useReviewCurrentDateQuery,
   type ReviewSection,
 } from "../../../hooks/useReviews";
 import { ReviewContent, ReviewSections } from "./-private/ReviewContent";
-import { today, formatDateTime } from "./-private/utils";
+import { formatDateTime } from "./-private/utils";
 
 export const Route = createFileRoute("/home/reviews/today")({
   component: TodayReviewPage,
 });
 
 function TodayReviewPage() {
-  const date = today();
+  // 复盘日期取「最近一个已收盘交易日」（服务端按交易日历计算），而非浏览器自然日
+  const currentDateQuery = useReviewCurrentDateQuery();
+  const date = currentDateQuery.data ?? null;
   const reviewQuery = useReviewQuery(date);
   const review = reviewQuery.data ?? null;
   const stream = useGenerateReviewStream();
 
-  console.log("TodayReviewPage stream", stream);
   const isStreaming = stream.status === "streaming";
   // 已就绪的流式模块（跳过未推送的空槽，无占位卡）
   const streamSections = stream.sections.filter((s): s is ReviewSection => s != null);
-  console.log("TodayReviewPage streamSections", streamSections);
   const showStream = streamSections.length > 0;
+
+  if (!date) {
+    return (
+      <VStack gap={6}>
+        <VStack gap={1}>
+          <Heading level={2}>今日复盘</Heading>
+          <Text type="supporting">生成最近一个交易日的复盘，覆盖行业资金流向、主线、选股池与总结。</Text>
+        </VStack>
+        <Spinner size="sm" label="正在获取最近交易日..." />
+      </VStack>
+    );
+  }
 
   return (
     <VStack gap={6}>

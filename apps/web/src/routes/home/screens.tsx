@@ -11,6 +11,7 @@ import { Table, proportional, useTableSelection } from "@astryxdesign/core/Table
 import { Selector } from "@astryxdesign/core/Selector";
 import { MultiSelector } from "@astryxdesign/core/MultiSelector";
 import { TextInput } from "@astryxdesign/core/TextInput";
+import { Tooltip } from "@astryxdesign/core/Tooltip";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
 import { fetchStrategies } from "../../hooks/useStrategies";
 import { fetchFactors } from "../../hooks/useFactors";
@@ -44,17 +45,35 @@ const TOPN_OPTIONS = [
   { value: "50", label: "前 50 名" },
 ];
 
-type ScopeValue = "all" | "industry" | "concept" | "resultSet";
+type ScopeValue =
+  | "all"
+  | "industry"
+  | "concept"
+  | "resultSet"
+  | "gain3"
+  | "amount1b"
+  | "limitUp2";
 
 const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "all", label: "全部选股" },
   { value: "industry", label: "行业选股" },
   { value: "concept", label: "板块选股" },
   { value: "resultSet", label: "结果集合" },
+  { value: "gain3", label: "涨幅榜(≥3%)" },
+  { value: "amount1b", label: "成交额榜(≥10亿)" },
+  { value: "limitUp2", label: "百日内涨停(≥2次)" },
 ];
 
 function isScope(v: unknown): v is ScopeValue {
-  return v === "all" || v === "industry" || v === "concept" || v === "resultSet";
+  return (
+    v === "all" ||
+    v === "industry" ||
+    v === "concept" ||
+    v === "resultSet" ||
+    v === "gain3" ||
+    v === "amount1b" ||
+    v === "limitUp2"
+  );
 }
 
 // URL search 参数：选股的查询条件（作为 useQuery 的缓存键来源）
@@ -102,6 +121,46 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
           </VStack>
         </Link>
       ),
+    },
+    {
+      key: "industry" as const,
+      header: "行业",
+      width: proportional(1),
+      renderCell: (row: ScreenRow) =>
+        row.industry ? (
+          <Tooltip content={row.industry} placement="above" alignment="start">
+            <Text size="sm">{row.industry}</Text>
+          </Tooltip>
+        ) : (
+          <Text type="supporting">-</Text>
+        ),
+    },
+    {
+      key: "sectors" as const,
+      header: "板块",
+      width: proportional(1.3),
+      renderCell: (row: ScreenRow) => {
+        const list = row.sectors ?? [];
+        if (list.length === 0) return <Text type="supporting">-</Text>;
+        const preview = list.slice(0, 3);
+        const total = row.sectorTotal ?? list.length;
+        return (
+          <Tooltip
+            placement="above"
+            alignment="start"
+            content={
+              <Text size="sm" style={{ display: "block", maxWidth: 320 }}>
+                {list.join("、")}
+              </Text>
+            }
+          >
+            <Text size="sm">
+              {preview.join(" · ")}
+              {total > preview.length ? ` 等${total}个` : ""}
+            </Text>
+          </Tooltip>
+        );
+      },
     },
     {
       key: "indicators" as const,
@@ -367,7 +426,7 @@ function ScreensPage() {
       <VStack gap={1}>
         <Heading level={2}>选股</Heading>
         <Text type="supporting">
-          根据策略的因子组合，对股票池打分并排名；股票池可限定为全部、行业、板块或已保存的结果集合。
+          根据策略的因子组合，对股票池打分并排名；股票池可限定为全部、行业、板块、已保存的结果集合，或涨幅榜、成交额榜、百日内涨停榜等固定阈值范围。
         </Text>
       </VStack>
 
