@@ -38,8 +38,6 @@ class ScreenRequest(BaseModel):
     topN: int = 20
     symbols: list[str] | None = None
     combine: str = "weighted_sum"
-    # 选股实现版本：v1 = 旧逐标的取数，v2 = 新批量取数（默认）
-    version: str = "v2"
 
 
 class IndicatorsFactor(BaseModel):
@@ -154,10 +152,9 @@ def run_screen(req: ScreenRequest, request: Request) -> dict[str, Any]:
         request_id=request_id,
         factors=[f.get("name") for f in req.factors],
         top_n=req.topN,
-        version=req.version,
     )
     try:
-        result = screen(req.factors, req.topN, req.symbols, req.combine, req.version)
+        result = screen(req.factors, req.topN, req.symbols, req.combine)
         return {"success": True, **result}
     except Exception as e:
         log.error("选股失败", request_id=request_id, error=str(e))

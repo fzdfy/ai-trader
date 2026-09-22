@@ -126,29 +126,6 @@ export function useWatchlistInstrumentsQuery() {
   });
 }
 
-export type KlineBar = Record<string, unknown> & {
-  time: string;
-  symbol: string;
-  open: string;
-  high: string;
-  low: string;
-  close: string;
-  volume: string;
-  amount: string | null;
-};
-
 /** 支持的 K 线周期：1m / 1d / 5d / 1w / 1mo */
 export type KlineTf = "1m" | "1d" | "5d" | "1w" | "1mo";
 
-export function useKlineQuery(symbol: string | null, tf: KlineTf = "1d") {
-  return useQuery({
-    queryKey: ["kline", symbol, tf],
-    queryFn: async () => {
-      const params = new URLSearchParams({ symbol: symbol!, tf, limit: "500" });
-      const res = await fetch(`/api/v1/kline?${params}`);
-      const json = await res.json();
-      return (json.success ? json.data : []) as KlineBar[];
-    },
-    enabled: !!symbol,
-  });
-}

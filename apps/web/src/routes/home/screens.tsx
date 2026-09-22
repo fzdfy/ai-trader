@@ -22,8 +22,6 @@ import {
   useScreenResult,
   useScreenIndicators,
   type ScreenItem,
-  type ScreenResult,
-  type ScreenVersion,
   type RunScreenInput,
   type FactorViz,
 } from "../../hooks/useScreens";
@@ -55,7 +53,7 @@ type ScopeValue =
   | "resultSet"
   | "gain3"
   | "amount1b"
-  | "limitUp2";
+  | "limitUp1";
 
 const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "all", label: "全部选股" },
@@ -64,7 +62,7 @@ const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "resultSet", label: "结果集合" },
   { value: "gain3", label: "涨幅榜(≥3%)" },
   { value: "amount1b", label: "成交额榜(≥10亿)" },
-  { value: "limitUp2", label: "百日内涨停(≥2次)" },
+  { value: "limitUp1", label: "百日内涨停(≥1次)" },
 ];
 
 function isScope(v: unknown): v is ScopeValue {
@@ -344,9 +342,6 @@ function ScreensPage() {
   const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(() => new Set());
   const [setName, setSetName] = useState("");
 
-  // 当前展示的选股实现版本：v1（旧逐标的）/ v2（新批量）。两版结果各自缓存，便于对比
-  const [version, setVersion] = useState<ScreenVersion>("v2");
-
   const factorLabelMap = useMemo(() => new Map(factors.map((f) => [f.name, f.label])), [factors]);
 
   const strategyOptions = useMemo(
@@ -354,53 +349,17 @@ function ScreensPage() {
     [strategies],
   );
 
-  // queryKey 由查询条件 + 版本派生：v1 / v2 各占一份缓存，互不覆盖
-  const v1QueryKey: QueryKey = useMemo(
-    () => ["screen-result", "v1", strategyId, topN, scope, boardCodes],
-    [strategyId, topN, scope, boardCodes],
-  );
-  const v2QueryKey: QueryKey = useMemo(
-    () => ["screen-result", "v2", strategyId, topN, scope, boardCodes],
+  // queryKey 由查询条件派生
+  const screenQueryKey: QueryKey = useMemo(
+    () => ["screen-result", strategyId, topN, scope, boardCodes],
     [strategyId, topN, scope, boardCodes],
   );
 
-  // 每版一个 mutation：结果写入各自的缓存键（hook 创建时即固定 queryKey，不能依赖 state）
-  const runV1 = useRunScreen(v1QueryKey);
-  const runV2 = useRunScreen(v2QueryKey);
-  const v1Result = useScreenResult(v1QueryKey);
-  const v2Result = useScreenResult(v2QueryKey);
+  const runScreen = useRunScreen(screenQueryKey);
+  const screenResult = useScreenResult(screenQueryKey);
 
-  // 当前展示版本对应的运行态与结果
-  const activeRun = version === "v1" ? runV1 : runV2;
-  const isRunning = runV1.isPending || runV2.isPending;
-  const screenData = (version === "v1" ? v1Result : v2Result).data;
-
-  // 两版都跑过之后，对比耗时与结果一致性
-  const comparison = useMemo(() => {
-    const a = v1Result.data;
-    const b = v2Result.data;
-    if (!a || !b) return null;
-    const aSymbols = a.items.map((i) => i.symbol);
-    const bSymbols = b.items.map((i) => i.symbol);
-    const aSet = new Set(aSymbols);
-    const overlap = bSymbols.filter((s) => aSet.has(s)).length;
-    const identicalOrder =
-      aSymbols.length === bSymbols.length && aSymbols.every((s, i) => s === bSymbols[i]);
-    const v1Ms = a.elapsedMs ?? 0;
-    const v2Ms = b.elapsedMs ?? 0;
-    return {
-      v1Ms,
-      v2Ms,
-      v1FetchMs: a.fetchMs ?? 0,
-      v2FetchMs: b.fetchMs ?? 0,
-      speedup: v1Ms > 0 && v2Ms > 0 ? v1Ms / v2Ms : null,
-      aTotal: a.total,
-      bTotal: b.total,
-      topN: Math.max(aSymbols.length, bSymbols.length),
-      overlap,
-      identicalOrder,
-    };
-  }, [v1Result.data, v2Result.data]);
+  const isRunning = runScreen.isPending;
+  const screenData = screenResult.data;
 
   const rows: ScreenRow[] = useMemo(() => {
     const items = screenData?.items ?? [];
@@ -473,12 +432,11 @@ function ScreensPage() {
     [rows, selectedSymbols],
   );
 
-  const handleRun = (v: ScreenVersion) => {
+  const handleRun = () => {
     const input: RunScreenInput = {
       strategyId,
       topN,
       scope,
-      version: v,
     };
     if (scope === "industry" || scope === "concept") {
       input.boardCodes = boardCodes;
@@ -486,9 +444,7 @@ function ScreensPage() {
       const selected = resultSets.filter((r) => selectedResultSetIds.includes(r.id));
       input.symbols = [...new Set(selected.flatMap((r) => r.items.map((i) => i.symbol)))];
     }
-    // 先切到目标版本，再触发该版本的 mutation（写入它自己的缓存键与结果区）
-    setVersion(v);
-    (v === "v1" ? runV1 : runV2).mutate(input);
+    runScreen.mutate(input);
   };
 
   const handleScopeChange = (v: string) => {
@@ -610,94 +566,28 @@ function ScreensPage() {
             width={140}
           />
           <Button
-            label={runV1.isPending ? "V1 选股中..." : "选股 V1（旧）"}
-            variant="secondary"
-            isDisabled={!strategyId || isRunning}
-            onClick={() => handleRun("v1")}
-            tooltip="旧实现：逐个标的单独查询日线（N+1）"
-          />
-          <Button
-            label={runV2.isPending ? "V2 选股中..." : "选股 V2（新）"}
+            label={runScreen.isPending ? "选股中..." : "开始选股"}
             variant="primary"
             isDisabled={!strategyId || isRunning}
-            onClick={() => handleRun("v2")}
-            tooltip="新实现：一次性批量查询全池日线（LATERAL + float8）"
+            onClick={handleRun}
           />
         </HStack>
       </Section>
 
       {isRunning && <Spinner size="sm" label="正在计算因子得分..." />}
 
-      {activeRun.isError && (
+      {runScreen.isError && (
         <Text style={{ color: "var(--color-text-negative)" }}>
-          {version === "v1" ? "V1" : "V2"} 选股失败：
-          {(activeRun.error as Error)?.message ?? "请稍后重试"}
+          选股失败：
+          {(runScreen.error as Error)?.message ?? "请稍后重试"}
         </Text>
-      )}
-
-      {comparison && (
-        <Section>
-          <VStack gap={3}>
-            <Text style={{ fontWeight: 600 }}>V1 / V2 对比</Text>
-            <HStack gap={6} align="end" style={{ flexWrap: "wrap" }}>
-              <VStack gap={1}>
-                <Text type="supporting" size="sm">
-                  V1（旧 · 逐标的）
-                </Text>
-                <Text hasTabularNumbers style={{ fontWeight: 600 }}>
-                  {comparison.v1Ms.toFixed(0)} ms
-                </Text>
-                <Text type="supporting" size="sm">
-                  取数 {comparison.v1FetchMs.toFixed(0)} ms
-                </Text>
-              </VStack>
-              <VStack gap={1}>
-                <Text type="supporting" size="sm">
-                  V2（新 · 批量）
-                </Text>
-                <Text hasTabularNumbers style={{ fontWeight: 600 }}>
-                  {comparison.v2Ms.toFixed(0)} ms
-                </Text>
-                <Text type="supporting" size="sm">
-                  取数 {comparison.v2FetchMs.toFixed(0)} ms
-                </Text>
-              </VStack>
-              {comparison.speedup !== null && (
-                <VStack gap={1}>
-                  <Text type="supporting" size="sm">
-                    总耗时倍数
-                  </Text>
-                  <Text hasTabularNumbers style={{ fontWeight: 600 }}>
-                    {comparison.speedup.toFixed(2)} ×
-                  </Text>
-                </VStack>
-              )}
-            </HStack>
-            <Text
-              size="sm"
-              style={{
-                color: comparison.identicalOrder
-                  ? "var(--color-text-positive)"
-                  : "var(--color-text-negative)",
-              }}
-            >
-              {comparison.identicalOrder
-                ? `结果一致：前 ${comparison.topN} 名及排序完全相同`
-                : `结果有差异：前 ${comparison.topN} 名中重合 ${comparison.overlap} 只`}
-              {comparison.aTotal === comparison.bTotal
-                ? ` · 参与打分均为 ${comparison.aTotal} 只`
-                : ` · 参与打分 V1 ${comparison.aTotal} 只 / V2 ${comparison.bTotal} 只`}
-            </Text>
-          </VStack>
-        </Section>
       )}
 
       {screenData && (
         <VStack gap={3}>
           <Text type="supporting">
-            策略「{screenData.strategy.name}」 ·{" "}
-            {screenData.version === "v1" ? "V1（旧 · 逐标的）" : "V2（新 · 批量）"} · 共{" "}
-            {screenData.total} 只标的参与打分 · 显示前 {rows.length} 名
+            策略「{screenData.strategy.name}」 · 共 {screenData.total} 只标的参与打分 · 显示前{" "}
+            {rows.length} 名
             {screenData.elapsedMs != null && ` · 耗时 ${screenData.elapsedMs.toFixed(0)} ms`}
           </Text>
           {rows.length === 0 ? (

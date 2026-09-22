@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createFileRoute, useNavigate, useParams, Link, useRouter } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Button } from "@astryxdesign/core/Button";
 import { Text } from "@astryxdesign/core/Text";
@@ -76,70 +77,43 @@ function tfForPeriod(period: Period): KlineTf {
 }
 
 /**
- * K 线数据缓存，key = `${symbol}|${tf}`。
- * 左右切换标的 / 切换周期时直接复用已解析的数据，避免重复请求与重复解析；
- * 同时用 in-flight 表合并并发请求（setSymbol、setPeriod 各自可能触发一次加载）。
+ * K 线数据查询（TanStack Query 托管），key = ["kline", symbol, tf]。
+ * 缓存、并发去重、过期策略全部交给全局共享的 QueryClient：
+ * - 左右切换标的 / 切换周期命中缓存即不再请求（原手写 LRU + in-flight 表的职责）；
+ * - setSymbol 与 setPeriod 同帧触发的同 key 请求自动合并成一次。
+ * 日内(1m)数据变动频繁，新鲜期缩短；日线及以上由定时任务落库，放宽到 5 分钟。
  */
-const BARS_CACHE_LIMIT = 24;
-const barsCache = new Map<string, KLineData[]>();
-const barsInflight = new Map<string, Promise<KLineData[]>>();
+const KLINE_STALE_TIME_INTRADAY = 30_000;
+const KLINE_STALE_TIME_EOD = 5 * 60_000;
+/** 详情页走命令式 fetchQuery 取数、没有订阅者，默认 5 分钟 GC 会过早回收缓存，故延长 */
+const KLINE_GC_TIME = 30 * 60_000;
 
-function readCachedBars(key: string): KLineData[] | undefined {
-  const hit = barsCache.get(key);
-  if (hit) {
-    // 命中后移到队尾（Map 保持插入序），实现最简单的 LRU 淘汰
-    barsCache.delete(key);
-    barsCache.set(key, hit);
-  }
-  return hit;
-}
-
-function writeCachedBars(key: string, bars: KLineData[]): void {
-  barsCache.set(key, bars);
-  while (barsCache.size > BARS_CACHE_LIMIT) {
-    const oldest = barsCache.keys().next().value;
-    if (oldest === undefined) break;
-    barsCache.delete(oldest);
-  }
-}
-
-async function fetchBars(symbol: string, tf: KlineTf): Promise<KLineData[]> {
-  const key = `${symbol}|${tf}`;
-  const cached = readCachedBars(key);
-  if (cached) return cached;
-
-  const pending = barsInflight.get(key);
-  if (pending) return pending;
-
-  const request = (async () => {
-    const params = new URLSearchParams({ symbol, tf });
-    const res = await fetch(`/api/v1/kline?${params}`);
-    const json = (await res.json()) as {
-      success?: boolean;
-      data?: Array<Record<string, unknown>>;
-    };
-    const rows = json.success ? (json.data ?? []) : [];
-    const bars: KLineData[] = rows
-      .filter((k) => k.time)
-      .map((k) => ({
-        timestamp: new Date(k.time as string).getTime(),
-        open: Number.parseFloat(k.open as string),
-        high: Number.parseFloat(k.high as string),
-        low: Number.parseFloat(k.low as string),
-        close: Number.parseFloat(k.close as string),
-        volume: Number.parseFloat(k.volume as string),
-      }))
-      .toSorted((a, b) => a.timestamp - b.timestamp);
-    writeCachedBars(key, bars);
-    return bars;
-  })();
-
-  barsInflight.set(key, request);
-  try {
-    return await request;
-  } finally {
-    barsInflight.delete(key);
-  }
+function klineBarsQueryOptions(symbol: string, tf: KlineTf) {
+  return {
+    queryKey: ["kline", symbol, tf],
+    queryFn: async (): Promise<KLineData[]> => {
+      const params = new URLSearchParams({ symbol, tf });
+      const res = await fetch(`/api/v1/kline?${params}`);
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: Array<Record<string, unknown>>;
+      };
+      const rows = json.success ? (json.data ?? []) : [];
+      return rows
+        .filter((k) => k.time)
+        .map((k) => ({
+          timestamp: new Date(k.time as string).getTime(),
+          open: Number.parseFloat(k.open as string),
+          high: Number.parseFloat(k.high as string),
+          low: Number.parseFloat(k.low as string),
+          close: Number.parseFloat(k.close as string),
+          volume: Number.parseFloat(k.volume as string),
+        }))
+        .toSorted((a, b) => a.timestamp - b.timestamp);
+    },
+    staleTime: tf === "1m" ? KLINE_STALE_TIME_INTRADAY : KLINE_STALE_TIME_EOD,
+    gcTime: KLINE_GC_TIME,
+  };
 }
 
 function StockDetailPage() {
@@ -148,6 +122,7 @@ function StockDetailPage() {
   const tf = tfParam ?? "1d";
   const navigate = useNavigate();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
@@ -219,7 +194,9 @@ function StockDetailPage() {
         }
         let bars: KLineData[] = [];
         try {
-          bars = await fetchBars(s.ticker, tfForPeriod(period));
+          bars = await queryClient.fetchQuery(
+            klineBarsQueryOptions(s.ticker, tfForPeriod(period)),
+          );
         } catch {
           bars = [];
         }
@@ -272,7 +249,7 @@ function StockDetailPage() {
       if (chartInstanceRef.current === chart) chartInstanceRef.current = null;
       dispose(chart);
     };
-  }, []);
+  }, [queryClient]);
 
   // symbol / tf 变化：只做增量更新，避免整图重建与多余的一次数据加载
   useEffect(() => {

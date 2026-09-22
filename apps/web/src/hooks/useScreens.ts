@@ -14,18 +14,13 @@ export interface ScreenItem {
   sectorTotal?: number; // 所属概念板块总数
 }
 
-/** 选股实现版本：v1 = 旧逐标的取数，v2 = 新批量取数 */
-export type ScreenVersion = "v1" | "v2";
-
 export interface ScreenResult {
   items: ScreenItem[];
   total: number; // 参与打分的标的数
   strategy: { id: number; name: string };
-  /** 实际执行的选股实现版本 */
-  version?: ScreenVersion;
   /** quant 侧选股总耗时(ms) */
   elapsedMs?: number;
-  /** quant 侧日线取数耗时(ms)：v1/v2 的性能差异集中在这一段 */
+  /** quant 侧日线取数耗时(ms) */
   fetchMs?: number;
 }
 
@@ -70,10 +65,8 @@ interface ApiResponse<T> {
 export interface RunScreenInput {
   strategyId: number;
   topN: number;
-  /** 选股实现版本：v1 = 旧逐标的取数，v2 = 新批量取数 */
-  version?: ScreenVersion;
   /** 股票池范围：全部 / 行业 / 板块 / 前端结果集合 / 涨幅榜 / 成交额榜 / 百日涨停榜 */
-  scope?: "all" | "industry" | "concept" | "resultSet" | "gain3" | "amount1b" | "limitUp2";
+  scope?: "all" | "industry" | "concept" | "resultSet" | "gain3" | "amount1b" | "limitUp1";
   /** scope=industry|concept 时，选中的板块代码（多选） */
   boardCodes?: string[];
   /** scope=resultSet 时，前端结果集合中的完整 symbol 列表 */

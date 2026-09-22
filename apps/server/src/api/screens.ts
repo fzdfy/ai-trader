@@ -25,10 +25,7 @@ type ScreenScope =
   | "resultSet"
   | "gain3"
   | "amount1b"
-  | "limitUp2";
-
-/** 选股实现版本：v1 = 旧逐标的取数，v2 = 新批量取数 */
-type ScreenVersion = "v1" | "v2";
+  | "limitUp1";
 
 /** 固定阈值：涨幅榜 —— 最新交易日相对上一交易日涨幅 ≥ 3% */
 const GAIN_3_SQL = sql`
@@ -52,8 +49,8 @@ const AMOUNT_1B_SQL = sql`
     AND b.close * b.volume * 100 >= 1000000000
 `;
 
-/** 固定阈值：百日涨停榜 —— 最近 100 个交易日内涨停 ≥ 2 次（按板块/ST 分档判定涨停幅度） */
-const LIMIT_UP_2_SQL = sql`
+/** 固定阈值：百日涨停榜 —— 最近 100 个交易日内涨停 ≥ 1 次（按板块/ST 分档判定涨停幅度） */
+const LIMIT_UP_1_SQL = sql`
   WITH days AS (
     SELECT trade_date
     FROM trading_calendar
@@ -81,7 +78,7 @@ const LIMIT_UP_2_SQL = sql`
       ELSE 9.8
     END
   GROUP BY b.symbol
-  HAVING COUNT(*) >= 2
+  HAVING COUNT(*) >= 1
 `;
 
 /** 执行固定阈值查询，返回命中的完整 symbol 列表 */
@@ -165,8 +162,6 @@ interface RunBody {
   boardCodes?: string[];
   /** scope=resultSet 时，前端结果集合中的完整 symbol 列表 */
   symbols?: string[];
-  /** 选股实现版本：v1 = 旧逐标的取数，v2 = 新批量取数（默认） */
-  version?: ScreenVersion;
 }
 
 /** 将股票池范围解析为 symbol 列表（undefined 表示不限定 = 全部） */
@@ -176,7 +171,7 @@ async function resolveSymbols(body: RunBody): Promise<string[] | undefined> {
   // 固定阈值范围：涨幅榜 / 成交额榜 / 百日涨停榜（阈值内置写死）
   if (scope === "gain3") return querySymbols(GAIN_3_SQL);
   if (scope === "amount1b") return querySymbols(AMOUNT_1B_SQL);
-  if (scope === "limitUp2") return querySymbols(LIMIT_UP_2_SQL);
+  if (scope === "limitUp1") return querySymbols(LIMIT_UP_1_SQL);
 
   if (scope === "industry" || scope === "concept") {
     const codes = (body.boardCodes ?? []).filter(Boolean);
@@ -201,8 +196,6 @@ screensRoute.post("/run", async (c) => {
   const body = (await c.req.json()) as RunBody;
   const strategyId = Number(body.strategyId);
   const topN = Number(body.topN) || 20;
-  // 版本透传给 quant：v1 走旧逐标的取数，v2 走新批量取数
-  const version: ScreenVersion = body.version === "v1" ? "v1" : "v2";
 
   if (!Number.isInteger(strategyId)) return badRequest(c, "strategyId is required");
 
@@ -259,7 +252,7 @@ screensRoute.post("/run", async (c) => {
   const res = await fetch(`${QUANT_URL}/api/v1/screens/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ factors: runFactors, topN, combine, symbols, version }),
+    body: JSON.stringify({ factors: runFactors, topN, combine, symbols }),
   });
   const json = (await res.json()) as {
     items?: unknown[];
@@ -283,7 +276,6 @@ screensRoute.post("/run", async (c) => {
     items,
     total: json.total ?? 0,
     strategy: { id: strategy.id, name: strategy.name },
-    version,
     elapsedMs: json.elapsedMs ?? 0,
     fetchMs: json.fetchMs ?? 0,
   });
