@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate, useParams, Link, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
@@ -126,8 +126,27 @@ function StockDetailPage() {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
+  // 选股入口专属：切换标的 / 周期只在页面内部进行，不改变 URL、不触发路由跳转，
+  // 整个浏览过程停留在同一「页面」上；其余来源的详情页行为保持不变。
+  const isScreenViewer = from === "screens";
+  const [screenSymbol, setScreenSymbol] = useState(symbol);
+  const [screenTf, setScreenTf] = useState<KlineTf>(tf);
+  // 从选股列表重新进入（URL 参数变化）时同步内部状态；内部切换不改 URL，故不会误触发
+  useEffect(() => {
+    if (!isScreenViewer) return;
+    setScreenSymbol(symbol);
+    setScreenTf(tf);
+  }, [isScreenViewer, symbol, tf]);
+
+  // 实际展示的标的 / 周期：选股入口读内部状态，其余场景继续跟随 URL 参数
+  const currentSymbol = isScreenViewer ? screenSymbol : symbol;
+  const currentTf = isScreenViewer ? screenTf : tf;
+
   // 图表当前已应用的 symbol/tf：图表只初始化一次，后续变化走增量更新
-  const targetRef = useRef<{ symbol: string; tf: KlineTf }>({ symbol, tf });
+  const targetRef = useRef<{ symbol: string; tf: KlineTf }>({
+    symbol: currentSymbol,
+    tf: currentTf,
+  });
 
   // 左右切换的列表 = 选股页带入的选股结果列表（仅来自选股页时生效）
   const symbols = useMemo(() => {
@@ -138,14 +157,19 @@ function StockDetailPage() {
       .filter(Boolean);
   }, [from, list]);
 
-  const index = symbols.indexOf(symbol);
+  const index = symbols.indexOf(currentSymbol);
   const prevSymbol = index > 0 ? symbols[index - 1] : null;
   const nextSymbol = index >= 0 && index < symbols.length - 1 ? symbols[index + 1] : null;
   const canSwitch = index >= 0 && symbols.length > 1;
 
-  // 切换标的：replace 保留选股页那条历史记录，使「返回」仍回到选股页
   const goToSymbol = useCallback(
     (next: string) => {
+      // 选股入口：内部切换，URL 与浏览器历史保持不动，「返回」仍回到选股页
+      if (isScreenViewer) {
+        setScreenSymbol(next);
+        return;
+      }
+      // 其余来源：replace 改写 URL，避免在历史里堆积中间标的
       navigate({
         to: "/home/market/stock/$symbol",
         params: { symbol: next },
@@ -153,7 +177,7 @@ function StockDetailPage() {
         replace: true,
       });
     },
-    [navigate, tf, from, list],
+    [isScreenViewer, navigate, tf, from, list],
   );
 
   // 初始化图表：仅挂载时执行一次。数据加载器与指标都只建一次，
@@ -251,17 +275,17 @@ function StockDetailPage() {
     };
   }, [queryClient]);
 
-  // symbol / tf 变化：只做增量更新，避免整图重建与多余的一次数据加载
+  // 展示的标的 / 周期变化：只做增量更新，避免整图重建与多余的一次数据加载
   useEffect(() => {
     const chart = chartInstanceRef.current;
     if (!chart) return;
     const prev = targetRef.current;
-    if (prev.symbol === symbol && prev.tf === tf) return;
+    if (prev.symbol === currentSymbol && prev.tf === currentTf) return;
 
-    if (prev.symbol !== symbol) chart.setSymbol({ ticker: symbol });
-    if (prev.tf !== tf) chart.setPeriod(periodForTf(tf));
-    targetRef.current = { symbol, tf };
-  }, [symbol, tf]);
+    if (prev.symbol !== currentSymbol) chart.setSymbol({ ticker: currentSymbol });
+    if (prev.tf !== currentTf) chart.setPeriod(periodForTf(currentTf));
+    targetRef.current = { symbol: currentSymbol, tf: currentTf };
+  }, [currentSymbol, currentTf]);
 
   // 键盘左右方向键切换相邻标的（焦点位于输入类元素内时忽略）
   useEffect(() => {
@@ -333,15 +357,20 @@ function StockDetailPage() {
           </HStack>
         )}
         <TabList
-          value={tf}
-          onChange={(v) =>
+          value={currentTf}
+          onChange={(v) => {
+            // 选股入口：周期同样内部切换，不写回 URL
+            if (isScreenViewer) {
+              setScreenTf(v as KlineTf);
+              return;
+            }
             navigate({
               to: "/home/market/stock/$symbol",
               params: { symbol },
               search: { tf: v as KlineTf, from, list },
               replace: true,
-            })
-          }
+            });
+          }}
         >
           {PERIOD_OPTIONS.map((p) => (
             <Tab key={p.value} value={p.value} label={p.label} />
