@@ -14,6 +14,7 @@
 """
 
 import os
+import time
 from typing import Any
 
 import numpy as np
@@ -65,8 +66,14 @@ def _get_universe(conn: psycopg2.extensions.connection) -> list[dict[str, Any]]:
         return cur.fetchall()
 
 
-def _load_recent_bars(conn: psycopg2.extensions.connection, symbol: str) -> list[dict[str, Any]]:
-    """加载单个标的最近 HISTORY_COUNT 根日线（升序）。"""
+def _load_recent_bars(
+    conn: psycopg2.extensions.connection, symbol: str
+) -> list[dict[str, Any]]:
+    """【v1 旧实现】加载单个标的最近 HISTORY_COUNT 根日线（升序）。
+
+    逐标的发起一次 SQL 的原始写法，保留它是为了让 v1 选股与 v2 批量选股做性能对比：
+    每个标的付出一次往返，且每行付出 numeric→Decimal 与 RealDictCursor 字典构造开销。
+    """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
@@ -81,6 +88,99 @@ def _load_recent_bars(conn: psycopg2.extensions.connection, symbol: str) -> list
         rows = cur.fetchall()
     rows.reverse()
     return rows
+
+
+def _load_universe_bars_v1(
+    conn: psycopg2.extensions.connection, universe: list[dict[str, Any]]
+) -> dict[str, dict[str, np.ndarray]]:
+    """【v1 旧实现】逐标的取数并构造 numpy 数组，返回结构与 _load_universe_bars 完全一致。
+
+    逐标的版本（N+1：全池 5000+ 次 SQL 往返），仅用于 v1 / v2 的耗时与结果对比。
+    """
+    result: dict[str, dict[str, np.ndarray]] = {}
+    for u in universe:
+        rows = _load_recent_bars(conn, u["symbol"])
+        if len(rows) < HISTORY_COUNT:
+            continue
+        result[u["symbol"]] = {
+            "close": np.asarray([float(r["close"]) for r in rows], dtype=float),
+            "high": np.asarray([float(r["high"]) for r in rows], dtype=float),
+            "low": np.asarray([float(r["low"]) for r in rows], dtype=float),
+            "volume": np.asarray([float(r["volume"]) for r in rows], dtype=float),
+        }
+    return result
+
+
+def _load_universe_bars(
+    conn: psycopg2.extensions.connection, universe: list[dict[str, Any]]
+) -> dict[str, dict[str, np.ndarray]]:
+    """一次性加载股票池全部标的最近 HISTORY_COUNT 根日线，按标的切分为 numpy 数组。
+
+    替代原先逐标的发起 SQL 的写法（N+1：全池 5000+ 次往返，且每行付出
+    numeric→Decimal 与 RealDictCursor 字典构造开销）。性能要点与
+    _load_universe_frame 一致：
+      - LATERAL + (symbol, time) 索引逐标的取最近 N 根，避免全表 ROW_NUMBER 排序；
+      - SQL 侧 ::float8 转换 + 普通游标（非 RealDictCursor）；
+      - 排序改由 Polars 完成（比 SQL 排序更快）。
+
+    Returns:
+        {symbol: {"close"/"high"/"low"/"volume": np.ndarray}}，
+        仅包含日线数量 >= HISTORY_COUNT 的标的，数组按时间升序。
+    """
+    symbols = [u["symbol"] for u in universe]
+    if not symbols:
+        return {}
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT u.symbol, b.time,
+                   b.high::float8, b.low::float8, b.close::float8, b.volume::float8
+            FROM unnest(%s::text[]) AS u(symbol)
+            CROSS JOIN LATERAL (
+                SELECT time, high, low, close, volume
+                FROM bar1d_adj
+                WHERE symbol = u.symbol
+                ORDER BY time DESC
+                LIMIT %s
+            ) AS b
+            """,
+            (symbols, HISTORY_COUNT),
+        )
+        rows = cur.fetchall()
+    if not rows:
+        return {}
+
+    frame = pl.DataFrame(
+        {
+            "symbol": [r[0] for r in rows],
+            "date": [r[1] for r in rows],
+            "high": [r[2] for r in rows],
+            "low": [r[3] for r in rows],
+            "close": [r[4] for r in rows],
+            "volume": [r[5] for r in rows],
+        }
+    ).sort(["symbol", "date"])
+
+    syms = frame["symbol"].to_numpy()
+    arrays = {
+        "high": frame["high"].to_numpy(),
+        "low": frame["low"].to_numpy(),
+        "close": frame["close"].to_numpy(),
+        "volume": frame["volume"].to_numpy(),
+    }
+
+    # 已按 symbol 排序，相邻股票代码不相等处即为分组边界
+    borders = np.flatnonzero(syms[1:] != syms[:-1]) + 1
+    starts = np.concatenate(([0], borders))
+    ends = np.concatenate((borders, [len(syms)]))
+
+    result: dict[str, dict[str, np.ndarray]] = {}
+    for start, end in zip(starts, ends):
+        if end - start < HISTORY_COUNT:
+            continue
+        result[str(syms[start])] = {name: arr[start:end] for name, arr in arrays.items()}
+    return result
 
 
 def _load_universe_frame(
@@ -226,6 +326,7 @@ def screen(
     top_n: int = 20,
     symbols: list[str] | None = None,
     combine: str = "weighted_sum",
+    version: str = "v2",
 ) -> dict[str, Any]:
     """对股票池按策略因子打分排名。
 
@@ -237,11 +338,16 @@ def screen(
         top_n: 返回前 N 名
         symbols: 可选，限定股票池；为 None 时使用全部有日线数据的标的
         combine: 信号合成方式（weighted_sum/equal_weight/voting/rank/and/or）
+        version: 内置因子日线取数实现，v1 = 旧逐标的 N+1 查询，v2 = 新批量查询（默认）。
+                 两者打分逻辑完全相同，仅取数方式不同，用于性能与结果对比。
 
     Returns:
-        {"items": [{symbol, name, score, close, factorScores}], "total": 参与打分标的数}
+        {"items": [{symbol, name, score, close, factorScores}], "total": 参与打分标的数,
+         "version": 实际执行版本, "elapsedMs": 总耗时(ms), "fetchMs": 日线取数耗时(ms)}
     """
     combine = normalize_combine(combine)
+    use_v1 = version == "v1"
+    started = time.perf_counter()
 
     # 过滤出有效因子（权重 > 0）：
     #  - 内置因子：name 在 FACTOR_REGISTRY，用 numpy compute 计算
@@ -278,7 +384,13 @@ def screen(
             )
 
     if not valid:
-        return {"items": [], "total": 0}
+        return {
+            "items": [],
+            "total": 0,
+            "version": "v1" if use_v1 else "v2",
+            "elapsedMs": round((time.perf_counter() - started) * 1000, 1),
+            "fetchMs": 0.0,
+        }
 
     # voting 模式使用的每因子阈值（0-1）
     thresholds = [v["value"] / 100.0 for v in valid]
@@ -300,18 +412,19 @@ def screen(
                 raw = _eval_expression(frame, v["expression"])
                 custom_scores[v["name"]] = _rank_custom_scores(raw)
 
+        # 内置因子所需日线：v1 = 逐标的 N+1 查询（旧实现）；v2 = 一次性批量取回全池
+        fetch_started = time.perf_counter()
+        if use_v1:
+            universe_bars = _load_universe_bars_v1(conn, universe)
+        else:
+            universe_bars = _load_universe_bars(conn, universe)
+        fetch_ms = round((time.perf_counter() - fetch_started) * 1000, 1)
+
         results: list[dict[str, Any]] = []
         for u in universe:
-            rows = _load_recent_bars(conn, u["symbol"])
-            if len(rows) < HISTORY_COUNT:
+            data = universe_bars.get(u["symbol"])
+            if data is None:
                 continue
-
-            data = {
-                "close": np.asarray([float(r["close"]) for r in rows], dtype=float),
-                "high": np.asarray([float(r["high"]) for r in rows], dtype=float),
-                "low": np.asarray([float(r["low"]) for r in rows], dtype=float),
-                "volume": np.asarray([float(r["volume"]) for r in rows], dtype=float),
-            }
 
             factor_scores: dict[str, float] = {}
             scores: list[float] = []
@@ -327,8 +440,8 @@ def screen(
                 scores.append(s)
                 weights.append(f["weight"])
 
-            close = float(rows[-1]["close"])
-            prev_close = float(rows[-2]["close"])
+            close = float(data["close"][-1])
+            prev_close = float(data["close"][-2])
             change_pct = round((close - prev_close) / prev_close * 100, 2) if prev_close > 0 else None
 
             results.append(
@@ -359,6 +472,12 @@ def screen(
             r.pop("_weights", None)
 
         results.sort(key=lambda x: x["score"], reverse=True)
-        return {"items": results[:top_n], "total": len(results)}
+        return {
+            "items": results[:top_n],
+            "total": len(results),
+            "version": "v1" if use_v1 else "v2",
+            "elapsedMs": round((time.perf_counter() - started) * 1000, 1),
+            "fetchMs": fetch_ms,
+        }
     finally:
         conn.close()
