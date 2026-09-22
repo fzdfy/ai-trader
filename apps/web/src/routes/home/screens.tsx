@@ -28,6 +28,7 @@ import {
 } from "../../hooks/useScreens";
 import { IndicatorThumbnail } from "../../components/charts/IndicatorThumbnail";
 import { useAddStockPool } from "../../hooks/useStockPool";
+import { chartUp, chartDown } from "../../lib/theme";
 
 // 选股结果行：原始结果 + 排名
 type ScreenRow = Record<string, unknown> & ScreenItem & { rank: number };
@@ -43,6 +44,7 @@ const TOPN_OPTIONS = [
   { value: "10", label: "前 10 名" },
   { value: "20", label: "前 20 名" },
   { value: "50", label: "前 50 名" },
+  { value: "100", label: "前 100 名" },
 ];
 
 type ScopeValue =
@@ -90,7 +92,7 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
     {
       key: "rank" as const,
       header: "排名",
-      width: proportional(0.6),
+      width: proportional(0.2, { minWidth: 44 }),
       renderCell: (row: ScreenRow) => (
         <Text
           style={{
@@ -138,7 +140,7 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
     {
       key: "sectors" as const,
       header: "概念",
-      width: proportional(1.3),
+      width: proportional(1),
       renderCell: (row: ScreenRow) => {
         const list = row.sectors ?? [];
         if (list.length === 0) return <Text type="supporting">-</Text>;
@@ -149,7 +151,11 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
             placement="above"
             alignment="start"
             content={
-              <Text size="sm" style={{ display: "block", maxWidth: 320 }}>
+              <Text
+                size="sm"
+                color="inherit"
+                style={{ display: "block", maxWidth: 320, whiteSpace: "normal" }}
+              >
                 {list.join("、")}
               </Text>
             }
@@ -187,7 +193,32 @@ function makeColumns(labelMap: Map<string, string>, indicatorsBySymbol: Map<stri
       key: "close" as const,
       header: "最新价",
       width: proportional(0.8),
-      renderCell: (row: ScreenRow) => <Text>{row.close.toFixed(2)}</Text>,
+      renderCell: (row: ScreenRow) => {
+        const pct = row.changePct;
+        const color =
+          pct == null ? undefined : pct > 0 ? chartUp() : pct < 0 ? chartDown() : undefined;
+        return (
+          <Text style={{ color, fontWeight: 600 }} hasTabularNumbers>
+            {row.close.toFixed(2)}
+          </Text>
+        );
+      },
+    },
+    {
+      key: "changePct" as const,
+      header: "涨幅",
+      width: proportional(0.8),
+      renderCell: (row: ScreenRow) => {
+        const pct = row.changePct;
+        if (pct == null) return <Text type="supporting">-</Text>;
+        const color = pct > 0 ? chartUp() : pct < 0 ? chartDown() : undefined;
+        return (
+          <Text style={{ color, fontWeight: 600 }} hasTabularNumbers>
+            {pct > 0 ? "+" : ""}
+            {pct.toFixed(2)}%
+          </Text>
+        );
+      },
     },
     {
       key: "score" as const,

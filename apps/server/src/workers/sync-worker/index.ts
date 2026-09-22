@@ -2,10 +2,13 @@ import cron from "node-cron";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun, tradingCalendar } from "../../db/schema";
+import { createLogger } from "../../lib/logger";
 import { CRON_JOBS, type CronJobConfig } from "./cron-config";
 import { isTradeDay, isAfterMarketClose, localDateStr } from "./calendar";
 import { calendarPipeRun } from "./pipes/calendar";
 import { wrapJob, hasSuccessToday, cleanupStaleRuns, RUNNERS, type PipeName } from "./runner";
+
+const log = createLogger("sync-worker");
 
 /**
  * 启动清理：cron 任务由本进程执行，进程重启后任务中断且 status 停在 running，
@@ -18,7 +21,7 @@ async function cleanupInterruptedJobs(): Promise<void> {
       .set({ status: "failed", error: "interrupted (worker restart)", finishedAt: new Date() })
       .where(and(eq(jobRun.status, "running"), isNull(jobRun.finishedAt), ne(jobRun.jobType, "sync-manual")));
   } catch (error) {
-    console.error("[sync-worker] cleanup interrupted jobs failed:", error);
+    log.error({ err: error }, "cleanup interrupted jobs failed");
   }
 }
 
@@ -52,16 +55,16 @@ function makeRunner(job: CronJobConfig): () => Promise<void> {
 
     if (job.marketCloseOnly) {
       if (!isAfterMarketClose(now)) {
-        console.log(`[sync-worker] ${job.name}: skip (盘前，仅收盘后执行)`);
+        log.info({ job_name: job.name }, "skip：盘前，仅收盘后执行");
         return;
       }
       if (!(await isTradeDay(now))) {
-        console.log(`[sync-worker] ${job.name}: skip (非交易日)`);
+        log.info({ job_name: job.name }, "skip：非交易日");
         return;
       }
       // 幂等：今日已成功则跳过，避免收盘后重启导致重复全市场拉取
       if (await hasSuccessToday(job.name)) {
-        console.log(`[sync-worker] ${job.name}: skip (今日已成功)`);
+        log.info({ job_name: job.name }, "skip：今日已成功");
         return;
       }
     }
@@ -69,13 +72,13 @@ function makeRunner(job: CronJobConfig): () => Promise<void> {
     if (job.marketHoursOnly) {
       const t = now.getHours() * 60 + now.getMinutes();
       if (t < MARKET_HOURS_START || t > MARKET_HOURS_END) {
-        console.log(`[sync-worker] ${job.name}: skip (非活跃时段)`);
+        log.info({ job_name: job.name }, "skip：非活跃时段");
         return;
       }
       // 周末跳过（用星期几判断，不依赖交易日历表，避免日历异常导致 news 停跑）
       const day = now.getDay(); // 0=周日 6=周六
       if (day === 0 || day === 6) {
-        console.log(`[sync-worker] ${job.name}: skip (周末)`);
+        log.info({ job_name: job.name }, "skip：周末");
         return;
       }
     }
@@ -98,20 +101,20 @@ async function bootstrapCalendarIfNeeded(): Promise<boolean> {
       .limit(1);
     if (row) return false;
   } catch (error) {
-    console.error("[sync-worker] check trading_calendar failed:", error);
+    log.error({ err: error }, "check trading_calendar failed");
     return false;
   }
-  console.log(`[sync-worker] trading_calendar missing ${today}, bootstrapping calendar...`);
+  log.warn({ trade_date: today }, "trading_calendar missing，开始 bootstrap calendar");
   try {
     await calendarPipeRun();
     return true;
   } catch (error) {
-    console.error("[sync-worker] calendar bootstrap failed:", error);
+    log.error({ err: error }, "calendar bootstrap failed");
     return false;
   }
 }
 
-console.log("[sync-worker] starting (cron mode)...");
+log.info("starting (cron mode)");
 void cleanupInterruptedJobs();
 
 // 周期清理僵尸 running 任务：不依赖 server 端查询接口被访问，
@@ -124,14 +127,14 @@ setInterval(() => {
 for (const job of CRON_JOBS) {
   if (!job.enabled) continue;
   if (!cron.validate(job.cron)) {
-    console.error(`[sync-worker] invalid cron for ${job.name}: ${job.cron}`);
+    log.error({ job_name: job.name, cron: job.cron }, "invalid cron");
     continue;
   }
   const run = makeRunner(job);
   cron.schedule(job.cron, run, {
     timezone: "Asia/Shanghai",
   });
-  console.log(`[sync-worker] ${job.name}: "${job.cron}"`);
+  log.info({ job_name: job.name, cron: job.cron }, "scheduled");
 }
 
 // 启动初始化：仅在交易日历表缺当日记录时补一次日历（空表 / 日历过期），
@@ -140,8 +143,8 @@ for (const job of CRON_JOBS) {
 setTimeout(async () => {
   const bootstrapped = await bootstrapCalendarIfNeeded();
   if (bootstrapped) {
-    console.log("[sync-worker] calendar bootstrapped");
+    log.info("calendar bootstrapped");
   }
 }, 3000);
 
-console.log("[sync-worker] ready");
+log.info("ready");

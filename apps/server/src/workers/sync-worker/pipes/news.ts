@@ -355,21 +355,34 @@ function parseEastMoneyTime(t: string | number | undefined): Date | undefined {
  * 端点：search-api-web.eastmoney.com（JSONP 格式）
  * 对自选股列表逐个拉取，每次返回最近约 20 条。
  *
- * TODO: 该接口返回 JSONP（jQuery...(...)），需要 strip 前后缀再 JSON.parse。
+ * 参数说明（对照 a-stock-data §5.1）：type 必须为 "cmsArticleWebOld"，
+ * 且需带 param.cmsArticleWebOld 子对象（searchScope/sort/pageIndex/pageSize 等）。
+ * 旧写法 type:["819"] 已被东财废弃，会返回 {"msg":"包含未知的type：819","result":{}}。
+ * 响应为 JSONP：<callback>(<json>)，需 strip 括号后再 JSON.parse，
+ * 正文列表位于 result.cmsArticleWebOld。
  */
 async function fetchStockNews(symbol: string): Promise<SourceResult> {
   // 去掉 symbol 的前缀 (sh/sz/bj)，只留 6 位代码
   const code = symbol.includes(".") ? symbol.split(".")[0] : symbol;
 
-  const url = `https://search-api-web.eastmoney.com/search/jsonp?cb=jQuery&param=${encodeURIComponent(
+  const url = `https://search-api-web.eastmoney.com/search/jsonp?cb=jQuery_news&param=${encodeURIComponent(
     JSON.stringify({
       uid: "",
       keyword: code,
-      type: ["819"], // 819 = 个股新闻
+      type: ["cmsArticleWebOld"], // 个股新闻（旧值 "819" 已废弃）
       client: "web",
       clientType: "web",
-      pageIndex: 1,
-      pageSize: 20,
+      clientVersion: "curr",
+      param: {
+        cmsArticleWebOld: {
+          searchScope: "default",
+          sort: "default",
+          pageIndex: 1,
+          pageSize: 20,
+          preTag: "",
+          postTag: "",
+        },
+      },
     }),
   )}`;
 
@@ -383,31 +396,29 @@ async function fetchStockNews(symbol: string): Promise<SourceResult> {
     }
 
     const text = await res.text();
-    // 解析 JSONP：jQuery_xxx(...) → 提取括号中的 JSON
-    const jsonpMatch = text.match(/^[^(]*\(([\s\S]*)\)?;?\s*$/);
-    if (!jsonpMatch) {
+    // 解析 JSONP：<callback>(<json>) → 取首个 '(' 与末个 ')' 之间的 JSON。
+    // 不可用贪婪正则捕获括号内容：([\s\S]*) 会把结尾的 ) 与 ; 一并吞入，
+    // 导致 JSON.parse 报 "Unexpected non-whitespace character after JSON"。
+    const open = text.indexOf("(");
+    const close = text.lastIndexOf(")");
+    if (open < 0 || close <= open) {
       console.error(`[news:stock] ${symbol} JSONP parse failed`);
       return { ok: false, inserted: 0 };
     }
 
-    const json = JSON.parse(jsonpMatch[1]!);
-    const list: any[] = json.Data ?? json.data ?? [];
+    const json = JSON.parse(text.slice(open + 1, close));
+    const list: any[] = json.result?.cmsArticleWebOld ?? [];
 
     if (!list.length) return { ok: true, inserted: 0 };
 
     const articles = list
-      .filter((r: any) => r.Title || r.title)
+      .filter((r: any) => r.title)
       .map((r: any) => ({
         source: "eastmoney_stock" as const,
-        title: (r.Title ?? r.title) as string,
-        content: (r.Content ?? r.content) as string | undefined,
-        url: (r.Url ?? r.url) as string,
-        publishedAt:
-          (r.Date ?? r.date)
-            ? new Date(r.Date ?? r.date)
-            : r.ShowTime
-              ? new Date(r.ShowTime)
-              : undefined,
+        title: r.title as string,
+        content: (r.content as string | undefined) ?? undefined,
+        url: (r.url as string) ?? "",
+        publishedAt: parseEastMoneyTime(r.date),
         rawJson: r,
       }));
 

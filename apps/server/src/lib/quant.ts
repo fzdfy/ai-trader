@@ -6,6 +6,7 @@
  * 返回 snake_case 字段（对齐 DB 表结构），此处只做 HTTP 转发与类型声明。
  */
 import { createLogger } from "./logger";
+import { traceHeaders } from "./request-context";
 
 const log = createLogger("quant");
 
@@ -187,12 +188,13 @@ const BULK_TIMEOUT_MS = 180_000;
 
 async function getJson<T>(path: string, timeoutMs = QUANT_TIMEOUT_MS): Promise<T> {
   const res = await fetch(`${QUANT_URL}${path}`, {
-    headers: { Accept: "application/json" },
+    // 携带调用链上下文（X-Request-Id / X-Job-Run-Id 等），使 quant 访问日志能挂回本次调用来源
+    headers: { Accept: "application/json", ...traceHeaders() },
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    log.error({ status: res.status, path }, "quant 请求失败");
+    log.error({ status: res.status, path, error_type: "QuantHttpError" }, "quant 请求失败");
     throw new Error(`quant ${path} -> ${res.status}: ${body.slice(0, 200)}`);
   }
   return (await res.json()) as T;

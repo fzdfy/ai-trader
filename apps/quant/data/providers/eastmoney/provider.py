@@ -5,9 +5,12 @@
 筹码分布本地推演）。
 
 东财系接口有风控（>5次/秒、并发≥10、1分钟≥200 会临时封 IP），所有 eastmoney.com
-请求一律走模块级 `_em_get()`：串行限流（最小间隔 + 随机抖动）+ 统一 UA。筹码分布
-「本地推演」需 OHLC（mootdx）+ 流通市值（腾讯，用于估算换手率），因此是跨源编排，
-并非东财独有端点，但归入本层统一暴露。
+请求一律走模块级 `_em_get()`：串行限流（最小间隔 + 随机抖动）+ 统一 UA，并在连续
+失败达阈值时熔断快速失败（冷却 30s）以避免限流雪崩；锁仅覆盖「等待间隔 + 发起单次
+请求」这一段，重试退避睡眠在锁外进行。行情类端点统一走 `push2delay`（延迟行情，较
+实时 `push2` 更稳、不易 `RemoteDisconnected`）而非 `push2`。筹码分布「本地推演」需
+OHLC（mootdx）+ 流通市值（腾讯，用于估算换手率），因此是跨源编排，并非东财独有端点，
+但归入本层统一暴露。
 
 字段口径：金额单位统一为「元」（分钟/日资金流、融资融券、大宗），龙虎榜净买额为
 「万元」。返回 snake_case，对齐 server 端 DB 表字段。
@@ -76,6 +79,36 @@ _em_lock = threading.Lock()
 # 东财请求最大尝试次数：瞬时断连/超时自动重试（每次尝试均持锁走限流，串行不并发）
 _EM_MAX_ATTEMPTS = 3
 
+# 熔断：东财被风控限流后，若不放行会让排队请求逐个等待超时（雪崩）。
+# 连续失败达到阈值即跳闸，冷却期内所有东财请求快速失败上抛，由上层降级链处理。
+_EM_BREAKER_THRESHOLD = 5
+_EM_BREAKER_COOLDOWN = 30.0
+_em_fail_streak = 0
+_em_breaker_until = 0.0
+_em_breaker_lock = threading.Lock()
+
+
+def _em_breaker_tripped() -> bool:
+    """熔断是否处于打开（跳闸）状态。"""
+    with _em_breaker_lock:
+        return time.time() < _em_breaker_until
+
+
+def _em_breaker_on_success() -> None:
+    global _em_fail_streak, _em_breaker_until
+    with _em_breaker_lock:
+        _em_fail_streak = 0
+        _em_breaker_until = 0.0
+
+
+def _em_breaker_on_failure() -> None:
+    """记录一次失败；连续失败达阈值则跳闸进入冷却期。"""
+    global _em_fail_streak, _em_breaker_until
+    with _em_breaker_lock:
+        _em_fail_streak += 1
+        if _em_fail_streak >= _EM_BREAKER_THRESHOLD:
+            _em_breaker_until = time.time() + _EM_BREAKER_COOLDOWN
+
 
 def _f(v):
     """宽松转 float：None / 空串 / '-' → None。"""
@@ -112,29 +145,36 @@ def _em_get(
 ):
     """东财统一请求入口：串行限流 + 统一 UA + 内建重试，返回解析后的 JSON。
 
-    所有 eastmoney.com 接口都应通过它请求，避免高频被封 IP。持锁请求保证
-    「串行限流」语义（同一时刻只发一个东财请求）；瞬时断连/超时在同锁内退避
-    重试，减少瞬时故障导致的同步不完整（重试同样走限流，不破坏串行铁律）。
+    所有 eastmoney.com 接口都应通过它请求，避免高频被封 IP。锁仅覆盖「等待最小
+    间隔 + 发起单次请求」这一段，保证「串行不并发」铁律；重试退避睡眠在锁外进行，
+    避免某个慢/失败请求长时间持有全局锁导致全体东财请求排队（head-of-line
+    blocking 雪崩）。连续失败达阈值时熔断快速失败，冷却期后自动恢复。
     """
     global _em_last_call
     req_url = f"{url}?{urllib.parse.urlencode(params)}" if params else url
+    if _em_breaker_tripped():
+        raise RuntimeError(f"eastmoney circuit breaker open (cooling down): {url}")
     last_error: Exception | None = None
-    with _em_lock:
-        for attempt in range(1, attempts + 1):
-            wait = _EM_MIN_INTERVAL - (time.time() - _em_last_call)
-            if wait > 0:
-                time.sleep(wait + random.uniform(0.1, 0.5))
-            try:
+    for attempt in range(1, attempts + 1):
+        try:
+            with _em_lock:
+                wait = _EM_MIN_INTERVAL - (time.time() - _em_last_call)
+                if wait > 0:
+                    time.sleep(wait + random.uniform(0.1, 0.5))
+                # 发请求前刷新时刻，保证相邻两次请求的「发起」间隔满足最小间隔
+                _em_last_call = time.time()
                 req = urllib.request.Request(req_url, headers={"User-Agent": UA, **(headers or {})})
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8", errors="replace"))
-            except Exception as e:  # noqa: BLE001 — 统一重试所有网络/解析异常
-                last_error = e
-                if attempt < attempts:
-                    time.sleep(1.0 * attempt + random.uniform(0.2, 0.8))
-            finally:
-                # 无论成败都刷新上次请求时间，保证下一次尝试仍满足最小间隔
-                _em_last_call = time.time()
+                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        except Exception as e:  # noqa: BLE001 — 统一重试所有网络/解析异常
+            last_error = e
+            _em_breaker_on_failure()
+            # 退避睡眠在锁外进行，不阻塞其它东财请求
+            if attempt < attempts:
+                time.sleep(1.0 * attempt + random.uniform(0.2, 0.8))
+            continue
+        _em_breaker_on_success()
+        return data
     if last_error is not None:
         raise last_error
     raise RuntimeError(f"eastmoney request failed: {url}")
@@ -155,10 +195,15 @@ def _em_get_kline(
     """kline 类请求入口：直连被 WAF 拦截时自动改用 `/..` 后缀重试绕过。
 
     直连仅尝试一次（WAF 拦截需快速降级到 `/..`），`/..` 路径则走内建重试。
+    若熔断已跳闸则直接上抛，不再做 `/..` 二次尝试，避免雪崩期继续堆叠请求。
     """
+    if _em_breaker_tripped():
+        raise RuntimeError(f"eastmoney circuit breaker open (cooling down): {url}")
     try:
         return _em_get(url, params=params, headers=headers, timeout=timeout, attempts=1)
     except Exception:
+        if _em_breaker_tripped():
+            raise
         return _em_get(url + _EM_WAF_BYPASS_SUFFIX, params=params, headers=headers, timeout=timeout)
 
 
@@ -330,7 +375,7 @@ class EastmoneyProvider(MarketProvider):
             "fields": "f12,f14,f3,f128",
         }
         d = _em_get(
-            "https://push2.eastmoney.com/api/qt/slist/get",
+            "https://push2delay.eastmoney.com/api/qt/slist/get",
             params=params, headers={"Referer": "https://quote.eastmoney.com/"}, timeout=15,
         )
         diff = (d.get("data") or {}).get("diff") or {}
@@ -360,7 +405,7 @@ class EastmoneyProvider(MarketProvider):
             "fields2": "f51,f52,f53,f54,f55,f56,f57",
         }
         d = _em_get(
-            "https://push2.eastmoney.com/api/qt/stock/fflow/kline/get",
+            "https://push2delay.eastmoney.com/api/qt/stock/fflow/kline/get",
             params=params,
             headers={"Referer": "https://quote.eastmoney.com/", "Origin": "https://quote.eastmoney.com"},
             timeout=10,
@@ -493,7 +538,7 @@ class EastmoneyProvider(MarketProvider):
             "fields": "f2,f3,f4,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
         }
         d = _em_get(
-            "https://push2.eastmoney.com/api/qt/clist/get",
+            "https://push2delay.eastmoney.com/api/qt/clist/get",
             params=params, headers={"User-Agent": UA}, timeout=15,
         )
         items = (d.get("data") or {}).get("diff") or []

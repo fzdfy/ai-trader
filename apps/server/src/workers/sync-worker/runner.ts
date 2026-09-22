@@ -14,6 +14,8 @@
 import { and, eq, gte, isNull, lt } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun } from "../../db/schema";
+import { createLogger } from "../../lib/logger";
+import { runWithLogContext, getLogContext, type LogContext, type LogSource } from "../../lib/request-context";
 import { getSyncTradeDate } from "./calendar";
 import { runWithProgress } from "./progress";
 import { kline1mPipe } from "./pipes/kline-1m";
@@ -78,6 +80,8 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
 
 const running = new Set<string>();
 
+const log = createLogger("job");
+
 /** 重试间隔（毫秒），收盘后任务失败后在此间隔后重试 */
 const DEFAULT_RETRY_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -107,6 +111,8 @@ type WrapOpts = {
   retryIntervalMs?: number;
   /** 手动同步（sync-manual）进行中时，不直接跳过而是等待其结束（受 deadline 约束） */
   waitManualSync?: boolean;
+  /** 触发来源，默认 scheduled（cron）；手动同步传 manual，用于日志区分 */
+  source?: LogSource;
 };
 
 /**
@@ -135,7 +141,7 @@ async function executeWithRetry(
       if (Date.now() >= deadlineAt.getTime()) {
         throw new Error(`手动同步进行中且已过 deadline ${opts.deadline}`);
       }
-      console.log(`[${name}] 手动同步进行中，${interval / 1000}s 后重试`);
+      log.warn({ job_name: name, retry_in_ms: interval }, "手动同步进行中，稍后重试");
       await sleep(interval);
       continue;
     }
@@ -158,7 +164,7 @@ async function executeWithRetry(
       if (Date.now() >= deadlineAt.getTime()) {
         throw new Error(`重试窗口超时（deadline ${opts.deadline}），最后错误: ${msg}`);
       }
-      console.error(`[${name}] 失败，${interval / 1000}s 后重试: ${msg}`);
+      log.warn({ err: error, job_name: name, retry_in_ms: interval }, "job 失败，稍后重试");
       await sleep(interval);
     }
   }
@@ -173,6 +179,16 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
     if (running.has(name)) return false;
     running.add(name);
     let runId: number | null = null;
+    // 一次任务 = 一条调用链：任务日志与发往 quant 的请求共用同一 requestId，
+    // 在 Loki 里按 request_id / job_run_id 即可把「任务 ↔ quant 接口日志」串起来
+    const requestId = crypto.randomUUID();
+    const parentRequestId = getLogContext()?.requestId;
+    let ctx: LogContext = {
+      requestId,
+      ...(parentRequestId ? { parentRequestId } : {}),
+      source: opts?.source ?? "scheduled",
+      jobName: name,
+    };
     try {
       const tradeDate = await getSyncTradeDate();
       const inserted = await db
@@ -180,29 +196,44 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
         .values({ jobType: name, status: "running", startedAt: new Date(), tradeDate })
         .returning({ id: jobRun.id });
       runId = inserted[0]?.id ?? null;
+      ctx = {
+        ...ctx,
+        ...(runId != null ? { jobRunId: String(runId) } : {}),
+        ...(tradeDate ? { tradeDate } : {}),
+      };
 
-      // 在 job_run 上下文中执行管道：管道内 updateProgress() 实时上报进度
-      await executeWithRetry(runId, name, fn, opts);
+      await runWithLogContext(ctx, async () => {
+        log.info({ job_name: name, job_run_id: runId }, "job start");
+        // 在 job_run + 日志链路上下文中执行管道：管道内 updateProgress() 实时上报进度
+        await executeWithRetry(runId, name, fn, opts);
 
-      if (runId != null) {
-        await db
-          .update(jobRun)
-          .set({ status: "success", finishedAt: new Date() })
-          .where(eq(jobRun.id, runId));
-      }
+        if (runId != null) {
+          await db
+            .update(jobRun)
+            .set({ status: "success", finishedAt: new Date() })
+            .where(eq(jobRun.id, runId));
+        }
+        log.info({ job_name: name, job_run_id: runId }, "job success");
+      });
       return true;
     } catch (error) {
-      console.error(`[${name}] error:`, error);
-      if (runId != null) {
-        await db
-          .update(jobRun)
-          .set({
-            status: "failed",
-            error: (error as Error)?.message ?? String(error),
-            finishedAt: new Date(),
-          })
-          .where(eq(jobRun.id, runId));
-      }
+      const err = error as Error;
+      await runWithLogContext(ctx, async () => {
+        log.error(
+          { err, error_type: err?.name ?? "Error", job_name: name, job_run_id: runId },
+          "job failed",
+        );
+        if (runId != null) {
+          await db
+            .update(jobRun)
+            .set({
+              status: "failed",
+              error: err?.message ?? String(error),
+              finishedAt: new Date(),
+            })
+            .where(eq(jobRun.id, runId));
+        }
+      });
       return false;
     } finally {
       running.delete(name);
@@ -307,11 +338,11 @@ export async function runManualSync(
     // 当日已同步完整且非强制重跑 → 跳过（视为已满足，供依赖链继续）。
     // 计入 skipped 而非 executed：跳过不等于「本次执行成功」。
     if (!force && (await hasSuccessToday(name))) {
-      console.log(`[manual-sync] ${name}: skip (今日已同步)`);
+      log.info({ job_name: name }, "skip：今日已同步");
       skipped.push(name);
       return true;
     }
-    const ok = await wrapJob(name, RUNNERS[name])();
+    const ok = await wrapJob(name, RUNNERS[name], { source: "manual" })();
     if (ok) executed.push(name);
     else failed.push(name);
     return ok;
@@ -331,7 +362,7 @@ export async function runManualSync(
       (async () => {
         const depOk = await runs.get(dependsOn)!;
         if (!depOk) {
-          console.warn(`[manual-sync] ${name}: 跳过（依赖 ${dependsOn} 未成功）`);
+          log.warn({ job_name: name, depends_on: dependsOn }, "跳过：依赖未成功");
           failed.push(`${name}（依赖 ${dependsOn} 未成功）`);
           return false;
         }

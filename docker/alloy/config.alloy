@@ -1,0 +1,145 @@
+// ============================================================
+//  Grafana Alloy — 日志采集 / 解析 / 推送
+//
+//  数据流：
+//    Docker socket（json-file 驱动，读所有容器 stdout/stderr）
+//        └─→ relabel(归一 service/container/stream) ─→ process(JSON 解析) ─→ loki.write
+//
+//  标签纪律（不可妥协）：
+//    仅 service / container / stream / level 作为 stream label；
+//    request_id / job_run_id / job_name / route / status / duration_ms 等高基数字段
+//    全部走 structured metadata（不建索引，靠 LogQL 过滤）。
+// ============================================================
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// ---- 输出：本地 Loki ----
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+
+  external_labels = {
+    env = "local",
+  }
+}
+
+// ---- 发现本机所有容器 ----
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "10s"
+}
+
+// ---- 归一化标签：容器名 / compose 服务名 / 输出流 ----
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+// ---- 读取容器日志 ----
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.containers.output
+  forward_to       = [loki.process.pipeline.receiver]
+  refresh_interval = "10s"
+}
+
+// ---- 解析：JSON → label / structured metadata ----
+loki.process "pipeline" {
+  forward_to = [loki.write.local.receiver]
+
+  // 统一 JSON 字段提取（server / worker / quant / nginx 访问日志）
+  stage.json {
+    expressions = {
+      level             = "level",
+      service           = "service",
+      event             = "event",
+      request_id        = "request_id",
+      parent_request_id = "parent_request_id",
+      job_run_id        = "job_run_id",
+      job_name          = "job_name",
+      trade_date        = "trade_date",
+      route             = "route",
+      method            = "method",
+      status            = "status",
+      duration_ms       = "duration_ms",
+      error_type        = "error_type",
+    }
+  }
+
+  // 低基数 → stream label（只放 level，其余一律不做 label）
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  // 高基数 → structured metadata（可被 LogQL 过滤，但不建索引）
+  stage.structured_metadata {
+    values = {
+      event             = "",
+      request_id        = "",
+      parent_request_id = "",
+      job_run_id        = "",
+      job_name          = "",
+      trade_date        = "",
+      route             = "",
+      method            = "",
+      status            = "",
+      duration_ms       = "",
+      error_type        = "",
+    }
+  }
+
+  // ---- PostgreSQL 慢查询（stderr 文本，用正则解析；非 JSON）----
+  stage.match {
+    selector = "{service=\"postgres\"}"
+
+    stage.regex {
+      expression = "^(?P<ts>\\S+ \\S+ \\S+) \\[(?P<pid>[0-9]+)\\] app=(?P<application_name>\\S*) db=(?P<dbname>\\S*) (?P<severity>[A-Z]+):  (?P<message>.*)$"
+    }
+
+    stage.template {
+      source   = "severity"
+      template = "{{ ToLower .Value }}"
+    }
+
+    stage.labels {
+      values = {
+        level = "severity",
+      }
+    }
+
+    stage.regex {
+      source     = "message"
+      expression = "duration: (?P<duration_ms>[0-9.]+) ms  statement: (?P<statement>.*)"
+    }
+
+    stage.structured_metadata {
+      values = {
+        application_name = "",
+        dbname           = "",
+        duration_ms      = "",
+        statement        = "",
+      }
+    }
+  }
+}

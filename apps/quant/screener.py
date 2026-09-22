@@ -327,11 +327,16 @@ def screen(
                 scores.append(s)
                 weights.append(f["weight"])
 
+            close = float(rows[-1]["close"])
+            prev_close = float(rows[-2]["close"])
+            change_pct = round((close - prev_close) / prev_close * 100, 2) if prev_close > 0 else None
+
             results.append(
                 {
                     "symbol": u["symbol"],
                     "name": u["name"],
-                    "close": round(float(rows[-1]["close"]), 2),
+                    "close": round(close, 2),
+                    "changePct": change_pct,
                     "factorScores": factor_scores,
                     "_scores": scores,
                     "_weights": weights,

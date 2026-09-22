@@ -12,6 +12,7 @@ import os
 import sys
 
 import structlog
+from structlog.contextvars import merge_contextvars
 
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "info").upper()
 _LOG_FORMAT = os.getenv("LOG_FORMAT", "pretty")
@@ -27,6 +28,7 @@ if _LOG_FORMAT == "json":
     # 生产模式：JSON 一行一条
     structlog.configure(
         processors=[
+            merge_contextvars,
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
@@ -44,6 +46,7 @@ else:
     # 开发模式：彩色人类可读
     structlog.configure(
         processors=[
+            merge_contextvars,
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_log_level,
             structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),

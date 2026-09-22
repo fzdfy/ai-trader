@@ -39,8 +39,8 @@ services:
     env_file:
       - .env.local
     environment:
-      # 容器网络地址覆盖（localhost → 容器名）
-      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+      # 容器网络地址覆盖（localhost → 容器名）；application_name 用于 postgres 慢查询归属
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=server
       - BETTER_AUTH_URL=http://localhost:9080
       - QUANT_URL=http://quant:3002
       # 日志
@@ -62,7 +62,7 @@ services:
     env_file:
       - .env.local
     environment:
-      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=worker
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
       - QUANT_URL=http://quant:3002
       # 日志
@@ -83,7 +83,7 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=quant
       # 日志
       - SERVICE_NAME=quant
       - LOG_FORMAT=json
@@ -99,6 +99,16 @@ services:
       context: .
       dockerfile: docker/postgres.Dockerfile
     container_name: aitrader-postgres
+    # jsonlog 需开启 logging_collector 且只写文件（不进 stdout），无法被 docker 采集；
+    # 因此用默认 stderr 文本 + 前缀携带 app/db，由 Alloy 正则解析
+    command:
+      - postgres
+      - -c
+      - log_destination=stderr
+      - -c
+      - log_min_duration_statement=200
+      - -c
+      - "log_line_prefix=%m [%p] app=%a db=%d "
     environment:
       POSTGRES_PASSWORD: aitrader123
       POSTGRES_DB: aitrader
@@ -108,6 +118,63 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
     restart: unless-stopped
+    logging: *logging
+
+  # ---- 日志存储：Loki（30 天保留） ----
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: aitrader-loki
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./docker/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+    logging: *logging
+
+  # ---- 日志采集：Grafana Alloy（docker socket + 解析 → Loki） ----
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: aitrader-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging: *logging
+
+  # ---- 日志查询：Grafana（Loki 数据源已自动配置） ----
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: aitrader-grafana
+    ports:
+      - "3010:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging: *logging
 
 volumes:
   pgdata:
+  loki-data:
+  alloy-data:
+  grafana-data:

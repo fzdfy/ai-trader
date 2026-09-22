@@ -58,6 +58,15 @@ app.route("/api/v1", api);
 // Health check
 app.get("/health", (c) => c.json({ status: "ok", time: new Date().toISOString() }));
 
+// 统一 404：路由未命中时返回 JSON（避免默认 text/plain，便于前端与日志处理）
+app.notFound((c) => c.json({ error: "not_found", path: c.req.path }, 404));
+
+// 统一错误出口：未捕获异常返回 JSON，并把 error_type 留给访问日志中间件记录
+app.onError((err, c) => {
+  log.error({ err, error_type: err.name, path: c.req.path }, "unhandled error");
+  return c.json({ error: "internal_error", message: "服务器内部错误" }, 500);
+});
+
 const port = 3001;
 
 serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, async () => {

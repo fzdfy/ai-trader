@@ -3,10 +3,14 @@ import { db } from "../db";
 import { sql, and, eq, isNull, isNotNull, desc, count, gte, inArray, max } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 import { jobRun } from "../db/schema";
+import { createLogger } from "../lib/logger";
+import { getLogContext, runWithLogContext } from "../lib/request-context";
 import { localDateStr, getSyncTradeDate } from "../workers/sync-worker/calendar";
 import { runManualSync, cleanupStaleRuns } from "../workers/sync-worker/runner";
 
 const syncRoute = new Hono();
+
+const log = createLogger("sync");
 
 /** 已知同步模块元信息（与 sync-worker cron-config 对齐） */
 export const SYNC_MODULES: { jobType: string; name: string }[] = [
@@ -288,36 +292,49 @@ syncRoute.post("/run", async (c) => {
   const runId = inserted[0]?.id ?? null;
 
   // 后台执行，不阻塞请求；结束后落终态（success / failed）
-  void (async () => {
-    try {
-      const { executed, skipped } = await runManualSync({ force });
+  // 建立独立日志链路（source=manual），并以触发本次同步的 HTTP 请求为父链路，
+  // 使「接口日志 → 手动同步总任务 → 各管道 → quant 调用」可在 Loki 中串联
+  const parentRequestId = getLogContext()?.requestId;
+  void runWithLogContext(
+    {
+      requestId: crypto.randomUUID(),
+      ...(parentRequestId ? { parentRequestId } : {}),
+      source: "manual",
+      jobName: "sync-manual",
+      ...(runId != null ? { jobRunId: String(runId) } : {}),
+    },
+    async () => {
+      try {
+        const { executed, skipped } = await runManualSync({ force });
 
-      if (runId != null) {
-        // 全部管道因「今日已同步」跳过 → 本次无实际拉取，标记成功但写明说明文案
-        const noop = executed.length === 0 && skipped.length > 0;
-        await db
-          .update(jobRun)
-          .set({
-            status: "success",
-            finishedAt: new Date(),
-            ...(noop ? { message: `今日已同步，本次未实际拉取（跳过 ${skipped.length} 个管道）` } : {}),
-          })
-          .where(eq(jobRun.id, runId));
+        if (runId != null) {
+          // 全部管道因「今日已同步」跳过 → 本次无实际拉取，标记成功但写明说明文案
+          const noop = executed.length === 0 && skipped.length > 0;
+          await db
+            .update(jobRun)
+            .set({
+              status: "success",
+              finishedAt: new Date(),
+              ...(noop ? { message: `今日已同步，本次未实际拉取（跳过 ${skipped.length} 个管道）` } : {}),
+            })
+            .where(eq(jobRun.id, runId));
+        }
+        log.info({ job_run_id: runId, executed: executed.length, skipped: skipped.length }, "manual sync done");
+      } catch (error) {
+        log.error({ err: error, error_type: (error as Error)?.name ?? "Error" }, "manual sync failed");
+        if (runId != null) {
+          await db
+            .update(jobRun)
+            .set({
+              status: "failed",
+              error: (error as Error)?.message ?? "同步失败",
+              finishedAt: new Date(),
+            })
+            .where(eq(jobRun.id, runId));
+        }
       }
-    } catch (error) {
-      console.error("[sync] manual sync failed:", error);
-      if (runId != null) {
-        await db
-          .update(jobRun)
-          .set({
-            status: "failed",
-            error: (error as Error)?.message ?? "同步失败",
-            finishedAt: new Date(),
-          })
-          .where(eq(jobRun.id, runId));
-      }
-    }
-  })();
+    },
+  );
 
   return ok(c, { accepted: true, runId });
 });

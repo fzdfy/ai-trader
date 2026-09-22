@@ -92,6 +92,8 @@ interface ScreenItem {
   symbol: string;
   name: string;
   close: number;
+  /** 最新涨跌幅(%)，红涨绿跌 */
+  changePct?: number | null;
   score: number;
   factorScores: Record<string, number>;
   /** 所属行业（三级行业链条，用 / 连接） */

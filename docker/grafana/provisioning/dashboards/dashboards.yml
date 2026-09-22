@@ -1,0 +1,17 @@
+# ============================================================
+#  Grafana 告警/看板 provisioning — 从文件加载 AI Trader 日志看板
+# ============================================================
+
+apiVersion: 1
+
+providers:
+  - name: ai-trader
+    orgId: 1
+    folder: "AI Trader"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

@@ -281,16 +281,13 @@
 
 ## 风控方案
 
-1. **东财（唯一有封禁风险的源）**：所有 `eastmoney.com` 请求强制走 `_em_get()` —— 全局线程锁保证串行，两次请求最小间隔 `1.0s` + 随机抖动 `0.1~0.5s`，统一 UA。
+1. **东财（唯一有封禁风险的源）**：所有 `eastmoney.com` 请求强制走 `_em_get()` ——
+   - **串行限流**：全局线程锁保证同一时刻只发一个东财请求，两次请求最小间隔 `1.0s` + 随机抖动 `0.1~0.5s`，统一 UA；
+   - **锁粒度**：锁仅覆盖「等待最小间隔 + 发起单次请求」，重试退避睡眠在**锁外**进行，避免慢/失败请求长时间持锁导致全体请求排队（head-of-line blocking 雪崩）；
+   - **熔断**：连续失败达 `5` 次即跳闸，冷却 `30s` 内所有东财请求快速失败上抛（由上层降级链处理），冷却后自动恢复；`_em_get_kline` 遇熔断直接上抛，不再走 `/..` 二次尝试。
 2. **腾讯/mootdx/百度/新浪/同花顺**：不封 IP，无需限流；仅带 UA 和必要的 Referer/Origin。
-3. **域名选择**：东财 `push2`（实时）近期频繁 `RemoteDisconnected`，已把板块类 clist 端点迁到 `push2delay`（延迟行情，约 15 分钟，更稳）；`push2his` 用于历史 K 线/日线资金流。
+3. **域名选择**：东财行情类端点（`slist/get`、`stock/fflow/kline/get`、`clist/get` 等）统一走 `push2delay`（延迟行情，约 15 分钟，较实时 `push2` 更稳、不易 `RemoteDisconnected`）；`push2his` 用于历史 K 线/日线资金流。
 
 ## 待办 / 风险点
 
-以下 3 处仍在用 `push2`（非 delay），可能继续踩 `RemoteDisconnected` 限流，建议统一迁到 `push2delay`：
-
-| 位置 | 端点 | 能力 |
-|---|---|---|
-| `providers/eastmoney/provider.py` L281 | slist/get | `/concept-blocks` |
-| `providers/eastmoney/provider.py` L311 | stock/fflow/kline/get | `/fund-flow-minute` |
-| `providers/eastmoney/provider.py` L444 | clist/get | `/industry-comparison` |
+- 信号/资金/筹码层多数能力为东财单源（见「降级机制」），东财整体被封时无备胎；熔断会让这些能力在冷却期内快速失败并 `skip`，属预期内的保护行为。
