@@ -12,6 +12,7 @@ import { Table, proportional } from "@astryxdesign/core/Table";
 import { FactorCreateDialog } from "../../components/FactorCreateDialog";
 import { FactorEditDialog } from "../../components/FactorEditDialog";
 import { FactorExpressionReference } from "../../components/FactorExpressionReference";
+import { FactorCodeReference } from "../../components/FactorCodeReference";
 import { AKQUANT_FACTOR_EXPRESSIONS } from "../../lib/akquantFactors";
 import { authClient } from "../../lib/auth-client";
 import {
@@ -19,18 +20,28 @@ import {
   useCreateFactor,
   useUpdateFactor,
   FACTOR_CATEGORY_LABELS,
+  FACTOR_KIND_LABELS,
+  normalizeFactorKind,
   type Factor,
+  type FactorKind,
 } from "../../hooks/useFactors";
 
 type FactorRow = Record<string, unknown> & {
   name: string;
   label: string;
   category: string;
+  kind: FactorKind;
   expression: string;
+  code: string;
   creator: string;
   createdBy: string;
   isPublic: boolean;
 };
+
+/** 取 Python 代码的首个非空行作为列表摘要 */
+function firstCodeLine(code: string): string {
+  return code.split("\n").find((line) => line.trim())?.trim() ?? "";
+}
 
 function makeColumns(onOpenEdit: (row: FactorRow) => void) {
   return [
@@ -48,11 +59,30 @@ function makeColumns(onOpenEdit: (row: FactorRow) => void) {
       ),
     },
     {
-      key: "expression",
-      header: "表达式",
+      key: "kind",
+      header: "方式",
+      width: proportional(1),
+      renderCell: (row: FactorRow) => <Badge label={FACTOR_KIND_LABELS[row.kind]} />,
+    },
+    {
+      key: "definition",
+      header: "定义",
       width: proportional(3),
-      renderCell: (row: FactorRow) =>
-        row.expression ? <Code>{row.expression}</Code> : <Text type="supporting">—</Text>,
+      renderCell: (row: FactorRow) => {
+        if (row.kind === "python") {
+          const summary = firstCodeLine(row.code);
+          return summary ? (
+            <Code>{summary}</Code>
+          ) : (
+            <Text type="supporting">Python 代码</Text>
+          );
+        }
+        return row.expression ? (
+          <Code>{row.expression}</Code>
+        ) : (
+          <Text type="supporting">—</Text>
+        );
+      },
     },
     {
       key: "category",
@@ -96,7 +126,9 @@ function FactorsPage() {
         name: f.name,
         label: f.label,
         category: f.category,
+        kind: normalizeFactorKind(f.kind),
         expression: f.expression ?? AKQUANT_FACTOR_EXPRESSIONS[f.name] ?? "",
+        code: f.code ?? "",
         creator: f.creator,
         createdBy: f.createdBy,
         isPublic: f.isPublic,
@@ -126,6 +158,16 @@ function FactorsPage() {
           >
             <Text size="sm" type="supporting">
               全部因子表达式
+            </Text>
+          </HoverCard>
+          <HoverCard
+            content={<FactorCodeReference />}
+            placement="below"
+            alignment="start"
+            hasHoverIndication
+          >
+            <Text size="sm" type="supporting">
+              Python 因子说明
             </Text>
           </HoverCard>
         </HStack>

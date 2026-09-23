@@ -5,7 +5,8 @@
   - 内置因子：按因子名分派到对应的 series 构建器，产出有意义的曲线
     （如 ma_trend 产出「收盘价 + 均线」；rsi 产出「RSI 曲线 + 30/70 参考线」；
     macd 产出「DIF/DEA 线 + 柱值」；boll 产出「收盘价 + 布林带」）。
-  - 自定义因子：用 AKQuant 表达式引擎对单个标的求值，产出「价格 + 因子值」双 pane。
+  - 自定义-表达式因子：用 AKQuant 表达式引擎对单个标的求值，产出「价格 + 因子值」双 pane。
+  - 自定义-Python 因子：用受限环境执行 compute(data)，产出「价格 + 因子值」双 pane。
 
 契约（FactorViz / PaneSpec / SeriesSpec / BandSpec）与前端 SVG 缩略图组件约定一致，
 序列值为 JSON 可序列化的 float 列表，缺失值用 null 表示（前端断线渲染）。
@@ -26,8 +27,9 @@ import numpy as np
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+from factor_code import run_factor_code
 from logger import get_logger
-from screener import HISTORY_COUNT, _get_conn
+from screener import CUSTOM_HISTORY_COUNT, HISTORY_COUNT, _get_conn
 
 log = get_logger("indicators")
 
@@ -233,31 +235,40 @@ def _boll_series(closes: np.ndarray, period: int, num_std: float) -> tuple[np.nd
 # ============================================================================
 
 
-def _load_bars(conn: psycopg2.extensions.connection, symbol: str) -> list[dict[str, Any]]:
-    """加载单个标的最近 HISTORY_COUNT 根日线（升序，含 open 供自定义因子求值）。"""
+def _load_bars(
+    conn: psycopg2.extensions.connection, symbol: str, limit: int = HISTORY_COUNT
+) -> list[dict[str, Any]]:
+    """加载单个标的最近 limit 根日线（升序，含 open / amount 供自定义因子求值）。"""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT time, open, high, low, close, volume
+            SELECT time, open, high, low, close, volume, amount
             FROM bar1d_adj
             WHERE symbol = %s
             ORDER BY time DESC
             LIMIT %s
             """,
-            (symbol, HISTORY_COUNT),
+            (symbol, limit),
         )
         rows = cur.fetchall()
     rows.reverse()
     return rows
 
 
+def _opt_float(value: Any) -> float:
+    """可空数值列（如停牌的 amount）→ float，缺失用 NaN。"""
+    return float("nan") if value is None else float(value)
+
+
 def _data_from_rows(rows: list[dict[str, Any]]) -> dict[str, np.ndarray]:
     """把行列表转成 OHLCV 数组（升序）。"""
     return {
+        "open": np.asarray([float(r["open"]) for r in rows], dtype=float),
         "close": np.asarray([float(r["close"]) for r in rows], dtype=float),
         "high": np.asarray([float(r["high"]) for r in rows], dtype=float),
         "low": np.asarray([float(r["low"]) for r in rows], dtype=float),
         "volume": np.asarray([float(r["volume"]) for r in rows], dtype=float),
+        "amount": np.asarray([_opt_float(r["amount"]) for r in rows], dtype=float),
     }
 
 
@@ -422,6 +433,27 @@ def _viz_custom(rows: list[dict[str, Any]], symbol: str, expression: str) -> Fac
     return FactorViz(name="", label="", panes=panes)
 
 
+def _viz_python(rows: list[dict[str, Any]], symbol: str, code: str) -> FactorViz:
+    """自定义-Python 因子：上 pane 价格 + 下 pane 由 compute(data) 产出的因子值。
+
+    与表达式因子不同，Python 因子的因子值完全由用户代码决定（可能包含均线、
+    动量、组合逻辑等），无法像表达式那样用正则提取均线周期，故统一保留
+    「价格 + 因子值」双 pane。
+    """
+    data = _data_from_rows(rows)
+    series_by_symbol = run_factor_code(code, {symbol: data})
+    values = series_by_symbol.get(symbol)
+    if values is None:
+        raise ValueError("Python 因子未返回该标的的因子值")
+
+    closes = data["close"]
+    panes = [
+        PaneSpec("价格", series=[_line("收盘", closes)]),
+        PaneSpec("因子", series=[SeriesSpec(name="因子值", kind="line", values=values)]),
+    ]
+    return FactorViz(name="", label="", panes=panes)
+
+
 # ============================================================================
 # 编排入口
 # ============================================================================
@@ -432,17 +464,22 @@ def build_indicators(symbols: list[str], factors: list[dict[str, Any]]) -> list[
 
     Args:
         symbols: 需要出图的 symbol 列表
-        factors: 因子描述列表 [{name, label?, expression?}]
-                 name 命中内置注册表时走内置构建器，否则走 AKQuant 表达式求值
+        factors: 因子描述列表 [{name, label?, kind?, expression?, code?}]
+                 name 命中内置注册表时走内置构建器；自定义因子按 kind 分派：
+                 expression（AKQuant 表达式）或 python（受限环境执行 compute）
 
     Returns:
         [{symbol, factors: [FactorViz...]}]
     """
+    # Python 因子需要更长的历史窗口（用户代码可能使用长周期均线）
+    need_long = any(str(f.get("kind") or "") == "python" for f in factors)
+    bar_limit = CUSTOM_HISTORY_COUNT if need_long else HISTORY_COUNT
+
     conn = _get_conn()
     try:
         items: list[dict[str, Any]] = []
         for symbol in symbols:
-            rows = _load_bars(conn, symbol)
+            rows = _load_bars(conn, symbol, bar_limit)
             if len(rows) < HISTORY_COUNT:
                 continue
             data = _data_from_rows(rows)
@@ -454,6 +491,8 @@ def build_indicators(symbols: list[str], factors: list[dict[str, Any]]) -> list[
                 try:
                     if name in _BUILTIN_VIZ:
                         viz = _BUILTIN_VIZ[name](data)
+                    elif str(f.get("kind") or "") == "python" and f.get("code"):
+                        viz = _viz_python(rows, symbol, f["code"])
                     elif f.get("expression"):
                         viz = _viz_custom(rows, symbol, f["expression"])
                     else:

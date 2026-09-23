@@ -43,7 +43,9 @@ class ScreenRequest(BaseModel):
 class IndicatorsFactor(BaseModel):
     name: str
     label: str | None = None
+    kind: str | None = None
     expression: str | None = None
+    code: str | None = None
 
 
 class IndicatorsRequest(BaseModel):

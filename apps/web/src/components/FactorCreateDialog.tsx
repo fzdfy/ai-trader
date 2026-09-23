@@ -7,22 +7,31 @@ import { Button } from "@astryxdesign/core/Button";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Text } from "@astryxdesign/core/Text";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
+import { HoverCard } from "@astryxdesign/core/HoverCard";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { Sparkles } from "lucide-react";
-import { useGenerateFactorExpression } from "../hooks/useFactors";
+import {
+  useGenerateFactorExpression,
+  type FactorDraft,
+  type FactorKind,
+} from "../hooks/useFactors";
+import { FactorCodeReference, PYTHON_FACTOR_TEMPLATE } from "./FactorCodeReference";
 
 interface FactorCreateDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: { name: string; description: string; expression: string; isPublic: boolean }) => void;
+  onSubmit: (input: FactorDraft) => void;
 }
 
 /**
- * 创建因子弹框：name + description + expression + 是否公开。
- * expression 支持通过「AI 生成」按钮，根据 description 自动生成。
+ * 创建因子弹框：name + description + 定义方式（因子表达式 / Python 代码）+ 是否公开。
+ * 表达式方式支持通过「AI 生成」按钮，根据 description 自动生成。
  */
 export function FactorCreateDialog({ isOpen, onOpenChange, onSubmit }: FactorCreateDialogProps) {
   const [name, setName] = useState("");
+  const [kind, setKind] = useState<FactorKind>("expression");
   const [expression, setExpression] = useState("");
+  const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [generateError, setGenerateError] = useState("");
@@ -33,7 +42,9 @@ export function FactorCreateDialog({ isOpen, onOpenChange, onSubmit }: FactorCre
   useEffect(() => {
     if (isOpen) {
       setName("");
+      setKind("expression");
       setExpression("");
+      setCode("");
       setDescription("");
       setIsPublic(false);
       setGenerateError("");
@@ -62,9 +73,18 @@ export function FactorCreateDialog({ isOpen, onOpenChange, onSubmit }: FactorCre
     }
   };
 
+  const isDefinitionEmpty = kind === "python" ? !code.trim() : false;
+
   const handleSubmit = () => {
-    if (!name.trim()) return;
-    onSubmit({ name: name.trim(), expression: expression.trim(), description: description.trim(), isPublic });
+    if (!name.trim() || isDefinitionEmpty) return;
+    onSubmit({
+      name: name.trim(),
+      description: description.trim(),
+      kind,
+      expression: kind === "expression" ? expression.trim() : "",
+      code: kind === "python" ? code.trim() : "",
+      isPublic,
+    });
     onOpenChange(false);
   };
 
@@ -89,30 +109,75 @@ export function FactorCreateDialog({ isOpen, onOpenChange, onSubmit }: FactorCre
                 onChange={setDescription}
                 placeholder="简要说明该因子的含义与用途，AI 将据此生成表达式"
               />
-              <VStack gap={1}>
-                <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
-                  <Text type="label">因子表达式</Text>
-                  <Button
-                    label="AI 生成"
-                    size="sm"
-                    variant="secondary"
-                    icon={<Sparkles size={14} />}
-                    isLoading={generateMutation.isPending}
-                    isDisabled={!description.trim()}
-                    tooltip={description.trim() ? "根据描述生成表达式" : "请先填写描述"}
-                    onClick={() => void handleGenerate()}
-                  />
-                </HStack>
-                <TextArea
-                  label="因子表达式"
-                  isLabelHidden
-                  value={expression}
-                  onChange={handleExpressionChange}
-                  placeholder="如：Close / Ref(Close, 5) - 1"
-                  description="AKQuant 表达式，可点击「AI 生成」根据描述自动生成"
-                  status={generateError ? { type: "error", message: generateError } : undefined}
-                />
+              <VStack gap={2}>
+                <Text type="label">定义方式</Text>
+                <SegmentedControl
+                  value={kind}
+                  onChange={(v) => setKind(v as FactorKind)}
+                  label="因子定义方式"
+                  layout="fill"
+                >
+                  <SegmentedControlItem value="expression" label="因子表达式" />
+                  <SegmentedControlItem value="python" label="Python 代码" />
+                </SegmentedControl>
               </VStack>
+
+              {kind === "expression" ? (
+                <VStack gap={1}>
+                  <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
+                    <Text type="label">因子表达式</Text>
+                    <Button
+                      label="AI 生成"
+                      size="sm"
+                      variant="secondary"
+                      icon={<Sparkles size={14} />}
+                      isLoading={generateMutation.isPending}
+                      isDisabled={!description.trim()}
+                      tooltip={description.trim() ? "根据描述生成表达式" : "请先填写描述"}
+                      onClick={() => void handleGenerate()}
+                    />
+                  </HStack>
+                  <TextArea
+                    label="因子表达式"
+                    isLabelHidden
+                    value={expression}
+                    onChange={handleExpressionChange}
+                    placeholder="如：Close / Ref(Close, 5) - 1"
+                    description="AKQuant 表达式，可点击「AI 生成」根据描述自动生成"
+                    status={generateError ? { type: "error", message: generateError } : undefined}
+                  />
+                </VStack>
+              ) : (
+                <VStack gap={1}>
+                  <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
+                    <HoverCard
+                      content={<FactorCodeReference />}
+                      placement="below"
+                      alignment="start"
+                      hasHoverIndication
+                    >
+                      <Text type="label">Python 代码</Text>
+                    </HoverCard>
+                    <Button
+                      label="填充示例"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setCode(PYTHON_FACTOR_TEMPLATE)}
+                    />
+                  </HStack>
+                  <TextArea
+                    label="Python 代码"
+                    isLabelHidden
+                    value={code}
+                    onChange={setCode}
+                    rows={12}
+                    placeholder={PYTHON_FACTOR_TEMPLATE}
+                    description="需定义 compute(data) 函数，返回因子值序列"
+                    style={{ fontFamily: "var(--font-family-code)" }}
+                  />
+                </VStack>
+              )}
+
               <Switch
                 label="是否公开"
                 description="开启后其他用户也能看到该因子"
@@ -126,7 +191,12 @@ export function FactorCreateDialog({ isOpen, onOpenChange, onSubmit }: FactorCre
           <LayoutFooter hasDivider>
             <HStack gap={2} align="center" style={{ justifyContent: "flex-end" }}>
               <Button label="取消" variant="ghost" onClick={() => onOpenChange(false)} />
-              <Button label="创建" variant="primary" isDisabled={!name.trim()} onClick={handleSubmit} />
+              <Button
+                label="创建"
+                variant="primary"
+                isDisabled={!name.trim() || isDefinitionEmpty}
+                onClick={handleSubmit}
+              />
             </HStack>
           </LayoutFooter>
         }

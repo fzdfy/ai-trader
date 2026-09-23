@@ -9,11 +9,42 @@ export interface Factor {
   category: string;
   direction: number;
   description: string | null;
+  kind: string;
   expression: string | null;
+  code: string | null;
   createdBy: string;
   creator: string;
   isPublic: boolean;
   createdAt: string;
+}
+
+/** 因子定义方式：expression=AKQuant 因子表达式；python=Python 代码 */
+export type FactorKind = "expression" | "python";
+
+/** 因子定义方式中文名 */
+export const FACTOR_KIND_LABELS: Record<FactorKind, string> = {
+  expression: "表达式",
+  python: "Python",
+};
+
+/** 创建 / 编辑因子的定义草稿（两种方式共用；按 kind 只有一种生效） */
+export interface FactorDraft {
+  name: string;
+  description: string;
+  kind: FactorKind;
+  expression: string;
+  code: string;
+  isPublic: boolean;
+}
+
+/** 编辑草稿 = 定义草稿 + 显示名称 */
+export interface FactorEditDraft extends FactorDraft {
+  label: string;
+}
+
+/** 后端返回的 kind 为自由字符串，归一化为两种方式之一 */
+export function normalizeFactorKind(value: string | null | undefined): FactorKind {
+  return value === "python" ? "python" : "expression";
 }
 
 interface ApiResponse<T> {
@@ -75,12 +106,7 @@ export function useCreateFactor() {
   const userId = authClient.useSession().data?.user.id;
 
   return useMutation({
-    mutationFn: async (input: {
-      name: string;
-      description: string;
-      expression: string;
-      isPublic: boolean;
-    }) => {
+    mutationFn: async (input: FactorDraft) => {
       const res = await fetch("/api/v1/factors", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
@@ -96,25 +122,21 @@ export function useCreateFactor() {
   });
 }
 
-/** 编辑因子（label / expression / description / isPublic，仅创建者本人可改） */
+/** 编辑因子（label / kind / expression / code / description / isPublic，仅创建者本人可改） */
 export function useUpdateFactor() {
   const queryClient = useQueryClient();
   const userId = authClient.useSession().data?.user.id;
 
   return useMutation({
-    mutationFn: async (input: {
-      name: string;
-      label: string;
-      expression: string;
-      description: string;
-      isPublic: boolean;
-    }) => {
+    mutationFn: async (input: FactorEditDraft) => {
       const res = await fetch(`/api/v1/factors/${encodeURIComponent(input.name)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
         body: JSON.stringify({
           label: input.label,
+          kind: input.kind,
           expression: input.expression,
+          code: input.code,
           description: input.description,
           isPublic: input.isPublic,
         }),

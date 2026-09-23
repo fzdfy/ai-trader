@@ -21,6 +21,7 @@ import {
   FileText,
   ListChecks,
   Database,
+  Table2,
 } from "lucide-react";
 import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
 
@@ -156,6 +157,12 @@ function HomeLayout() {
                 href="/home/sync"
                 icon={<RefreshCw size={16} />}
                 isSelected={location.pathname.startsWith("/home/sync")}
+              />
+              <SideNavItem
+                label="数据中心"
+                href="/home/data-center"
+                icon={<Table2 size={16} />}
+                isSelected={location.pathname.startsWith("/home/data-center")}
               />
             </SideNavItem>
           </SideNavSection>

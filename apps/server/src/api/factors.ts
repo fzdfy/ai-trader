@@ -9,8 +9,37 @@ import {
   FACTOR_GENERATION_FAILURE,
   validateFactorExpression,
 } from "../agent/mastra/agents/factor-generator";
+import { validateFactorCode } from "../lib/factor-code";
 
 const factorsRoute = new Hono();
+
+/** 归一化因子定义方式：仅允许 expression（AKQuant 表达式）与 python（Python 代码） */
+function normalizeKind(value: unknown): "expression" | "python" {
+  return value === "python" ? "python" : "expression";
+}
+
+/** 按定义方式校验并给出要落库的 expression / code */
+function resolveDefinition(
+  kind: "expression" | "python",
+  raw: { expression?: string; code?: string },
+):
+  | { ok: true; expression: string | null; code: string | null }
+  | { ok: false; reason: string } {
+  if (kind === "python") {
+    const code = raw.code?.trim() || null;
+    if (!code) return { ok: false, reason: "Python 因子必须提供代码" };
+    const validation = validateFactorCode(code);
+    if (!validation.ok) return { ok: false, reason: `Python 代码不合法：${validation.reason}` };
+    return { ok: true, expression: null, code };
+  }
+
+  const expression = raw.expression?.trim() || null;
+  if (expression) {
+    const validation = validateFactorExpression(expression);
+    if (!validation.ok) return { ok: false, reason: `因子表达式不合法：${validation.reason}` };
+  }
+  return { ok: true, expression, code: null };
+}
 
 // GET /api/v1/factors — 因子列表（公开的 + 当前用户创建的）
 factorsRoute.get("/", async (c) => {
@@ -47,23 +76,23 @@ factorsRoute.get("/:name", async (c) => {
   return ok(c, { ...row, creator: creators[row.createdBy] ?? row.createdBy });
 });
 
-// POST /api/v1/factors — 创建因子（name + description + expression + isPublic）
+// POST /api/v1/factors — 创建因子（name + kind + expression/code + description + isPublic）
 factorsRoute.post("/", async (c) => {
   const body = (await c.req.json()) as {
     name?: string;
     description?: string;
+    kind?: string;
     expression?: string;
+    code?: string;
     isPublic?: boolean;
   };
   const name = body.name?.trim();
   if (!name) return badRequest(c, "name is required");
 
-  // 表达式若提供，必须能被 AKQuant 引擎解析（与 /generate 同一套白名单）
-  const expression = body.expression?.trim() || null;
-  if (expression) {
-    const validation = validateFactorExpression(expression);
-    if (!validation.ok) return badRequest(c, `因子表达式不合法：${validation.reason}`);
-  }
+  // 按定义方式校验：expression 走 AKQuant 白名单，python 走代码校验
+  const kind = normalizeKind(body.kind);
+  const definition = resolveDefinition(kind, body);
+  if (!definition.ok) return badRequest(c, definition.reason);
 
   // 记录创建者：优先取请求头中的用户 ID，缺省为 system
   const createdBy = c.req.header("X-User-Id") ?? "system";
@@ -77,7 +106,9 @@ factorsRoute.post("/", async (c) => {
       category: "custom",
       direction: 1,
       description: body.description?.trim() ?? "",
-      expression,
+      kind,
+      expression: definition.expression,
+      code: definition.code,
       createdBy,
       isPublic: body.isPublic ?? false, // 用户自定义因子默认私有
     })
@@ -104,7 +135,9 @@ factorsRoute.patch("/:name", async (c) => {
 
   const body = (await c.req.json()) as {
     label?: string;
+    kind?: string;
     expression?: string;
+    code?: string;
     description?: string;
     isPublic?: boolean;
   };
@@ -115,19 +148,31 @@ factorsRoute.patch("/:name", async (c) => {
   // 仅创建者本人可编辑
   if (row.createdBy !== userId) return c.json({ success: false, error: "Forbidden" }, 403);
 
-  // 表达式若提供且非空，必须能被 AKQuant 引擎解析（与 POST 同一套白名单）
-  const nextExpression = body.expression?.trim() || null;
-  if (nextExpression) {
-    const validation = validateFactorExpression(nextExpression);
-    if (!validation.ok) return badRequest(c, `因子表达式不合法：${validation.reason}`);
-  }
+  // 定义方式可切换；未显式传 kind 时沿用原值，并按最终方式重新校验
+  const nextKind = body.kind === undefined ? normalizeKind(row.kind) : normalizeKind(body.kind);
+  const definitionChanged =
+    body.kind !== undefined || body.expression !== undefined || body.code !== undefined;
+
+  const nextDefinition = definitionChanged
+    ? resolveDefinition(nextKind, {
+        expression: body.expression ?? row.expression ?? undefined,
+        code: body.code ?? row.code ?? undefined,
+      })
+    : null;
+  if (nextDefinition && !nextDefinition.ok) return badRequest(c, nextDefinition.reason);
 
   const updated = (
     await db
       .update(factorRegistry)
       .set({
         ...(body.label?.trim() ? { label: body.label.trim() } : {}),
-        ...(body.expression !== undefined ? { expression: body.expression.trim() || null } : {}),
+        ...(definitionChanged
+          ? {
+              kind: nextKind,
+              expression: nextDefinition!.expression,
+              code: nextDefinition!.code,
+            }
+          : {}),
         ...(body.description !== undefined ? { description: body.description.trim() || null } : {}),
         ...(typeof body.isPublic === "boolean" ? { isPublic: body.isPublic } : {}),
       })

@@ -272,14 +272,16 @@ screensRoute.post("/run", async (c) => {
   }));
   const combine = cfg.combine ?? "weighted_sum";
 
-  // 校验因子名是否存在于因子库，并为自定义因子附带 expression 供 quant 表达式引擎求值
+  // 校验因子名是否存在于因子库，并为自定义因子附带 expression/code 供 quant 求值
   if (factors.length === 0) {
     return badRequest(c, "该策略没有配置选股因子");
   }
   const validFactorRows = await db
     .select({
       name: factorRegistry.name,
+      kind: factorRegistry.kind,
       expression: factorRegistry.expression,
+      code: factorRegistry.code,
     })
     .from(factorRegistry)
     .where(
@@ -295,12 +297,17 @@ screensRoute.post("/run", async (c) => {
     return badRequest(c, "该策略没有可用的选股因子，请检查策略的因子配置");
   }
 
-  // 内置因子无 expression（quant 走 numpy），自定义因子带 expression（quant 走表达式引擎）
-  const expressionBy = new Map(validFactorRows.map((r) => [r.name, r.expression]));
-  const runFactors = factors.map((f) => ({
-    ...f,
-    expression: expressionBy.get(f.name) ?? null,
-  }));
+  // 内置因子无 expression/code（quant 走 numpy）；自定义因子按 kind 携带 expression 或 code
+  const definitionBy = new Map(validFactorRows.map((r) => [r.name, r]));
+  const runFactors = factors.map((f) => {
+    const r = definitionBy.get(f.name);
+    return {
+      ...f,
+      kind: r?.kind ?? "expression",
+      expression: r?.expression ?? null,
+      code: r?.code ?? null,
+    };
+  });
 
   // 股票池范围：全部 / 行业 / 板块 / 结果集合 → 解析为 symbol 列表
   const symbols = await resolveSymbols(body);
@@ -355,7 +362,7 @@ screensRoute.post("/indicators", async (c) => {
   const names = [...new Set((cfg.factors ?? []).map((f) => f.name).filter(Boolean))];
   if (names.length === 0) return ok(c, { items: [] });
 
-  // 从因子表补全 label 与 expression（自定义因子依赖 expression 求值）
+  // 从因子表补全 label 与定义（自定义因子按 kind 依赖 expression 或 code 求值）
   const factorRows = await db
     .select()
     .from(factorRegistry)
@@ -363,7 +370,13 @@ screensRoute.post("/indicators", async (c) => {
   const byName = new Map(factorRows.map((r) => [r.name, r]));
   const factors = names.map((name) => {
     const r = byName.get(name);
-    return { name, label: r?.label ?? name, expression: r?.expression ?? null };
+    return {
+      name,
+      label: r?.label ?? name,
+      kind: r?.kind ?? "expression",
+      expression: r?.expression ?? null,
+      code: r?.code ?? null,
+    };
   });
 
   const res = await fetch(`${QUANT_URL}/api/v1/screens/indicators`, {

@@ -56,7 +56,9 @@ export const factorRegistry = pgTable("factor_registry", {
   direction: integer("direction").notNull().default(1), // 1=正向 -1=反向
   defaultParams: jsonb("default_params"),
   description: text("description"),
-  expression: text("expression"), // AKQuant 因子表达式（内置因子由 seed 写入，自定义因子由用户输入）
+  kind: text("kind").notNull().default("expression"), // 定义方式：expression=AKQuant 因子表达式 | python=Python 代码
+  expression: text("expression"), // AKQuant 因子表达式（kind='expression' 时使用；内置因子由 seed 写入）
+  code: text("code"), // Python 源码（kind='python' 时使用，须定义 compute(data)）
   createdBy: text("created_by").notNull().default("system"), // 创建者（system=内置，否则为用户 ID）
   isPublic: boolean("is_public").notNull().default(true), // 是否公开（系统因子默认公开）
   createdAt: timestamp("created_at").notNull().defaultNow(),

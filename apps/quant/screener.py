@@ -23,6 +23,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 from akquant.factor import ExpressionParser
+from factor_code import latest_values, run_factor_code
 from factors import FACTOR_REGISTRY
 from factors.combine import apply_direction, combine_scores, normalize_combine
 from logger import get_logger
@@ -67,9 +68,11 @@ def _get_universe(conn: psycopg2.extensions.connection) -> list[dict[str, Any]]:
 
 
 def _load_universe_bars(
-    conn: psycopg2.extensions.connection, universe: list[dict[str, Any]]
+    conn: psycopg2.extensions.connection,
+    universe: list[dict[str, Any]],
+    limit: int = HISTORY_COUNT,
 ) -> dict[str, dict[str, np.ndarray]]:
-    """一次性加载股票池全部标的最近 HISTORY_COUNT 根日线，按标的切分为 numpy 数组。
+    """一次性加载股票池全部标的最近 limit 根日线，按标的切分为 numpy 数组。
 
     替代原先逐标的发起 SQL 的写法（N+1：全池 5000+ 次往返，且每行付出
     numeric→Decimal 与 RealDictCursor 字典构造开销）。性能要点与
@@ -79,8 +82,8 @@ def _load_universe_bars(
       - 排序改由 Polars 完成（比 SQL 排序更快）。
 
     Returns:
-        {symbol: {"close"/"high"/"low"/"volume"/"amount": np.ndarray}}，
-        仅包含日线数量 >= HISTORY_COUNT 的标的，数组按时间升序。
+        {symbol: {"open"/"high"/"low"/"close"/"volume"/"amount": np.ndarray}}，
+        仅包含日线数量 >= limit 的标的，数组按时间升序。
     """
     symbols = [u["symbol"] for u in universe]
     if not symbols:
@@ -90,18 +93,18 @@ def _load_universe_bars(
         cur.execute(
             """
             SELECT u.symbol, b.time,
-                   b.high::float8, b.low::float8, b.close::float8, b.volume::float8,
-                   b.amount::float8
+                   b.open::float8, b.high::float8, b.low::float8, b.close::float8,
+                   b.volume::float8, b.amount::float8
             FROM unnest(%s::text[]) AS u(symbol)
             CROSS JOIN LATERAL (
-                SELECT time, high, low, close, volume, amount
+                SELECT time, open, high, low, close, volume, amount
                 FROM bar1d_adj
                 WHERE symbol = u.symbol
                 ORDER BY time DESC
                 LIMIT %s
             ) AS b
             """,
-            (symbols, HISTORY_COUNT),
+            (symbols, limit),
         )
         rows = cur.fetchall()
     if not rows:
@@ -111,16 +114,18 @@ def _load_universe_bars(
         {
             "symbol": [r[0] for r in rows],
             "date": [r[1] for r in rows],
-            "high": [r[2] for r in rows],
-            "low": [r[3] for r in rows],
-            "close": [r[4] for r in rows],
-            "volume": [r[5] for r in rows],
-            "amount": [r[6] for r in rows],
+            "open": [r[2] for r in rows],
+            "high": [r[3] for r in rows],
+            "low": [r[4] for r in rows],
+            "close": [r[5] for r in rows],
+            "volume": [r[6] for r in rows],
+            "amount": [r[7] for r in rows],
         }
     ).sort(["symbol", "date"])
 
     syms = frame["symbol"].to_numpy()
     arrays = {
+        "open": frame["open"].to_numpy(),
         "high": frame["high"].to_numpy(),
         "low": frame["low"].to_numpy(),
         "close": frame["close"].to_numpy(),
@@ -136,7 +141,7 @@ def _load_universe_bars(
 
     result: dict[str, dict[str, np.ndarray]] = {}
     for start, end in zip(starts, ends):
-        if end - start < HISTORY_COUNT:
+        if end - start < limit:
             continue
         result[str(syms[start])] = {name: arr[start:end] for name, arr in arrays.items()}
     return result
@@ -289,10 +294,11 @@ def screen(
     """对股票池按策略因子打分排名。
 
     Args:
-        factors: 策略因子列表 [{name, weight, value?, direction?, expression?}]
+        factors: 策略因子列表 [{name, weight, value?, direction?, kind?, expression?, code?}]
                  weight 为 0-100，value 为信号阈值 0-100（默认 50），
                  direction 为方向覆盖 1/-1（默认 1）；
-                 expression 仅自定义因子需要（AKQuant 表达式），内置因子忽略
+                 kind 为自定义因子的定义方式：expression（AKQuant 表达式，读 expression）
+                 或 python（Python 代码，读 code）；内置因子忽略这两个字段
         top_n: 返回前 N 名
         symbols: 可选，限定股票池；为 None 时使用全部有日线数据的标的
         combine: 信号合成方式（weighted_sum/equal_weight/voting/rank/and/or）
@@ -306,7 +312,8 @@ def screen(
 
     # 过滤出有效因子（权重 > 0）：
     #  - 内置因子：name 在 FACTOR_REGISTRY，用 numpy compute 计算
-    #  - 自定义因子：带 expression，用 AKQuant 表达式引擎对股票池日线求值
+    #  - 自定义-表达式因子：kind=expression 且带 expression，用 AKQuant 表达式引擎求值
+    #  - 自定义-Python 因子：kind=python 且带 code，用受限环境执行 compute(data)
     valid: list[dict[str, Any]] = []
     for f in factors:
         name = f.get("name")
@@ -315,28 +322,18 @@ def screen(
             continue
         direction = -1 if int(f.get("direction", 1)) < 0 else 1
         value = float(f.get("value", 50) or 50)  # 0-100
+        base = {
+            "name": name,
+            "weight": weight,
+            "value": value,
+            "direction": direction,
+        }
         if name in FACTOR_REGISTRY:
-            valid.append(
-                {
-                    "name": name,
-                    "weight": weight,
-                    "value": value,
-                    "direction": direction,
-                    "kind": "builtin",
-                    "factor": FACTOR_REGISTRY[name],
-                }
-            )
+            valid.append({**base, "kind": "builtin", "factor": FACTOR_REGISTRY[name]})
+        elif str(f.get("kind") or "") == "python" and f.get("code"):
+            valid.append({**base, "kind": "python", "code": str(f["code"])})
         elif f.get("expression"):
-            valid.append(
-                {
-                    "name": name,
-                    "weight": weight,
-                    "value": value,
-                    "direction": direction,
-                    "kind": "custom",
-                    "expression": str(f["expression"]),
-                }
-            )
+            valid.append({**base, "kind": "custom", "expression": str(f["expression"])})
 
     if not valid:
         return {
@@ -356,7 +353,7 @@ def screen(
             wanted = set(symbols)
             universe = [u for u in universe if u["symbol"] in wanted]
 
-        # 自定义因子：一次性加载股票池日线，逐因子求值并横截面归一化得分
+        # 自定义因子（表达式）：一次性加载股票池日线，逐因子求值并横截面归一化得分
         custom_scores: dict[str, dict[str, float]] = {}
         if any(v["kind"] == "custom" for v in valid):
             frame = _load_universe_frame(conn, universe)
@@ -366,10 +363,20 @@ def screen(
                 raw = _eval_expression(frame, v["expression"])
                 custom_scores[v["name"]] = _rank_custom_scores(raw)
 
-        # 内置因子所需日线：一次性批量取回全池
+        # 内置因子所需日线：一次性批量取回全池（Python 因子窗口更长，故取 251 根）
         fetch_started = time.perf_counter()
-        universe_bars = _load_universe_bars(conn, universe)
+        bars_limit = (
+            CUSTOM_HISTORY_COUNT if any(v["kind"] == "python" for v in valid) else HISTORY_COUNT
+        )
+        universe_bars = _load_universe_bars(conn, universe, bars_limit)
         fetch_ms = round((time.perf_counter() - fetch_started) * 1000, 1)
+
+        # Python 因子：在受限环境逐标的求值，取最新值后做横截面归一化
+        for v in valid:
+            if v["kind"] != "python":
+                continue
+            series = run_factor_code(v["code"], universe_bars)
+            custom_scores[v["name"]] = _rank_custom_scores(latest_values(series))
 
         results: list[dict[str, Any]] = []
         for u in universe:
@@ -384,8 +391,8 @@ def screen(
                 if f["kind"] == "builtin":
                     raw = float(f["factor"].compute(data))  # [0, 1]
                 else:
-                    # 自定义因子得分已横截面归一化到 [0, 1]，缺失标的取中性
-                    raw = custom_scores[f["name"]].get(u["symbol"], 0.5)
+                    # 自定义因子（表达式 / Python）得分已横截面归一化到 [0, 1]，缺失标的取中性
+                    raw = custom_scores.get(f["name"], {}).get(u["symbol"], 0.5)
                 s = apply_direction(raw, f["direction"])
                 factor_scores[f["name"]] = round(s * 100, 2)  # 展示为 0-100
                 scores.append(s)
