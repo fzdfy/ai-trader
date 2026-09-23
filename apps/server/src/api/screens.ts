@@ -164,18 +164,12 @@ async function enrichBoards(items: ScreenItem[]): Promise<ScreenItem[]> {
   });
 }
 
-/** 取股票 symbol 不带市场后缀的部分（如 600000.SH → 600000）；无后缀时原样返回 */
-function bareSymbolCode(symbol: string): string {
-  const dot = symbol.indexOf(".");
-  return dot === -1 ? symbol : symbol.slice(0, dot);
-}
-
 /** 为选股结果补全「主力资金净流入」（fund_flow_rank 最新快照，category='stock'） */
 async function enrichFundFlow(items: ScreenItem[]): Promise<ScreenItem[]> {
   if (items.length === 0) return items;
 
-  // fund_flow_rank.code 为不带后缀的原始代码，需去掉 symbol 后缀后再匹配
-  const rawCodes = [...new Set(items.map((i) => bareSymbolCode(i.symbol)))];
+  // fund_flow_rank.code（category='stock'）与选股结果 symbol 同为带后缀格式（如 600000.SH），直接匹配
+  const symbols = [...new Set(items.map((i) => i.symbol))];
 
   const [latest] = await db
     .selectDistinct({ date: fundFlowRank.date })
@@ -194,7 +188,7 @@ async function enrichFundFlow(items: ScreenItem[]): Promise<ScreenItem[]> {
       and(
         eq(fundFlowRank.category, "stock"),
         eq(fundFlowRank.date, date),
-        inArray(fundFlowRank.code, rawCodes),
+        inArray(fundFlowRank.code, symbols),
       ),
     );
 
@@ -206,9 +200,12 @@ async function enrichFundFlow(items: ScreenItem[]): Promise<ScreenItem[]> {
 
   return items.map((item) => ({
     ...item,
-    mainNetInflow: inflowByCode.get(bareSymbolCode(item.symbol)) ?? null,
+    mainNetInflow: inflowByCode.get(item.symbol) ?? null,
   }));
 }
+
+/** 排除条件：市值 < 100 亿 / 市盈亏损 / ST / 科创板 / 创业板 */
+type ScreenExclude = "smallCap" | "loss" | "st" | "star" | "chinext";
 
 interface RunBody {
   strategyId?: number;
@@ -218,6 +215,8 @@ interface RunBody {
   boardCodes?: string[];
   /** scope=resultSet 时，前端结果集合中的完整 symbol 列表 */
   symbols?: string[];
+  /** 排除条件（多选）：smallCap/loss/st/star/chinext */
+  excludes?: ScreenExclude[];
 }
 
 /** 将股票池范围解析为 symbol 列表（undefined 表示不限定 = 全部） */
@@ -312,10 +311,14 @@ screensRoute.post("/run", async (c) => {
   // 股票池范围：全部 / 行业 / 板块 / 结果集合 → 解析为 symbol 列表
   const symbols = await resolveSymbols(body);
 
+  // 排除条件：仅透传白名单内的取值，避免任意字符串进入 quant
+  const allowed: ScreenExclude[] = ["smallCap", "loss", "st", "star", "chinext"];
+  const excludes = [...new Set((body.excludes ?? []).filter((x) => allowed.includes(x)))];
+
   const res = await fetch(`${QUANT_URL}/api/v1/screens/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ factors: runFactors, topN, combine, symbols }),
+    body: JSON.stringify({ factors: runFactors, topN, combine, symbols, excludes }),
   });
   const json = (await res.json()) as {
     items?: unknown[];
