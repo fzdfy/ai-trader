@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Outlet, createRootRoute, useLocation, redirect, Link } from "@tanstack/react-router";
 import { TopNav, TopNavItem } from "@astryxdesign/core/TopNav";
 import { LinkProvider } from "@astryxdesign/core/Link";
-import { NavIcon } from "@astryxdesign/core/NavIcon";
-import { Icon } from "@astryxdesign/core/Icon";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
@@ -63,7 +61,13 @@ function RootLayout() {
                 gap: "var(--spacing-2)",
               }}
             >
-              <NavIcon icon={<Icon icon="viewColumns" size="sm" />} />
+              <img
+                src="/logo.png"
+                alt="AI Trader"
+                width={40}
+                height={40}
+                style={{ borderRadius: "var(--radius-inner)", display: "block" }}
+              />
               <Text weight="semibold">AI Trader</Text>
             </Link>
           }
