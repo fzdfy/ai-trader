@@ -8,6 +8,8 @@ export interface ScreenItem {
   score: number; // 综合得分 0-100
   close: number; // 最新收盘价
   changePct?: number | null; // 最新涨跌幅(%)，红涨绿跌
+  amount?: number | null; // 最新交易日成交额(元)
+  mainNetInflow?: number | null; // 主力资金净流入(元)，未命中资金流榜为 null
   factorScores: Record<string, number>; // 因子名 → 得分 0-100
   industry?: string | null; // 所属行业（三级行业链条，/ 连接）
   sectors?: string[]; // 所属概念板块（全部，按热度排序；列表展示前 3 个，hover 展示全部）

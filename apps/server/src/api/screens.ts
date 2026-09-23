@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { strategyConfig, boardConstituent, factorRegistry, board } from "../db/schema";
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import {
+  strategyConfig,
+  boardConstituent,
+  factorRegistry,
+  board,
+  fundFlowRank,
+} from "../db/schema";
+import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { ok, badRequest, notFound } from "../lib/response";
 
 const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
@@ -94,6 +100,10 @@ interface ScreenItem {
   close: number;
   /** 最新涨跌幅(%)，红涨绿跌 */
   changePct?: number | null;
+  /** 最新交易日成交额（元），quant 由 bar1d_adj.amount 提供 */
+  amount?: number | null;
+  /** 主力资金净流入（元），fund_flow_rank 最新快照；未命中前 1000 名为 null */
+  mainNetInflow?: number | null;
   score: number;
   factorScores: Record<string, number>;
   /** 所属行业（三级行业链条，用 / 连接） */
@@ -154,6 +164,52 @@ async function enrichBoards(items: ScreenItem[]): Promise<ScreenItem[]> {
   });
 }
 
+/** 取股票 symbol 不带市场后缀的部分（如 600000.SH → 600000）；无后缀时原样返回 */
+function bareSymbolCode(symbol: string): string {
+  const dot = symbol.indexOf(".");
+  return dot === -1 ? symbol : symbol.slice(0, dot);
+}
+
+/** 为选股结果补全「主力资金净流入」（fund_flow_rank 最新快照，category='stock'） */
+async function enrichFundFlow(items: ScreenItem[]): Promise<ScreenItem[]> {
+  if (items.length === 0) return items;
+
+  // fund_flow_rank.code 为不带后缀的原始代码，需去掉 symbol 后缀后再匹配
+  const rawCodes = [...new Set(items.map((i) => bareSymbolCode(i.symbol)))];
+
+  const [latest] = await db
+    .selectDistinct({ date: fundFlowRank.date })
+    .from(fundFlowRank)
+    .where(eq(fundFlowRank.category, "stock"))
+    .orderBy(desc(fundFlowRank.date))
+    .limit(1);
+  const date = latest?.date;
+  if (!date) return items;
+
+  // 个股资金流仅覆盖主力净流入前 1000 名，未命中的标的主力净流入置 null
+  const rows = await db
+    .select({ code: fundFlowRank.code, mainNetInflow: fundFlowRank.mainNetInflow })
+    .from(fundFlowRank)
+    .where(
+      and(
+        eq(fundFlowRank.category, "stock"),
+        eq(fundFlowRank.date, date),
+        inArray(fundFlowRank.code, rawCodes),
+      ),
+    );
+
+  const inflowByCode = new Map<string, number | null>();
+  for (const r of rows) {
+    const num = r.mainNetInflow == null ? null : Number(r.mainNetInflow);
+    inflowByCode.set(r.code, num != null && Number.isFinite(num) ? num : null);
+  }
+
+  return items.map((item) => ({
+    ...item,
+    mainNetInflow: inflowByCode.get(bareSymbolCode(item.symbol)) ?? null,
+  }));
+}
+
 interface RunBody {
   strategyId?: number;
   topN?: number;
@@ -195,7 +251,7 @@ async function resolveSymbols(body: RunBody): Promise<string[] | undefined> {
 screensRoute.post("/run", async (c) => {
   const body = (await c.req.json()) as RunBody;
   const strategyId = Number(body.strategyId);
-  const topN = Number(body.topN) || 20;
+  const topN = Number(body.topN) || 50;
 
   if (!Number.isInteger(strategyId)) return badRequest(c, "strategyId is required");
 
@@ -269,8 +325,8 @@ screensRoute.post("/run", async (c) => {
     );
   }
 
-  // 为结果补全行业/概念板块列（quant 只返回打分字段）
-  const items = await enrichBoards((json.items ?? []) as ScreenItem[]);
+  // 为结果补全行业/概念板块列（quant 只返回打分字段），再补主力资金净流入
+  const items = await enrichFundFlow(await enrichBoards((json.items ?? []) as ScreenItem[]));
 
   return ok(c, {
     items,

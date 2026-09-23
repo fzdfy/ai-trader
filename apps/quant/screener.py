@@ -79,7 +79,7 @@ def _load_universe_bars(
       - 排序改由 Polars 完成（比 SQL 排序更快）。
 
     Returns:
-        {symbol: {"close"/"high"/"low"/"volume": np.ndarray}}，
+        {symbol: {"close"/"high"/"low"/"volume"/"amount": np.ndarray}}，
         仅包含日线数量 >= HISTORY_COUNT 的标的，数组按时间升序。
     """
     symbols = [u["symbol"] for u in universe]
@@ -90,10 +90,11 @@ def _load_universe_bars(
         cur.execute(
             """
             SELECT u.symbol, b.time,
-                   b.high::float8, b.low::float8, b.close::float8, b.volume::float8
+                   b.high::float8, b.low::float8, b.close::float8, b.volume::float8,
+                   b.amount::float8
             FROM unnest(%s::text[]) AS u(symbol)
             CROSS JOIN LATERAL (
-                SELECT time, high, low, close, volume
+                SELECT time, high, low, close, volume, amount
                 FROM bar1d_adj
                 WHERE symbol = u.symbol
                 ORDER BY time DESC
@@ -114,6 +115,7 @@ def _load_universe_bars(
             "low": [r[3] for r in rows],
             "close": [r[4] for r in rows],
             "volume": [r[5] for r in rows],
+            "amount": [r[6] for r in rows],
         }
     ).sort(["symbol", "date"])
 
@@ -123,6 +125,8 @@ def _load_universe_bars(
         "low": frame["low"].to_numpy(),
         "close": frame["close"].to_numpy(),
         "volume": frame["volume"].to_numpy(),
+        # amount 可为空（停牌等）：统一为空值填充 NaN，下游用 isfinite 判定后转 None
+        "amount": frame["amount"].cast(pl.Float64).fill_null(float("nan")).to_numpy(),
     }
 
     # 已按 symbol 排序，相邻股票代码不相等处即为分组边界
@@ -391,12 +395,16 @@ def screen(
             prev_close = float(data["close"][-2])
             change_pct = round((close - prev_close) / prev_close * 100, 2) if prev_close > 0 else None
 
+            amount_latest = float(data["amount"][-1])
+            amount = round(amount_latest, 2) if np.isfinite(amount_latest) else None
+
             results.append(
                 {
                     "symbol": u["symbol"],
                     "name": u["name"],
                     "close": round(close, 2),
                     "changePct": change_pct,
+                    "amount": amount,
                     "factorScores": factor_scores,
                     "_scores": scores,
                     "_weights": weights,

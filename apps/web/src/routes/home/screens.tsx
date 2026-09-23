@@ -7,7 +7,13 @@ import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Section } from "@astryxdesign/core/Section";
-import { Table, proportional, useTableSelection } from "@astryxdesign/core/Table";
+import {
+  Table,
+  proportional,
+  useTableSelection,
+  useTableSortable,
+  useTableSortableState,
+} from "@astryxdesign/core/Table";
 import { Selector } from "@astryxdesign/core/Selector";
 import { MultiSelector } from "@astryxdesign/core/MultiSelector";
 import { TextInput } from "@astryxdesign/core/TextInput";
@@ -79,7 +85,7 @@ interface ScreenQueryState {
   boardCodes: string[];
 }
 
-const DEFAULT_QUERY: ScreenQueryState = { strategyId: 0, topN: 20, scope: "all", boardCodes: [] };
+const DEFAULT_QUERY: ScreenQueryState = { strategyId: 0, topN: 50, scope: "all", boardCodes: [] };
 
 /** 读取会话记忆的查询条件；缺省或字段损坏时回落默认值（strategyId 为 0 表示未显式选择策略） */
 function readScreenQuery(): ScreenQueryState {
@@ -110,6 +116,37 @@ function writeScreenQuery(state: ScreenQueryState): void {
   } catch {
     // 忽略写入失败：记忆只是体验优化，不影响功能
   }
+}
+
+/** 数值排序比较器：缺失值视为最小（降序时排在末尾） */
+function compareNumeric(a: number | null | undefined, b: number | null | undefined): number {
+  const av = a ?? Number.NEGATIVE_INFINITY;
+  const bv = b ?? Number.NEGATIVE_INFINITY;
+  return av === bv ? 0 : av - bv;
+}
+
+/** 金额（元）紧凑展示：≥1 亿用「亿」、≥1 万用「万」，保留 2 位小数 */
+function formatMoney(v: number | null | undefined): string | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  const abs = Math.abs(v);
+  if (abs >= 1e8) return `${(v / 1e8).toFixed(2)}亿`;
+  if (abs >= 1e4) return `${(v / 1e4).toFixed(2)}万`;
+  return v.toFixed(2);
+}
+
+/** 主力资金净流入 / 成交额（无量纲比值）；成交额缺失或为 0 时返回 null */
+function mainInflowRatio(row: ScreenRow): number | null {
+  const inflow = row.mainNetInflow;
+  const amount = row.amount;
+  if (inflow == null || amount == null || amount === 0) return null;
+  return inflow / amount;
+}
+
+/** 涨跌配色：正红、负绿、零或缺失不著色 */
+function pnlColor(v: number): string | undefined {
+  if (v > 0) return chartUp();
+  if (v < 0) return chartDown();
+  return undefined;
 }
 
 /** 结果表列定义（因子得分列依赖因子中文名映射，形态列依赖指标缩略图数据） */
@@ -225,32 +262,66 @@ function makeColumns(
       },
     },
     {
-      key: "close" as const,
-      header: "最新价",
-      width: proportional(0.8),
+      key: "changePct" as const,
+      header: "涨幅",
+      width: proportional(0.6),
+      sortable: true,
       renderCell: (row: ScreenRow) => {
         const pct = row.changePct;
-        const color =
-          pct == null ? undefined : pct > 0 ? chartUp() : pct < 0 ? chartDown() : undefined;
+        if (pct == null) return <Text type="supporting">-</Text>;
+        const color = pnlColor(pct);
         return (
           <Text style={{ color, fontWeight: 600 }} hasTabularNumbers>
-            {row.close.toFixed(2)}
+            {pct > 0 ? "+" : ""}
+            {pct.toFixed(2)}%
           </Text>
         );
       },
     },
     {
-      key: "changePct" as const,
-      header: "涨幅",
-      width: proportional(0.8),
+      key: "mainNetInflow" as const,
+      header: "主力净流入",
+      width: proportional(0.6),
+      sortable: true,
       renderCell: (row: ScreenRow) => {
-        const pct = row.changePct;
-        if (pct == null) return <Text type="supporting">-</Text>;
-        const color = pct > 0 ? chartUp() : pct < 0 ? chartDown() : undefined;
+        const inflow = row.mainNetInflow;
+        const text = formatMoney(inflow);
+        if (inflow == null || text == null) return <Text type="supporting">-</Text>;
+        const color = pnlColor(inflow);
         return (
           <Text style={{ color, fontWeight: 600 }} hasTabularNumbers>
-            {pct > 0 ? "+" : ""}
-            {pct.toFixed(2)}%
+            {inflow > 0 ? "+" : ""}
+            {text}
+          </Text>
+        );
+      },
+    },
+    {
+      key: "amount" as const,
+      header: "成交额",
+      width: proportional(0.6),
+      sortable: true,
+      renderCell: (row: ScreenRow) => {
+        const text = formatMoney(row.amount);
+        return text == null ? (
+          <Text type="supporting">-</Text>
+        ) : (
+          <Text hasTabularNumbers>{text}</Text>
+        );
+      },
+    },
+    {
+      key: "mainRatio" as const,
+      header: "净流入/成交额",
+      width: proportional(0.6),
+      sortable: true,
+      renderCell: (row: ScreenRow) => {
+        const ratio = mainInflowRatio(row);
+        if (ratio == null) return <Text type="supporting">-</Text>;
+        const color = pnlColor(ratio);
+        return (
+          <Text style={{ color, fontWeight: 600 }} hasTabularNumbers>
+            {ratio.toFixed(2)}
           </Text>
         );
       },
@@ -366,6 +437,18 @@ function ScreensPage() {
     return items.map((item, i) => ({ ...item, rank: i + 1 }));
   }, [screenData]);
 
+  // 前端排序：涨幅 / 主力净流入 / 成交额 / 净流入占成交额比，均需数值比较器（默认字符串比较会失真）
+  const { sortedData, sortConfig } = useTableSortableState<ScreenRow>({
+    data: rows,
+    comparators: {
+      changePct: (a, b) => compareNumeric(a.changePct, b.changePct),
+      mainNetInflow: (a, b) => compareNumeric(a.mainNetInflow, b.mainNetInflow),
+      amount: (a, b) => compareNumeric(a.amount, b.amount),
+      mainRatio: (a, b) => compareNumeric(mainInflowRatio(a), mainInflowRatio(b)),
+    },
+  });
+  const sortable = useTableSortable<ScreenRow>(sortConfig);
+
   // 选股结果出来后，拉取各标的的指标缩略图序列（按策略因子 + 结果股票池）
   const indicatorSymbols = useMemo(
     () => (screenData?.items ?? []).map((i) => i.symbol),
@@ -425,7 +508,7 @@ function ScreensPage() {
     },
   });
 
-  const tablePlugins = useMemo(() => ({ selection }), [selection]);
+  const tablePlugins = useMemo(() => ({ selection, sort: sortable }), [selection, sortable]);
 
   const selectedCount = useMemo(
     () => rows.reduce((n, r) => n + (selectedSymbols.has(r.symbol) ? 1 : 0), 0),
@@ -638,7 +721,7 @@ function ScreensPage() {
               <Table<ScreenRow>
                 idKey="symbol"
                 columns={columns}
-                data={rows}
+                data={sortedData}
                 density="compact"
                 dividers="rows"
                 hasHover
