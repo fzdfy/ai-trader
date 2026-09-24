@@ -19,6 +19,8 @@
   2. 名称/属性守卫：禁止双下划线名称与以下划线开头的属性（堵住 __class__ /
      __globals__ 逃逸链）；
   3. 受限内置：只暴露安全的纯函数内置 + numpy/math/polars，无 open/eval/exec；
+     另注入一个白名单化的 __import__（仅放行 numpy 等根模块），供 numpy 运算
+     在运行时惰性加载自身子模块；用户代码因 AST 校验无法直接调用它；
   4. 行级看门狗：用 sys.settrace 统计 Python 行事件并以挂钟时间兜底，
      超时直接抛错，避免死循环拖垮 quant 进程。
 
@@ -29,6 +31,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import math
 import sys
 import time
@@ -218,7 +221,32 @@ def validate_factor_code(code: str) -> str | None:
 # 受限执行环境
 # ============================================================================
 
+# 允许被「运行时惰性导入」的根模块白名单。
+# 用户代码无法直接写出 import / __import__（AST 校验已禁止），此项仅供 np /
+# math 等库在内部惰性加载自身子模块（如 numpy._core._methods）时使用。
+_ALLOWED_IMPORT_ROOTS: frozenset[str] = frozenset(
+    {"numpy", "math", "polars", "builtins", "operator", "itertools", "functools"}
+)
+
+
+def _safe_import(
+    name: str,
+    globals: Any = None,
+    locals: Any = None,
+    fromlist: tuple[str, ...] = (),
+    level: int = 0,
+) -> Any:
+    """受限的 __import__：只放行白名单根模块及其子模块。"""
+    if level != 0:
+        raise ImportError(f"禁止相对导入：{name}")
+    root = name.split(".", 1)[0]
+    if root not in _ALLOWED_IMPORT_ROOTS:
+        raise ImportError(f"禁止导入模块：{name}")
+    return builtins.__import__(name, globals, locals, fromlist, level)
+
+
 _SAFE_BUILTINS: dict[str, Any] = {
+    "__import__": _safe_import,
     "abs": abs,
     "min": min,
     "max": max,
