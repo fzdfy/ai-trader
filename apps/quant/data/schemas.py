@@ -7,7 +7,7 @@
 
 - `KlineBar`   对齐 bar1d_adj / bar1m_adj（time/open/high/low/close/volume/amount）
 - `Quote`      对齐 quote_latest（last/pre_close/change/change_pct/pe/pb/limit_up/down/五档…）
-- `TradeTick`  逐笔成交（mootdx transaction）
+- `TradeTick`  逐笔成交（腾讯 tencent_ticks 主源 / mootdx 备源）
 - `AdjustFactor` 复权因子（新浪 qfq/hfq）
 """
 from __future__ import annotations
@@ -69,7 +69,11 @@ class Quote(BaseModel):
 
 
 class TradeTick(BaseModel):
-    """逐笔成交。"""
+    """逐笔成交。
+
+    time 为 HH:MM:SS；volume 单位「手」。腾讯逐笔（tencent_ticks，主源）附加
+    date/code/seq/change/amount；num（同类成交笔数）仅 mootdx 提供。
+    """
 
     time: str
     price: float
@@ -77,6 +81,12 @@ class TradeTick(BaseModel):
     num: int | None = None
     # buy / sell / neutral
     side: str = "neutral"
+    # 腾讯逐笔附加字段（mootdx 不填）
+    date: str | None = None
+    code: str | None = None
+    seq: int | None = None       # 腾讯逐笔序号（当日单调递增）
+    change: float | None = None  # 较上一笔的价差
+    amount: float | None = None  # 成交额（元）
 
 
 class AdjustFactor(BaseModel):

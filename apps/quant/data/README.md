@@ -9,7 +9,7 @@
 
 | Provider | 能力（capabilities） | 接口域名 | 风控特征 |
 |---|---|---|---|
-| `tencent` 腾讯 | quote、kline | `qt.gtimg.cn`、`web.ifzq.gtimg.cn` | 不封 IP，连续 5000+ 次才限流返回空 |
+| `tencent` 腾讯 | quote、kline、transaction | `qt.gtimg.cn`、`proxy.finance.qq.com`、`stock.gtimg.cn` | 不封 IP，连续 5000+ 次才限流返回空 |
 | `mootdx` 通达信 | kline、quote、transaction | 本地 TDX 行情库（非 HTTP） | 本地接口，无网络风控 |
 | `baidu` 百度 | kline | `finance.pae.baidu.com` | 需 Origin/Referer，低频不封 |
 | `sina` 新浪 | adjust_factor | `finance.sina.com.cn` | 带 UA/Referer，低频不封 |
@@ -60,10 +60,10 @@
 | 参数 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `symbol` | str | 必填 | 标的代码 |
-| `date` | str | null | 交易日 YYYYMMDD，缺省取最近 |
+| `date` | str | null | 交易日 YYYYMMDD，缺省取最近（腾讯主源仅提供最近交易日） |
 | `source` | str | null | — |
 
-来源：mootdx（仅此源）。
+来源：腾讯 `tencent_ticks`（主，约 3 秒一笔的分笔，最近一个交易日，沪深个股与 ETF）→ mootdx（备，支持指定历史日）。
 
 ### `/adjust-factor` — 复权因子序列
 

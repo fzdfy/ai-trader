@@ -68,7 +68,9 @@ _CAPABILITY_PRIORITY: dict[str, list[str]] = {
     # → 百度备（日线带 MA，不复权）。不再走东财（K 线非东财独有，push2his 有风控会封 IP）。
     CAPABILITY_KLINE: ["tencent", "mootdx", "baidu"],
     CAPABILITY_QUOTE: ["tencent", "mootdx"],
-    CAPABILITY_TRANSACTION: ["mootdx"],
+    # 逐笔：腾讯主（tencent_ticks，约 3 秒一笔的分笔，仅最近一个交易日）→ mootdx 备
+    # （自 2026-09 起 transaction 返回空，且腾讯逐笔不支持北交所 / 历史日时由其兜底）。
+    CAPABILITY_TRANSACTION: ["tencent", "mootdx"],
     CAPABILITY_ADJUST_FACTOR: ["sina"],
     # 信号层（Layer 3）
     CAPABILITY_HOT_REASON: ["ths"],
