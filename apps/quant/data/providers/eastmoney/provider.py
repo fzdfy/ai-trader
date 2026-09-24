@@ -4,11 +4,13 @@
 全市场龙虎榜）+ 资金面 / 筹码层（融资融券 / 大宗 / 股东户数 / 分红 / 个股资金流120日 /
 筹码分布本地推演）。
 
-东财系接口有风控（>5次/秒、并发≥10、1分钟≥200 会临时封 IP），所有 eastmoney.com
-请求一律走模块级 `_em_get()`：串行限流（最小间隔 + 随机抖动）+ 统一 UA，并在连续
-失败达阈值时熔断快速失败（冷却 30s）以避免限流雪崩；锁仅覆盖「等待间隔 + 发起单次
-请求」这一段，重试退避睡眠在锁外进行。行情类端点统一走 `push2delay`（延迟行情，较
-实时 `push2` 更稳、不易 `RemoteDisconnected`）而非 `push2`。筹码分布「本地推演」需
+东财系接口有风控（>5次/秒、并发≥10、1分钟≥200、5分钟≥300 会临时封 IP），所有
+eastmoney.com 请求一律走模块级 `_em_get()`：串行限流（最小间隔 1.5s + 随机抖动）+
+统一 UA，并在连续失败达阈值时熔断快速失败（冷却 5 分钟）以避免限流雪崩；锁仅覆盖
+「等待间隔 + 发起单次请求」这一段，重试退避睡眠在锁外进行。行情类 clist 端点统一走
+`_em_clist_get()`（push2delay 延迟行情）。注意 push2delay / push2 / push2his 共用同一
+WAF、按出口 IP 成片拦截（被封时三者同时不可达），故不做多域互备——多打一个域只会翻倍
+请求量、更快触发并延长封禁，失败直接上抛交上层降级链。筹码分布「本地推演」需
 OHLC（mootdx）+ 流通市值（腾讯，用于估算换手率），因此是跨源编排，并非东财独有端点，
 但归入本层统一暴露。
 
@@ -71,8 +73,9 @@ DATACENTER_URL = "https://datacenter-web.eastmoney.com/api/data/v1/get"
 # 东财涨停池接口固定参数（getTopicZTPool 的 ut / dpt）
 ZTB_UT = "7eea3edcaed734bea9cbfc24409ed989"
 
-# 东财防封：两次请求最小间隔（秒），批量场景可调大到 1.5~2
-_EM_MIN_INTERVAL = 1.0
+# 东财防封：两次请求最小间隔（秒）。东财「5 分钟 ≥300」为中高风险阈值，
+# 1.0s（含抖动实际约 1.3s）会长期贴着该阈值运行、逐步触发封禁，故放宽到 1.5s 留余量。
+_EM_MIN_INTERVAL = 1.5
 _em_last_call = 0.0
 _em_lock = threading.Lock()
 
@@ -81,8 +84,10 @@ _EM_MAX_ATTEMPTS = 3
 
 # 熔断：东财被风控限流后，若不放行会让排队请求逐个等待超时（雪崩）。
 # 连续失败达到阈值即跳闸，冷却期内所有东财请求快速失败上抛，由上层降级链处理。
+# 冷却期须足够长：IP 级封禁通常持续数十分钟到数小时，短冷却（如 30s）会让上层持续
+# 探测重试、反复触碰 WAF，反而维持封禁状态；取 5 分钟与管道重试窗口对齐。
 _EM_BREAKER_THRESHOLD = 5
-_EM_BREAKER_COOLDOWN = 30.0
+_EM_BREAKER_COOLDOWN = 300.0
 _em_fail_streak = 0
 _em_breaker_until = 0.0
 _em_breaker_lock = threading.Lock()
@@ -178,6 +183,17 @@ def _em_get(
     if last_error is not None:
         raise last_error
     raise RuntimeError(f"eastmoney request failed: {url}")
+
+
+# 行情 clist 主机：统一走 push2delay（延迟行情，较实时 push2 更稳、不易 RemoteDisconnected）。
+# push2delay / push2 / push2his 同属一个 WAF，被封时按出口 IP 成片拦截（三者同时不可达），
+# 故不做多域互备——多打一个域只会翻倍请求量、更快触发并延长封禁；失败直接上抛交上层降级链。
+_EM_CLIST_URL = "https://push2delay.eastmoney.com/api/qt/clist/get"
+
+
+def _em_clist_get(params: dict, headers: dict | None = None, timeout: int = 15) -> dict:
+    """clist 全量行情请求：统一走 push2delay，失败直接上抛（不做多域重试）。"""
+    return _em_get(_EM_CLIST_URL, params=params, headers=headers, timeout=timeout)
 
 
 # 东财 WAF 对 `/api/qt/stock/kline/get` 路径直接断连（RemoteDisconnected），
@@ -537,9 +553,8 @@ class EastmoneyProvider(MarketProvider):
             "fs": "m:90+t:2",
             "fields": "f2,f3,f4,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
         }
-        d = _em_get(
-            "https://push2delay.eastmoney.com/api/qt/clist/get",
-            params=params, headers={"User-Agent": UA}, timeout=15,
+        d = _em_clist_get(
+            params, headers={"User-Agent": UA}, timeout=15,
         )
         items = (d.get("data") or {}).get("diff") or []
         rows: list[IndustryRankItem] = []
@@ -579,9 +594,8 @@ class EastmoneyProvider(MarketProvider):
         }
 
         def _page(pn: int):
-            d = _em_get(
-                "https://push2delay.eastmoney.com/api/qt/clist/get",
-                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
+            d = _em_clist_get(
+                {**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
             )
             dd = d.get("data") or {}
             return (dd.get("diff") or []), int(dd.get("total") or 0)
@@ -624,9 +638,8 @@ class EastmoneyProvider(MarketProvider):
         }
 
         def _page(pn: int):
-            d = _em_get(
-                "https://push2delay.eastmoney.com/api/qt/clist/get",
-                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
+            d = _em_clist_get(
+                {**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
             )
             dd = d.get("data") or {}
             return (dd.get("diff") or []), int(dd.get("total") or 0)
@@ -754,9 +767,8 @@ class EastmoneyProvider(MarketProvider):
         }
 
         def _page(pn: int):
-            d = _em_get(
-                "https://push2delay.eastmoney.com/api/qt/clist/get",
-                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
+            d = _em_clist_get(
+                {**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
             )
             dd = d.get("data") or {}
             return (dd.get("diff") or []), int(dd.get("total") or 0)

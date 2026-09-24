@@ -31,6 +31,12 @@ const MAX_FETCH_ATTEMPTS = 3;
 /** 全量覆盖容差：应有成分股的板块中未取到的数量 ≤ 该值仍判成功 */
 const MISSING_TOLERANCE = 10;
 
+/**
+ * 连续无数据板块上限：超过即判定上游（东财 push2）整体不可用（限流/封禁），
+ * 立即抛错中止本轮，避免继续空转 ~973 个板块、反复探测而延长封禁窗口。
+ */
+const CONSECUTIVE_FAILURE_LIMIT = 20;
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export async function constituentsPipeRun(): Promise<void> {
@@ -67,6 +73,7 @@ export async function constituentsPipeRun(): Promise<void> {
   let total = 0;
   let done = 0;
   let synced = 0;
+  let consecutiveFailures = 0;
   const missingSample: string[] = [];
 
   const syncOne = async (b: { code: string; type: string }): Promise<{ rows: number; reached: boolean }> => {
@@ -145,6 +152,17 @@ export async function constituentsPipeRun(): Promise<void> {
       const { rows, reached } = await syncOne(b);
       total += rows;
       done++;
+      // 上游整体不可用（限流/封禁）时快速失败退出，不空转剩余板块、避免加剧封禁
+      if (rows === 0) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= CONSECUTIVE_FAILURE_LIMIT) {
+          throw new Error(
+            `[constituents] 连续 ${consecutiveFailures} 个板块均未取到成分股，判定上游（东财 push2）不可用，提前中止本轮以免加剧限流`,
+          );
+        }
+      } else {
+        consecutiveFailures = 0;
+      }
       // 仅统计应有成分股的板块：已取到成分股计入已同步，未取到则记入缺失样本
       if (required.has(b.code)) {
         if (reached) synced++;
