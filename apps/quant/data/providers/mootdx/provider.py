@@ -1,10 +1,11 @@
 """mootdx（通达信）行情源 provider。
 
 能力：kline（多周期，不复权）/ quote（五档盘口）/
-transaction（逐笔成交）。
+transaction（逐笔成交，备源）。
 
-数据来源：通达信 TCP 7709 二进制协议，零注册零鉴权，实测【不封 IP】，是
-a-stock-data skill 里行情/K线的第 1 优先级主源。
+数据来源：通达信 TCP 7709 二进制协议，零注册零鉴权，实测【不封 IP】。行情/K 线
+主源已让位腾讯（自带复权），mootdx 作为多周期 K 线与逐笔的降级备源；逐笔
+transaction 自 2026-09 起返回空，主源见腾讯 tencent_ticks。
 
 注意：mootdx 不提供 PE / PB / 市值 / 换手率 / 涨跌停价，这些走腾讯源；
 bars() 返回【不复权】数据，跨除权日比价需配合新浪复权因子（或改用腾讯前复权）。

@@ -16,6 +16,7 @@ import {
 } from "@astryxdesign/core/Table";
 import { Selector } from "@astryxdesign/core/Selector";
 import { MultiSelector } from "@astryxdesign/core/MultiSelector";
+import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Tooltip } from "@astryxdesign/core/Tooltip";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
@@ -28,6 +29,7 @@ import {
   useScreenResult,
   useScreenIndicators,
   type ScreenItem,
+  type ScreenExclude,
   type RunScreenInput,
   type FactorViz,
 } from "../../hooks/useScreens";
@@ -52,14 +54,7 @@ const TOPN_OPTIONS = [
   { value: "100", label: "前 100 名" },
 ];
 
-type ScopeValue =
-  | "all"
-  | "industry"
-  | "concept"
-  | "resultSet"
-  | "gain3"
-  | "amount1b"
-  | "limitUp1";
+type ScopeValue = "all" | "industry" | "concept" | "resultSet" | "gain3" | "amount1b" | "limitUp1";
 
 const SCOPE_OPTIONS: { value: ScopeValue; label: string }[] = [
   { value: "all", label: "全部选股" },
@@ -75,7 +70,22 @@ function isScope(v: unknown): v is ScopeValue {
   return SCOPE_OPTIONS.some((o) => o.value === v);
 }
 
-// 查询条件（策略 / 返回数量 / 股票池范围 / 板块）：以会话记忆保存，使详情页返回或页内重挂载后条件不丢
+// 排除条件（多选）：默认全部选中，即默认排除小市值/亏损/ST/科创板/创业板
+const EXCLUDE_OPTIONS: { value: ScreenExclude; label: string }[] = [
+  { value: "smallCap", label: "市值 < 100 亿" },
+  { value: "loss", label: "市盈亏损" },
+  { value: "st", label: "ST 股" },
+  { value: "star", label: "科创板" },
+  { value: "chinext", label: "创业板" },
+];
+
+const ALL_EXCLUDES: ScreenExclude[] = EXCLUDE_OPTIONS.map((o) => o.value);
+
+function isExclude(v: unknown): v is ScreenExclude {
+  return EXCLUDE_OPTIONS.some((o) => o.value === v);
+}
+
+// 查询条件（策略 / 返回数量 / 股票池范围 / 板块 / 排除条件）：以会话记忆保存，使详情页返回或页内重挂载后条件不丢
 const SCREEN_QUERY_KEY = "screens:query:v1";
 
 interface ScreenQueryState {
@@ -83,9 +93,16 @@ interface ScreenQueryState {
   topN: number;
   scope: ScopeValue;
   boardCodes: string[];
+  excludes: ScreenExclude[];
 }
 
-const DEFAULT_QUERY: ScreenQueryState = { strategyId: 0, topN: 50, scope: "all", boardCodes: [] };
+const DEFAULT_QUERY: ScreenQueryState = {
+  strategyId: 0,
+  topN: 50,
+  scope: "all",
+  boardCodes: [],
+  excludes: ALL_EXCLUDES,
+};
 
 /** 读取会话记忆的查询条件；缺省或字段损坏时回落默认值（strategyId 为 0 表示未显式选择策略） */
 function readScreenQuery(): ScreenQueryState {
@@ -102,6 +119,8 @@ function readScreenQuery(): ScreenQueryState {
       boardCodes: Array.isArray(o.boardCodes)
         ? o.boardCodes.filter((x): x is string => typeof x === "string")
         : DEFAULT_QUERY.boardCodes,
+      // 记忆缺失（旧版本）时回落为全部排除；记忆为数组（含清空）时按记忆恢复
+      excludes: Array.isArray(o.excludes) ? o.excludes.filter(isExclude) : DEFAULT_QUERY.excludes,
     };
   } catch {
     // 隐私模式下读取会抛异常，视为无记忆
@@ -243,7 +262,7 @@ function makeColumns(
     {
       key: "indicators" as const,
       header: "形态",
-      width: proportional(1.2),
+      width: proportional(0.8),
       renderCell: (row: ScreenRow) => {
         const vizzes = indicatorsBySymbol.get(row.symbol);
         if (!vizzes || vizzes.length === 0) return <Text type="supporting">-</Text>;
@@ -401,11 +420,12 @@ function ScreensPage() {
   const [topN, setTopN] = useState(savedQuery.topN);
   const [scope, setScope] = useState(savedQuery.scope);
   const [boardCodes, setBoardCodes] = useState(savedQuery.boardCodes);
+  const [excludes, setExcludes] = useState<ScreenExclude[]>(savedQuery.excludes);
 
   // 查询条件变化后写入会话记忆：详情页返回、页内重挂载时据此恢复
   useEffect(() => {
-    writeScreenQuery({ strategyId, topN, scope, boardCodes });
-  }, [strategyId, topN, scope, boardCodes]);
+    writeScreenQuery({ strategyId, topN, scope, boardCodes, excludes });
+  }, [strategyId, topN, scope, boardCodes, excludes]);
 
   // 结果集合等页面本地交互态：集合内容为会话内临时数据
   const [resultSets, setResultSets] = useState<ResultSet[]>([]);
@@ -422,8 +442,8 @@ function ScreensPage() {
 
   // queryKey 由查询条件派生
   const screenQueryKey: QueryKey = useMemo(
-    () => ["screen-result", strategyId, topN, scope, boardCodes],
-    [strategyId, topN, scope, boardCodes],
+    () => ["screen-result", strategyId, topN, scope, boardCodes, excludes],
+    [strategyId, topN, scope, boardCodes, excludes],
   );
 
   const runScreen = useRunScreen(screenQueryKey);
@@ -520,6 +540,7 @@ function ScreensPage() {
       strategyId,
       topN,
       scope,
+      excludes,
     };
     if (scope === "industry" || scope === "concept") {
       input.boardCodes = boardCodes;
@@ -585,76 +606,92 @@ function ScreensPage() {
       </VStack>
 
       <Section>
-        <HStack gap={3} align="end" style={{ flexWrap: "wrap" }}>
-          <Selector
-            label="策略"
-            options={strategyOptions}
-            value={strategyId ? String(strategyId) : ""}
-            onChange={(v) => setStrategyId(Number(v))}
-            placeholder="选择策略"
-            isDisabled={strategyOptions.length === 0}
-            width={240}
-          />
-          <Selector
-            label="股票池范围"
-            options={SCOPE_OPTIONS}
-            value={scope}
-            onChange={handleScopeChange}
-            width={160}
-          />
-          {scope === "industry" && (
-            <MultiSelector
-              label="行业"
-              options={boardOptions}
-              value={boardCodes}
-              onChange={setBoardCodes}
-              placeholder="选择行业（可多选）"
-              hasSearch
-              hasSelectAll
-              hasClear
-              width={280}
+        <VStack gap={3}>
+          <HStack gap={3} align="end" style={{ flexWrap: "wrap" }}>
+            <Selector
+              label="策略"
+              options={strategyOptions}
+              value={strategyId ? String(strategyId) : ""}
+              onChange={(v) => setStrategyId(Number(v))}
+              placeholder="选择策略"
+              isDisabled={strategyOptions.length === 0}
+              width={240}
             />
-          )}
-          {scope === "concept" && (
-            <MultiSelector
-              label="概念"
-              options={boardOptions}
-              value={boardCodes}
-              onChange={setBoardCodes}
-              placeholder="选择概念（可多选）"
-              hasSearch
-              hasSelectAll
-              hasClear
-              width={280}
+            <Selector
+              label="股票池范围"
+              options={SCOPE_OPTIONS}
+              value={scope}
+              onChange={handleScopeChange}
+              width={160}
             />
-          )}
-          {scope === "resultSet" && (
-            <MultiSelector
-              label="结果集合"
-              options={resultSetOptions}
-              value={selectedResultSetIds}
-              onChange={setSelectedResultSetIds}
-              placeholder={resultSets.length === 0 ? "暂无结果集合" : "选择结果集合（可多选）"}
-              isDisabled={resultSets.length === 0}
-              hasSelectAll
-              hasClear
-              width={280}
+            {scope === "industry" && (
+              <MultiSelector
+                label="行业"
+                options={boardOptions}
+                value={boardCodes}
+                onChange={setBoardCodes}
+                placeholder="选择行业（可多选）"
+                hasSearch
+                hasSelectAll
+                hasClear
+                width={280}
+              />
+            )}
+            {scope === "concept" && (
+              <MultiSelector
+                label="概念"
+                options={boardOptions}
+                value={boardCodes}
+                onChange={setBoardCodes}
+                placeholder="选择概念（可多选）"
+                hasSearch
+                hasSelectAll
+                hasClear
+                width={280}
+              />
+            )}
+            {scope === "resultSet" && (
+              <MultiSelector
+                label="结果集合"
+                options={resultSetOptions}
+                value={selectedResultSetIds}
+                onChange={setSelectedResultSetIds}
+                placeholder={resultSets.length === 0 ? "暂无结果集合" : "选择结果集合（可多选）"}
+                isDisabled={resultSets.length === 0}
+                hasSelectAll
+                hasClear
+                width={280}
+              />
+            )}
+            <Selector
+              label="返回数量"
+              options={TOPN_OPTIONS}
+              value={String(topN)}
+              onChange={(v) => setTopN(Number(v))}
+              width={140}
             />
-          )}
-          <Selector
-            label="返回数量"
-            options={TOPN_OPTIONS}
-            value={String(topN)}
-            onChange={(v) => setTopN(Number(v))}
-            width={140}
-          />
-          <Button
-            label={runScreen.isPending ? "选股中..." : "开始选股"}
-            variant="primary"
-            isDisabled={!strategyId || isRunning}
-            onClick={handleRun}
-          />
-        </HStack>
+            <Button
+              label={runScreen.isPending ? "选股中..." : "开始选股"}
+              variant="primary"
+              isDisabled={!strategyId || isRunning}
+              onClick={handleRun}
+            />
+          </HStack>
+          <HStack gap={3} align="center" style={{ flexWrap: "wrap" }}>
+            <Text type="label">排除</Text>
+            <ToggleButtonGroup
+              type="multiple"
+              value={excludes}
+              onChange={(v) => setExcludes(v as ScreenExclude[])}
+              label="排除条件"
+              size="sm"
+            >
+              {EXCLUDE_OPTIONS.map((o) => (
+                <ToggleButton key={o.value} value={o.value} label={o.label} />
+              ))}
+            </ToggleButtonGroup>
+          </HStack>
+        </VStack>
       </Section>
 
       {isRunning && <Spinner size="sm" label="正在计算因子得分..." />}

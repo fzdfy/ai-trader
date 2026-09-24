@@ -64,6 +64,9 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+/** 排除条件：市值 < 100 亿 / 市盈亏损 / ST / 科创板 / 创业板 */
+export type ScreenExclude = "smallCap" | "loss" | "st" | "star" | "chinext";
+
 export interface RunScreenInput {
   strategyId: number;
   topN: number;
@@ -73,6 +76,8 @@ export interface RunScreenInput {
   boardCodes?: string[];
   /** scope=resultSet 时，前端结果集合中的完整 symbol 列表 */
   symbols?: string[];
+  /** 排除条件（多选），默认全部排除 */
+  excludes?: ScreenExclude[];
 }
 
 // ---------- hooks ----------

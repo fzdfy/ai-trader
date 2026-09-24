@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate, useParams, Link, useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Button } from "@astryxdesign/core/Button";
 import { Text } from "@astryxdesign/core/Text";
@@ -116,6 +116,31 @@ function klineBarsQueryOptions(symbol: string, tf: KlineTf) {
   };
 }
 
+/** 标的基本信息变动极少，名称缓存 10 分钟 */
+const INSTRUMENT_STALE_TIME = 10 * 60_000;
+
+/**
+ * 标的名称查询（key = ["instrument", symbol]）：图表标题需展示中文名，
+ * 而 K 线接口只返回行情。任一失败（未收录/网络异常）返回 null，由调用方回退为代码。
+ */
+function instrumentNameQueryOptions(symbol: string) {
+  return {
+    queryKey: ["instrument", symbol],
+    queryFn: async (): Promise<string | null> => {
+      const res = await fetch(`/api/v1/instruments/${encodeURIComponent(symbol)}`);
+      if (!res.ok) return null;
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { name?: string | null };
+      };
+      const name = json.success ? json.data?.name : null;
+      return typeof name === "string" && name.length > 0 ? name : null;
+    },
+    staleTime: INSTRUMENT_STALE_TIME,
+    gcTime: KLINE_GC_TIME,
+  };
+}
+
 function StockDetailPage() {
   const { symbol } = useParams({ from: "/home/market/stock/$symbol" });
   const { tf: tfParam, from, list } = Route.useSearch();
@@ -142,10 +167,15 @@ function StockDetailPage() {
   const currentSymbol = isScreenViewer ? screenSymbol : symbol;
   const currentTf = isScreenViewer ? screenTf : tf;
 
-  // 图表当前已应用的 symbol/tf：图表只初始化一次，后续变化走增量更新
-  const targetRef = useRef<{ symbol: string; tf: KlineTf }>({
+  // 图表标题展示的名称：优先中文名，未收录时回退为代码（klinecharts 缺失键会原样回显 "{name}"）
+  const { data: instrumentName } = useQuery(instrumentNameQueryOptions(currentSymbol));
+  const displayName = instrumentName ?? currentSymbol;
+
+  // 图表当前已应用的 symbol/tf/名称：图表只初始化一次，后续变化走增量更新
+  const targetRef = useRef<{ symbol: string; tf: KlineTf; name: string }>({
     symbol: currentSymbol,
     tf: currentTf,
+    name: displayName,
   });
 
   // 左右切换的列表 = 选股页带入的选股结果列表（仅来自选股页时生效）
@@ -201,6 +231,9 @@ function StockDetailPage() {
             downWickColor: chartDown(),
             noChangeWickColor: chartFlat(),
           },
+          // 标题模板默认 "{ticker} · {period}"；改为「中文名 · 代码」，
+          // 周期已由上方 Tab 高亮体现，右侧改挂 {ticker} 展示股票代码更实用
+          tooltip: { title: { template: "{name} · {ticker}" } },
         },
       },
       locale: "zh-CN",
@@ -266,7 +299,7 @@ function StockDetailPage() {
       true,
     );
 
-    chart.setSymbol({ ticker: targetRef.current.symbol });
+    chart.setSymbol({ ticker: targetRef.current.symbol, name: targetRef.current.name });
     chart.setPeriod(periodForTf(targetRef.current.tf));
 
     return () => {
@@ -275,17 +308,20 @@ function StockDetailPage() {
     };
   }, [queryClient]);
 
-  // 展示的标的 / 周期变化：只做增量更新，避免整图重建与多余的一次数据加载
+  // 展示的标的 / 周期 / 名称变化：只做增量更新，避免整图重建与多余的一次数据加载。
+  // setSymbol 为浅合并，名称必须每次一并传入，否则切换标的时会残留上一个标的的名称
   useEffect(() => {
     const chart = chartInstanceRef.current;
     if (!chart) return;
     const prev = targetRef.current;
-    if (prev.symbol === currentSymbol && prev.tf === currentTf) return;
+    if (prev.symbol === currentSymbol && prev.tf === currentTf && prev.name === displayName) return;
 
-    if (prev.symbol !== currentSymbol) chart.setSymbol({ ticker: currentSymbol });
+    if (prev.symbol !== currentSymbol || prev.name !== displayName) {
+      chart.setSymbol({ ticker: currentSymbol, name: displayName });
+    }
     if (prev.tf !== currentTf) chart.setPeriod(periodForTf(currentTf));
-    targetRef.current = { symbol: currentSymbol, tf: currentTf };
-  }, [currentSymbol, currentTf]);
+    targetRef.current = { symbol: currentSymbol, tf: currentTf, name: displayName };
+  }, [currentSymbol, currentTf, displayName]);
 
   // 键盘左右方向键切换相邻标的（焦点位于输入类元素内时忽略）
   useEffect(() => {

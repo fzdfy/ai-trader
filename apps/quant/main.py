@@ -38,6 +38,8 @@ class ScreenRequest(BaseModel):
     topN: int = 20
     symbols: list[str] | None = None
     combine: str = "weighted_sum"
+    # 排除条件：smallCap（总市值<100亿）/ loss（市盈亏损）/ st / star（科创板）/ chinext（创业板）
+    excludes: list[str] | None = None
 
 
 class IndicatorsFactor(BaseModel):
@@ -154,9 +156,10 @@ def run_screen(req: ScreenRequest, request: Request) -> dict[str, Any]:
         request_id=request_id,
         factors=[f.get("name") for f in req.factors],
         top_n=req.topN,
+        excludes=req.excludes,
     )
     try:
-        result = screen(req.factors, req.topN, req.symbols, req.combine)
+        result = screen(req.factors, req.topN, req.symbols, req.combine, req.excludes)
         return {"success": True, **result}
     except Exception as e:
         log.error("选股失败", request_id=request_id, error=str(e))

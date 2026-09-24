@@ -24,6 +24,8 @@ from psycopg2.extras import RealDictCursor
 
 from akquant.factor import ExpressionParser
 from factor_code import latest_values, run_factor_code
+from data.base import CAPABILITY_QUOTE
+from data.registry import call_with_fallback
 from factors import FACTOR_REGISTRY
 from factors.combine import apply_direction, combine_scores, normalize_combine
 from logger import get_logger
@@ -43,6 +45,87 @@ HISTORY_COUNT = 61
 # 自定义因子（AKQuant 表达式）历史窗口：需覆盖最长窗口算子（如 250 日均线年线）。
 # Ts_Mean(Close,250) 至少需要 250 根，叠加 Delay(...,1) 后再比较需 251 根。
 CUSTOM_HISTORY_COUNT = 251
+
+# 排除项（excludes）取值：与前端多选值一一对应，默认全部启用。
+EXCLUDE_SMALL_CAP = "smallCap"  # 排除总市值 < 100 亿
+EXCLUDE_LOSS = "loss"           # 排除市盈亏损（PE < 0）
+EXCLUDE_ST = "st"              # 排除 ST / *ST
+EXCLUDE_STAR = "star"          # 排除科创板（688 / 689）
+EXCLUDE_CHINEXT = "chinext"    # 排除创业板（300 / 301）
+
+# 「排除市值小于 100 亿」阈值（总市值，单位：亿元）
+MIN_MARKET_CAP_YI = 100.0
+
+# 腾讯行情单请求代码上限：>500 触发 HTTP 414（Request-URI Too Large）
+QUOTE_BATCH_SIZE = 500
+
+
+def _is_star_board(symbol: str) -> bool:
+    """科创板：688 / 689 开头的上交所股票。"""
+    return symbol.startswith(("688", "689"))
+
+
+def _is_chinext(symbol: str) -> bool:
+    """创业板：300 / 301 开头的深交所股票。"""
+    return symbol.startswith(("300", "301"))
+
+
+def _fetch_quotes(symbols: list[str]) -> dict[str, Any]:
+    """分批取实时行情（腾讯单请求上限 500 只），单个批次失败则跳过、不阻断选股。"""
+    quotes: dict[str, Any] = {}
+    for i in range(0, len(symbols), QUOTE_BATCH_SIZE):
+        batch = symbols[i : i + QUOTE_BATCH_SIZE]
+        try:
+            quotes.update(call_with_fallback(CAPABILITY_QUOTE, "quote", batch))
+        except Exception as exc:  # noqa: BLE001 — 行情取数失败不应中断选股
+            log.warning("排除过滤行情取数失败", count=len(batch), error=str(exc))
+    return quotes
+
+
+def _apply_excludes(
+    universe: list[dict[str, Any]], excludes: list[str] | None
+) -> list[dict[str, Any]]:
+    """按排除条件过滤股票池。
+
+    ST / 科创板 / 创业板 由名称与代码前缀本地判定（零网络成本）；「市值 < 100 亿」
+    与「市盈亏损」依赖腾讯批量行情（总市值 / PE）判定。行情缺失的标的无法判定，
+    保守保留（不排除），避免误杀。
+    """
+    if not excludes:
+        return universe
+    wanted = set(excludes)
+    need_quote = bool(wanted & {EXCLUDE_SMALL_CAP, EXCLUDE_LOSS})
+
+    quotes: dict[str, Any] = {}
+    if need_quote:
+        symbols = [u["symbol"] for u in universe]
+        log.info("排除过滤：批量取行情", count=len(symbols))
+        quotes = _fetch_quotes(symbols)
+
+    keep: list[dict[str, Any]] = []
+    for u in universe:
+        symbol = u["symbol"]
+        name = (u["name"] or "").upper()
+
+        if EXCLUDE_ST in wanted and "ST" in name:
+            continue
+        if EXCLUDE_STAR in wanted and _is_star_board(symbol):
+            continue
+        if EXCLUDE_CHINEXT in wanted and _is_chinext(symbol):
+            continue
+
+        if need_quote:
+            q = quotes.get(symbol)
+            if q is not None:
+                if EXCLUDE_SMALL_CAP in wanted:
+                    mcap = (q.extra or {}).get("mcap_yi") or 0.0
+                    if 0 < mcap < MIN_MARKET_CAP_YI:
+                        continue
+                if EXCLUDE_LOSS in wanted and q.pe is not None and q.pe < 0:
+                    continue
+
+        keep.append(u)
+    return keep
 
 
 def _get_conn() -> psycopg2.extensions.connection:
@@ -124,14 +207,26 @@ def _load_universe_bars(
     ).sort(["symbol", "date"])
 
     syms = frame["symbol"].to_numpy()
+    close_arr = frame["close"].to_numpy()
+    volume_arr = frame["volume"].to_numpy()
+    amount_arr = frame["amount"].cast(pl.Float64).fill_null(float("nan")).to_numpy()
+    # 腾讯日 K 源不返回成交额：沪深标的落库 amount 为 NULL，用 收盘价 × 成交量 估算补齐。
+    # 成交量单位按市场区分：沪深为「手」（×100 换股），北交所（百度源）为「股」且自带成交额。
+    amount_scale = np.where(
+        np.array([str(s).endswith(".BJ") for s in frame["symbol"]]), 1.0, 100.0
+    )
+    derived = close_arr * volume_arr * amount_scale
+    derived = np.where((close_arr > 0) & (volume_arr > 0), derived, float("nan"))
+    amount_arr = np.where(np.isfinite(amount_arr), amount_arr, derived)
+
     arrays = {
         "open": frame["open"].to_numpy(),
         "high": frame["high"].to_numpy(),
         "low": frame["low"].to_numpy(),
-        "close": frame["close"].to_numpy(),
-        "volume": frame["volume"].to_numpy(),
-        # amount 可为空（停牌等）：统一为空值填充 NaN，下游用 isfinite 判定后转 None
-        "amount": frame["amount"].cast(pl.Float64).fill_null(float("nan")).to_numpy(),
+        "close": close_arr,
+        "volume": volume_arr,
+        # amount 优先取实际值，缺失时用估算值；仍为空（停牌）则保持 NaN，下游转 None
+        "amount": amount_arr,
     }
 
     # 已按 symbol 排序，相邻股票代码不相等处即为分组边界
@@ -290,6 +385,7 @@ def screen(
     top_n: int = 20,
     symbols: list[str] | None = None,
     combine: str = "weighted_sum",
+    excludes: list[str] | None = None,
 ) -> dict[str, Any]:
     """对股票池按策略因子打分排名。
 
@@ -302,6 +398,7 @@ def screen(
         top_n: 返回前 N 名
         symbols: 可选，限定股票池；为 None 时使用全部有日线数据的标的
         combine: 信号合成方式（weighted_sum/equal_weight/voting/rank/and/or）
+        excludes: 可选，排除条件列表（smallCap/loss/st/star/chinext），默认不排除
 
     Returns:
         {"items": [{symbol, name, score, close, factorScores}], "total": 参与打分标的数,
@@ -352,6 +449,8 @@ def screen(
         if symbols:
             wanted = set(symbols)
             universe = [u for u in universe if u["symbol"] in wanted]
+        # 排除过滤：先剔除不合格标的，再做昂贵的日线加载（市值/PE 依赖实时行情）
+        universe = _apply_excludes(universe, excludes)
 
         # 自定义因子（表达式）：一次性加载股票池日线，逐因子求值并横截面归一化得分
         custom_scores: dict[str, dict[str, float]] = {}

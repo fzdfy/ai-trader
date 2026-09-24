@@ -142,7 +142,7 @@ def get_transaction(
     date: Annotated[str | None, Query(description="交易日 YYYYMMDD，缺省为最近")] = None,
     source: Annotated[str | None, Query()] = None,
 ) -> list[TradeTick]:
-    """逐笔成交。来源：mootdx 通达信（仅此源）；降级：无。"""
+    """逐笔成交。来源：腾讯 tencent_ticks（主，最近一个交易日分笔）；降级：mootdx。"""
     provider = _pick(CAPABILITY_TRANSACTION, source)
     if provider is not None:
         return provider.transaction(symbol, date=date)
