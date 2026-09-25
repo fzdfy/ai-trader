@@ -22,8 +22,15 @@ function codeToSymbol(code: string): string {
   return `${code}.SH`;
 }
 
-/** 并发拉取上限，避免上游限流 */
-const CONCURRENCY = 5;
+/**
+ * 拉取并发度，固定为 1（串行）。
+ *
+ * quant 端 `_em_lock` 是进程级全局锁，且覆盖真正的 HTTP 调用（东财必须统一串行限流，见 AGENTS 数据源铁律），
+ * 故并发拉取不会提升吞吐 —— 实测 4 路并发同一板块，墙钟 ≈ 4× 单请求，即完全串行。
+ * 并发只会让后续请求排队等锁、把排队时间计进自己的超时预算，放大为「大板块叠加排队 → 超时 → 空结果
+ * → 连续 20 个板块失败」的误判。故此处串行，配合 quant.ts 的 CONSTITUENTS_TIMEOUT_MS 保证单板块不超时。
+ */
+const CONCURRENCY = 1;
 
 /** 单板块拉取重试次数（上游偶发断连/空结果不可靠，退避重试后再判失败） */
 const MAX_FETCH_ATTEMPTS = 3;

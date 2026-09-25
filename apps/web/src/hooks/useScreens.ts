@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { authClient } from "../lib/auth-client";
 
 // ---------- types ----------
 
@@ -85,11 +86,13 @@ export interface RunScreenInput {
 /** 执行选股：请求成功后把结果写入 useQuery 缓存（queryKey 由调用方的 search 参数派生） */
 export function useRunScreen(queryKey: QueryKey) {
   const queryClient = useQueryClient();
+  // 在 hook 顶层读取会话，通过 X-User-Id 让后端识别本人创建的私有因子
+  const userId = authClient.useSession().data?.user.id;
   return useMutation({
     mutationFn: async (input: RunScreenInput): Promise<ScreenResult> => {
       const res = await fetch("/api/v1/screens/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
         body: JSON.stringify(input),
       });
       const json = (await res.json()) as ApiResponse<ScreenResult>;

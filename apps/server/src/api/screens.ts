@@ -7,7 +7,7 @@ import {
   board,
   fundFlowRank,
 } from "../db/schema";
-import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { ok, badRequest, notFound } from "../lib/response";
 
 const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
@@ -275,6 +275,11 @@ screensRoute.post("/run", async (c) => {
   if (factors.length === 0) {
     return badRequest(c, "该策略没有配置选股因子");
   }
+  // 因子可见性规则与其他因子接口一致：公开的 + 当前用户自己创建的
+  const userId = c.req.header("X-User-Id");
+  const visibility = [eq(factorRegistry.isPublic, true)];
+  if (userId) visibility.push(eq(factorRegistry.createdBy, userId));
+
   const validFactorRows = await db
     .select({
       name: factorRegistry.name,
@@ -285,7 +290,7 @@ screensRoute.post("/run", async (c) => {
     .from(factorRegistry)
     .where(
       and(
-        eq(factorRegistry.isPublic, true),
+        or(...visibility),
         inArray(
           factorRegistry.name,
           factors.map((f) => f.name),

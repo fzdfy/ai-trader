@@ -9,8 +9,10 @@ eastmoney.com 请求一律走模块级 `_em_get()`：串行限流（最小间隔
 统一 UA，并在连续失败达阈值时熔断快速失败（冷却 5 分钟）以避免限流雪崩；锁仅覆盖
 「等待间隔 + 发起单次请求」这一段，重试退避睡眠在锁外进行。行情类 clist 端点统一走
 `_em_clist_get()`（push2delay 延迟行情）。注意 push2delay / push2 / push2his 共用同一
-WAF、按出口 IP 成片拦截（被封时三者同时不可达），故不做多域互备——多打一个域只会翻倍
-请求量、更快触发并延长封禁，失败直接上抛交上层降级链。筹码分布「本地推演」需
+WAF，且该 WAF 按「路径」拦截（`clist/get`、`kline/get` 被直连断连，其余路径正常），
+统一由 `_em_get_with_bypass()` 在路径尾部追加 `/..` 绕过，并记住已确认被拦的 URL、后续
+不再重复直连探测；故不做多域互备——多打一个域只会翻倍请求量、更快触发并延长封禁，失败
+直接上抛交上层降级链。筹码分布「本地推演」需
 OHLC（mootdx）+ 流通市值（腾讯，用于估算换手率），因此是跨源编排，并非东财独有端点，
 但归入本层统一暴露。
 
@@ -186,20 +188,54 @@ def _em_get(
 
 
 # 行情 clist 主机：统一走 push2delay（延迟行情，较实时 push2 更稳、不易 RemoteDisconnected）。
-# push2delay / push2 / push2his 同属一个 WAF，被封时按出口 IP 成片拦截（三者同时不可达），
-# 故不做多域互备——多打一个域只会翻倍请求量、更快触发并延长封禁；失败直接上抛交上层降级链。
+# push2delay / push2 / push2his 同属一个 WAF，且该 WAF 是「按路径」而非「按出口 IP」拦截：
+# 同一出口 IP 下根路径 / 返回 404、ulist/stock/slist 等接口 200，而 `clist/get`、`kline/get`
+# 两条路径被直接断连（TLS 握手成功→HTTP 请求发出后 Empty reply / RemoteDisconnected）。
+# 故不做多域互备（多打一个域只会翻倍请求量），改用路径绕过兜底（见 _EM_WAF_BYPASS_SUFFIX）。
 _EM_CLIST_URL = "https://push2delay.eastmoney.com/api/qt/clist/get"
 
 
-def _em_clist_get(params: dict, headers: dict | None = None, timeout: int = 15) -> dict:
-    """clist 全量行情请求：统一走 push2delay，失败直接上抛（不做多域重试）。"""
-    return _em_get(_EM_CLIST_URL, params=params, headers=headers, timeout=timeout)
-
-
-# 东财 WAF 对 `/api/qt/stock/kline/get` 路径直接断连（RemoteDisconnected），
-# 而在路径末尾追加 `/..` 可使 WAF 的路径匹配失效，源站仍会归一化路径并路由到
-# 同一 kline handler（实测返回完整数据）。此处作为 WAF 绕过兜底。
+# 东财 WAF 对 `/api/qt/clist/get` 与 `/api/qt/stock/kline/get` 路径直接断连（RemoteDisconnected），
+# 而在路径末尾追加 `/..` 可使 WAF 的路径匹配失效，源站仍会归一化路径并路由到同一 handler
+# （实测 clist/get/.. 与 kline/get/.. 均返回完整数据）。此处作为 WAF 绕过兜底。
+# 已确认被拦的 URL 记入 _em_bypass_urls：命中后不再重复直连探测——直连 100% 失败，每次探测
+# 既翻倍请求量，又平白累加熔断失败计数（连累成分股/板块资金流等批量任务被熔断提前中止）。
 _EM_WAF_BYPASS_SUFFIX = "/.."
+_em_bypass_urls: set[str] = set()
+_em_bypass_lock = threading.Lock()
+
+
+def _em_get_with_bypass(
+    url: str,
+    params: dict | None = None,
+    headers: dict | None = None,
+    timeout: int = 15,
+):
+    """带 WAF 绕过的东财 GET：直连被拦后改用 `/..` 后缀，并记住该 URL 后续直接走绕过。
+
+    首次遇到某 URL 时先探一次直连（对未被拦的路径不无谓追加 `/..`）；确认被拦后即记入
+    `_em_bypass_urls`，此后同一 URL 不再直连探测，避免反复制造必败请求。`/..` 路径走
+    内建重试；若熔断已跳闸则直接上抛，不再发起 `/..` 尝试，避免雪崩期继续堆叠请求。
+    """
+    with _em_bypass_lock:
+        learned = url in _em_bypass_urls
+    if learned:
+        return _em_get(url + _EM_WAF_BYPASS_SUFFIX, params=params, headers=headers, timeout=timeout)
+    if _em_breaker_tripped():
+        raise RuntimeError(f"eastmoney circuit breaker open (cooling down): {url}")
+    try:
+        return _em_get(url, params=params, headers=headers, timeout=timeout, attempts=1)
+    except Exception:
+        if _em_breaker_tripped():
+            raise
+        with _em_bypass_lock:
+            _em_bypass_urls.add(url)
+        return _em_get(url + _EM_WAF_BYPASS_SUFFIX, params=params, headers=headers, timeout=timeout)
+
+
+def _em_clist_get(params: dict, headers: dict | None = None, timeout: int = 15) -> dict:
+    """clist 全量行情请求：统一走 push2delay，直连被 WAF 拦截时自动以 `/..` 绕过。"""
+    return _em_get_with_bypass(_EM_CLIST_URL, params=params, headers=headers, timeout=timeout)
 
 
 def _em_get_kline(
@@ -208,19 +244,8 @@ def _em_get_kline(
     headers: dict | None = None,
     timeout: int = 15,
 ):
-    """kline 类请求入口：直连被 WAF 拦截时自动改用 `/..` 后缀重试绕过。
-
-    直连仅尝试一次（WAF 拦截需快速降级到 `/..`），`/..` 路径则走内建重试。
-    若熔断已跳闸则直接上抛，不再做 `/..` 二次尝试，避免雪崩期继续堆叠请求。
-    """
-    if _em_breaker_tripped():
-        raise RuntimeError(f"eastmoney circuit breaker open (cooling down): {url}")
-    try:
-        return _em_get(url, params=params, headers=headers, timeout=timeout, attempts=1)
-    except Exception:
-        if _em_breaker_tripped():
-            raise
-        return _em_get(url + _EM_WAF_BYPASS_SUFFIX, params=params, headers=headers, timeout=timeout)
+    """kline 类请求入口：直连被 WAF 拦截时自动改用 `/..` 后缀重试绕过。"""
+    return _em_get_with_bypass(url, params=params, headers=headers, timeout=timeout)
 
 
 def _eastmoney_datacenter(
@@ -1006,10 +1031,7 @@ class EastmoneyProvider(MarketProvider):
         }
 
         def _page(pn: int):
-            d = _em_get(
-                "https://push2delay.eastmoney.com/api/qt/clist/get",
-                params={**base, "pn": str(pn)}, headers={"User-Agent": UA}, timeout=15,
-            )
+            d = _em_clist_get(params={**base, "pn": str(pn)}, timeout=15)
             dd = d.get("data") or {}
             return (dd.get("diff") or []), int(dd.get("total") or 0)
 

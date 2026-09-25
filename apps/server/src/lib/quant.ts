@@ -186,6 +186,18 @@ const QUANT_TIMEOUT_MS = 20_000;
  */
 const BULK_TIMEOUT_MS = 180_000;
 
+/**
+ * 板块成分股专用超时（毫秒）。东财 clist 单页硬上限只有 100 行（实测 pz=100/300/1000 均只返回
+ * 100 行），融资融券（3874 只）需串行翻 39 页，叠加 quant 端 `_em_get` 的 1.5s 最小发起间隔，
+ * 单个大板块实测需 259s，历史最高 376s，远超 BULK_TIMEOUT_MS。
+ *
+ * 而 quant 的 `_em_lock` 是进程级全局锁且覆盖真正的 HTTP 调用，故 worker 侧并发拉取不会提升吞吐，
+ * 只会让后续请求排队等同一把锁、把排队时间计进各自的超时预算（实测 4 路并发同一板块，墙钟=4×
+ * 单请求）。因此 constituents 管道已改为串行拉取，此处按「单板块最坏耗时」取 600s 留足余量，
+ * 避免大板块超时返回空 → 累积到「连续 20 个板块未取到成分股」而误判上游不可用、提前中止整轮。
+ */
+const CONSTITUENTS_TIMEOUT_MS = 600_000;
+
 async function getJson<T>(path: string, timeoutMs = QUANT_TIMEOUT_MS): Promise<T> {
   const res = await fetch(`${QUANT_URL}${path}`, {
     // 携带调用链上下文（X-Request-Id / X-Job-Run-Id 等），使 quant 访问日志能挂回本次调用来源
@@ -209,10 +221,11 @@ export const quant = {
   boardList: (boardType: "industry" | "concept") =>
     getJson<BoardList>(`/api/v1/data/board-list?board_type=${boardType}`, BULK_TIMEOUT_MS),
 
-  /** 板块成分股 */
+  /** 板块成分股（大板块需串行翻数十页，超时见 CONSTITUENTS_TIMEOUT_MS 注释） */
   boardConstituents: (boardCode: string) =>
     getJson<BoardConstituentItem[]>(
       `/api/v1/data/board-constituents?board_code=${encodeURIComponent(boardCode)}`,
+      CONSTITUENTS_TIMEOUT_MS,
     ),
 
   /** 板块指数日 K 线（不传 limit 则返回全量历史） */

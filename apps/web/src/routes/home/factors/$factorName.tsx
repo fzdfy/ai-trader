@@ -9,11 +9,11 @@ import { Spinner } from "@astryxdesign/core/Spinner";
 import { Card } from "@astryxdesign/core/Card";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Code } from "@astryxdesign/core/Code";
-import { CodeBlock } from "@astryxdesign/core/CodeBlock";
 import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Pencil, Trash2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog";
+import { PythonCodeEditor } from "../../../components/PythonCodeEditor";
 import { authClient } from "../../../lib/auth-client";
 import { AKQUANT_FACTOR_EXPRESSIONS } from "../../../lib/akquantFactors";
 import {
@@ -56,7 +56,7 @@ function FactorDetailPage() {
   let definition: ReactNode;
   if (kind === "python") {
     definition = factor.code ? (
-      <CodeBlock code={factor.code} language="python" hasLineNumbers width="100%" maxHeight={360} />
+      <PythonCodeEditor value={factor.code} isReadOnly height={360} ariaLabel="Python 代码" />
     ) : (
       <Text type="supporting">—</Text>
     );

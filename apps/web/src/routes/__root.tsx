@@ -50,6 +50,11 @@ function RootLayout() {
       <VStack gap={0} style={{ height: "100vh" }}>
         {/* 顶部导航栏 */}
         <TopNav
+          style={{
+            position: "relative",
+            zIndex: 1,
+            boxShadow: "0 1px 0 var(--color-shadow)",
+          }}
           heading={
             <Link
               to="/"
@@ -64,11 +69,11 @@ function RootLayout() {
               <img
                 src="/logo.png"
                 alt="AI Trader"
-                width={40}
-                height={40}
+                width={48}
+                height={48}
                 style={{ borderRadius: "var(--radius-inner)", display: "block" }}
               />
-              <Text weight="semibold">AI Trader</Text>
+              <Text weight="semibold" size="2xl">太阳神量化</Text>
             </Link>
           }
           startContent={null}

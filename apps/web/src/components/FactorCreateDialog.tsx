@@ -16,6 +16,7 @@ import {
   type FactorKind,
 } from "../hooks/useFactors";
 import { FactorCodeReference, PYTHON_FACTOR_TEMPLATE } from "./FactorCodeReference";
+import { PythonCodeEditor } from "./PythonCodeEditor";
 
 interface FactorCreateDialogProps {
   isOpen: boolean;
@@ -165,15 +166,12 @@ export function FactorCreateDialog({ isOpen, onOpenChange, onSubmit }: FactorCre
                       onClick={() => setCode(PYTHON_FACTOR_TEMPLATE)}
                     />
                   </HStack>
-                  <TextArea
-                    label="Python 代码"
-                    isLabelHidden
+                  <PythonCodeEditor
                     value={code}
                     onChange={setCode}
-                    rows={12}
                     placeholder={PYTHON_FACTOR_TEMPLATE}
+                    ariaLabel="Python 代码"
                     description="需定义 compute(data) 函数，返回因子值序列"
-                    style={{ fontFamily: "var(--font-family-code)" }}
                   />
                 </VStack>
               )}
