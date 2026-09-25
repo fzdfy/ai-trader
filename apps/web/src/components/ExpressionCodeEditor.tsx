@@ -1,19 +1,15 @@
-import type { Extension } from "@codemirror/state";
-import { autocompletion } from "@codemirror/autocomplete";
-import { python } from "@codemirror/lang-python";
 import { useCodeMirror } from "../hooks/useCodeMirror";
+import { akquantExpressionExtensions } from "../lib/akquantExpressionMode";
 import { CodeEditorFrame, type CodeEditorStatus } from "./CodeEditorFrame";
 
-const pythonExtensions: Extension[] = [python(), autocompletion()];
-
-interface PythonCodeEditorProps {
+interface ExpressionCodeEditorProps {
   value: string;
   onChange?: (value: string) => void;
-  /** 只读展示（仍可选中复制），用于未授权编辑的因子详情/表单 */
+  /** 只读展示（仍可选中复制），用于因子详情页 */
   isReadOnly?: boolean;
   placeholder?: string;
   description?: string;
-  /** 校验状态（如 AI 生成 / 运行校验失败），优先于 description 展示 */
+  /** 校验状态（如 AI 生成失败），优先于 description 展示 */
   status?: CodeEditorStatus;
   ariaLabel?: string;
   /** 编辑器可视高度（px），超出后内部滚动 */
@@ -21,10 +17,10 @@ interface PythonCodeEditorProps {
 }
 
 /**
- * 基于 CodeMirror 6 的 Python 代码编辑器：带行号与语法高亮，支持可编辑 / 只读两种模式。
- * 受控组件：value 由外部持有，用户输入通过 onChange 回传。
+ * 基于 CodeMirror 6 的 AKQuant 因子表达式编辑器：轻量语法高亮（列名 / 算子 / 数字 / 运算符）
+ * 与算子、列名智能补全，支持可编辑 / 只读两种模式。受控组件。
  */
-export function PythonCodeEditor({
+export function ExpressionCodeEditor({
   value,
   onChange,
   isReadOnly = false,
@@ -32,15 +28,15 @@ export function PythonCodeEditor({
   description,
   status,
   ariaLabel,
-  height = 280,
-}: PythonCodeEditorProps) {
+  height = 96,
+}: ExpressionCodeEditorProps) {
   const containerRef = useCodeMirror({
     value,
     onChange,
     isReadOnly,
     placeholder,
     ariaLabel,
-    languageExtensions: pythonExtensions,
+    languageExtensions: akquantExpressionExtensions,
   });
 
   return (

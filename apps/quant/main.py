@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from data.router import router as data_router
 from data_loader import compute_market_trend, is_st_symbol, load_kline
 from engine import get_strategy_list, run
+from factor_validate import validate_factor_code_runnable, validate_factor_expression_runnable
 from factors import get_factor_list
 from feature_store import compute_features
 from indicators import build_indicators
@@ -53,6 +54,14 @@ class IndicatorsFactor(BaseModel):
 class IndicatorsRequest(BaseModel):
     symbols: list[str]
     factors: list[IndicatorsFactor] = []
+
+
+class ValidateCodeRequest(BaseModel):
+    code: str
+
+
+class ValidateExpressionRequest(BaseModel):
+    expression: str
 
 
 app = FastAPI(title="AI Trader Quant", version="0.1.0")
@@ -183,6 +192,32 @@ def screen_indicators(req: IndicatorsRequest, request: Request) -> dict[str, Any
     except Exception as e:
         log.error("指标序列生成失败", request_id=request_id, error=str(e))
         raise HTTPException(500, f"Indicators failed: {e}")
+
+
+@app.post("/api/v1/factors/validate-code")
+def validate_factor_code_endpoint(req: ValidateCodeRequest, request: Request) -> dict[str, Any]:
+    """校验因子 Python 代码能否运行：AST 白名单 + 真实库小样本实际执行。"""
+    request_id = getattr(request.state, "request_id", "-")
+    log.info("因子代码运行校验", request_id=request_id, length=len(req.code or ""))
+    try:
+        return validate_factor_code_runnable(req.code)
+    except Exception as e:
+        log.error("因子代码运行校验失败", request_id=request_id, error=str(e))
+        raise HTTPException(500, f"Factor code validation failed: {e}")
+
+
+@app.post("/api/v1/factors/validate-expression")
+def validate_factor_expression_endpoint(
+    req: ValidateExpressionRequest, request: Request
+) -> dict[str, Any]:
+    """校验因子表达式能否运行：AKQuant 引擎编译 + 真实库小样本实际求值。"""
+    request_id = getattr(request.state, "request_id", "-")
+    log.info("因子表达式运行校验", request_id=request_id, length=len(req.expression or ""))
+    try:
+        return validate_factor_expression_runnable(req.expression)
+    except Exception as e:
+        log.error("因子表达式运行校验失败", request_id=request_id, error=str(e))
+        raise HTTPException(500, f"Factor expression validation failed: {e}")
 
 
 @app.get("/health")

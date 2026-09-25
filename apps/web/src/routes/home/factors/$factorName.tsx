@@ -8,12 +8,12 @@ import { Badge } from "@astryxdesign/core/Badge";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Card } from "@astryxdesign/core/Card";
 import { Switch } from "@astryxdesign/core/Switch";
-import { Code } from "@astryxdesign/core/Code";
 import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Pencil, Trash2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog";
 import { PythonCodeEditor } from "../../../components/PythonCodeEditor";
+import { ExpressionCodeEditor } from "../../../components/ExpressionCodeEditor";
 import { authClient } from "../../../lib/auth-client";
 import { AKQUANT_FACTOR_EXPRESSIONS } from "../../../lib/akquantFactors";
 import {
@@ -61,7 +61,14 @@ function FactorDetailPage() {
       <Text type="supporting">—</Text>
     );
   } else if (expression) {
-    definition = <Code>{expression}</Code>;
+    definition = (
+      <ExpressionCodeEditor
+        value={expression}
+        isReadOnly
+        height={360}
+        ariaLabel="因子表达式"
+      />
+    );
   } else {
     definition = <Text type="supporting">—</Text>;
   }

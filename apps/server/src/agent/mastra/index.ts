@@ -4,12 +4,13 @@
 import { Mastra } from "@mastra/core";
 import { stockAnalyst } from "./agents/stock-analyst";
 import { factorGenerator } from "./agents/factor-generator";
+import { factorCodeGenerator } from "./agents/factor-code-generator";
 import { reviewAnalyst } from "./agents/review-analyst";
 import { instrumentTool, quoteTool, klineTool, boardTool } from "./tools";
 import { storage } from "./storage";
 
 export const mastra = new Mastra({
-  agents: { stockAnalyst, factorGenerator, reviewAnalyst },
+  agents: { stockAnalyst, factorGenerator, factorCodeGenerator, reviewAnalyst },
   storage: storage,
 });
 

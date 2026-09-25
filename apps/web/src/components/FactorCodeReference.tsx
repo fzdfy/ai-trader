@@ -46,6 +46,10 @@ export function FactorCodeReference() {
       <VStack gap={3}>
         <Text weight="semibold">Python 因子</Text>
 
+        <Text size="sm">
+          需定义 <Code>compute(data)</Code> 函数，返回与输入等长的因子值序列。
+        </Text>
+
         {FACTOR_CODE_RULES.map((rule) => (
           <Text key={rule} size="sm" type="supporting">
             {rule}
@@ -65,7 +69,10 @@ export function FactorCodeReference() {
 
         <VStack gap={1}>
           <Text size="sm" weight="semibold">
-            示例（20 日乖离率）
+            示例策略：20 日乖离率
+          </Text>
+          <Text size="sm" type="supporting">
+            收盘价相对 20 日均线的偏离度（乖离率）：值越大越超买、越小越超卖。该示例可直接运行。
           </Text>
           <Text
             size="sm"

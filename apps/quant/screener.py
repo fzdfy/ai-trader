@@ -247,9 +247,11 @@ def _load_universe_frame(
 ) -> pl.DataFrame:
     """一次性加载股票池全部标的最近 CUSTOM_HISTORY_COUNT 根日线，构造 Polars DataFrame。
 
-    列：symbol / date / high / low / close / volume，按 symbol、date 升序。
+    列：symbol / date / open / high / low / close / volume，按 symbol、date 升序。
     供自定义因子表达式（AKQuant）在横截面上求值使用。窗口取较长历史以满足
     250 日均线（年线）等长周期算子的最小样本要求。
+    必须覆盖白名单里的全部行情列（含 open）：AKQuant 把列名转小写后按 pl.col 取用，
+    少一列就会让引用该列的合法表达式在执行阶段抛 ColumnNotFoundError。
 
     性能要点：
       - LATERAL + (symbol, time) 索引逐标的取最近 N 根，避免全表 ROW_NUMBER 排序；
@@ -262,10 +264,11 @@ def _load_universe_frame(
         cur.execute(
             """
             SELECT u.symbol, b.time,
-                   b.high::float8, b.low::float8, b.close::float8, b.volume::float8
+                   b.open::float8, b.high::float8, b.low::float8,
+                   b.close::float8, b.volume::float8
             FROM unnest(%s::text[]) AS u(symbol)
             CROSS JOIN LATERAL (
-                SELECT time, high, low, close, volume
+                SELECT time, open, high, low, close, volume
                 FROM bar1d_adj
                 WHERE symbol = u.symbol
                 ORDER BY time DESC
@@ -279,10 +282,11 @@ def _load_universe_frame(
         {
             "symbol": [r[0] for r in rows],
             "date": [r[1] for r in rows],
-            "high": [r[2] for r in rows],
-            "low": [r[3] for r in rows],
-            "close": [r[4] for r in rows],
-            "volume": [r[5] for r in rows],
+            "open": [r[2] for r in rows],
+            "high": [r[3] for r in rows],
+            "low": [r[4] for r in rows],
+            "close": [r[5] for r in rows],
+            "volume": [r[6] for r in rows],
         }
     ).sort(["symbol", "date"])
 

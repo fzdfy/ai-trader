@@ -88,6 +88,30 @@ export interface BoardFundFlow {
   rows: BoardFundFlowItem[];
 }
 
+/** 因子代码运行校验结果（quant /factors/validate-code 返回） */
+export interface FactorCodeValidationResult {
+  /** 是否通过校验 */
+  valid: boolean;
+  /** 校验阶段：syntax（AST 静态）/ data（样本不足）/ runtime（执行报错或未产出）/ executed（已成功执行） */
+  stage: "syntax" | "data" | "runtime" | "executed";
+  /** 未通过时的原因 */
+  reason: string | null;
+  /** 实际参与执行校验的样本标的 */
+  sampleSymbols: string[];
+}
+
+/** 因子表达式运行校验结果（quant /factors/validate-expression 返回；与代码侧同口径） */
+export interface FactorExpressionValidationResult {
+  /** 是否通过校验 */
+  valid: boolean;
+  /** 校验阶段：syntax（引擎编译）/ data（样本不足）/ runtime（求值报错或未产出）/ executed（已成功求值） */
+  stage: "syntax" | "data" | "runtime" | "executed";
+  /** 未通过时的原因 */
+  reason: string | null;
+  /** 实际参与求值校验的样本标的 */
+  sampleSymbols: string[];
+}
+
 /** 个股资金流排行一条（quant /fund-flow-rank 返回，金额单位：元，净占比：%） */
 export interface FundFlowRankItem {
   code: string;
@@ -198,6 +222,12 @@ const BULK_TIMEOUT_MS = 180_000;
  */
 const CONSTITUENTS_TIMEOUT_MS = 600_000;
 
+/**
+ * 因子运行校验超时（毫秒）。quant 侧需先从库中取少量标的的日线样本，
+ * 再实际执行/求值（代码走受限沙箱，单次执行看门狗 10s），故在默认 20s 上略作放宽。
+ */
+const FACTOR_VALIDATE_TIMEOUT_MS = 30_000;
+
 async function getJson<T>(path: string, timeoutMs = QUANT_TIMEOUT_MS): Promise<T> {
   const res = await fetch(`${QUANT_URL}${path}`, {
     // 携带调用链上下文（X-Request-Id / X-Job-Run-Id 等），使 quant 访问日志能挂回本次调用来源
@@ -208,6 +238,25 @@ async function getJson<T>(path: string, timeoutMs = QUANT_TIMEOUT_MS): Promise<T
     const body = await res.text().catch(() => "");
     log.error({ status: res.status, path, error_type: "QuantHttpError" }, "quant 请求失败");
     throw new Error(`quant ${path} -> ${res.status}: ${body.slice(0, 200)}`);
+  }
+  return (await res.json()) as T;
+}
+
+async function postJson<T>(path: string, body: unknown, timeoutMs = QUANT_TIMEOUT_MS): Promise<T> {
+  const res = await fetch(`${QUANT_URL}${path}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...traceHeaders(),
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) {
+    const resBody = await res.text().catch(() => "");
+    log.error({ status: res.status, path, error_type: "QuantHttpError" }, "quant 请求失败");
+    throw new Error(`quant ${path} -> ${res.status}: ${resBody.slice(0, 200)}`);
   }
   return (await res.json()) as T;
 }
@@ -294,4 +343,27 @@ export const quant = {
     if (source) path += `&source=${encodeURIComponent(source)}`;
     return getJson<StockKlineBar[]>(path);
   },
+
+  /**
+   * 校验 Python 因子代码能否运行：quant 侧先做 AST 白名单静态校验，
+   * 再用本地库的真实日线小样本实际执行一遍 compute(data)，确认能跑通且产出有效数值。
+   */
+  validateFactorCode: (code: string) =>
+    postJson<FactorCodeValidationResult>(
+      "/api/v1/factors/validate-code",
+      { code },
+      FACTOR_VALIDATE_TIMEOUT_MS,
+    ),
+
+  /**
+   * 校验因子表达式能否运行：quant 侧先用 AKQuant ExpressionParser 编译，
+   * 再用本地库的真实日线小样本在内存 DataFrame 上实际求值，确认能跑通且产出有效数值。
+   * 与服务端 TS 静态白名单互补——白名单是引擎算子的镜像、会漂移且比引擎更严。
+   */
+  validateFactorExpression: (expression: string) =>
+    postJson<FactorExpressionValidationResult>(
+      "/api/v1/factors/validate-expression",
+      { expression },
+      FACTOR_VALIDATE_TIMEOUT_MS,
+    ),
 };

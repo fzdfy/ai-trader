@@ -5,17 +5,24 @@ import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { Button } from "@astryxdesign/core/Button";
+import { IconButton } from "@astryxdesign/core/IconButton";
 import { Switch } from "@astryxdesign/core/Switch";
 import { HoverCard } from "@astryxdesign/core/HoverCard";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
-import { Sparkles } from "lucide-react";
+import { BookOpenText, Sparkles } from "lucide-react";
 import {
   useGenerateFactorExpression,
+  useGenerateFactorCode,
+  useFactorDefinitionTesting,
   type FactorEditDraft,
   type FactorKind,
 } from "../hooks/useFactors";
-import { FactorCodeReference, PYTHON_FACTOR_TEMPLATE } from "./FactorCodeReference";
+import { FactorCodeReference } from "./FactorCodeReference";
+import { FactorExpressionReference } from "./FactorExpressionReference";
 import { PythonCodeEditor } from "./PythonCodeEditor";
+import { ExpressionCodeEditor } from "./ExpressionCodeEditor";
+import { DefinitionTestBar } from "./DefinitionTestBar";
+import { resolveCodeEditorStatus } from "./CodeEditorFrame";
 
 interface FactorFormProps {
   title: string;
@@ -52,14 +59,28 @@ export function FactorForm({
   const [description, setDescription] = useState(initialValues.description);
   const [isPublic, setIsPublic] = useState(initialValues.isPublic);
   const [generateError, setGenerateError] = useState("");
+  const [codeGenerateError, setCodeGenerateError] = useState("");
 
   const generateMutation = useGenerateFactorExpression();
+  const generateCodeMutation = useGenerateFactorCode();
 
-  // 手动修改表达式时，清空 AI 生成错误提示
+  // 以已保存的定义为测试基线：未改动即视为已通过（保存时服务端已校验），改动后必须重新测试
+  const testing = useFactorDefinitionTesting(initialValues.expression, initialValues.code);
+
+  // 手动修改表达式时，清空 AI 生成错误提示与旧的测试结果
   const handleExpressionChange = (value: string) => {
     if (!canEdit) return;
     setExpression(value);
+    testing.expression.clear();
     if (generateError) setGenerateError("");
+  };
+
+  // 手动修改代码时，清空 AI 生成错误提示与旧的测试结果
+  const handleCodeChange = (value: string) => {
+    if (!canEdit) return;
+    setCode(value);
+    testing.code.clear();
+    if (codeGenerateError) setCodeGenerateError("");
   };
 
   const handleGenerate = async () => {
@@ -72,6 +93,7 @@ export function FactorForm({
         setGenerateError("现有因子算子无法表达该描述，请调整描述或手动填写表达式");
       } else {
         setExpression(expr);
+        testing.expression.clear();
         setGenerateError("");
       }
     } catch {
@@ -79,10 +101,46 @@ export function FactorForm({
     }
   };
 
+  // Python 代码生成：服务端生成后会做静态校验 + 真实库小样本运行校验，失败返回哨兵与原因
+  const handleGenerateCode = async () => {
+    if (!canEdit) return;
+    const desc = description.trim();
+    if (!desc) return;
+    try {
+      const result = await generateCodeMutation.mutateAsync(desc);
+      if (result.code.includes("无法生成")) {
+        setCodeGenerateError(
+          result.reason ?? "现有数据列与受限运行环境无法表达该描述，请调整描述或手动编写代码",
+        );
+      } else {
+        setCode(result.code);
+        testing.code.clear();
+        setCodeGenerateError("");
+      }
+    } catch {
+      setCodeGenerateError("AI 生成失败，请稍后重试");
+    }
+  };
+
   const isDefinitionEmpty = kind === "python" ? !code.trim() : false;
+  // 保存门禁：定义未改动时沿用已保存状态（视为已通过），一旦改动就必须重新测试通过
+  const isDefinitionVerified =
+    kind === "expression"
+      ? testing.expression.isVerified(expression)
+      : testing.code.isVerified(code);
+  const isSubmitDisabled = !label.trim() || isDefinitionEmpty || !isDefinitionVerified;
+
+  let submitDisabledReason: string | undefined;
+  if (!label.trim()) {
+    submitDisabledReason = "请填写显示名称";
+  } else if (isDefinitionEmpty) {
+    submitDisabledReason = "请填写因子定义";
+  } else if (!isDefinitionVerified) {
+    submitDisabledReason = "请先测试通过因子定义";
+  }
 
   const handleSubmit = () => {
-    if (!canEdit || !label.trim() || isDefinitionEmpty) return;
+    if (!canEdit || isSubmitDisabled) return;
     onSubmit({
       name: initialValues.name,
       label: label.trim(),
@@ -119,7 +177,7 @@ export function FactorForm({
         value={description}
         onChange={setDescription}
         isDisabled={!canEdit}
-        placeholder="简要说明该因子的含义与用途，AI 将据此生成表达式"
+        placeholder="简要说明该因子的含义与用途，AI 将据此生成表达式或代码"
       />
       <VStack gap={2}>
         <Text type="label">定义方式</Text>
@@ -139,58 +197,93 @@ export function FactorForm({
       {kind === "expression" ? (
         <VStack gap={1}>
           <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
-            <Text type="label">因子表达式</Text>
+            <HStack gap={1} align="center">
+              <Text type="label">因子表达式</Text>
+              <HoverCard content={<FactorExpressionReference />} placement="below" alignment="start">
+                <IconButton
+                  label="因子表达式说明"
+                  icon={<BookOpenText size={14} />}
+                  variant="ghost"
+                  size="sm"
+                />
+              </HoverCard>
+            </HStack>
             {canEdit ? (
-              <Button
-                label="AI 生成"
-                size="sm"
-                variant="secondary"
-                icon={<Sparkles size={14} />}
-                isLoading={generateMutation.isPending}
-                isDisabled={!description.trim()}
-                tooltip={description.trim() ? "根据描述生成表达式" : "请先填写描述"}
-                onClick={() => void handleGenerate()}
-              />
+              <HStack gap={2} align="center">
+                <Button
+                  label="AI 生成"
+                  size="sm"
+                  variant="secondary"
+                  icon={<Sparkles size={14} />}
+                  isLoading={generateMutation.isPending}
+                  isDisabled={!description.trim()}
+                  tooltip={description.trim() ? "根据描述生成表达式" : "请先填写描述"}
+                  onClick={() => void handleGenerate()}
+                />
+                <DefinitionTestBar
+                  isPending={testing.expression.isPending}
+                  isDisabled={!expression.trim()}
+                  onTest={() => void testing.expression.test(expression)}
+                />
+              </HStack>
             ) : null}
           </HStack>
-          <TextArea
-            label="因子表达式"
-            isLabelHidden
+          <ExpressionCodeEditor
             value={expression}
             onChange={handleExpressionChange}
-            isDisabled={!canEdit}
-            placeholder="如：Close / Ref(Close, 5) - 1"
-            description={canEdit ? "AKQuant 表达式，可点击「AI 生成」根据描述自动生成" : undefined}
-            status={generateError ? { type: "error", message: generateError } : undefined}
+            isReadOnly={!canEdit}
+            ariaLabel="因子表达式"
+            status={resolveCodeEditorStatus({
+              generateError,
+              testError: testing.expression.error,
+              testSuccess: testing.expression.success,
+            })}
           />
         </VStack>
       ) : (
         <VStack gap={1}>
           <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
-            <HoverCard
-              content={<FactorCodeReference />}
-              placement="below"
-              alignment="start"
-              hasHoverIndication
-            >
+            <HStack gap={1} align="center">
               <Text type="label">Python 代码</Text>
-            </HoverCard>
+              <HoverCard content={<FactorCodeReference />} placement="below" alignment="start">
+                <IconButton
+                  label="Python 因子说明"
+                  icon={<BookOpenText size={14} />}
+                  variant="ghost"
+                  size="sm"
+                />
+              </HoverCard>
+            </HStack>
             {canEdit ? (
-              <Button
-                label="填充示例"
-                size="sm"
-                variant="secondary"
-                onClick={() => setCode(PYTHON_FACTOR_TEMPLATE)}
-              />
+              <HStack gap={2} align="center">
+                <Button
+                  label="AI 生成"
+                  size="sm"
+                  variant="secondary"
+                  icon={<Sparkles size={14} />}
+                  isLoading={generateCodeMutation.isPending}
+                  isDisabled={!description.trim()}
+                  tooltip={description.trim() ? "根据描述生成代码并校验能否运行" : "请先填写描述"}
+                  onClick={() => void handleGenerateCode()}
+                />
+                <DefinitionTestBar
+                  isPending={testing.code.isPending}
+                  isDisabled={!code.trim()}
+                  onTest={() => void testing.code.test(code)}
+                />
+              </HStack>
             ) : null}
           </HStack>
           <PythonCodeEditor
             value={code}
-            onChange={setCode}
+            onChange={handleCodeChange}
             isReadOnly={!canEdit}
-            placeholder={PYTHON_FACTOR_TEMPLATE}
             ariaLabel="Python 代码"
-            description={canEdit ? "需定义 compute(data) 函数，返回因子值序列" : undefined}
+            status={resolveCodeEditorStatus({
+              generateError: codeGenerateError,
+              testError: testing.code.error,
+              testSuccess: testing.code.success,
+            })}
           />
         </VStack>
       )}
@@ -214,8 +307,9 @@ export function FactorForm({
           <Button
             label={submitLabel}
             variant="primary"
-            isDisabled={!label.trim() || isDefinitionEmpty}
+            isDisabled={isSubmitDisabled}
             isLoading={isSubmitting}
+            tooltip={submitDisabledReason}
             onClick={handleSubmit}
           />
         ) : null}

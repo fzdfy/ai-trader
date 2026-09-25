@@ -45,6 +45,20 @@ export const AKQUANT_FACTOR_EXPRESSIONS: Record<string, string> = {
   atr_ratio_14: "Mean(High - Low, 14) / Close",
 };
 
+/** 因子名 → 中文名称（与后端 factors/registry.py 的内置因子一致，仅覆盖上面列出的因子） */
+export const AKQUANT_FACTOR_LABELS: Record<string, string> = {
+  roc_5: "5日动量",
+  roc_20: "20日动量",
+  rsi_14: "RSI(14)",
+  macd_diff: "MACD柱",
+  ma_trend_20: "MA趋势(20)",
+  ma_trend_60: "MA趋势(60)",
+  close_position: "价格位置(20)",
+  volume_ratio_5: "量比(5)",
+  mfi_14: "MFI(14)",
+  atr_ratio_14: "波动率(14)",
+};
+
 // ---------- 全部算子清单 ----------
 
 /** 可用列 */

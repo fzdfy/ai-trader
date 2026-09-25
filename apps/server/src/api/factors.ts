@@ -10,6 +10,7 @@ import {
   validateFactorExpression,
 } from "../agent/mastra/agents/factor-generator";
 import { validateFactorCode } from "../lib/factor-code";
+import { quant } from "../lib/quant";
 
 const factorsRoute = new Hono();
 
@@ -229,10 +230,118 @@ factorsRoute.post("/generate", async (c) => {
       return ok(c, { expression: FACTOR_GENERATION_FAILURE });
     }
 
+    // 运行校验：quant 用 AKQuant 引擎编译 + 本地真实库小样本实际求值，
+    // 补白名单覆盖不到的运行期语义（算子漂移、缺失行情列、除零导致的全 NaN 等）
+    const runnable = await quant.validateFactorExpression(expression);
+    if (!runnable.valid) {
+      console.warn(
+        "[factors] 因子表达式未通过运行校验：",
+        runnable.stage,
+        runnable.reason,
+        "| 样本：",
+        runnable.sampleSymbols.join(","),
+      );
+      return ok(c, { expression: FACTOR_GENERATION_FAILURE, reason: runnable.reason ?? undefined });
+    }
+
     return ok(c, { expression });
-  } catch (err) {
-    console.error("[factors] generate expression error:", err);
+  } catch (error) {
+    console.error("[factors] generate expression error:", error);
     return serverError(c, "AI 生成服务暂时不可用，请稍后重试。");
+  }
+});
+
+/** 剥离模型偶尔裹上的 Markdown 代码块围栏，避免围栏被当作代码写入数据库 */
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const fenced = /^```[^\n]*\n([\s\S]*?)\n?```$/.exec(trimmed);
+  return (fenced?.[1] ?? trimmed).trim();
+}
+
+// POST /api/v1/factors/generate-code — AI 根据描述生成因子代码，并校验能否运行
+factorsRoute.post("/generate-code", async (c) => {
+  const body = (await c.req.json()) as { description?: string };
+  const description = body.description?.trim();
+  if (!description) return badRequest(c, "description is required");
+
+  try {
+    const agent = mastra.getAgent("factorCodeGenerator");
+    const response = await agent.generate(description);
+    const code = stripCodeFence(response.text);
+
+    // 模型明确判定「无法表达」时，直接透传哨兵文案（前端据此给出提示）
+    if (!code || code === FACTOR_GENERATION_FAILURE) {
+      return ok(c, { code: FACTOR_GENERATION_FAILURE });
+    }
+
+    // 快速拒绝：与 quant 侧同源的 AST 白名单静态校验
+    const staticCheck = validateFactorCode(code);
+    if (!staticCheck.ok) {
+      console.warn("[factors] 因子代码未通过静态校验：", staticCheck.reason, "| 原始输出：", code);
+      return ok(c, { code: FACTOR_GENERATION_FAILURE, reason: staticCheck.reason });
+    }
+
+    // 运行校验：quant 用本地真实库小样本实际执行 compute，确认能跑通且产出有效数值
+    const runnable = await quant.validateFactorCode(code);
+    if (!runnable.valid) {
+      console.warn(
+        "[factors] 因子代码未通过运行校验：",
+        runnable.stage,
+        runnable.reason,
+        "| 样本：",
+        runnable.sampleSymbols.join(","),
+      );
+      return ok(c, { code: FACTOR_GENERATION_FAILURE, reason: runnable.reason ?? undefined });
+    }
+
+    return ok(c, { code });
+  } catch (error) {
+    console.error("[factors] generate code error:", error);
+    return serverError(c, "AI 生成服务暂时不可用，请稍后重试。");
+  }
+});
+
+// POST /api/v1/factors/validate-expression — 校验因子表达式（供用户粘贴 / 手写后「测试」）
+factorsRoute.post("/validate-expression", async (c) => {
+  const body = (await c.req.json()) as { expression?: string };
+  const expression = body.expression?.trim();
+  if (!expression) return badRequest(c, "expression is required");
+
+  // 快速拒绝：只允许白名单内的「行情列 / 算子 / 运算符与语法」
+  const validation = validateFactorExpression(expression);
+  if (!validation.ok) {
+    return ok(c, { valid: false, stage: "syntax", reason: validation.reason, sampleSymbols: [] });
+  }
+
+  // 运行校验：quant 用 AKQuant 引擎编译 + 本地真实库小样本实际求值，确认能跑通且产出有效数值
+  try {
+    const result = await quant.validateFactorExpression(expression);
+    return ok(c, result);
+  } catch (error) {
+    console.error("[factors] validate expression error:", error);
+    return serverError(c, "运行校验服务暂时不可用，请稍后重试。");
+  }
+});
+
+// POST /api/v1/factors/validate-code — 校验因子 Python 代码（供用户粘贴 / 手写后「测试」）
+factorsRoute.post("/validate-code", async (c) => {
+  const body = (await c.req.json()) as { code?: string };
+  const code = body.code?.trim();
+  if (!code) return badRequest(c, "code is required");
+
+  // 快速拒绝：与 quant 侧同源的 AST 白名单静态校验
+  const staticCheck = validateFactorCode(code);
+  if (!staticCheck.ok) {
+    return ok(c, { valid: false, stage: "syntax", reason: staticCheck.reason, sampleSymbols: [] });
+  }
+
+  // 运行校验：quant 用本地真实库小样本实际执行 compute，确认能跑通且产出有效数值
+  try {
+    const result = await quant.validateFactorCode(code);
+    return ok(c, result);
+  } catch (error) {
+    console.error("[factors] validate code error:", error);
+    return serverError(c, "运行校验服务暂时不可用，请稍后重试。");
   }
 });
 
