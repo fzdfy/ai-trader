@@ -27,38 +27,6 @@ export interface ScreenResult {
   fetchMs?: number;
 }
 
-// ---------- 指标缩略图类型（对齐 quant indicators.py 契约） ----------
-
-export interface SeriesSpec {
-  name: string;
-  kind: "line" | "bar" | "area";
-  values: (number | null)[];
-}
-
-export interface BandSpec {
-  name: string;
-  upper: (number | null)[];
-  lower: (number | null)[];
-}
-
-export interface PaneSpec {
-  title: string;
-  series: SeriesSpec[];
-  bands: BandSpec[];
-  refs: number[];
-}
-
-export interface FactorViz {
-  name: string;
-  label: string;
-  panes: PaneSpec[];
-}
-
-export interface SymbolIndicators {
-  symbol: string;
-  factors: FactorViz[];
-}
-
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -111,24 +79,5 @@ export function useScreenResult(queryKey: QueryKey) {
     queryKey,
     enabled: false,
     staleTime: Infinity,
-  });
-}
-
-/** 拉取选股结果的指标缩略图序列（按策略因子 + 结果股票池） */
-export function useScreenIndicators(strategyId: number, symbols: string[]) {
-  return useQuery({
-    queryKey: ["screen-indicators", strategyId, symbols],
-    queryFn: async (): Promise<SymbolIndicators[]> => {
-      const res = await fetch("/api/v1/screens/indicators", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategyId, symbols }),
-      });
-      const json = (await res.json()) as ApiResponse<{ items: SymbolIndicators[] }>;
-      if (!json.success) throw new Error(json.error ?? "指标序列获取失败");
-      return json.data.items;
-    },
-    enabled: strategyId > 0 && symbols.length > 0,
-    staleTime: 60_000,
   });
 }

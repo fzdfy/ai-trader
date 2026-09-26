@@ -42,11 +42,19 @@ import numpy as np
 # 代码长度上限（与 server 侧 MAX_CODE_LENGTH 保持一致）
 MAX_CODE_LENGTH = 5000
 
-# 单次执行（一个标的的一次 compute 调用）行事件上限
+# 单个标的（一次 compute 调用）的行事件上限（逐标的重置，非整批共享）
 MAX_LINE_EVENTS = 2_000_000
 
-# 整批（全部标的）执行的挂钟时间上限（秒）
+# 整批执行的挂钟时间上限（秒）= 基准 + 每标的配额 × 标的数，并受硬上限约束。
+# 逐标的配额用于覆盖合法重因子（如逐 bar 的 Python 循环）在全市场规模下的累积开销，
+# 避免「标的数一多就必然超时」。实际限额 = min(MAX_TIMEOUT, DEFAULT_TIMEOUT + 每标的配额 × n)。
 DEFAULT_TIMEOUT = 20.0
+PER_SYMBOL_TIMEOUT = 0.03
+
+# 硬上限，防止超大股票池把整批超时无限放大。
+# 须低于 nginx proxy_read_timeout（120s），否则网关先返回 HTML 504，前端解析失败；
+# 留出 DB 取数/序列化等开销余量，故取 100s，由 quant 自己抛结构化超时错误。
+MAX_TIMEOUT = 100.0
 
 # 必须定义的入口函数名
 ENTRY_NAME = "compute"
@@ -335,7 +343,8 @@ def run_factor_code(
     Args:
         code: 用户 Python 源码（须定义 compute(data)）
         data_by_symbol: {symbol: {close/high/low/volume/amount...: np.ndarray}}
-        timeout: 整批执行的挂钟时间上限（秒）
+        timeout: 整批执行的挂钟时间基准上限（秒）；实际限额 =
+            min(MAX_TIMEOUT, timeout + PER_SYMBOL_TIMEOUT × 标的数)
 
     Returns:
         {symbol: [因子值...]}（NaN/Inf → None，缺失标的返回空列表）
@@ -345,8 +354,12 @@ def run_factor_code(
     """
     entry = _compile_entry(code)
 
-    deadline = time.perf_counter() + timeout
-    budget = [MAX_LINE_EVENTS]
+    symbol_count = len(data_by_symbol)
+    wall_budget = min(MAX_TIMEOUT, timeout + PER_SYMBOL_TIMEOUT * symbol_count)
+    deadline = time.perf_counter() + wall_budget
+    # 行事件预算按标的重置（每标的独立享有 MAX_LINE_EVENTS），避免整批共享
+    # 导致「标的数一多就必然耗尽预算并误判超时」
+    budget = [0]
 
     def _local_trace(frame: Any, event: str, arg: Any) -> Any:
         if event == "line":
@@ -361,11 +374,12 @@ def run_factor_code(
     sys.settrace(_local_trace)
     try:
         for symbol, data in data_by_symbol.items():
+            budget[0] = MAX_LINE_EVENTS
             try:
                 value = entry(data)
             except _Timeout as e:
                 sys.settrace(None)
-                raise FactorCodeError(f"Python 因子执行超时（>{timeout:.0f}s）") from e
+                raise FactorCodeError(f"Python 因子执行超时（>{wall_budget:.0f}s）") from e
             except FactorCodeError:
                 raise
             except Exception as e:
