@@ -19,7 +19,7 @@ import urllib.parse
 import urllib.request
 
 from ...base import MarketProvider
-from ...common import UA, get_prefix, norm_date, norm_ticker
+from ...common import UA, drop_unsettled_today_bar, get_prefix, norm_date, norm_ticker
 from ...schemas import KlineBar, Quote, TradeTick
 
 # 前复权日 K 线端点：param={前缀}{代码},day,{start},{end},{count},qfq
@@ -250,6 +250,9 @@ class TencentProvider(MarketProvider):
                 for b in bars
                 if (not start or b.time >= start) and (not end or b.time <= end)
             ]
+        # 丢弃当日未结算根（盘中腾讯返回的当日实时日 K，复权价与仿射关系偏离；
+        # 最终结算值由收盘后的当日同步 / 历史回补任务写入）
+        bars = drop_unsettled_today_bar(bars, tf)
         return bars
 
     def transaction(self, symbol: str, date: str | None = None) -> list[TradeTick]:

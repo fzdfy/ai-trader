@@ -141,10 +141,26 @@ export interface StockKlineBar {
   adj_factor: number | null;
 }
 
-/** 个股复权因子一条（quant /adjust-factor 返回；date 为 YYYY-MM-DD） */
-export interface AdjustFactor {
+/** 分段仿射复权参数的一个生效步（quant /adjust-params 返回；date 为 YYYY-MM-DD） */
+export interface AdjustParamPoint {
   date: string;
-  factor: number;
+  /** p_t：前复权乘法因子（送转/拆股累计比，无送转段恒为 1） */
+  qfq_ratio: number;
+  /** D_t：前复权加法偏移（最新段恒为 0） */
+  qfq_offset: number;
+}
+
+/** Route A 复权仿射参数（quant /adjust-params 返回；对齐 server 端 adj_factor / adj_factor_latest） */
+export interface AdjustParams {
+  symbol: string;
+  /** S：后复权乘法常量（标的级全局） */
+  scale: number;
+  /** 最后一个参数生效日 = 窗口内最新交易日 */
+  latest_date: string;
+  /** B：后复权加法常量（标的级全局） */
+  hfq_base: number;
+  source: string;
+  points: AdjustParamPoint[];
 }
 
 /** 同花顺强势股 + 题材归因一条（quant /hot-reason 返回；code 为 6 位裸代码） */
@@ -325,9 +341,10 @@ export const quant = {
   },
 
   /**
-   * 个股日 K 线（腾讯主源，adjust 复权口径 qfq/hfq/none）。
-   * 传入 source 可强制指定单一数据源（如 "tencent"），失败时不走降级链而是抛错，
-   * 避免 qfq 主源失败时静默降级到 mootdx/百度「不复权」数据、污染 bar1d_adj 前复权口径。
+   * 个股日 K 线（主源腾讯，adjust 复权口径 qfq/hfq/none）。
+   * 传入 source 可强制指定单一数据源（如 "tencent"、"eastmoney"），失败时不走降级链而是抛错。
+   * kline-1d 管道以 adjust=none 落库原始价到 bar1d_raw（北交所因腾讯无历史改传 source=eastmoney）；
+   * 复权由 adj-factor 管道反解出的因子经 bar1d_qfq / bar1d_hfq 视图按需派生。
    */
   stockKline: (
     symbol: string,
@@ -342,6 +359,18 @@ export const quant = {
     if (end) path += `&end=${encodeURIComponent(end)}`;
     if (source) path += `&source=${encodeURIComponent(source)}`;
     return getJson<StockKlineBar[]>(path);
+  },
+
+  /**
+   * 复权仿射参数（quant /adjust-params；腾讯仿射复权反解，Route A 分段仿射模型）。
+   * 返回 {scale, latest_date, hfq_base, source, points:[{date, qfq_ratio, qfq_offset}]}，
+   * 供 adj-factor 管道幂等 upsert 到 adj_factor / adj_factor_latest。
+   * 默认腾讯；北交所改传 source=eastmoney。失败时抛错不走降级链（避免污染 qfq 口径）。
+   */
+  adjustParams: (symbol: string, limit = 800, source?: string) => {
+    let path = `/api/v1/data/adjust-params?symbol=${encodeURIComponent(symbol)}&limit=${limit}`;
+    if (source) path += `&source=${encodeURIComponent(source)}`;
+    return getJson<AdjustParams>(path);
   },
 
   /**

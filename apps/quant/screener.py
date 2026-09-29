@@ -135,7 +135,7 @@ def _get_conn() -> psycopg2.extensions.connection:
 def _get_universe(conn: psycopg2.extensions.connection) -> list[dict[str, Any]]:
     """获取有日线数据的股票池（symbol + 中文名）。
 
-    直接读 instrument（5564 行，主键索引）而非对 bar1d_adj（1600 万行）做
+    直接读 instrument（5564 行，主键索引）而非对 bar1d_qfq（1600 万行）做
     DISTINCT 全表扫描——后者单次约 35s，会让选股请求超出网关超时。没有日线的
     标的会在后续按历史长度被跳过，因此结果集不变。
     """
@@ -177,11 +177,11 @@ def _load_universe_bars(
             """
             SELECT u.symbol, b.time,
                    b.open::float8, b.high::float8, b.low::float8, b.close::float8,
-                   b.volume::float8, b.amount::float8
+                   b.volume::float8, b.amount::float8, b.close_raw::float8
             FROM unnest(%s::text[]) AS u(symbol)
             CROSS JOIN LATERAL (
-                SELECT time, open, high, low, close, volume, amount
-                FROM bar1d_adj
+                SELECT time, open, high, low, close, volume, amount, close_raw
+                FROM bar1d_qfq
                 WHERE symbol = u.symbol
                 ORDER BY time DESC
                 LIMIT %s
@@ -203,20 +203,24 @@ def _load_universe_bars(
             "close": [r[5] for r in rows],
             "volume": [r[6] for r in rows],
             "amount": [r[7] for r in rows],
+            "close_raw": [r[8] for r in rows],
         }
     ).sort(["symbol", "date"])
 
     syms = frame["symbol"].to_numpy()
     close_arr = frame["close"].to_numpy()
+    close_raw_arr = frame["close_raw"].to_numpy()
     volume_arr = frame["volume"].to_numpy()
     amount_arr = frame["amount"].cast(pl.Float64).fill_null(float("nan")).to_numpy()
-    # 腾讯日 K 源不返回成交额：沪深标的落库 amount 为 NULL，用 收盘价 × 成交量 估算补齐。
-    # 成交量单位按市场区分：沪深为「手」（×100 换股），北交所（百度源）为「股」且自带成交额。
+    # 腾讯日 K 源不返回成交额：沪深标的落库 amount 为 NULL，用「原始收盘价 × 成交量」估算补齐。
+    # 必须用 close_raw（原始价）而非 close（前复权价）——成交额是当日真实换手金额，
+    # 用复权价在除权日会失真。成交量单位按市场区分：沪深为「手」（×100 换股），
+    # 北交所历史数据为「股」且自带成交额（故此估算路径实际只服务沪深标的）。
     amount_scale = np.where(
         np.array([str(s).endswith(".BJ") for s in frame["symbol"]]), 1.0, 100.0
     )
-    derived = close_arr * volume_arr * amount_scale
-    derived = np.where((close_arr > 0) & (volume_arr > 0), derived, float("nan"))
+    derived = close_raw_arr * volume_arr * amount_scale
+    derived = np.where((close_raw_arr > 0) & (volume_arr > 0), derived, float("nan"))
     amount_arr = np.where(np.isfinite(amount_arr), amount_arr, derived)
 
     arrays = {
@@ -269,7 +273,7 @@ def _load_universe_frame(
             FROM unnest(%s::text[]) AS u(symbol)
             CROSS JOIN LATERAL (
                 SELECT time, open, high, low, close, volume
-                FROM bar1d_adj
+                FROM bar1d_qfq
                 WHERE symbol = u.symbol
                 ORDER BY time DESC
                 LIMIT %s

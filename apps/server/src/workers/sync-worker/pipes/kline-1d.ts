@@ -2,8 +2,10 @@ import { db } from "../../../db";
 import { getPrevTradeDate, getSyncTradeDate, isTradeDay, listRecentTradeDates } from "../calendar";
 import { quant, type StockKlineBar } from "../../../lib/quant";
 import { sql, eq } from "drizzle-orm";
-import { bar1dAdj, instrument } from "../../../db/schema";
+import { bar1dRaw, instrument } from "../../../db/schema";
 import { updateProgress } from "../progress";
+import { adjFactorPipeRun } from "./adj-factor";
+import { klinePeriodPipeRun } from "./kline-period";
 import dayjs from "dayjs";
 
 // export const kline1dPipe = {
@@ -12,7 +14,7 @@ import dayjs from "dayjs";
 //     const isOpen = await isTradeDay(today);
 //     if (!isOpen || !isAfterMarketClose(today)) return;
 //     console.log("[kline-1d] running...");
-//     // TODO: call kline.cn and upsert bar1dAdj
+//     // TODO: call kline.cn and upsert bar1dRaw
 //     console.log("[kline-1d] done");
 //   },
 // };
@@ -33,25 +35,28 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 /**
  * 按标的选源。
- * 北交所历史行情腾讯无数据（实测仅 1 根），只有百度提供完整历史，且百度返回的已是
- * 前复权价（实测与腾讯 qfq 口径一致），故北交所走百度。
- * 沪深仍固定腾讯，避免 qfq 主源失败时静默降级到不复权源污染 bar1d_adj 前复权口径。
+ * 北交所历史行情腾讯无数据（实测仅 1 根）、mootdx TCP 不可达、百度端点已 403，
+ * 故北交所改走东财 push2his（可覆盖 BJ 全历史，fqt=0/1/2 三口径齐全）。
+ * 沪深仍固定腾讯（不封 IP，且为限流下的稳定主源）。
+ *
+ * 注意：本管道落库的是「原始价」（adjust=none），复权由 adj-factor 管道反解出的
+ * 因子经 bar1d_qfq / bar1d_hfq 视图按需派生，故不再有「降级污染前复权口径」问题；
+ * 固定单一源只是为了避免上游限流下静默切换导致的原始价口径不一致。
  */
-function klineSource(symbol: string): "tencent" | "baidu" {
-  return symbol.endsWith(".BJ") ? "baidu" : "tencent";
+function klineSource(symbol: string): "tencent" | "eastmoney" {
+  return symbol.endsWith(".BJ") ? "eastmoney" : "tencent";
 }
 
 /**
- * 全量拉取：从 endDate 往前翻页拉完整前复权历史（forceFull 与「无历史记录的增量标的」共用），
- * 彻底对齐除权后的口径。固定单一源（北交所百度 / 沪深腾讯），避免 qfq 主源失败时
- * 静默降级到不复权源污染口径。
+ * 全量拉取：从 endDate 往前翻页拉完整原始价历史（forceFull 与「无历史记录的增量标的」共用）。
+ * 固定单一源（北交所东财 / 沪深腾讯），避免限流下静默降级导致的原始价口径差异。
  */
 async function fetchFullKlines(symbol: string, endDate: string): Promise<StockKlineBar[]> {
   const out: StockKlineBar[] = [];
   let end = endDate;
   for (;;) {
     // 移除 catch：异常向上抛给 fetchWithRetry 统一退避重试，避免空结果/异常被静默吞掉。
-    const chunk = await quant.stockKline(symbol, KLINE_PAGE, undefined, end, "qfq", klineSource(symbol));
+    const chunk = await quant.stockKline(symbol, KLINE_PAGE, undefined, end, "none", klineSource(symbol));
     if (chunk.length === 0) break;
     out.push(...chunk);
     if (chunk.length < KLINE_PAGE) break; // 不足一页说明已拉到底
@@ -99,7 +104,7 @@ async function fetchWithRetry(
   return [];
 }
 
-/** upsert 单标的日线（分批 200 条，按 (time,symbol) 幂等覆盖），返回写入条数。 */
+/** upsert 单标的原始价日线（分批 200 条，按 (time,symbol) 幂等覆盖），返回写入条数。 */
 async function upsertBars(symbol: string, klines: StockKlineBar[]): Promise<number> {
   const batch = klines.map((k) => ({
     time: new Date(k.time),
@@ -119,10 +124,10 @@ async function upsertBars(symbol: string, klines: StockKlineBar[]): Promise<numb
 
   for (let j = 0; j < batch.length; j += 200) {
     await db
-      .insert(bar1dAdj)
+      .insert(bar1dRaw)
       .values(batch.slice(j, j + 200))
       .onConflictDoUpdate({
-        target: [bar1dAdj.time, bar1dAdj.symbol],
+        target: [bar1dRaw.time, bar1dRaw.symbol],
         set: {
           open: sql.raw("excluded.open"),
           high: sql.raw("excluded.high"),
@@ -141,7 +146,7 @@ async function upsertBars(symbol: string, klines: StockKlineBar[]): Promise<numb
 
 export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<void> {
   // 腾讯日线收盘后即定稿（收盘集合竞价 15:00 定格），无需再等 16:00；
-  // 非交易日跳过（forceFull 忽略守卫，可任意时间运行以对齐前复权口径）。
+  // 非交易日跳过（forceFull 忽略守卫，可任意时间运行以对齐原始价口径）。
   const now = new Date();
   if (!opts?.forceFull && !(await isTradeDay(now))) {
     console.log("[kline-1d] not a trade day, skip");
@@ -168,7 +173,7 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
   const expectedDate = (await getSyncTradeDate()) ?? dayjs().format("YYYY-MM-DD");
 
   // 腾讯 fqkline 按「精确的 param 字符串」做服务端缓存（实测：同一 symbol 下
-  // `...day,2026-09-17,2026-09-18,500,qfq` 在晚间仍返回截至 09-17 的截断结果，而把 limit
+  // `...day,2026-09-17,2026-09-18,500,none` 在晚间仍返回截至 09-17 的截断结果，而把 limit
   // 换成 501 即返回含 09-18 的完整数据）。交易日收盘后首次请求若恰逢当日数据尚未发布，就会
   // 缓存该截断响应；而 deadline 重试（每 5 分钟一次）会重新生成完全相同的 param，从而始终
   // 命中陈旧缓存、直到 18:00 判定失败。这里把增量请求的 limit 按 5 分钟时间桶轮换
@@ -178,7 +183,7 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
 
   // 一次性查出所有标的的最新日线时间，作为增量起点（无历史记录的标的走全量）
   const latestRes = await db.execute(sql`
-    SELECT symbol, MAX(time) AS latest FROM bar1d_adj GROUP BY symbol
+    SELECT symbol, MAX(time) AS latest FROM bar1d_raw GROUP BY symbol
   `);
   const latestBySymbol = new Map<string, string>();
   for (const row of latestRes.rows) {
@@ -215,7 +220,7 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
       // 增量：已有历史，空结果/异常几乎必然是上游限流/临时故障，退避重试后仍空才判失败。
       // limit 用轮换值（见 incrementalLimit）绕过腾讯按 param 缓存当日截断结果的问题。
       klines = await fetchWithRetry(
-        () => quant.stockKline(symbol, incrementalLimit, startDate, today, "qfq", "tencent"),
+        () => quant.stockKline(symbol, incrementalLimit, startDate, today, "none", klineSource(symbol)),
         symbol,
       );
     } else {
@@ -232,7 +237,7 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     const bars = await upsertBars(symbol, klines);
 
     // 是否真的取到了期望交易日的数据：非空但止于上一交易日视为「未同步」。
-    // 腾讯前复权序列收盘后当晚常延迟发布当日数据，此时会返回上一交易日为止的非空窗口，
+    // 上游原始价序列收盘后当晚常延迟发布当日数据，此时会返回上一交易日为止的非空窗口，
     // 若仅判空则会被误当成功。已取到的历史仍写入（幂等覆盖，防数据回退）。
     let latestFetched = klines[0]!.time;
     for (const k of klines) {
@@ -248,10 +253,10 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     return { bars, reached };
   };
 
-  // 受控并发拉取（quant 侧 K 线为前复权口径：沪深固定腾讯 fqkline，北交所固定百度，
-  // 均为不封 IP 源）。并发 2 + 每标的 800ms 间隔，把请求速率压到限流阈值之下，避免
-  // 串行 5000+ 标的耗时过长导致依赖 kline-1d 的 features 错过当日执行窗口。
-  // 注：前复权遇除权会整体漂移历史价，建议定期全量重刷对齐口径。
+  // 受控并发拉取（quant 侧 K 线为原始价口径：沪深固定腾讯 fqkline，北交所固定东财 push2his）。
+  // 并发 2 + 每标的 800ms 间隔，把请求速率压到限流阈值之下（东财更严，靠 quant 侧 _em_get 串行限流兜底），
+  // 避免串行 5000+ 标的耗时过长导致依赖 kline-1d 的 features 错过当日执行窗口。
+  // 注：本管道落库原始价，除权不再漂移历史价（复权因子由 adj-factor 管道维护）。
   const CONCURRENCY = 2;
   // 限流降速：腾讯 fqkline 持续高频请求会触发限流（返回空/超时），全量回补时
   // 每个标的之间留出间隔，配合并发 2 将请求速率压到限流阈值之下。
@@ -320,6 +325,9 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
 //   - 内部缺口 → 只补「缺口区间」（quant.stockKline 带 start/end），不做整段重刷。
 // 空数据语义：头部全量拉取若「尝试了却无一成功」判为上游故障抛错触发 deadline 重试；
 //   内部缺口补拉可能因停牌等正常原因为空，仅告警跳过（下次运行会再尝试，自愈）。
+// 下游重收敛：回补改写了历史日线，故在本任务末尾对「本次实际写入的标的」定向重跑
+//   adj-factor（重解受影响区间的分段仿射参数）与 kline-period（整段重建周期线）——
+//   二者在 15:10 的主链路已于本任务（19:30）之前跑完，若不在此收敛则长期停留在不一致状态。
 
 /** 内部缺口检测回看窗口（交易日）。头部缺失不受此窗口限制，始终按上市日全历史判定。 */
 export const KLINE_BACKFILL_GAP_WINDOW = 120;
@@ -347,7 +355,7 @@ async function detectHeadMissing(): Promise<string[]> {
   const res = await db.execute(sql`
     SELECT i.symbol AS symbol, i.list_date AS list_date, MIN(b.time) AS first_bar
     FROM instrument i
-    LEFT JOIN bar1d_adj b ON b.symbol = i.symbol
+    LEFT JOIN bar1d_raw b ON b.symbol = i.symbol
     WHERE i.status = 'listed'
     GROUP BY i.symbol, i.list_date
   `);
@@ -361,10 +369,11 @@ async function detectHeadMissing(): Promise<string[]> {
     }
     if (r.list_date == null) {
       // 无上市日无法按「首根晚于上市日」判定。沪深历史已由腾讯完整落库（首根即真实上市日），
-      // 跳过避免误判；北交所因腾讯无 BJ 历史，存量可能只落过 1~2 根，其 list_date 只有在本
-      // 管道首次全量回补（百度全历史）成功后才由 anchorBjListDate 锚定（不由 sync-instruments 回填，
-      // 避免用被截断的历史封口）。为打破这个先后依赖，对 list_date 为空（= 尚未成功回补过）的
-      // 北交所标的直接纳入回补；成功回补后 list_date 落地，后续即收敛为正常的「首根晚于上市日」判定。
+      // 跳过避免误判；北交所因腾讯无 BJ 历史、东财首根才是真实上市日，存量可能只落过 1~2 根，
+      // 其 list_date 只有在本管道首次全量回补（东财全历史）成功后才由 anchorBjListDate 锚定
+      // （不由 sync-instruments 回填，避免用被截断的历史封口）。为打破这个先后依赖，对 list_date
+      // 为空（= 尚未成功回补过）的北交所标的直接纳入回补；成功回补后 list_date 落地，后续即收敛为
+      // 正常的「首根晚于上市日」判定。
       if (r.symbol.endsWith(".BJ")) out.push(r.symbol);
       continue;
     }
@@ -378,7 +387,7 @@ async function detectHeadMissing(): Promise<string[]> {
 
 /**
  * 用一次「成功的全量拉取」结果锚定北交所标的的 list_date（真实上市日）。
- * 北交所历史仅百度提供，拉取为空（瞬时故障/限流）时不写，留待下次运行重试；只有真正拉全历史时，
+ * 北交所历史仅东财提供，拉取为空（瞬时故障/限流）时不写，留待下次运行重试；只有真正拉全历史时，
  * 最早一根才是可信上市日。沪深 list_date 由 sync-instruments 从腾讯完整历史回填，不经此路径。
  * 目的：打破「用被截断的历史回填列表日 → 误判头部完整 → 永不重试」的自我封口死循环。
  */
@@ -403,7 +412,7 @@ async function detectInteriorGaps(expectedDays: string[]): Promise<Map<string, s
   // 先按窗口内覆盖条数筛出「有缺日」候选，避免为全部标的拉取明细
   const coverRes = await db.execute(sql`
     SELECT symbol, COUNT(*) AS cnt
-    FROM bar1d_adj
+    FROM bar1d_raw
     WHERE time >= ${windowStart} AND time <= ${windowEnd}
     GROUP BY symbol
   `);
@@ -415,7 +424,7 @@ async function detectInteriorGaps(expectedDays: string[]): Promise<Map<string, s
 
   for (const symbol of candidates) {
     const detail = await db.execute(sql`
-      SELECT DISTINCT time FROM bar1d_adj
+      SELECT DISTINCT time FROM bar1d_raw
       WHERE symbol = ${symbol} AND time >= ${windowStart} AND time <= ${windowEnd}
     `);
     const present = new Set<string>();
@@ -481,6 +490,8 @@ export async function kline1dBackfillRun(opts?: { force?: boolean }): Promise<vo
   let gapSuspended = 0;
   const headFailedSample: string[] = [];
   const gapSuspendedSample: string[] = [];
+  // 本次实际写入过历史日线的标的：回补成功后据此定向重收敛下游（adj-factor / kline-period）
+  const affected = new Set<string>();
 
   const processTask = async (task: BackfillTask): Promise<void> => {
     if (task.ranges == null) {
@@ -493,6 +504,7 @@ export async function kline1dBackfillRun(opts?: { force?: boolean }): Promise<vo
       } else {
         barsTotal += await upsertBars(task.symbol, klines);
         headResolved++;
+        affected.add(task.symbol);
         // 北交所 list_date 由「成功的全量拉取」锚定：拉取为空时不写，避免用被截断的历史自我封口，
         // 保证下次运行仍会被 detectHeadMissing 捕获并重试（沪深 list_date 由 sync-instruments 回填）。
         if (task.symbol.endsWith(".BJ")) await anchorBjListDate(task.symbol, klines);
@@ -510,7 +522,7 @@ export async function kline1dBackfillRun(opts?: { force?: boolean }): Promise<vo
             KLINE_PAGE,
             r.start.replaceAll("-", ""),
             r.end.replaceAll("-", ""),
-            "qfq",
+            "none",
             klineSource(task.symbol),
           ),
         task.symbol,
@@ -519,6 +531,7 @@ export async function kline1dBackfillRun(opts?: { force?: boolean }): Promise<vo
       if (klines.length > 0) {
         barsTotal += await upsertBars(task.symbol, klines);
         ok = true;
+        affected.add(task.symbol);
       }
       await sleep(BACKFILL_THROTTLE_MS);
     }
@@ -563,4 +576,14 @@ export async function kline1dBackfillRun(opts?: { force?: boolean }): Promise<vo
   console.log(
     `[kline-1d-backfill] done. 头部补全 ${headResolved}/${headAttempted} 只；内部缺口补全 ${gapResolved}/${gapTotal} 只；累计 ${barsTotal} bars`,
   );
+
+  // 下游定向重收敛：回补改写了这些标的的历史日线，其复权仿射区间与周期线分组均已变化。
+  // 只对「本次实际写入的标的」重跑，避免全市场无谓重算；失败向上抛（job 标 failed）由
+  // deadline 窗口内重试兜底 —— 与全链路「杜绝假成功」的口径一致。
+  if (affected.size > 0) {
+    const symbols = [...affected];
+    console.log(`[kline-1d-backfill] 触发下游定向重收敛：${symbols.length} 只标的`);
+    await adjFactorPipeRun({ symbols });
+    await klinePeriodPipeRun({ symbols });
+  }
 }

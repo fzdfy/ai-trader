@@ -1,6 +1,6 @@
 """因子预计算与落库。
 
-直读 PostgreSQL 的 bar1d_adj 日线，用 factors.registry 内置因子，
+直读 PostgreSQL 的 bar1d_qfq 日线视图，用 factors.registry 内置因子，
 对每个标的按交易日滑动窗口计算因子值，写入 feature_value 表。
 同时负责初始化 feature_set（默认特征集）。
 
@@ -114,7 +114,7 @@ def compute_features(symbols: list[str] | None = None) -> dict[str, int]:
                 cur.execute(
                     """
                     SELECT time, high, low, close, volume
-                    FROM bar1d_adj
+                    FROM bar1d_qfq
                     WHERE symbol = %s
                     ORDER BY time ASC
                     """,

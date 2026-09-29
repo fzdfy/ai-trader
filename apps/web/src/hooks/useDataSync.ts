@@ -64,6 +64,7 @@ export const SYNC_MODULE_NAMES: Record<string, string> = {
   "hot-reason": "题材归因",
   "kline-period": "周期 K 线",
   features: "特征计算",
+  "adj-factor": "复权因子",
   "limit-up-pool-backfill": "涨停池回补",
   "dragon-tiger-backfill": "龙虎榜回补",
   "hot-reason-backfill": "题材归因回补",

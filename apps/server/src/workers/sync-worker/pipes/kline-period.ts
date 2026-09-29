@@ -1,5 +1,5 @@
 /**
- * kline-period 管道 — 由 bar1d_adj 日线聚合生成 5日/周/月 周期 K 线。
+ * kline-period 管道 — 由 bar1d_qfq 日线聚合生成 5日/周/月 周期 K 线。
  *
  * 设计要点：
  * - 只从日线表本地聚合，不调上游 API，保证复权口径一致。
@@ -53,12 +53,12 @@ async function periodStart(symbol: string, period: Period, at: Date): Promise<Da
       SELECT MIN(t.time) AS start
       FROM (
         SELECT time, (ROW_NUMBER() OVER (ORDER BY time) - 1) / 5 AS grp
-        FROM bar1d_adj
+        FROM bar1d_qfq
         WHERE symbol = ${symbol}
       ) t
       WHERE t.grp = (
         SELECT (COUNT(*) - 1) / 5
-        FROM bar1d_adj
+        FROM bar1d_qfq
         WHERE symbol = ${symbol} AND time <= ${atIso}
       )
     `);
@@ -67,7 +67,7 @@ async function periodStart(symbol: string, period: Period, at: Date): Promise<Da
     const trunc = period === "1w" ? "DATE_TRUNC('week', time)" : "DATE_TRUNC('month', time)";
     const res = await db.execute(sql`
       SELECT ${sql.raw(trunc)} AS start
-      FROM bar1d_adj
+      FROM bar1d_qfq
       WHERE symbol = ${symbol} AND time <= ${atIso}
       ORDER BY time DESC
       LIMIT 1
@@ -130,7 +130,7 @@ async function aggregateSymbol(
           MAX(t.source_updated_at)
         FROM (
           SELECT d.*, (ROW_NUMBER() OVER (ORDER BY d.time) - 1) / 5 AS grp
-          FROM bar1d_adj d
+          FROM bar1d_qfq d
           ${where}
         ) t
         GROUP BY t.symbol, t.grp
@@ -153,7 +153,7 @@ async function aggregateSymbol(
           COUNT(*),
           MIN(d.time)::date,
           MAX(d.source_updated_at)
-        FROM bar1d_adj d
+        FROM bar1d_qfq d
         ${where}
         GROUP BY d.symbol, ${sql.raw(period === "1w" ? "DATE_TRUNC('week', d.time)" : "DATE_TRUNC('month', d.time)")}
       `);
@@ -164,11 +164,43 @@ async function aggregateSymbol(
 }
 
 /**
+ * 指定标的的周期线全量重建（delete + 从完整日线序列重灌）。
+ *
+ * 与增量重算的区别：增量只从「最后一个已聚合周期」起算，无法修正该起点之前的周期；
+ * 而 kline-1d 回补写入历史日线后，5d 的滚动分组（ROW_NUMBER）会整体位移、1w/1mo 自缺口起
+ * 的分组也随之变化 —— 凡「回补改写历史」的场景都必须整段重建，否则历史周期线会与实际日线错位。
+ */
+async function rebuildSymbols(symbols: string[], label: string): Promise<void> {
+  if (symbols.length === 0) return;
+  console.log(`[kline-period] ${label} rebuild for ${symbols.length} symbols`);
+  updateProgress(0, symbols.length, "开始重建周期 K 线");
+  let total = 0;
+  let done = 0;
+  for (const symbol of symbols) {
+    for (const period of PERIODS) {
+      total += await aggregateSymbol(symbol, period, null);
+    }
+    done++;
+    if (done % 50 === 0 || done === symbols.length) {
+      updateProgress(done, symbols.length, `已重建周期线 ${done}/${symbols.length}`);
+    }
+  }
+  console.log(`[kline-period] ${label} done. ${total} bars total`);
+}
+
+/**
  * 增量运行：对每个上市标的，重算包含最新交易日的各周期。
  *
  * 只在 kline-1d 管道写入完成后调用（由 sync-worker 编排）。
+ *
+ * opts.symbols：定向重收敛 —— kline-1d 回补改写历史日线后，仅对本次实际写入的标的做
+ * 整段重建（回补插入的历史点会位移 5d 滚动分组 / 改变 1w、1mo 分组边界，不能走增量）。
  */
-export async function klinePeriodPipeRun(): Promise<void> {
+export async function klinePeriodPipeRun(opts?: { symbols?: string[] }): Promise<void> {
+  if (opts?.symbols != null) {
+    await rebuildSymbols(opts.symbols, "reconcile");
+    return;
+  }
   const symbols = await db
     .select({ symbol: instrument.symbol })
     .from(instrument)
@@ -184,7 +216,7 @@ export async function klinePeriodPipeRun(): Promise<void> {
   // 一次性查出所有标的的最新日线日期：用于确定「可交易标的」分母与「当日已同步」分子。
   // 周期线由日线聚合而来，其最新日期不会超过日线；故以日线是否到达期望交易日为准。
   const latestRes = await db.execute(sql`
-    SELECT symbol, MAX(time) AS latest FROM bar1d_adj GROUP BY symbol
+    SELECT symbol, MAX(time) AS latest FROM bar1d_qfq GROUP BY symbol
   `);
   const latestBySymbol = new Map<string, string>();
   const latestDateBySymbol = new Map<string, Date>();
@@ -298,13 +330,8 @@ export async function klinePeriodRebuildAll(): Promise<void> {
     console.log("[kline-period] no listed symbols, skip");
     return;
   }
-
-  console.log(`[kline-period] full rebuild for ${symbols.length} symbols`);
-  let total = 0;
-  for (const { symbol } of symbols) {
-    for (const period of PERIODS) {
-      total += await aggregateSymbol(symbol, period, null);
-    }
-  }
-  console.log(`[kline-period] full rebuild done. ${total} bars total`);
+  await rebuildSymbols(
+    symbols.map((s) => s.symbol),
+    "full",
+  );
 }

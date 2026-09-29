@@ -21,7 +21,7 @@ pnpm monorepo，智能 A 股分析与策略平台：
 |------|------|------|
 | A 取数层 | `apps/quant/data/`（router → registry → providers） | 实时抓取，不落库，供前端与 agent 使用 |
 | B 入库层 | `apps/server/src/workers/sync-worker/pipes/` | cron 拉取后写入 PostgreSQL |
-| C 回测读取层 | `apps/quant/data_loader.load_kline` | 只查 `bar1d_adj` 表 |
+| C 回测读取层 | `apps/quant/data_loader.load_kline` | 只查 `bar1d_qfq` 前复权视图（由原始价基表 `bar1d_raw` + 复权因子表按分段仿射模型派生） |
 
 完整链路：sync-worker → quant `/api/v1/data/kline` → PostgreSQL → `load_kline` → 回测引擎。
 

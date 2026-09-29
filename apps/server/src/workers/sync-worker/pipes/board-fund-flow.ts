@@ -7,7 +7,7 @@
  *
  * 写入策略：upsert（date + board_type + period + code 主键，同日覆盖为当天最后一次同步结果）。
  * 上游返回 6 位裸代码（如 600519），落库前转换为标准 symbol（600519.SH），
- * 便于直接 JOIN quote_latest / bar1d_adj 等行情表。
+ * 便于直接 JOIN quote_latest / bar1d_qfq 等行情表。
  */
 
 import { quant } from "../../../lib/quant";

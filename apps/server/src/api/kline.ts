@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { bar1mAdj, bar1dAdj, barPeriodAdj } from "../db/schema";
+import { bar1mAdj, bar1dQfq, barPeriodAdj } from "../db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 
@@ -32,7 +32,7 @@ klineRoute.get("/", async (c) => {
     return ok(c, rows);
   }
 
-  const table = tf === "1d" ? bar1dAdj : bar1mAdj;
+  const table = tf === "1d" ? bar1dQfq : bar1mAdj;
   let query = db.select().from(table).where(eq(table.symbol, symbol)).$dynamic();
   if (start) query = query.where(gte(table.time, new Date(start)));
   if (end) query = query.where(lte(table.time, new Date(end)));
@@ -58,7 +58,7 @@ klineRoute.get("/last", async (c) => {
     return ok(c, row ?? null);
   }
 
-  const table = tf === "1d" ? bar1dAdj : bar1mAdj;
+  const table = tf === "1d" ? bar1dQfq : bar1mAdj;
   const [row] = await db
     .select()
     .from(table)

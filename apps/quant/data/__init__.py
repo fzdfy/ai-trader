@@ -7,12 +7,13 @@ quant 统一数据获取包。
 - `common`    公共工具（代码归一化 / 市场前缀 / 通达信客户端）
 - `registry`  数据源注册表 + 降级选择（增删平台只需改这里 + providers）
 - `providers` 各数据源实现（每源独立子文件夹：mootdx / tencent / baidu / sina）
+- `adjust`    复权仿射参数反解（Route A 腾讯仿射复刻，腾讯 raw/qfq/hfq 反解）
 - `router`    统一 API 路由（挂载于 /api/v1/data）
 
 增删平台：在 `providers/` 下新增子文件夹实现 provider，在 `providers/__init__.py`
 导出，再在 `registry.py` 登记其能力与降级优先级即可。
 """
-from . import base, common, registry, router, schemas
+from . import adjust, base, common, registry, router, schemas
 from .providers import (
     BaiduProvider,
     EastmoneyProvider,

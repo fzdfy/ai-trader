@@ -247,7 +247,7 @@ async function fetchLimitUpPool(date?: string): Promise<LimitUpPoolItem[]> {
   return res.items;
 }
 
-/** 3 连板及以上 top5（从 bar1d_adj 表按涨幅阈值统计） */
+/** 3 连板及以上 top5（从 bar1d_qfq 表按涨幅阈值统计） */
 async function fetchLimitUp(date?: string): Promise<unknown[]> {
   const res = await getConsecutiveLimitUpData(date, 3, 5);
   return res.items;

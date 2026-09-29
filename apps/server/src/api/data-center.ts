@@ -107,10 +107,10 @@ export const DATA_CENTER_TABLES: DataTableDef[] = [
     jobTypes: ["kline-1m"],
   },
   {
-    table: "bar1d_adj",
+    table: "bar1d_qfq",
     name: "日 K 线",
     description:
-      "权威日线数据（前复权），从上游独立同步（含集合竞价），周线 / 月线可由此派生；回测读取层 load_kline 的唯一数据源。",
+      "权威日线读取视图（前复权），由原始价基表 bar1d_raw 与复权因子表按分段仿射模型实时派生；回测读取层 load_kline 的唯一数据源。",
     timeColumn: "time",
     jobTypes: ["kline-1d", "kline-1d-backfill"],
   },

@@ -1,5 +1,5 @@
 /**
- * 筹码分布 API — 基于 bar1d_adj 历史日线实时计算成本分布。
+ * 筹码分布 API — 基于 bar1d_qfq 历史日线实时计算成本分布。
  *
  * 算法：经典"三角形分布"筹码模型（成本分布）。
  * 每根 K 线的成交量按三角形分布摊到 [low, high] 价格区间，
@@ -10,7 +10,7 @@
 
 import { Hono } from "hono";
 import { db } from "../db";
-import { bar1dAdj, boardKline } from "../db/schema";
+import { bar1dQfq, boardKline } from "../db/schema";
 import { eq, lte, desc } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
 
@@ -45,16 +45,16 @@ chipsRoute.get("/", async (c) => {
   // 拉取最近 N 个交易日的日线
   const rows = await db
     .select({
-      time: bar1dAdj.time,
-      open: bar1dAdj.open,
-      high: bar1dAdj.high,
-      low: bar1dAdj.low,
-      close: bar1dAdj.close,
-      volume: bar1dAdj.volume,
+      time: bar1dQfq.time,
+      open: bar1dQfq.open,
+      high: bar1dQfq.high,
+      low: bar1dQfq.low,
+      close: bar1dQfq.close,
+      volume: bar1dQfq.volume,
     })
-    .from(bar1dAdj)
-    .where(eq(bar1dAdj.symbol, symbol))
-    .orderBy(desc(bar1dAdj.time))
+    .from(bar1dQfq)
+    .where(eq(bar1dQfq.symbol, symbol))
+    .orderBy(desc(bar1dQfq.time))
     .limit(days);
 
   if (rows.length === 0) return ok(c, null);

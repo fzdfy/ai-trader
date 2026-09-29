@@ -16,6 +16,7 @@ const log = createLogger("sync");
 export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "kline-1m", name: "分钟 K 线" },
   { jobType: "kline-1d", name: "日 K 线" },
+  { jobType: "adj-factor", name: "复权因子" },
   { jobType: "gap-detect", name: "缺口检测" },
   { jobType: "news", name: "新闻" },
   { jobType: "boards", name: "板块排行" },
@@ -42,6 +43,7 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
 const WORKER_MARKET_JOBS = [
   "boards",
   "kline-1d",
+  "adj-factor",
   "kline-period",
   "board-kline",
   "constituents",

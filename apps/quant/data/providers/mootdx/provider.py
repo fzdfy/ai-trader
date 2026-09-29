@@ -13,7 +13,7 @@ bars() 返回【不复权】数据，跨除权日比价需配合新浪复权因�
 from __future__ import annotations
 
 from ...base import MarketProvider
-from ...common import norm_date, norm_ticker, tdx_client
+from ...common import drop_unsettled_today_bar, norm_date, norm_ticker, tdx_client
 from ...schemas import BidAskLevel, KlineBar, Quote, TradeTick
 
 # tf → mootdx frequency 映射（mootdx 0.11.7 实测频率值表）
@@ -81,6 +81,9 @@ class MootdxProvider(MarketProvider):
                 for b in bars
                 if (not start or b.time >= start) and (not end or b.time <= end)
             ]
+        # 丢弃当日未结算根（仅日线 tf=1d 生效；分钟级当日全部分钟线都带当日日期，
+        # 按日期过滤会误删整段盘中行情）
+        bars = drop_unsettled_today_bar(bars, tf)
         return bars
 
     def quote(self, symbols: list[str]) -> dict[str, Quote]:

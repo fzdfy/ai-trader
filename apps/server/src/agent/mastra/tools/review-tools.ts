@@ -6,7 +6,7 @@
  *   2. getFundFlowRank      从 fund_flow_rank 表读取行业/概念/个股资金流排行
  *   3. getBoardConstituents 从 board_constituent 表读取板块核心成分股
  *   4. getDailyBoardChanges 从 board_history 表计算当日板块异动（对比上一交易日）
- *   5. getConsecutiveLimitUp 从 bar1d_adj 表按涨幅阈值统计连板（≥3 连板）
+ *   5. getConsecutiveLimitUp 从 bar1d_qfq 表按涨幅阈值统计连板（≥3 连板）
  *   6. getStockPoolChange   从 stock_pool 表对比今日与上一交易日选股池变动
  *
  * 核心设计：每个工具背后都对应一个「导出的数据访问函数」（getXxxData），
@@ -22,7 +22,7 @@ import {
   fundFlowRank,
   boardConstituent,
   boardHistory,
-  bar1dAdj,
+  bar1dQfq,
   instrument,
   limitUpPool,
   board,
@@ -921,7 +921,7 @@ export async function getDailyBoardChangesData(
   return { type, date: today, items };
 }
 
-/** 连板统计：从 bar1d_adj 全市场日 K 按涨停阈值统计连续涨停天数 */
+/** 连板统计：从 bar1d_qfq 全市场日 K 按涨停阈值统计连续涨停天数 */
 export async function getConsecutiveLimitUpData(
   date?: string,
   minConsecutive = 3,
@@ -944,9 +944,9 @@ export async function getConsecutiveLimitUpData(
     target = new Date(`${date}T00:00:00`);
   } else {
     const latest = await db
-      .select({ time: bar1dAdj.time })
-      .from(bar1dAdj)
-      .orderBy(desc(bar1dAdj.time))
+      .select({ time: bar1dQfq.time })
+      .from(bar1dQfq)
+      .orderBy(desc(bar1dQfq.time))
       .limit(1);
     if (latest.length === 0) return { date: null, items: [] };
     target = latest[0]!.time;
@@ -954,22 +954,22 @@ export async function getConsecutiveLimitUpData(
   const targetDate = target.toISOString().slice(0, 10);
 
   const recentDates = await db
-    .selectDistinct({ time: bar1dAdj.time })
-    .from(bar1dAdj)
-    .where(lte(bar1dAdj.time, target))
-    .orderBy(desc(bar1dAdj.time))
+    .selectDistinct({ time: bar1dQfq.time })
+    .from(bar1dQfq)
+    .where(lte(bar1dQfq.time, target))
+    .orderBy(desc(bar1dQfq.time))
     .limit(16);
   if (recentDates.length === 0) return { date: targetDate, items: [] };
   const start = recentDates[recentDates.length - 1]!.time;
 
   const bars = await db
     .select({
-      symbol: bar1dAdj.symbol,
-      time: bar1dAdj.time,
-      close: bar1dAdj.close,
+      symbol: bar1dQfq.symbol,
+      time: bar1dQfq.time,
+      close: bar1dQfq.close,
     })
-    .from(bar1dAdj)
-    .where(and(gte(bar1dAdj.time, start), lte(bar1dAdj.time, target)));
+    .from(bar1dQfq)
+    .where(and(gte(bar1dQfq.time, start), lte(bar1dQfq.time, target)));
 
   const insts = await db
     .select({ symbol: instrument.symbol, name: instrument.name })
@@ -1285,11 +1285,11 @@ export const dailyBoardChangesTool = createTool({
   execute: async ({ type, limit }) => getDailyBoardChangesData(type, limit),
 });
 
-/** 连板统计，从 bar1d_adj 表按涨幅阈值计算 */
+/** 连板统计，从 bar1d_qfq 表按涨幅阈值计算 */
 export const consecutiveLimitUpTool = createTool({
   id: "getConsecutiveLimitUp",
   description:
-    "统计连续涨停（连板）的个股：从 bar1d_adj 日 K 按涨停阈值（ST≈4.8%、创业板/科创板≈19.8%、主板≈9.8%）" +
+    "统计连续涨停（连板）的个股：从 bar1d_qfq 日 K 按涨停阈值（ST≈4.8%、创业板/科创板≈19.8%、主板≈9.8%）" +
     "计算连续涨停天数，筛选 >= minConsecutive（默认 3 连板及以上）的个股，按连板数降序。",
   inputSchema: z.object({
     date: z.string().optional().describe("目标交易日 YYYY-MM-DD，缺省取最新交易日"),

@@ -11,7 +11,7 @@ def _get_conn():
 
 
 def load_kline(symbol: str, start_date: str | None = None, end_date: str | None = None) -> pd.DataFrame:
-    """从 bar1d_adj 表加载日线数据，返回 AKQuant 兼容的 DataFrame。
+    """从 bar1d_qfq 视图加载日线数据，返回 AKQuant 兼容的 DataFrame。
 
     列: time, open, high, low, close, volume, amount, indicators
     """
@@ -20,7 +20,7 @@ def load_kline(symbol: str, start_date: str | None = None, end_date: str | None 
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             query = """
                 SELECT time, open, high, low, close, volume, amount, indicators
-                FROM bar1d_adj
+                FROM bar1d_qfq
                 WHERE symbol = %s
             """
             params = [symbol]

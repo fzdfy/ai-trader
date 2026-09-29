@@ -33,6 +33,7 @@ import { dragonTigerPipeRun, dragonTigerBackfillRun } from "./pipes/dragon-tiger
 import { hotReasonPipeRun, hotReasonBackfillRun } from "./pipes/hot-reason";
 import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
+import { adjFactorPipeRun } from "./pipes/adj-factor";
 
 export type PipeName =
   | "kline-1m"
@@ -50,6 +51,7 @@ export type PipeName =
   | "hot-reason"
   | "kline-period"
   | "calendar"
+  | "adj-factor"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -72,6 +74,7 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "hot-reason": () => hotReasonPipeRun(),
   "kline-period": () => klinePeriodPipeRun(),
   calendar: () => calendarPipeRun(),
+  "adj-factor": () => adjFactorPipeRun(),
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),
@@ -302,8 +305,9 @@ const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "board-kline", dependsOn: "boards" },
   { name: "constituents", dependsOn: "boards" },
   { name: "kline-1d" },
-  { name: "kline-period", dependsOn: "kline-1d" },
-  { name: "features", dependsOn: "kline-1d" },
+  { name: "adj-factor", dependsOn: "kline-1d" },
+  { name: "kline-period", dependsOn: "adj-factor" },
+  { name: "features", dependsOn: "adj-factor" },
   { name: "fundflow" },
   { name: "limit-up-pool" },
   { name: "board-fund-flow" },

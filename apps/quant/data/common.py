@@ -8,6 +8,13 @@
 from __future__ import annotations
 
 import socket
+from datetime import datetime
+from datetime import time as _dtime
+from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
+
+if TYPE_CHECKING:
+    from .schemas import KlineBar
 
 # 沪市指数白名单：与深市 000xxx 个股同号段，需靠白名单区分
 # （沪深300 / 上证50 / 中证500 / 科创50 / 中证1000 / 上证180）
@@ -32,6 +39,36 @@ UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
+
+# A 股市场时区与收盘时刻（沪深连续竞价 + 收盘集合竞价定格于 15:00）。
+# 用固定时区而非运行环境本地时区，避免进程部署在非中国时区时误判盘中/收盘。
+MARKET_TZ = ZoneInfo("Asia/Shanghai")
+MARKET_CLOSE = _dtime(15, 0)
+
+
+def market_now() -> datetime:
+    """当前市场时间（Asia/Shanghai），与运行环境时区无关。"""
+    return datetime.now(MARKET_TZ)
+
+
+def drop_unsettled_today_bar(bars: list[KlineBar], tf: str) -> list[KlineBar]:
+    """丢弃「当日未结算」的日 K 线（仅 tf="1d" 生效）。
+
+    盘中各源会返回当日一根尚未定稿的实时日 K，其复权价与仿射关系严重偏离——既会污染
+    复权因子反解，也会让前端当日前复权价盘中跳变、隔日又被改数。收盘（15:00）后当根即
+    定稿，故只在「上海市场时间早于收盘」且「K 线日期 == 上海当日」时丢弃该根；其最终
+    结算值由收盘后的当日同步 / 历史回补任务写入（本函数不做任何回补）。
+
+    注意：分钟级等非日线周期（tf != "1d"）的当日全部 bar 都带当日日期，按日期过滤会误删
+    整段盘中行情，故本过滤仅对日线生效。
+    """
+    if tf != "1d" or not bars:
+        return bars
+    now = market_now()
+    if now.time() >= MARKET_CLOSE:
+        return bars
+    today = now.strftime("%Y-%m-%d")
+    return [b for b in bars if b.time[:10] != today]
 
 
 def get_prefix(code: str) -> str:

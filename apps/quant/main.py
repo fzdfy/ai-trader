@@ -19,7 +19,7 @@ from strategies.composite import build_composite_strategy
 
 log = get_logger("main")
 
-# 大盘过滤使用的基准指数（上证指数），bar1d_adj 中有其日线数据
+# 大盘过滤使用的基准指数（上证指数），bar1d_qfq 中有其日线数据
 MARKET_INDEX_SYMBOL = "000001.SH"
 
 

@@ -16,6 +16,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from . import registry
+from .adjust import align_series, solve_adjust_params
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
     CAPABILITY_BLOCK_TRADE,
@@ -44,6 +45,7 @@ from .base import (
 )
 from .schemas import (
     AdjustFactor,
+    AdjustParams,
     BlockTradeItem,
     BoardConstituentItem,
     BoardFundFlow,
@@ -162,6 +164,36 @@ def get_adjust_factor(
     return registry.call_with_fallback(
         CAPABILITY_ADJUST_FACTOR, "adjust_factor", symbol, kind=kind
     )
+
+
+@router.get("/adjust-params", response_model=AdjustParams)
+def get_adjust_params(
+    symbol: Annotated[str, Query(description="标的代码，如 600519 / 000001.SZ")],
+    limit: Annotated[int, Query(ge=1, le=800, description="回溯根数上限（腾讯 fqkline 日线上限 800）")] = 800,
+    source: Annotated[str | None, Query(description="强制指定数据源（默认 tencent）")] = None,
+) -> AdjustParams:
+    """Route A 复权仿射参数：取同一 symbol 的 raw/qfq/hfq 三份日 K 反解。
+
+    返回 {scale, hfq_base, points:[{date, qfq_ratio, qfq_offset}]}，可直接 upsert 到
+    server 端 adj_factor / adj_factor_latest（见 server schema）。仅供因子同步管道使用。
+    模型：qfq = p_t·raw + D_t（分段仿射）、hfq = scale·qfq + hfq_base（全局仿射）。
+
+    默认强制 tencent（沪深主源，不走降级链）；北交所因腾讯无历史改传 source=eastmoney
+    （东财 push2his 提供 fqt=0/1/2 三口径）。指定不支持的源会返回 400。
+    """
+    src = source or "tencent"
+    try:
+        provider = registry.get_provider(src)
+    except KeyError:
+        raise HTTPException(400, f"未知数据源 {src}") from None
+    if CAPABILITY_KLINE not in provider.capabilities:
+        raise HTTPException(400, f"数据源 {src} 不支持能力 {CAPABILITY_KLINE}")
+    bars_by_adjust = {
+        adj: provider.kline(symbol, tf="1d", limit=limit, adjust=adj)
+        for adj in ("none", "qfq", "hfq")
+    }
+    dates, raw_close, qfq_close, hfq_close = align_series(bars_by_adjust)
+    return solve_adjust_params(symbol, dates, raw_close, qfq_close, hfq_close, source=src)
 
 
 # ============================================================================

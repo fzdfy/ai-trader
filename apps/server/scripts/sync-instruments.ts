@@ -97,7 +97,7 @@ async function syncInstruments() {
   }
 
   // step 4/4: 回填上市日期（仅沪深）。
-  // 上游行情接口不提供上市日，唯一可靠来源是「该标的最早一根日线」（bar1d_adj 的 MIN(time)）：
+  // 上游行情接口不提供上市日，唯一可靠来源是「该标的最早一根日线」（bar1d_raw 的 MIN(time)）：
   //   - 沪深：历史已由腾讯完整落库，最早一根即真实上市日；
   //   - 北交所：不在此回填。北交所历史只有百度提供，在首次成功全量拉取前，库里可能只有被上游
   //     瞬时故障（如百度 500）截断的 1~2 根；若据此回填，会写成一个远晚于真实上市日的错误值，
@@ -112,7 +112,7 @@ async function syncInstruments() {
     SET list_date = sub.first_bar, updated_at = now()
     FROM (
       SELECT symbol, MIN(time)::date AS first_bar
-      FROM bar1d_adj
+      FROM bar1d_raw
       GROUP BY symbol
     ) sub
     WHERE i.symbol = sub.symbol AND i.list_date IS NULL AND i.symbol NOT LIKE '%.BJ'

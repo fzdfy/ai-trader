@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 
 from ...base import MarketProvider
-from ...common import UA, norm_date, norm_ticker
+from ...common import UA, drop_unsettled_today_bar, norm_date, norm_ticker
 from ...schemas import KlineBar
 
 _URL = "https://finance.pae.baidu.com/selfselect/getstockquotation"
@@ -113,4 +113,6 @@ class BaiduProvider(MarketProvider):
                 for b in bars
                 if (not start or b.time >= start) and (not end or b.time <= end)
             ]
+        # 丢弃当日未结算根（盘中返回的当日实时日 K；最终结算值由收盘后回补写入）
+        bars = drop_unsettled_today_bar(bars, tf)
         return bars[-limit:] if limit > 0 else bars

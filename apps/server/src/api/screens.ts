@@ -35,24 +35,27 @@ type ScreenScope =
 
 /** 固定阈值：涨幅榜 —— 最新交易日相对上一交易日涨幅 ≥ 3% */
 const GAIN_3_SQL = sql`
-  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_adj),
-       d1 AS (SELECT MAX(time) AS t FROM bar1d_adj WHERE time < (SELECT t FROM d0))
+  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_qfq),
+       d1 AS (SELECT MAX(time) AS t FROM bar1d_qfq WHERE time < (SELECT t FROM d0))
   SELECT a.symbol
-  FROM bar1d_adj a
-  JOIN bar1d_adj b ON b.symbol = a.symbol
+  FROM bar1d_qfq a
+  JOIN bar1d_qfq b ON b.symbol = a.symbol
   WHERE a.time = (SELECT t FROM d0)
     AND b.time = (SELECT t FROM d1)
     AND b.close > 0
     AND (a.close - b.close) / b.close * 100 >= 3
 `;
 
-/** 固定阈值：成交额榜 —— 最新交易日成交额 ≥ 10 亿元（成交额 = 收盘价 × 成交量(手) × 100） */
+/** 固定阈值：成交额榜 —— 最新交易日成交额 ≥ 10 亿元
+ *  成交额优先取实际值 amount（北交所东财源自带）；缺失时（沪深腾讯源 amount 为 NULL）
+ *  用「原始价 close_raw × 成交量(手) × 100」估算——必须用 close_raw 而非前复权 close，
+ *  否则除权日成交额失真。 */
 const AMOUNT_1B_SQL = sql`
-  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_adj)
+  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_qfq)
   SELECT b.symbol
-  FROM bar1d_adj b
+  FROM bar1d_qfq b
   WHERE b.time = (SELECT t FROM d0)
-    AND b.close * b.volume * 100 >= 1000000000
+    AND COALESCE(b.amount, b.close_raw * b.volume * 100) >= 1000000000
 `;
 
 /** 固定阈值：百日涨停榜 —— 最近 100 个交易日内涨停 ≥ 1 次（按板块/ST 分档判定涨停幅度） */
@@ -61,7 +64,7 @@ const LIMIT_UP_1_SQL = sql`
     SELECT trade_date
     FROM trading_calendar
     WHERE is_trading_day = true
-      AND trade_date <= (SELECT MAX(time)::date FROM bar1d_adj)
+      AND trade_date <= (SELECT MAX(time)::date FROM bar1d_qfq)
     ORDER BY trade_date DESC
     LIMIT 101
   ),
@@ -70,7 +73,7 @@ const LIMIT_UP_1_SQL = sql`
     SELECT b.symbol,
            b.close,
            LAG(b.close) OVER (PARTITION BY b.symbol ORDER BY b.time) AS prev_close
-    FROM bar1d_adj b, win
+    FROM bar1d_qfq b, win
     WHERE b.time >= win.d_start
   )
   SELECT b.symbol
@@ -100,7 +103,7 @@ interface ScreenItem {
   close: number;
   /** 最新涨跌幅(%)，红涨绿跌 */
   changePct?: number | null;
-  /** 最新交易日成交额（元），quant 由 bar1d_adj.amount 提供 */
+  /** 最新交易日成交额（元），quant 由 bar1d_qfq.amount 提供 */
   amount?: number | null;
   /** 主力资金净流入（元），fund_flow_rank 最新快照；未命中前 1000 名为 null */
   mainNetInflow?: number | null;

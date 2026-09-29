@@ -2,13 +2,14 @@
 统一数据返回模型（Pydantic）。
 
 字段命名对齐 server 端数据库表结构（snake_case），保证各数据源取回的数据
-可直接映射到 `bar1d_adj` / `bar1m_adj` / `quote_latest` 等表做落库，
+可直接映射到 `bar1d_raw` / `bar1m_adj` / `quote_latest` 等表做落库，
 而无需在 provider 之间再转一遍字段名。
 
-- `KlineBar`   对齐 bar1d_adj / bar1m_adj（time/open/high/low/close/volume/amount）
+- `KlineBar`   对齐 bar1d_raw / bar1m_adj（time/open/high/low/close/volume/amount）
 - `Quote`      对齐 quote_latest（last/pre_close/change/change_pct/pe/pb/limit_up/down/五档…）
 - `TradeTick`  逐笔成交（腾讯 tencent_ticks 主源 / mootdx 备源）
-- `AdjustFactor` 复权因子（新浪 qfq/hfq）
+- `AdjustFactor` 复权因子（新浪 qfq/hfq，乘法累计因子）
+- `AdjustParams` Route A 复权仿射参数（腾讯仿射复权反解，分段仿射模型）
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ class BidAskLevel(BaseModel):
 
 
 class KlineBar(BaseModel):
-    """一根 K 线，对齐 bar1d_adj / bar1m_adj 核心列。"""
+    """一根 K 线，对齐 bar1d_raw / bar1m_adj 核心列。"""
 
     time: str  # YYYY-MM-DD（或含时分秒，取前 10 位归一）
     open: float
@@ -90,10 +91,36 @@ class TradeTick(BaseModel):
 
 
 class AdjustFactor(BaseModel):
-    """复权因子序列的一条。"""
+    """复权因子序列的一条（新浪乘法口径，逐日累计因子 c_t）。"""
 
     date: str
     factor: float
+
+
+class AdjustParamPoint(BaseModel):
+    """分段仿射复权参数的一个生效步（除权日，或窗口基线日）。"""
+
+    date: str         # YYYY-MM-DD，该参数生效起始日
+    qfq_ratio: float  # p_t：前复权乘法因子（送转/拆股累计比，无送转段恒为 1）
+    qfq_offset: float # D_t：前复权加法偏移（最新段恒为 0）
+
+
+class AdjustParams(BaseModel):
+    """Route A 复权仿射参数（腾讯仿射复刻）。
+
+    由腾讯 raw/qfq/hfq 三份日线反解，可直接 upsert 到 server 端
+    `adj_factor`（date/qfq_ratio/qfq_offset）与 `adj_factor_latest`（date/scale/hfq_base）：
+
+    - qfq = p_t · raw + D_t（p_t = qfq_ratio，D_t = qfq_offset）
+    - hfq = scale · qfq + hfq_base（S/B 为标的级全局常量）
+    """
+
+    symbol: str
+    scale: float       # S：后复权乘法常量（标的级全局）
+    latest_date: str   # 最后一个参数生效日 = 窗口内最新交易日
+    hfq_base: float    # B：后复权加法常量（标的级全局）
+    source: str = "tencent"
+    points: list[AdjustParamPoint]
 
 
 # ============================================================================

@@ -1,13 +1,13 @@
 /**
  * kline-tool — 获取日 K 线数据
  *
- * 从 bar1d_adj 表读取指定标的的日 K 线（OHLCV），支持限制返回条数。
+ * 从 bar1d_qfq 表读取指定标的的日 K 线（OHLCV），支持限制返回条数。
  * 返回最近 N 个交易日的数据，供 agent 分析趋势和形态。
  */
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { db } from "../../../db";
-import { bar1dAdj } from "../../../db/schema/md";
+import { bar1dQfq } from "../../../db/schema/md";
 import { eq, desc } from "drizzle-orm";
 
 export const klineTool = createTool({
@@ -38,17 +38,17 @@ export const klineTool = createTool({
 
     const rows = await db
       .select({
-        time: bar1dAdj.time,
-        open: bar1dAdj.open,
-        high: bar1dAdj.high,
-        low: bar1dAdj.low,
-        close: bar1dAdj.close,
-        volume: bar1dAdj.volume,
-        amount: bar1dAdj.amount,
+        time: bar1dQfq.time,
+        open: bar1dQfq.open,
+        high: bar1dQfq.high,
+        low: bar1dQfq.low,
+        close: bar1dQfq.close,
+        volume: bar1dQfq.volume,
+        amount: bar1dQfq.amount,
       })
-      .from(bar1dAdj)
-      .where(eq(bar1dAdj.symbol, symbol))
-      .orderBy(desc(bar1dAdj.time))
+      .from(bar1dQfq)
+      .where(eq(bar1dQfq.symbol, symbol))
+      .orderBy(desc(bar1dQfq.time))
       .limit(limit);
 
     // 反转顺序：按时间升序

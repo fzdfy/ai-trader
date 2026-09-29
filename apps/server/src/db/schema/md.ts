@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgView,
   text,
   timestamp,
   date,
@@ -10,6 +11,7 @@ import {
   index,
   integer,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ============================================================================
 // md schema — ODS + DWS 层，所有行情数据的权威存储
@@ -616,9 +618,14 @@ export const bar1mAdj = pgTable(
  *   bar_1d_adj.time = 交易日日期（概念上是 date，但 TimescaleDB 分区要求 timestamp）
  *
  * DDL 层面共用相同的列定义和索引策略。
+ *
+ * ── legacy（Route A 复权口径改造后）──
+ *
+ * 本表为旧前复权日线表，已被 bar1d_raw + adj_factor 派生视图 bar1d_qfq 取代，
+ * 无任何运行时读取方。重命名为 bar1d_adj_legacy 仅作数据回滚兜底，不再写入。
  */
-export const bar1dAdj = pgTable(
-  "bar1d_adj",
+export const bar1dAdjLegacy = pgTable(
+  "bar1d_adj_legacy",
   {
     /** 交易日对应日期 00:00:00，PK 首列兼 hypertable 分区列 */
     time: timestamp("time").notNull(),
@@ -647,7 +654,7 @@ export const bar1dAdj = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.time, table.symbol] }),
-    index("bar1d_adj_symbol_time_idx").on(table.symbol, table.time),
+    index("bar1d_adj_legacy_symbol_time_idx").on(table.symbol, table.time),
   ],
 );
 
@@ -714,6 +721,230 @@ export const barPeriodAdj = pgTable(
     index("bar_period_adj_symbol_time_idx").on(table.period, table.symbol, table.time),
   ],
 );
+
+// ============================================================================
+// 复权口径改造（Route A）—— 原始价基表 + 复刻腾讯仿射（累加因子）
+//
+// 腾讯复权为仿射法，与「原始价 × 标量」的乘法模型不同：
+//   后复权 hfq = a·raw + b_t    （a = 标的常数送转比例；b_t = 累加分红偏移，除权日阶跃）
+//   前复权 qfq = raw + G_t − G_total
+//                              （加减法；G_t = 累加除权价差，G_total = 最新锚点）
+//
+// 基表只存原始价，除权不再改写历史 → 消除「前复权遇除权全市场重刷」的痛点。
+// ============================================================================
+
+/**
+ * bar1d_raw — 日 K 线原始价基表（不复权，append-only）
+ *
+ * 定位：复权口径改造后的日线唯一价格基表，存上游不复权行情（adjust=none）。
+ * 列定义与 bar1d_adj 同构，仅价格语义 = 原始价（volume/amount 本就是不复权口径）。
+ * 主要读者：bar1d_qfq / bar1d_hfq 两个派生视图。
+ */
+export const bar1dRaw = pgTable(
+  "bar1d_raw",
+  {
+    /** 交易日对应日期 00:00:00，PK 首列兼分区列 */
+    time: timestamp("time").notNull(),
+    /** 股票代码 */
+    symbol: text("symbol").notNull(),
+    /** 当日开盘价（原始价） */
+    open: numeric("open").notNull(),
+    /** 当日最高价（原始价） */
+    high: numeric("high").notNull(),
+    /** 当日最低价（原始价） */
+    low: numeric("low").notNull(),
+    /** 当日收盘价（原始价） */
+    close: numeric("close").notNull(),
+    /** 当日成交量（手） */
+    volume: numeric("volume").notNull(),
+    /** 当日成交额（元） */
+    amount: numeric("amount"),
+    /** 当日均价 = amount / volume */
+    avgPrice: numeric("avg_price"),
+    /** 技术指标数据，jsonb 格式 */
+    indicators: jsonb("indicators"),
+    /** 上游数据更新时间 */
+    sourceUpdatedAt: timestamp("source_updated_at"),
+    /** 后端写入时间 */
+    ingestedAt: timestamp("ingested_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.time, table.symbol] }),
+    index("bar1d_raw_symbol_time_idx").on(table.symbol, table.time),
+  ],
+);
+
+// ============================================================================
+
+/**
+ * adj_factor — 复权因子表（事件驱动，append-only）
+ *
+ * 定位：全市场复权参数的唯一事实源。事件只在送转/除权除息日产生，故为「稀疏事件表」，
+ * 不做 hypertable（全市场量级约几万行）。
+ *
+ * 字段语义（均在该生效日阶跃，之后保持；新事件只 append 一行、不改历史）：
+ *   qfq_ratio  = p_t，前复权乘法因子（送转/拆股累计比，无送转段恒为 1）
+ *   qfq_offset = D_t，前复权加法偏移（最新段恒为 0）
+ *
+ * 派生关系（见 bar1d_qfq / bar1d_hfq 视图）：
+ *   qfq_t = qfq_ratio · raw_t + qfq_offset
+ *   hfq_t = scale · qfq_t + hfq_base
+ *
+ * 注意：qfq 并非纯加法——含送转/拆股的标的在送转日之前 qfq_ratio ≠ 1，
+ * 故必须同时存乘法因子与加法偏移，不能退化为单一累加价差。
+ *
+ * 写入策略：sync-worker 的 adj-factor 管道按标的拉取整段序列后幂等 upsert
+ * （PK (symbol, date)）。
+ */
+export const adjFactor = pgTable(
+  "adj_factor",
+  {
+    /** 股票代码 */
+    symbol: text("symbol").notNull(),
+    /** 该参数生效起始日（送转/除权除息日，或窗口基线日） */
+    date: date("date").notNull(),
+    /** p_t：前复权乘法因子（送转/拆股累计比，无送转段恒为 1） */
+    qfqRatio: numeric("qfq_ratio").notNull().default("1"),
+    /** D_t：前复权加法偏移（最新段恒为 0） */
+    qfqOffset: numeric("qfq_offset").notNull().default("0"),
+    /** 因子来源，如 tencent */
+    source: text("source"),
+    /** 上游数据更新时间 */
+    sourceUpdatedAt: timestamp("source_updated_at"),
+    /** 后端写入时间 */
+    ingestedAt: timestamp("ingested_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.symbol, table.date] }),
+    index("adj_factor_symbol_date_idx").on(table.symbol, table.date),
+  ],
+);
+
+// ============================================================================
+
+/**
+ * adj_factor_latest — 最新因子快照（每 symbol 一行）
+ *
+ * 定位：把「后复权全局仿射常量 S / B」物化成一张 ~5000 行的小表，使后复权派生
+ * （hfq = S · qfq + B）退化为一次 hash join + 逐行运算——即便全表扫描也毫无压力。
+ *
+ * 写入策略：adj-factor 管道每次同步后按 adj_factor 重算 upsert。
+ * 未收录的标的在视图中因 LEFT JOIN 缺失而按 scale = 1 / hfq_base = 0 处理（= 从未除权）。
+ */
+export const adjFactorLatest = pgTable("adj_factor_latest", {
+  /** 股票代码 */
+  symbol: text("symbol").primaryKey(),
+  /** 该参数生效日 = 该标的最后一个除权日（无除权则为窗口基线日） */
+  date: date("date").notNull(),
+  /** S：后复权乘法常量（标的级全局） */
+  scale: numeric("scale").notNull(),
+  /** B：后复权加法常量（标的级全局） */
+  hfqBase: numeric("hfq_base").notNull().default("0"),
+  /** 后端写入时间 */
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ============================================================================
+
+/**
+ * bar1d_hfq — 后复权视图（派生）
+ *
+ * 由 bar1d_raw 与因子表复刻腾讯后复权全局仿射式：hfq = S · qfq + B，其中
+ *   qfq   = qfq_ratio · raw + qfq_offset（取 date <= time 的最近一条）
+ *   S / B = adj_factor_latest.scale / .hfq_base（标的级全局常量）
+ * LEFT JOIN 缺失按 qfq_ratio = 1 / qfq_offset = 0 / scale = 1 / hfq_base = 0 处理。
+ */
+export const bar1dHfq = pgView("bar1d_hfq", {
+  time: timestamp("time").notNull(),
+  symbol: text("symbol").notNull(),
+  open: numeric("open").notNull(),
+  high: numeric("high").notNull(),
+  low: numeric("low").notNull(),
+  close: numeric("close").notNull(),
+  closeRaw: numeric("close_raw").notNull(),
+  volume: numeric("volume").notNull(),
+  amount: numeric("amount"),
+  avgPrice: numeric("avg_price"),
+  indicators: jsonb("indicators"),
+  sourceUpdatedAt: timestamp("source_updated_at"),
+  ingestedAt: timestamp("ingested_at").notNull(),
+}).as(sql`
+  select
+    b."time" as time,
+    b."symbol" as symbol,
+    (coalesce(l."scale", 1) * (coalesce(f."qfq_ratio", 1) * b."open"  + coalesce(f."qfq_offset", 0)) + coalesce(l."hfq_base", 0)) as open,
+    (coalesce(l."scale", 1) * (coalesce(f."qfq_ratio", 1) * b."high"  + coalesce(f."qfq_offset", 0)) + coalesce(l."hfq_base", 0)) as high,
+    (coalesce(l."scale", 1) * (coalesce(f."qfq_ratio", 1) * b."low"   + coalesce(f."qfq_offset", 0)) + coalesce(l."hfq_base", 0)) as low,
+    (coalesce(l."scale", 1) * (coalesce(f."qfq_ratio", 1) * b."close" + coalesce(f."qfq_offset", 0)) + coalesce(l."hfq_base", 0)) as close,
+    b."close" as close_raw,
+    b."volume" as volume,
+    b."amount" as amount,
+    b."avg_price" as avg_price,
+    b."indicators" as indicators,
+    b."source_updated_at" as source_updated_at,
+    b."ingested_at" as ingested_at
+  from "bar1d_raw" b
+  left join lateral (
+    select af."qfq_ratio" as qfq_ratio, af."qfq_offset" as qfq_offset
+    from "adj_factor" af
+    where af."symbol" = b."symbol" and af."date" <= b."time"::date
+    order by af."date" desc
+    limit 1
+  ) f on true
+  left join "adj_factor_latest" l on l."symbol" = b."symbol"
+`);
+
+// ============================================================================
+
+/**
+ * bar1d_qfq — 前复权视图（读取层唯一入口，替代 bar1d_adj）
+ *
+ * 由 bar1d_raw 与因子表按分段仿射模型派生前复权：
+ *   qfq = qfq_ratio · raw + qfq_offset（取 date <= time 的最近一条）
+ * 当 t = 最新交易日时 qfq_ratio = 1 / qfq_offset = 0 → qfq = raw；
+ * LEFT JOIN 缺失按同值处理（从未除权）。
+ *
+ * 关键性质：除权日只需 append 一行 adj_factor → 视图内 qfq 整体重锚，零数据重写。
+ * 列与 bar1d_adj 同构并额外暴露 close_raw，消费者可无缝切换。
+ */
+export const bar1dQfq = pgView("bar1d_qfq", {
+  time: timestamp("time").notNull(),
+  symbol: text("symbol").notNull(),
+  open: numeric("open").notNull(),
+  high: numeric("high").notNull(),
+  low: numeric("low").notNull(),
+  close: numeric("close").notNull(),
+  closeRaw: numeric("close_raw").notNull(),
+  volume: numeric("volume").notNull(),
+  amount: numeric("amount"),
+  avgPrice: numeric("avg_price"),
+  indicators: jsonb("indicators"),
+  sourceUpdatedAt: timestamp("source_updated_at"),
+  ingestedAt: timestamp("ingested_at").notNull(),
+}).as(sql`
+  select
+    b."time" as time,
+    b."symbol" as symbol,
+    (coalesce(f."qfq_ratio", 1) * b."open"  + coalesce(f."qfq_offset", 0)) as open,
+    (coalesce(f."qfq_ratio", 1) * b."high"  + coalesce(f."qfq_offset", 0)) as high,
+    (coalesce(f."qfq_ratio", 1) * b."low"   + coalesce(f."qfq_offset", 0)) as low,
+    (coalesce(f."qfq_ratio", 1) * b."close" + coalesce(f."qfq_offset", 0)) as close,
+    b."close" as close_raw,
+    b."volume" as volume,
+    b."amount" as amount,
+    b."avg_price" as avg_price,
+    b."indicators" as indicators,
+    b."source_updated_at" as source_updated_at,
+    b."ingested_at" as ingested_at
+  from "bar1d_raw" b
+  left join lateral (
+    select af."qfq_ratio" as qfq_ratio, af."qfq_offset" as qfq_offset
+    from "adj_factor" af
+    where af."symbol" = b."symbol" and af."date" <= b."time"::date
+    order by af."date" desc
+    limit 1
+  ) f on true
+`);
 
 // ============================================================================
 

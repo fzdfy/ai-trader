@@ -19,9 +19,11 @@ OHLC（mootdx）+ 流通市值（腾讯，用于估算换手率），因此是�
 字段口径：金额单位统一为「元」（分钟/日资金流、融资融券、大宗），龙虎榜净买额为
 「万元」。返回 snake_case，对齐 server 端 DB 表字段。
 
-⚠️ K 线政策：个股日 K 线（kline）已从本源移除——K 线不属于东财「独有」数据，
-按 skill 优先级改走腾讯（主，日线前/后复权）/ mootdx（备，多周期不复权）/ 百度（备）
-等不封 IP 源。本源仅保留板块 BK 指数 K 线（board_kline，东财独有）。
+⚠️ K 线政策：个股日 K 线（kline）默认仍走腾讯（主，日线前/后复权）/ mootdx（备，
+多周期不复权）/ 百度（备）等不封 IP 源——K 线不属于东财「独有」数据，且东财有限流，
+故不进入 kline 默认降级链（_CAPABILITY_PRIORITY）。本源额外提供个股 kline，仅用于
+北交所（腾讯无历史、mootdx TCP 不可达、百度 403），由 server 端对 `.BJ` 标的显式
+传 source=eastmoney 强制走本源；板块 BK 指数 K 线（board_kline）为东财独有，照旧保留。
 """
 from __future__ import annotations
 
@@ -38,7 +40,7 @@ import numpy as np
 import pandas as pd
 
 from ...base import MarketProvider
-from ...common import UA, get_prefix, norm_ticker, tdx_client
+from ...common import UA, drop_unsettled_today_bar, get_prefix, norm_date, norm_ticker, tdx_client
 from ...schemas import (
     BlockTradeItem,
     BoardConstituentItem,
@@ -396,6 +398,7 @@ class EastmoneyProvider(MarketProvider):
         "board_list",
         "board_constituents",
         "board_kline",
+        "kline",
         "fund_flow_rank",
         "limit_up_pool",
         "margin_trading",
@@ -693,6 +696,87 @@ class EastmoneyProvider(MarketProvider):
             )
             for it in items
         ]
+
+    def kline(
+        self,
+        symbol: str,
+        tf: str = "1d",
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+        adjust: str = "qfq",
+    ) -> list[KlineBar]:
+        """个股日 K 线（东财 push2his，前/后/不复权三口径）。
+
+        来源：东财 push2his kline。默认降级链不使用本源（东财有限流），仅在腾讯 /
+        mootdx / 百度均不可及的北交所（`.BJ`）上由 server 端显式传 source=eastmoney
+        强制调用。`secid` 市场号由 _em_secid 给出：沪=1，深/北=0（北交所走 0.{code}）。
+
+        tf：东财 kline 仅取日线（klt=101），收到非 1d 抛 ValueError。
+
+        adjust 复权口径（fqt）：none=不复权(0) / qfq=前复权(1) / hfq=后复权(2)。
+        注意东财 volume 单位为「手」、amount 单位为「元」，落库口径与腾讯/mootdx 一致。
+        降级：无内建备胎；kline 路径被 WAF 拦截时由 _em_get_kline 追加 `/..` 后缀绕过。
+
+        limit=None 表示全量：beg 回溯到 1990、lmt=10000。
+        """
+        if tf != "1d":
+            raise ValueError(f"东财 K 线仅支持日线 tf=1d，收到 {tf}")
+        if adjust not in ("qfq", "hfq", "none"):
+            raise ValueError(f"不支持的复权口径: {adjust}（可选 qfq/hfq/none）")
+        start = norm_date(start)
+        end = norm_date(end)
+        fqt = {"none": "0", "qfq": "1", "hfq": "2"}[adjust]
+        params = {
+            "secid": _em_secid(symbol),
+            "klt": "101",  # 日K
+            "fqt": fqt,
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+        }
+        if start:
+            params["beg"] = start.replace("-", "")
+        if end:
+            params["end"] = end.replace("-", "")
+        if limit is None:
+            params.setdefault("beg", "19900101")
+            params["lmt"] = "10000"
+        else:
+            # 东财要求至少提供 beg 或 end 之一，只给 lmt 会返回 rc=102 空数据。
+            params["lmt"] = str(limit)
+            if not start and not end:
+                params["end"] = _date.today().strftime("%Y%m%d")
+        d = _em_get_kline(
+            "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+            params=params,
+            headers={"Referer": "https://quote.eastmoney.com/", "Origin": "https://quote.eastmoney.com"},
+            timeout=15,
+        )
+        rows: list[KlineBar] = []
+        for line in (d.get("data") or {}).get("klines") or []:
+            parts = line.split(",")
+            if len(parts) >= 7:
+                rows.append(
+                    KlineBar(
+                        time=parts[0],
+                        open=_f0(parts[1]),
+                        close=_f0(parts[2]),
+                        high=_f0(parts[3]),
+                        low=_f0(parts[4]),
+                        volume=_f0(parts[5]),
+                        amount=_f0(parts[6]),
+                    )
+                )
+        # 时间窗二次过滤（东财对 start/end 的过滤粒度较粗，可能与入参不完全对齐）
+        if start or end:
+            rows = [
+                b
+                for b in rows
+                if (not start or b.time >= start) and (not end or b.time <= end)
+            ]
+        # 丢弃当日未结算根（盘中返回的当日实时日 K；最终结算值由收盘后回补写入）
+        rows = drop_unsettled_today_bar(rows, tf)
+        return rows
 
     def board_kline(
         self,
