@@ -56,4 +56,7 @@ export const CRON_JOBS: CronJobConfig[] = [
   { name: "kline-1d-backfill",      cron: "30 19 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "22:00" },
   // 交易日历：每周一凌晨 2 点一次性补未来交易日
   { name: "calendar",      cron: "0 2 * * 1",      enabled: true },
+  // 分区维护：每周一凌晨低峰巡检 bar1d_raw 年度分区，提前建好未来 2 年分区并告警 DEFAULT 断档。
+  // 纯 DDL（无行情写入），不参与手动同步互斥、无需交易日守卫；错开 calendar 20 分钟。
+  { name: "partition-maint", cron: "20 2 * * 1",   enabled: true },
 ];

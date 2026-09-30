@@ -1,8 +1,21 @@
 """导出 PostgreSQL 日线为 qlib 可消费的 per-symbol CSV。
 
-把本地 ``bar1d_qfq``（前复权日线视图）导出成「每标的一个 CSV」，再用 qlib 自带的
-``scripts/dump_bin.py`` 转成 ``.bin`` 数据目录，供 qlib 研究侧使用（因子挖掘 /
-多模型横评 / IC·分层评价）。本脚本只做导出，不依赖 qlib，也不改动任何在线服务。
+把本地前复权日线导出成「每标的一个 CSV」，再用 qlib 自带的 ``scripts/dump_bin.py``
+转成 ``.bin`` 数据目录，供 qlib 研究侧使用（因子挖掘 / 多模型横评 / IC·分层评价）。
+本脚本只做导出，不依赖 qlib，也不改动任何在线服务。
+
+**因子应用层化（批量路径专用）**：本脚本不再查询 ``bar1d_qfq`` 视图——该视图用
+``LEFT JOIN LATERAL ... date <= b.time ORDER BY date DESC LIMIT 1`` 逐行反向探测
+``adj_factor``，跨标的批量扫描时命中率极低（Memoize 0 hit），并伴随 numeric 任意精度
+运算开销。改为直接扫 ``bar1d_raw``，一次性把体量极小（约 5 万行 / 12MB，分段常数）的
+``adj_factor`` 读进内存，在应用层用向量化 as-of merge（``np.searchsorted(side="right")-1``
+取 date <= time 的最近段，缺省 ratio=1 / offset=0）复刻视图口径：
+
+    qfq_t = ratio_t * raw_t + offset_t      （ratio_t / offset_t 取 date <= t 的最近段）
+
+语义与 ``verify_adjust.py`` 的 ``_reconstruct`` 完全一致（最新段 ratio=1 / offset=0，
+故最新交易日 qfq.close == raw.close）。单标的热路径（``data_loader.load_kline`` 等）仍走
+视图，本改造仅针对批量导出/研究路径。
 
 ⚠️ 复权口径：``bar1d_qfq`` 为前复权（qfq），存在前视偏差。qlib 的 Alpha158 等
 因子全靠价格重算，直接使用会让 IC 系统性虚高；研究结论是否可信，取决于复权
@@ -35,6 +48,7 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
 import psycopg2
 
 DATABASE_URL = os.getenv(
@@ -64,20 +78,63 @@ def _format_date(value) -> str:
 
 
 def fetch_symbols(conn, limit: int | None) -> list[str]:
-    """取股票池（instrument 优先，避免对 1600 万行 bar1d_qfq 做 DISTINCT 全表扫描）。"""
+    """取股票池（instrument 优先，避免对 1600 万行 bar1d_raw 做 DISTINCT 全表扫描）。"""
     with conn.cursor() as cur:
         cur.execute("SELECT symbol FROM instrument ORDER BY symbol")
         symbols = [row[0] for row in cur.fetchall()]
     return symbols[:limit] if limit else symbols
 
 
+def fetch_factors(conn) -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """一次性读入全部复权因子（分段仿射）。
+
+    ``adj_factor`` 仅约 5 万行且是「分段常数」（每标的平均约 9 段），整表读入内存的
+    代价可忽略，却能把视图里逐行的反向 B-tree 探测降为应用层一次 as-of merge。
+    返回 ``{symbol: (dates[datetime64[D]], qfq_ratio[float64], qfq_offset[float64])}``，
+    各数组按 date 升序，直接喂给 ``np.searchsorted``。
+    """
+    factors: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT symbol, date, qfq_ratio::float8, qfq_offset::float8 "
+            "FROM adj_factor ORDER BY symbol, date"
+        )
+        cur_symbol: str | None = None
+        dates: list = []
+        ratios: list[float] = []
+        offsets: list[float] = []
+
+        def seal(symbol: str) -> None:
+            factors[symbol] = (
+                np.array(dates, dtype="datetime64[D]"),
+                np.array(ratios, dtype="float64"),
+                np.array(offsets, dtype="float64"),
+            )
+
+        for symbol, date, ratio, offset in cur:
+            if symbol != cur_symbol:
+                if cur_symbol is not None:
+                    seal(cur_symbol)
+                cur_symbol, dates, ratios, offsets = symbol, [], [], []
+            dates.append(date)
+            ratios.append(ratio)
+            offsets.append(offset)
+        if cur_symbol is not None:
+            seal(cur_symbol)
+    return factors
+
+
 def iter_bars(conn, symbols: list[str], start: str | None, end: str | None):
-    """按 symbol、time 升序流式返回日线，避免一次性载入全部 1600 万行进内存。"""
+    """按 symbol、time 升序流式返回**不复权**日线，避免全量载入内存。
+
+    扫 ``bar1d_raw``（走 ``bar1d_raw_symbol_time_idx``），复权在应用层由 ``flush``
+    完成；``time::date`` 与因子的 ``date`` 同型，保证 as-of 比较口径与视图一致。
+    """
     sql = [
-        "SELECT symbol, time,",
+        "SELECT symbol, time::date,",
         "       open::float8, high::float8, low::float8, close::float8,",
         "       volume::float8, amount::float8",
-        "FROM bar1d_qfq",
+        "FROM bar1d_raw",
         "WHERE symbol = ANY(%s)",
     ]
     params: list = [symbols]
@@ -95,6 +152,43 @@ def iter_bars(conn, symbols: list[str], start: str | None, end: str | None):
         cur.execute("\n".join(sql), params)
         for row in cur:
             yield row
+
+
+def apply_adjust(
+    symbol: str,
+    buf: list[tuple],
+    factors: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]],
+) -> list[list]:
+    """对一个标的的 raw 日线做向量化 as-of merge 应用前复权，返回 CSV 行。
+
+    ``buf`` 为按 time 升序的 ``(date, open, high, low, close, volume, amount)`` 元组。
+    复刻视图语义：每根 bar 取 ``date <= time`` 的最近段 (ratio, offset)；无因子
+    （如指数 / ETF）或早于首个因子段时缺省 ratio=1 / offset=0，此时输出等于 raw。
+    volume / amount 不参与复权，原样透传。
+    """
+    bar_dates = np.array([row[0] for row in buf], dtype="datetime64[D]")
+    raw = np.array([[row[1], row[2], row[3], row[4]] for row in buf], dtype="float64")
+
+    entry = factors.get(symbol)
+    if entry is None:
+        adj = raw
+    else:
+        f_dates, f_ratio, f_offset = entry
+        idx = np.searchsorted(f_dates, bar_dates, side="right") - 1
+        hit = idx >= 0
+        safe = np.where(hit, idx, 0)
+        ratio = np.where(hit, f_ratio[safe], 1.0)
+        offset = np.where(hit, f_offset[safe], 0.0)
+        adj = raw * ratio[:, None] + offset[:, None]
+
+    return [
+        [
+            _format_date(row[0]),
+            adj[i, 0], adj[i, 1], adj[i, 2], adj[i, 3],
+            row[5], row[6],
+        ]
+        for i, row in enumerate(buf)
+    ]
 
 
 def write_csv(path: Path, rows: list[list]) -> None:
@@ -119,27 +213,33 @@ def export(
         symbols = fetch_symbols(conn, limit)
         if not symbols:
             return {"symbols": 0, "written": 0, "skipped": 0, "rows": 0}
+        factors = fetch_factors(conn)
 
         written = skipped = rows_total = 0
         current_symbol: str | None = None
-        buffer: list[list] = []
+        buffer: list[tuple] = []
 
-        def flush(symbol: str, buf: list[list]) -> None:
+        def flush(symbol: str, buf: list[tuple]) -> None:
             nonlocal written, skipped, rows_total
             if len(buf) < min_bars:
                 skipped += 1
                 return
-            write_csv(data_path / f"{to_qlib_code(symbol)}.csv", buf)
+            write_csv(
+                data_path / f"{to_qlib_code(symbol)}.csv",
+                apply_adjust(symbol, buf, factors),
+            )
             written += 1
             rows_total += len(buf)
 
-        for symbol, time, o, h, low, c, v, amount in iter_bars(conn, symbols, start, end):
+        for symbol, time, o, h, low, c, v, amount in iter_bars(
+            conn, symbols, start, end
+        ):
             if symbol != current_symbol:
                 if current_symbol is not None:
                     flush(current_symbol, buffer)
                 current_symbol = symbol
                 buffer = []
-            buffer.append([_format_date(time), o, h, low, c, v, amount])
+            buffer.append((time, o, h, low, c, v, amount))
 
         if current_symbol is not None:
             flush(current_symbol, buffer)
@@ -155,7 +255,7 @@ def export(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="导出 bar1d_qfq 为 qlib per-symbol CSV")
+    parser = argparse.ArgumentParser(description="导出前复权日线为 qlib per-symbol CSV")
     parser.add_argument(
         "--data-path",
         default="research/qlib_csv",

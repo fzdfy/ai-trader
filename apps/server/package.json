@@ -23,6 +23,7 @@
     "refresh:kline1d": "node --import @oxc-node/core/register scripts/refresh-kline1d.ts",
     "backfill:kline1d": "node --import @oxc-node/core/register scripts/backfill-kline1d.ts",
     "backfill:constituent-symbol": "node --import @oxc-node/core/register scripts/backfill-constituent-symbol.ts",
+    "verify:route-a": "node --import @oxc-node/core/register scripts/verify-route-a.ts",
     "sync:kline": "node --import @oxc-node/core/register scripts/sync-kline.ts",
     "worker:sync": "node --import @oxc-node/core/register src/workers/sync-worker/index.ts",
     "worker:feature": "node --import @oxc-node/core/register src/workers/feature-worker/index.ts",

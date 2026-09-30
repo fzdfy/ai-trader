@@ -34,6 +34,8 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "dragon-tiger-backfill", name: "龙虎榜回补" },
   { jobType: "hot-reason-backfill", name: "题材归因回补" },
   { jobType: "kline-1d-backfill", name: "日 K 线回补" },
+  // 运维任务：每周巡检 bar1d_raw 年度分区并提前建分区，失败即告警（DEFAULT 分区断档）
+  { jobType: "partition-maint", name: "分区维护" },
   { jobType: "sync-manual", name: "手动同步" },
 ];
 

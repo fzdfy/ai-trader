@@ -41,6 +41,11 @@ _SPLIT_DROP = 0.8
 # 取 1e-2（1 分钱）与最小价格变动单位同量级，既收敛伪段又把重建残差压在 1 分内。
 _OFFSET_TOL = 1e-2
 
+# 末段专用容差：末段（最后一次送转之后）p 恒为 1，把 p 就近吸附为 1 后偏移即为
+# ``qfq − raw`` 的精确值（无 p 噪声随价格放大），故可用更细的 1e-3 捕获小额现金分红
+# （如 0.005 / 0.009）触发的 D 台阶，保证末段 D 复位为 0（对齐「最新段 qfq_offset 恒为 0」）。
+_OFFSET_TOL_TAIL = 1e-3
+
 
 def _median(values: list[float]) -> float:
     xs = sorted(values)
@@ -84,13 +89,32 @@ def _build_points(
     points: list[AdjustParamPoint] = []
     n = len(dates)
     bounds = [0] + _split_bounds(raw) + [n]
-    for k in range(len(bounds) - 1):
+    nseg = len(bounds) - 1
+    for k in range(nseg):
         lo, hi = bounds[k], bounds[k + 1]
+        last = k == nseg - 1
         p = _estimate_ratio(raw, qfq, lo, hi)
+        # 末段 p 理论恒为 1：估计值已贴近 1 时吸附为 1 并放细容差，
+        # 以免 p 的舍入噪声在高价股上放大成伪段、同时避免吞掉小额分红台阶。
+        if last and abs(p - 1.0) < 1e-4:
+            p, tol = 1.0, _OFFSET_TOL_TAIL
+        else:
+            tol = _OFFSET_TOL
         cur: float | None = None
         for i in range(lo, hi):
             offset = qfq[i] - p * raw[i]
-            if cur is None or abs(offset - cur) > _OFFSET_TOL:
+            # 末段 p 恒为 1，最新交易日 qfq 必等于 raw（offset 应为 0）。源端在除权日
+            # 附近会产出 1 厘级的舍入伪影（如 002174.SZ 的 -0.001），其台阶恰等于细
+            # 容差 tol，`> tol` 的严格判定不会触发复位点 → 伪影泄漏到之后全部 bar。
+            # 故末段把量级不超过 tol 的偏移直接吸附为 0（真实小额分红 ≥0.005 不受影响）。
+            # 先量化到 6 位再比：源端 offset 幅值正好落在张力边界 0.001 上，
+            # 浮点减法噪声（如 7.519-7.52≈-0.001000…）会让逐 bar 的比较真伪翻转，
+            # 造成同一连续块被切成交替的 0.0 / -0.001 段。
+            if last:
+                offset = round(offset, 6)
+                if abs(offset) <= tol:
+                    offset = 0.0
+            if cur is None or abs(offset - cur) > tol:
                 cur = offset
                 points.append(
                     AdjustParamPoint(

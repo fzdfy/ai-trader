@@ -34,6 +34,7 @@ import { hotReasonPipeRun, hotReasonBackfillRun } from "./pipes/hot-reason";
 import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
 import { adjFactorPipeRun } from "./pipes/adj-factor";
+import { partitionMaintPipeRun } from "./pipes/partition-maint";
 
 export type PipeName =
   | "kline-1m"
@@ -52,6 +53,7 @@ export type PipeName =
   | "kline-period"
   | "calendar"
   | "adj-factor"
+  | "partition-maint"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -75,6 +77,7 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "kline-period": () => klinePeriodPipeRun(),
   calendar: () => calendarPipeRun(),
   "adj-factor": () => adjFactorPipeRun(),
+  "partition-maint": () => partitionMaintPipeRun(),
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),

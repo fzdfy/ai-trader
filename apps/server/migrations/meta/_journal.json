@@ -162,6 +162,13 @@
       "when": 1790523600000,
       "tag": "0022_legacy_bar1d_adj_rename",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790604000000,
+      "tag": "0023_bar1d_raw_partition_by_time",
+      "breakpoints": true
     }
   ]
 }
