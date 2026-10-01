@@ -86,6 +86,15 @@ class MarketProvider(ABC):
     # 该源支持的能力集合
     capabilities: ClassVar[frozenset[str]] = frozenset()
 
+    def health(self) -> dict | None:
+        """运行时健康快照（熔断 / 限流状态），供 /sources/health 运维端点读取。
+
+        默认返回 None 表示该源没有健康遥测（当前仅东财实现了熔断机制）。
+        返回 dict 时约定包含 ``tripped: bool``（当前是否熔断 / 不可用），
+        可附带 fail_streak / cooldown 等诊断字段。
+        """
+        return None
+
     def kline(
         self,
         symbol: str,

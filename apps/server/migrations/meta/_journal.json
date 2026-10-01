@@ -169,6 +169,13 @@
       "when": 1790604000000,
       "tag": "0023_bar1d_raw_partition_by_time",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790842715902,
+      "tag": "0024_rare_george_stacy",
+      "breakpoints": true
     }
   ]
 }

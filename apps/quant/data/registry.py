@@ -120,6 +120,19 @@ def all_provider_names() -> list[str]:
     return list(_PROVIDER_CLASSES.keys())
 
 
+def capability_chains() -> dict[str, list[str]]:
+    """每个能力的降级链（源名有序列表，主源在前）副本，供 /sources/health 展示。"""
+    return {cap: list(chain) for cap, chain in _CAPABILITY_PRIORITY.items()}
+
+
+def provider_health() -> dict[str, dict | None]:
+    """各数据源运行时健康快照：{源名: provider.health()}。
+
+    未实现健康遥测的源返回 None（当前仅东财有熔断 / 限流状态）。
+    """
+    return {name: get_provider(name).health() for name in all_provider_names()}
+
+
 def call_with_fallback(capability: str, method: str, *args, **kwargs):
     """按降级链依次调用 provider 方法，全部失败抛最后一个异常。"""
     providers = providers_for(capability)

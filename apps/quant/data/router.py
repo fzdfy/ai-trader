@@ -97,6 +97,45 @@ def list_sources():
     }
 
 
+@router.get("/sources/health")
+def sources_health():
+    """各数据源健康 / 熔断状态 + 各能力降级链运行态快照（运维观测）。
+
+    - providers: 每个源名 + provider.health()（仅东财有熔断 / 限流态，其余为 None）
+    - capabilities: 每个能力的降级链及当前生效源：
+        取链中首个「健康」的源为 active_source（无健康遥测默认视为健康），
+        degraded = 已从主源降级（active 非链首）；available = 链中是否有可用源。
+
+    纯运行时读快照，不触发任何外部取数请求。
+    """
+    health = registry.provider_health()
+
+    def healthy(name: str) -> bool:
+        snapshot = health.get(name)
+        return snapshot is None or not snapshot.get("tripped", False)
+
+    capabilities = []
+    for capability, chain in registry.capability_chains().items():
+        active = next((name for name in chain if healthy(name)), None)
+        capabilities.append(
+            {
+                "capability": capability,
+                "chain": chain,
+                "primary": chain[0] if chain else None,
+                "active_source": active,
+                "degraded": active is not None and active != chain[0],
+                "available": active is not None,
+            }
+        )
+
+    return {
+        "providers": [
+            {"name": name, "breaker": health[name]} for name in registry.all_provider_names()
+        ],
+        "capabilities": capabilities,
+    }
+
+
 @router.get("/kline", response_model=list[KlineBar])
 def get_kline(
     symbol: Annotated[str, Query(description="标的代码，如 600519 / 000001.SZ")],

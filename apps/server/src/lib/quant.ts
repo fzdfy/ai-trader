@@ -216,6 +216,53 @@ export interface LimitUpPoolItem {
   float_market_cap: number | null;
 }
 
+/** 单个数据源的熔断 / 限流运行时快照（quant /sources/health 返回；当前仅东财有，其余无健康遥测） */
+export interface ProviderBreakerStatus {
+  /** 是否处于熔断（冷却期内东财请求直接失败，交由降级链兜底） */
+  tripped: boolean;
+  /** 当前连续失败计数 */
+  fail_streak: number;
+  /** 触发熔断的连续失败阈值 */
+  threshold: number;
+  /** 熔断冷却时长（秒） */
+  cooldown_sec: number;
+  /** 冷却剩余时长（秒），未熔断为 0 */
+  cooldown_remaining_sec: number;
+  /** 东财两次请求最小间隔（秒） */
+  min_interval_sec: number;
+  /** 已登记的 WAF 绕过 URL 数 */
+  bypass_url_count: number;
+}
+
+/** 单个数据源的运行态（quant /sources/health 返回） */
+export interface ProviderHealth {
+  name: string;
+  /** 熔断快照；为 null 表示该源无健康遥测（当前仅东财实现熔断） */
+  breaker: ProviderBreakerStatus | null;
+}
+
+/** 单个能力的降级链运行态（quant /sources/health 返回） */
+export interface CapabilityHealth {
+  /** 能力名（如 kline / board_kline） */
+  capability: string;
+  /** 降级链（源名有序，主源在前） */
+  chain: string[];
+  /** 链首主源 */
+  primary: string | null;
+  /** 当前生效源：链中首个「健康」的源；全部不可用为 null */
+  active_source: string | null;
+  /** 是否已从主源降级（active_source 非链首） */
+  degraded: boolean;
+  /** 链中是否仍有可用源 */
+  available: boolean;
+}
+
+/** 数据源健康 / 降级链运行态快照（quant /sources/health 返回） */
+export interface DataSourcesHealth {
+  providers: ProviderHealth[];
+  capabilities: CapabilityHealth[];
+}
+
 /** quant 请求超时（毫秒）。上游（东财/腾讯等）网络抖动可能 hang，必须限时避免卡死同步管道 */
 const QUANT_TIMEOUT_MS = 20_000;
 
@@ -372,6 +419,9 @@ export const quant = {
     if (source) path += `&source=${encodeURIComponent(source)}`;
     return getJson<AdjustParams>(path);
   },
+
+  /** 数据源健康 / 熔断状态 + 各能力降级链运行态（运维观测；纯内存读快照，不发外部请求） */
+  dataSourcesHealth: () => getJson<DataSourcesHealth>(`/api/v1/data/sources/health`),
 
   /**
    * 校验 Python 因子代码能否运行：quant 侧先做 AST 白名单静态校验，

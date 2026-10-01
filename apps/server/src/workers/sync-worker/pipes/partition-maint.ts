@@ -102,6 +102,6 @@ export async function partitionMaintPipeRun(): Promise<void> {
     `分区维护完成：检查 ${years.length} 个年度分区，新建 ${created} 个`,
   );
   console.log(
-    `[partition-maint] ensured ${years[0]}~${years[years.length - 1]} partitions (created ${created})`,
+    `[partition-maint] ensured ${years[0]}~${years.at(-1)} partitions (created ${created})`,
   );
 }

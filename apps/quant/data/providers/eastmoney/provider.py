@@ -119,6 +119,31 @@ def _em_breaker_on_failure() -> None:
             _em_breaker_until = time.time() + _EM_BREAKER_COOLDOWN
 
 
+def em_breaker_status() -> dict:
+    """东财熔断 / 限流运行时状态快照（供 /sources/health 运维端点读取）。
+
+    这是唯一对外的公开读取入口：熔断状态此前仅模块内私有，跨模块读取需触碰私有名。
+    熔断：连续失败达 _EM_BREAKER_THRESHOLD 即跳闸 _EM_BREAKER_COOLDOWN 秒，
+    期间 _em_get 直接抛出，交由上层降级链兜底。
+    """
+    now = time.time()
+    with _em_breaker_lock:
+        tripped = now < _em_breaker_until
+        remaining = max(0.0, _em_breaker_until - now)
+        fail_streak = _em_fail_streak
+    with _em_bypass_lock:
+        bypass_count = len(_em_bypass_urls)
+    return {
+        "tripped": tripped,
+        "fail_streak": fail_streak,
+        "threshold": _EM_BREAKER_THRESHOLD,
+        "cooldown_sec": _EM_BREAKER_COOLDOWN,
+        "cooldown_remaining_sec": round(remaining, 1),
+        "min_interval_sec": _EM_MIN_INTERVAL,
+        "bypass_url_count": bypass_count,
+    }
+
+
 def _f(v):
     """宽松转 float：None / 空串 / '-' → None。"""
     if v is None or v == "" or v == "-":
@@ -408,6 +433,10 @@ class EastmoneyProvider(MarketProvider):
         "fund_flow_120d",
         "chip_distribution",
     })
+
+    def health(self) -> dict:
+        """东财熔断 / 限流运行时快照（委托模块级 em_breaker_status）。"""
+        return em_breaker_status()
 
     # ── 3.3 概念板块归属 ────────────────────────────────────────────
 

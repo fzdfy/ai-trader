@@ -165,6 +165,7 @@ export const boardKline = pgTable(
   (table) => [
     primaryKey({ columns: [table.code, table.time] }),
     index("board_kline_code_time_idx").on(table.code, table.time),
+    index("board_kline_time_idx").on(table.time),
   ],
 );
 
@@ -719,6 +720,7 @@ export const barPeriodAdj = pgTable(
   (table) => [
     primaryKey({ columns: [table.period, table.time, table.symbol] }),
     index("bar_period_adj_symbol_time_idx").on(table.period, table.symbol, table.time),
+    index("bar_period_adj_time_idx").on(table.time),
   ],
 );
 
