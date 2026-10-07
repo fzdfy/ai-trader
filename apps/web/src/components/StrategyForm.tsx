@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { VStack, HStack } from "@astryxdesign/core/Stack";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
@@ -7,8 +7,13 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { Button } from "@astryxdesign/core/Button";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Section } from "@astryxdesign/core/Section";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
-import type { Factor } from "../hooks/useFactors";
+import {
+  factorCategoryGroup,
+  formatFactorCategory,
+  type Factor,
+} from "../hooks/useFactors";
 import {
   COMBINE_MODES,
   COMBINE_LABELS,
@@ -74,6 +79,12 @@ const DEFAULT_VALUES: CreateStrategyInput = {
   slippageValue: 2,
 };
 
+/** 因子大类 Tab 顺序（与 factorCategoryGroup 的返回值一致） */
+const GROUP_ORDER = ["自定义分类", "Alpha101", "qlib · Alpha158", "qlib · Alpha360", "其他"];
+
+/** 二级「全部分类」Tab 的哨兵值 */
+const ALL_CATEGORY = "__all__";
+
 interface StrategyFormProps {
   title: string;
   subtitle: string;
@@ -115,6 +126,10 @@ export function StrategyForm({
     }
     return next;
   });
+  // 因子选择区的分类筛选态（大类 Tab / 分类 Tab / 搜索）
+  const [factorGroup, setFactorGroup] = useState<string | null>(null);
+  const [factorCategory, setFactorCategory] = useState<string | null>(null);
+  const [factorQuery, setFactorQuery] = useState("");
   // 入场/出场阈值与仓位/止盈/止损（0-100 百分比）
   const [entryThreshold, setEntryThreshold] = useState(iv.entry);
   const [exitThreshold, setExitThreshold] = useState(iv.exit);
@@ -182,6 +197,68 @@ export function StrategyForm({
       return next;
     });
   };
+
+  // 因子大类 Tab：按 factorCategoryGroup 归类的四大类，附带各自因子数量
+  const factorGroups = useMemo(() => {
+    const countByGroup = new Map<string, number>();
+    for (const f of factors) {
+      const group = factorCategoryGroup(f.category);
+      countByGroup.set(group, (countByGroup.get(group) ?? 0) + 1);
+    }
+    return GROUP_ORDER.filter((name) => countByGroup.has(name)).map((name) => ({
+      name,
+      count: countByGroup.get(name)!,
+    }));
+  }, [factors]);
+
+  // 当前选中的大类；未选择时回退到第一个有数据的大类（异步加载后自动生效）
+  const activeFactorGroup = factorGroup ?? factorGroups[0]?.name ?? "";
+
+  const groupFactors = useMemo(
+    () => factors.filter((f) => factorCategoryGroup(f.category) === activeFactorGroup),
+    [factors, activeFactorGroup],
+  );
+
+  // 二级 Tab：当前大类下的具体分类，按中文名排序
+  const factorCategoryTabs = useMemo(() => {
+    const countByCategory = new Map<string, number>();
+    for (const f of groupFactors) {
+      countByCategory.set(f.category, (countByCategory.get(f.category) ?? 0) + 1);
+    }
+    return [...countByCategory.entries()]
+      .map(([value, count]) => ({ value, label: formatFactorCategory(value), count }))
+      .toSorted((a, b) => a.label.localeCompare(b.label, "zh-Hans-CN"));
+  }, [groupFactors]);
+
+  // 分类态可能因大类切换而失效，此处做一次兜底
+  const activeFactorCategory =
+    factorCategory && factorCategoryTabs.some((tab) => tab.value === factorCategory)
+      ? factorCategory
+      : null;
+
+  const filteredFactors = useMemo(() => {
+    const keyword = factorQuery.trim().toLowerCase();
+    return groupFactors.filter((f) => {
+      if (activeFactorCategory && f.category !== activeFactorCategory) return false;
+      if (!keyword) return true;
+      return (
+        f.label.toLowerCase().includes(keyword) ||
+        f.name.toLowerCase().includes(keyword) ||
+        (f.expression ?? "").toLowerCase().includes(keyword)
+      );
+    });
+  }, [groupFactors, activeFactorCategory, factorQuery]);
+
+  // 浏览区只展示尚未选中的因子；已选因子固定在「已选因子」区，跨 Tab 始终可编辑
+  const browsableFactors = useMemo(
+    () => filteredFactors.filter((f) => !selected[f.name]),
+    [filteredFactors, selected],
+  );
+
+  const selectedFactors = useMemo(
+    () => factors.filter((f) => selected[f.name]),
+    [factors, selected],
+  );
 
   const selectedCount = Object.keys(selected).length;
   // 因子权重为百分比（0-100），归一化后权重和须等于 1（即合计 100%）
@@ -311,15 +388,94 @@ export function StrategyForm({
               暂无可用因子
             </Text>
           ) : (
-            factors.map((factor) => (
-              <FactorSelectRow
-                key={factor.name}
-                factor={factor}
-                selection={selected[factor.name]}
-                onToggle={() => toggleFactor(factor.name)}
-                onChange={(patch) => updateSelection(factor.name, patch)}
-              />
-            ))
+            <VStack gap={4}>
+              {selectedCount > 0 && (
+                <VStack gap={1}>
+                  <Text type="supporting" size="sm">
+                    已选因子（{selectedCount}）
+                  </Text>
+                  {selectedFactors.map((factor) => (
+                    <FactorSelectRow
+                      key={factor.name}
+                      factor={factor}
+                      selection={selected[factor.name]}
+                      onToggle={() => toggleFactor(factor.name)}
+                      onChange={(patch) => updateSelection(factor.name, patch)}
+                    />
+                  ))}
+                </VStack>
+              )}
+
+              <VStack gap={3}>
+                <TabList
+                  value={activeFactorGroup}
+                  onChange={(value) => {
+                    setFactorGroup(value);
+                    setFactorCategory(null);
+                  }}
+                  hasDivider
+                >
+                  {factorGroups.map((item) => (
+                    <Tab
+                      key={item.name}
+                      value={item.name}
+                      label={`${item.name} (${item.count})`}
+                    />
+                  ))}
+                </TabList>
+
+                {factorCategoryTabs.length > 1 && (
+                  <TabList
+                    value={activeFactorCategory ?? ALL_CATEGORY}
+                    onChange={(value) =>
+                      setFactorCategory(value === ALL_CATEGORY ? null : value)
+                    }
+                    size="sm"
+                    style={{ flexWrap: "wrap" }}
+                  >
+                    <Tab value={ALL_CATEGORY} label={`全部 (${groupFactors.length})`} />
+                    {factorCategoryTabs.map((item) => (
+                      <Tab
+                        key={item.value}
+                        value={item.value}
+                        label={`${item.label} (${item.count})`}
+                      />
+                    ))}
+                  </TabList>
+                )}
+
+                <HStack gap={3} align="center" style={{ flexWrap: "wrap" }}>
+                  <TextInput
+                    label="搜索因子"
+                    isLabelHidden
+                    placeholder="搜索因子名称或表达式"
+                    startIcon="search"
+                    value={factorQuery}
+                    onChange={setFactorQuery}
+                    width={280}
+                  />
+                  <Text size="sm" type="supporting">
+                    待选 {browsableFactors.length} 个
+                  </Text>
+                </HStack>
+
+                {browsableFactors.length === 0 ? (
+                  <Text type="supporting" size="sm">
+                    没有符合筛选条件的未选因子
+                  </Text>
+                ) : (
+                  browsableFactors.map((factor) => (
+                    <FactorSelectRow
+                      key={factor.name}
+                      factor={factor}
+                      selection={selected[factor.name]}
+                      onToggle={() => toggleFactor(factor.name)}
+                      onChange={(patch) => updateSelection(factor.name, patch)}
+                    />
+                  ))
+                )}
+              </VStack>
+            </VStack>
           )}
           {selectedCount > 0 && !weightsValid && (
             <Text type="supporting" size="sm">
@@ -358,7 +514,7 @@ export function StrategyForm({
             />
             <Switch
               label="涨跌停过滤"
-              description="涨停/跌停当日不买入"
+              description="撮合层硬拦截：涨停买不进 / 跌停卖不出"
               value={limitFilter}
               onChange={setLimitFilter}
             />

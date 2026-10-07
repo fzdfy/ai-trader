@@ -6,6 +6,7 @@ import { Switch } from "@astryxdesign/core/Switch";
 import { Section } from "@astryxdesign/core/Section";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import type { EntryType } from "../hooks/useStrategies";
+import { formatFactorCategory } from "../hooks/useFactors";
 
 // 因子元数据（对齐 quant 服务 GET /api/v1/factors 返回结构）
 export interface FactorMeta {
@@ -15,14 +16,6 @@ export interface FactorMeta {
   direction: number;
   description: string;
 }
-
-// 因子分类中文名（category 为 quant 注册表中的英文 key）
-const CATEGORY_LABELS: Record<string, string> = {
-  momentum: "动量",
-  trend: "趋势",
-  volume: "成交量",
-  volatility: "波动",
-};
 
 interface StrategyBuilderProps {
   factors: FactorMeta[];
@@ -234,7 +227,7 @@ export function StrategyBuilder(props: StrategyBuilderProps) {
           {grouped.map(([category, list]) => (
             <VStack key={category} gap={1}>
               <Text type="supporting" size="sm" style={{ fontWeight: 600 }}>
-                {CATEGORY_LABELS[category] ?? category}
+                {formatFactorCategory(category)}
               </Text>
               {list.map((f) => (
                 <FactorRow
@@ -293,7 +286,7 @@ export function StrategyBuilder(props: StrategyBuilderProps) {
             />
             <Switch
               label="涨跌停过滤"
-              description="涨停/跌停当日不买入"
+              description="撮合层硬拦截：涨停买不进 / 跌停卖不出"
               value={limitFilter}
               onChange={onLimitFilterChange}
             />

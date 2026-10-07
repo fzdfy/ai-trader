@@ -1,0 +1,101 @@
+{
+  "built": 82,
+  "checked": 82,
+  "skipped": [
+    {
+      "name": "alpha101_48",
+      "alpha": 48,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_56",
+      "alpha": 56,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_58",
+      "alpha": 58,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_59",
+      "alpha": 59,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_63",
+      "alpha": 63,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_67",
+      "alpha": 67,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_69",
+      "alpha": 69,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_70",
+      "alpha": 70,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_76",
+      "alpha": 76,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_79",
+      "alpha": 79,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_80",
+      "alpha": 80,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_82",
+      "alpha": 82,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_87",
+      "alpha": 87,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_89",
+      "alpha": 89,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_90",
+      "alpha": 90,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_91",
+      "alpha": 91,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_93",
+      "alpha": 93,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_97",
+      "alpha": 97,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    },
+    {
+      "name": "alpha101_100",
+      "alpha": 100,
+      "reason": "skip: 含行业中性化(IndNeutralize/IndClass)/市值(cap)，本项目无行业分类与市值数据"
+    }
+  ]
+}

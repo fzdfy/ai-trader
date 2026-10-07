@@ -20,8 +20,9 @@ import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Tooltip } from "@astryxdesign/core/Tooltip";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
+import { Badge } from "@astryxdesign/core/Badge";
 import { fetchStrategies } from "../../hooks/useStrategies";
-import { fetchFactors } from "../../hooks/useFactors";
+import { fetchFactors, useFactorEvaluationsQuery } from "../../hooks/useFactors";
 import { fetchBoards } from "../../hooks/useBoards";
 import { authClient } from "../../lib/auth-client";
 import {
@@ -33,6 +34,7 @@ import {
 } from "../../hooks/useScreens";
 import { useAddStockPool } from "../../hooks/useStockPool";
 import { chartUp, chartDown } from "../../lib/theme";
+import { summarizeDecay, formatHalfLife } from "../../lib/factorDecay";
 
 // 选股结果行：原始结果 + 排名
 type ScreenRow = Record<string, unknown> & ScreenItem & { rank: number };
@@ -200,7 +202,7 @@ function makeColumns(labelMap: Map<string, string>, rowSymbols: string[]) {
           style={{ textDecoration: "none" }}
         >
           <VStack gap={0}>
-            <Text style={{ fontWeight: 600, color: "var(--color-text-blue)" }}>{row.name}</Text>
+            <Text style={{ fontWeight: 600, color: "var(--color-text-accent)" }}>{row.name}</Text>
             <Text type="supporting" size="sm">
               {row.symbol}
             </Text>
@@ -351,6 +353,17 @@ function makeColumns(labelMap: Map<string, string>, rowSymbols: string[]) {
   ];
 }
 
+/**
+ * 只读因子健康度徽标：按衰退曲线的末期 IC 保留率分档，
+ * 口径与跨因子「衰退对比」页一致（≥50% 耐用 / ≥30% 一般 / 其余 短命）。
+ */
+function DecayBadge({ retention, hasData }: { retention: number | null; hasData: boolean }) {
+  if (!hasData || retention == null) return <Badge label="—" variant="neutral" />;
+  if (retention >= 0.5) return <Badge label="耐用" variant="success" />;
+  if (retention >= 0.3) return <Badge label="一般" variant="neutral" />;
+  return <Badge label="短命" variant="warning" />;
+}
+
 export const Route = createFileRoute("/home/screens")({
   // 选项数据（策略 / 因子 / 行业 / 概念）在 loader 中并行取好：渲染时即为终态，无需 loading 态
   staleTime: 60_000,
@@ -406,6 +419,34 @@ function ScreensPage() {
   const [setName, setSetName] = useState("");
 
   const factorLabelMap = useMemo(() => new Map(factors.map((f) => [f.name, f.label])), [factors]);
+
+  // 当前所选策略：因子健康度提示的数据来源
+  const activeStrategy = useMemo(
+    () => strategies.find((s) => s.id === strategyId) ?? null,
+    [strategies, strategyId],
+  );
+
+  // 因子最近一次检验结果（因子名 → 指标，含衰退曲线）
+  const evaluations = useFactorEvaluationsQuery();
+  const evaluationByName = useMemo(
+    () => new Map((evaluations.data ?? []).map((row) => [row.factorName, row])),
+    [evaluations.data],
+  );
+
+  // 只读健康度：对当前策略用到的每个因子，由衰退曲线估算半衰期与末期保留率
+  const strategyHealth = useMemo(() => {
+    const used = activeStrategy?.configJson?.factors ?? [];
+    return used.map((f) => {
+      const summary = summarizeDecay(evaluationByName.get(f.name)?.decay ?? []);
+      return {
+        name: f.name,
+        label: factorLabelMap.get(f.name) ?? f.name,
+        hasData: summary.hasData,
+        retention: summary.retention,
+        halfLife: formatHalfLife(summary),
+      };
+    });
+  }, [activeStrategy, evaluationByName, factorLabelMap]);
 
   const strategyOptions = useMemo(
     () => strategies.map((s) => ({ value: String(s.id), label: s.name })),
@@ -647,6 +688,30 @@ function ScreensPage() {
           </HStack>
         </VStack>
       </Section>
+
+      {activeStrategy && strategyHealth.length > 0 && (
+        <Section>
+          <VStack gap={2}>
+            <HStack gap={2} align="center" style={{ flexWrap: "wrap" }}>
+              <Text style={{ fontWeight: 600 }}>因子健康度</Text>
+              <Text type="supporting" size="sm">
+                只读参考：基于各因子最近一次检验的衰退曲线（信号寿命），不参与本次打分
+              </Text>
+            </HStack>
+            <HStack gap={5} align="center" style={{ flexWrap: "wrap" }}>
+              {strategyHealth.map((item) => (
+                <HStack key={item.name} gap={2} align="center">
+                  <Text size="sm">{item.label}</Text>
+                  <DecayBadge retention={item.retention} hasData={item.hasData} />
+                  <Text type="supporting" size="sm">
+                    半衰期 {item.halfLife}
+                  </Text>
+                </HStack>
+              ))}
+            </HStack>
+          </VStack>
+        </Section>
+      )}
 
       {isRunning && <Spinner size="sm" label="正在计算因子得分..." />}
 

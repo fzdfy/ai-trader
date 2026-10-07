@@ -140,14 +140,14 @@ const BarChart = memo(function BarChart({
         xAxis: {
           type: "value",
           axisLabel: { color: chartAxisText(), formatter: (v: number) => formatNumber(v) },
-          ...splitLineStyle,
+          ...splitLineStyle(),
         },
         yAxis: {
           type: "category",
           data: sorted.map((d) => d.label),
           axisLabel: { color: chartAxisText(), fontSize: 11 },
           axisTick: { show: false },
-          ...axisLineStyle,
+          ...axisLineStyle(),
         },
         series: [
           {
@@ -241,7 +241,7 @@ const HorizontalBars = memo(function HorizontalBars({
           data: items.map((d) => d.label),
           axisLabel: { color: chartAxisText(), fontSize: 12 },
           axisTick: { show: false },
-          ...axisLineStyle,
+          ...axisLineStyle(),
         },
         series: [
           {
@@ -363,13 +363,13 @@ const GroupedColumns = memo(function GroupedColumns({
             rotate: categories.length > 4 ? 18 : 0,
           },
           axisTick: { show: false },
-          ...axisLineStyle,
+          ...axisLineStyle(),
         },
         yAxis: {
           type: "value",
           max: 100,
           axisLabel: { color: chartAxisText(), fontSize: 10, formatter: "{value}" },
-          ...splitLineStyle,
+          ...splitLineStyle(),
         },
         series: series.map((s) => ({
           name: s.name,

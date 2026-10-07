@@ -22,6 +22,7 @@ import re
 from pathlib import Path
 from typing import TypedDict
 
+import factor_ext  # noqa: F401  先注册扩展算子，再对账 OPS_MAP（同一 dict 对象原地更新）
 from akquant.factor import ExpressionParser
 from akquant.factor.ops import OPS_MAP
 
@@ -54,6 +55,7 @@ PARAM_SAMPLES: dict[str, str] = {
     "t": "1",
     "f": "0",
     "group": "Close",
+    "q": "0.8",
 }
 
 OPERATORS: list[tuple[str, str | None, list[str]]] = [
@@ -69,6 +71,12 @@ OPERATORS: list[tuple[str, str | None, list[str]]] = [
     ("ArgMax", "Ts_ArgMax", ["x", "d"]),
     ("ArgMin", "Ts_ArgMin", ["x", "d"]),
     ("Ts_Rank", None, ["x", "d"]),
+    ("Quantile", None, ["x", "d", "q"]),
+    ("Slope", None, ["x", "d"]),
+    ("Rsquare", None, ["x", "d"]),
+    ("Resi", None, ["x", "d"]),
+    ("Product", None, ["x", "d"]),
+    ("DecayLinear", None, ["x", "d"]),
     ("Rank", None, ["x"]),
     ("Scale", None, ["x"]),
     ("Standardize", "ZScore", ["x"]),

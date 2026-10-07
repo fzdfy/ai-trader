@@ -87,7 +87,7 @@ function StrategyDetailPage() {
     const slippageTypeLabel = SLIPPAGE_TYPE_LABELS[cost?.slippageType ?? "percent"] ?? "按比例";
     const filters: string[] = [];
     if (entry?.volumeConfirm) filters.push("量能确认");
-    if (entry?.limitFilter) filters.push("涨跌停");
+    if (entry?.limitFilter) filters.push("涨跌停成交拦截");
     if (entry?.stFilter) filters.push("ST");
     if (entry?.marketFilter) filters.push("大盘");
     return [

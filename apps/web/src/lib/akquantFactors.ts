@@ -62,7 +62,7 @@ export const AKQUANT_FACTOR_LABELS: Record<string, string> = {
 // ---------- 全部算子清单 ----------
 
 /** 可用列 */
-export const AKQUANT_COLUMNS = ["Close", "Open", "High", "Low", "Volume"];
+export const AKQUANT_COLUMNS = ["Close", "Open", "High", "Low", "Volume", "Vwap"];
 
 /** 全部算子（按类别分组） */
 export const AKQUANT_OPERATOR_GROUPS: AkquantOperatorGroup[] = [
@@ -81,6 +81,12 @@ export const AKQUANT_OPERATOR_GROUPS: AkquantOperatorGroup[] = [
       { signature: "ArgMax(x, d)", alias: "Ts_ArgMax", description: "d 日内最大值距今天数" },
       { signature: "ArgMin(x, d)", alias: "Ts_ArgMin", description: "d 日内最小值距今天数" },
       { signature: "Ts_Rank(x, d)", description: "d 日内当前值排名 (0-1)" },
+      { signature: "Quantile(x, d, q)", description: "d 日滚动分位数 (q∈[0,1])" },
+      { signature: "Slope(x, d)", description: "d 日线性回归斜率" },
+      { signature: "Rsquare(x, d)", description: "d 日线性回归 R 方" },
+      { signature: "Resi(x, d)", description: "d 日线性回归残差（当前点）" },
+      { signature: "Product(x, d)", description: "d 日滚动连乘" },
+      { signature: "DecayLinear(x, d)", description: "d 日线性衰减加权均值" },
     ],
   },
   {

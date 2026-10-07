@@ -13,8 +13,10 @@
     result = screen([{"name": "ma_trend_20", "weight": 40, "value": 60}], top_n=20)
 """
 
+import io
 import os
 import time
+from datetime import timedelta
 from typing import Any
 
 import numpy as np
@@ -22,6 +24,7 @@ import polars as pl
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+import factor_ext  # noqa: F401  运行期向 akquant 注册扩展算子，必须先于任何 parse/plan
 from akquant.factor import ExpressionParser
 from factor_code import latest_values, run_factor_code
 from data.base import CAPABILITY_QUOTE
@@ -247,59 +250,249 @@ def _load_universe_bars(
 
 
 def _load_universe_frame(
-    conn: psycopg2.extensions.connection, universe: list[dict[str, Any]]
+    conn: psycopg2.extensions.connection,
+    universe: list[dict[str, Any]],
+    limit: int = CUSTOM_HISTORY_COUNT,
+    adjust: str = "qfq",
+    as_of: str | None = None,
 ) -> pl.DataFrame:
-    """一次性加载股票池全部标的最近 CUSTOM_HISTORY_COUNT 根日线，构造 Polars DataFrame。
+    """一次性加载股票池全部标的最近 limit 根日线，构造 Polars DataFrame。
 
-    列：symbol / date / open / high / low / close / volume，按 symbol、date 升序。
+    列：symbol / date / open / high / low / close / volume / amount / vwap，按 symbol、date 升序。
     供自定义因子表达式（AKQuant）在横截面上求值使用。窗口取较长历史以满足
     250 日均线（年线）等长周期算子的最小样本要求。
     必须覆盖白名单里的全部行情列（含 open）：AKQuant 把列名转小写后按 pl.col 取用，
     少一列就会让引用该列的合法表达式在执行阶段抛 ColumnNotFoundError。
+    amount 亦为受限 Python 代码因子（factor_code）数据契约要求的列。
+
+    vwap 语义（成交量加权均价）：北交所取真实成交额/成交量（原始价口径），沪深无
+    成交额则该列 NULL，改用典型价 (high+low+close)/3 代理。此处先按「复权前」原始价
+    计算，再与价格列一起做同一仿射复权变换——仿射变换对典型价的线性组合可分配，
+    故沪深分支等价于对复权后价求典型价、北交所分支等价于对真实成交价复权，二者口径一致。
+
+    amount 语义：成交额（元），**不做复权**（复权只作用于价格）。优先取 bar1d_raw.amount，
+    沪深标的该列为 NULL（腾讯日 K 源不返回成交额）时用「原始收盘价 × 成交量 × 100」
+    估算（volume 单位为「手」，×100 换股；北交所 volume 为「股」，系数 1.0），
+    停牌无成交则保持 null。
+
+    Args:
+        limit: 每标的取最近 N 根日线。
+        adjust: 复权口径——qfq（前复权，选股打分展示用）/ hfq（后复权，因子检验等
+            研究场景用；避免前复权因子含未来信息造成前视偏差）。非法值回退 qfq。
+        as_of: PIT（as-of）时间戳。传值时仅采用 ``known_at <= as_of`` 的因子快照
+            （等价于「站在该历史时刻」），用于可复现的历史口径回放；``None`` 时取
+            每个标的的最新 known_at 快照，保持既有行为。注意 ``adj_factor`` 目前
+            仅有一个快照（2026-10-01），as_of 早于该时刻时因子缺席、等价于不复权。
 
     性能要点：
-      - LATERAL + (symbol, time) 索引逐标的取最近 N 根，避免全表 ROW_NUMBER 排序；
-      - SQL 侧 ::float8 转换 + 普通游标（非 RealDictCursor），避免 130 万行 numeric→Decimal
-        与字典构造开销（实测 50s → 7s）；
-      - 排序改由 Polars 完成（比 SQL 排序 130 万行更快）。
+      - 直接读分区基表 bar1d_raw：symbol=ANY(...) + time>=下界 触发分区裁剪与
+        (symbol, time) 复合索引，比逐标的 LATERAL / 复权视图快一个数量级；
+      - 结果集经 COPY ... TO STDOUT 以 CSV 直出，再用 pl.read_csv 解析，规避
+        psycopg2 逐行构造 Python 对象（80 万行级实测由 ~20s 降到 <1s）；
+      - 复权在 Polars 侧用 join_asof 完成，规避 bar1d_qfq / bar1d_hfq 视图中
+        逐行的 adj_factor 关联子查询（实测 800×500 由 ~330s 降到数秒）；
+      - 复权公式与视图逐字一致：qfq close = qfq_ratio*raw + qfq_offset；
+        hfq close = scale*qfq_close + hfq_base（scale/hfq_base 取自 adj_factor_latest）。
     """
     symbols = [u["symbol"] for u in universe]
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT u.symbol, b.time,
-                   b.open::float8, b.high::float8, b.low::float8,
-                   b.close::float8, b.volume::float8
-            FROM unnest(%s::text[]) AS u(symbol)
-            CROSS JOIN LATERAL (
-                SELECT time, open, high, low, close, volume
-                FROM bar1d_qfq
-                WHERE symbol = u.symbol
-                ORDER BY time DESC
-                LIMIT %s
-            ) AS b
-            """,
-            (symbols, CUSTOM_HISTORY_COUNT),
-        )
-        rows = cur.fetchall()
-    return pl.DataFrame(
+    empty = pl.DataFrame(
         {
-            "symbol": [r[0] for r in rows],
-            "date": [r[1] for r in rows],
-            "open": [r[2] for r in rows],
-            "high": [r[3] for r in rows],
-            "low": [r[4] for r in rows],
-            "close": [r[5] for r in rows],
-            "volume": [r[6] for r in rows],
+            c: []
+            for c in (
+                "symbol",
+                "date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "amount",
+                "vwap",
+            )
         }
+    )
+    if not symbols:
+        return empty
+    mode = adjust if adjust in ("qfq", "hfq") else "qfq"
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT max(time) FROM bar1d_raw")
+        row = cur.fetchone()
+        latest = row[0] if row else None
+
+        where = "symbol = ANY(%s)"
+        where_params: tuple[Any, ...] = (symbols,)
+        if latest is not None:
+            where += " AND time >= %s"
+            where_params = (symbols, latest - timedelta(days=limit * 2 + 90))
+
+        buf = io.BytesIO()
+        cur.copy_expert(
+            "COPY (SELECT symbol, time, open::float8, high::float8, low::float8, "
+            "close::float8, volume::float8, amount::float8 FROM bar1d_raw WHERE "
+            + cur.mogrify(where, where_params).decode()
+            + ") TO STDOUT WITH (FORMAT csv)",
+            buf,
+        )
+
+        # PIT：as_of 传值时只保留 known_at <= as_of 的快照，随后的 max(known_at)
+        # 便落在「该历史时刻最新」的版本上；None 时即全量（等价于视图的最新快照）。
+        known_clause = " AND known_at <= %s::timestamp" if as_of else ""
+        af_params: list[Any] = [symbols, as_of] if as_of else [symbols]
+
+        cur.execute(
+            "SELECT symbol, date, known_at, qfq_ratio::float8, qfq_offset::float8 "
+            "FROM adj_factor WHERE symbol = ANY(%s)" + known_clause,
+            af_params,
+        )
+        af_rows = cur.fetchall()
+
+        cur.execute(
+            "SELECT symbol, date, known_at, scale::float8, hfq_base::float8 "
+            "FROM adj_factor_latest WHERE symbol = ANY(%s)" + known_clause,
+            af_params,
+        )
+        latest_rows = cur.fetchall()
+
+    if buf.getbuffer().nbytes == 0:
+        return empty
+    buf.seek(0)
+    bars = pl.read_csv(
+        buf,
+        has_header=False,
+        schema={
+            "column_1": pl.Utf8,
+            "column_2": pl.Datetime,
+            "column_3": pl.Float64,
+            "column_4": pl.Float64,
+            "column_5": pl.Float64,
+            "column_6": pl.Float64,
+            "column_7": pl.Float64,
+            "column_8": pl.Float64,
+        },
+    ).rename(
+        {
+            "column_1": "symbol",
+            "column_2": "date",
+            "column_3": "open",
+            "column_4": "high",
+            "column_5": "low",
+            "column_6": "close",
+            "column_7": "volume",
+            "column_8": "amount",
+        }
+    )
+    bars = bars.with_columns(
+        pl.col("date").rank("ordinal", descending=True).over("symbol").alias("_rk")
+    )
+    bars = bars.filter(pl.col("_rk") <= limit).drop("_rk")
+
+    # amount 复权前用原始 close 估算（复权只作用于价格列，不改成交额）。
+    # 沪深 volume 为「手」→ ×100 换股；北交所 volume 为「股」→ ×1。
+    # 估算后仅当 (close>0 & volume>0) 才有效，停牌保持 NaN（factor_code 契约允许）。
+    close_raw = bars["close"].to_numpy()
+    volume = bars["volume"].to_numpy()
+    amount = bars["amount"].cast(pl.Float64).fill_null(float("nan")).to_numpy()
+    amount_scale = np.where(
+        np.array([str(s).endswith(".BJ") for s in bars["symbol"]]), 1.0, 100.0
+    )
+    derived = close_raw * volume * amount_scale
+    derived = np.where((close_raw > 0) & (volume > 0), derived, float("nan"))
+    amount = np.where(np.isfinite(amount), amount, derived)
+    bars = bars.with_columns(pl.Series("amount", amount, dtype=pl.Float64))
+
+    # vwap：北交所用真实成交额/成交量（原始价口径），沪深用典型价 (H+L+C)/3 代理。
+    # 先按复权前原始价算出，随后并入 price_cols 走同一仿射复权变换，保证与
+    # open/high/low/close 处于同一复权口径（详见函数 docstring 的 vwap 语义）。
+    typical = (
+        bars["high"].cast(pl.Float64)
+        + bars["low"].cast(pl.Float64)
+        + bars["close"].cast(pl.Float64)
+    ) / 3.0
+    traded = pl.col("amount").cast(pl.Float64) / pl.when(pl.col("volume") > 0).then(
+        pl.col("volume")
+    )
+    bars = bars.with_columns(
+        pl.when(pl.col("symbol").str.ends_with(".BJ"))
+        .then(traded)
+        .otherwise(typical)
+        .alias("vwap")
+    )
+
+    price_cols = ("open", "high", "low", "close", "vwap")
+
+    if af_rows:
+        af = (
+            pl.DataFrame(
+                {
+                    "symbol": [r[0] for r in af_rows],
+                    "date": [r[1] for r in af_rows],
+                    "known_at": [r[2] for r in af_rows],
+                    "qfq_ratio": [r[3] for r in af_rows],
+                    "qfq_offset": [r[4] for r in af_rows],
+                }
+            )
+            .with_columns(pl.col("known_at").max().over("symbol").alias("_mx"))
+            .filter(pl.col("known_at") == pl.col("_mx"))
+            .select(["symbol", "date", "qfq_ratio", "qfq_offset"])
+            .with_columns(pl.col("date").cast(pl.Datetime))
+            .sort(["symbol", "date"])
+        )
+        bars = bars.sort(["symbol", "date"]).join_asof(
+            af, on="date", by="symbol", strategy="backward", check_sortedness=False
+        )
+        bars = bars.with_columns(
+            pl.col("qfq_ratio").fill_null(1.0),
+            pl.col("qfq_offset").fill_null(0.0),
+        )
+    else:
+        bars = bars.with_columns(
+            pl.lit(1.0).alias("qfq_ratio"), pl.lit(0.0).alias("qfq_offset")
+        )
+
+    bars = bars.with_columns(
+        [(pl.col("qfq_ratio") * pl.col(c) + pl.col("qfq_offset")).alias(c) for c in price_cols]
+    )
+
+    if mode == "hfq" and latest_rows:
+        lt = (
+            pl.DataFrame(
+                {
+                    "symbol": [r[0] for r in latest_rows],
+                    "known_at": [r[2] for r in latest_rows],
+                    "scale": [r[3] for r in latest_rows],
+                    "hfq_base": [r[4] for r in latest_rows],
+                }
+            )
+            .with_columns(pl.col("known_at").max().over("symbol").alias("_mx"))
+            .filter(pl.col("known_at") == pl.col("_mx"))
+            .select(["symbol", "scale", "hfq_base"])
+        )
+        bars = bars.join(lt, on="symbol", how="left")
+        bars = bars.with_columns(
+            [
+                (
+                    pl.col("scale").fill_null(1.0) * pl.col(c)
+                    + pl.col("hfq_base").fill_null(0.0)
+                ).alias(c)
+                for c in price_cols
+            ]
+        )
+
+    return bars.select(
+        ["symbol", "date", "open", "high", "low", "close", "volume", "amount", "vwap"]
     ).sort(["symbol", "date"])
 
 
-def _eval_expression(frame: pl.DataFrame, expr_str: str) -> dict[str, float]:
-    """在股票池日线上求自定义因子表达式，返回 {symbol: 最新一根的因子原始值}。
+def _eval_expression_panel(frame: pl.DataFrame, expr_str: str) -> pl.DataFrame | None:
+    """在股票池日线上求自定义因子表达式，返回整段面板 DataFrame（symbol/date/factor）。
 
     复刻 AKQuant FactorEngine.run_on_data 的分步执行：先 plan 拆解嵌套窗口函数，
-    再逐步 with_columns 物化，最后取每标的最后一根（最新）的因子值。
+    再逐步 with_columns 物化，最后产出 symbol/date/factor 三列（每个标的每根日线
+    各一行，而非仅最新一根）。供因子检验（IC / 分层回测）按截面消费。
+
+    Returns:
+        面板 DataFrame；表达式未产出 result 时返回 None。
     """
     steps = _CUSTOM_PARSER.plan(expr_str)
     current = frame
@@ -312,7 +505,15 @@ def _eval_expression(frame: pl.DataFrame, expr_str: str) -> dict[str, float]:
             )
         else:
             current = current.with_columns(sub_expr.alias(var_name))
+    return factor_col
 
+
+def _eval_expression(frame: pl.DataFrame, expr_str: str) -> dict[str, float]:
+    """在股票池日线上求自定义因子表达式，返回 {symbol: 最新一根的因子原始值}。
+
+    基于 _eval_expression_panel 得到整段面板后，取每标的最后一根（最新）的因子值。
+    """
+    factor_col = _eval_expression_panel(frame, expr_str)
     if factor_col is None:
         return {}
 

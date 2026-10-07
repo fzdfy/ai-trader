@@ -112,6 +112,183 @@ export interface FactorExpressionValidationResult {
   sampleSymbols: string[];
 }
 
+/** 逐日 IC 一条（quant /factors/evaluate 返回；date 为 YYYY-MM-DD） */
+export interface FactorIcPoint {
+  date: string;
+  ic: number;
+  rankIc: number;
+  count: number;
+}
+
+/** IC / RankIC 序列汇总指标（quant /factors/evaluate 返回） */
+export interface FactorIcSummary {
+  mean: number | null;
+  std: number | null;
+  icir: number | null;
+  /** t 值 = ICIR × sqrt(交易日数) */
+  tStat: number | null;
+  /** IC > 0 的交易日占比 */
+  positiveRatio: number | null;
+  /** 年化 ICIR = ICIR × sqrt(252) */
+  icirAnnual: number | null;
+  count: number;
+}
+
+/** 分层回测单层汇总（quant /factors/evaluate 返回；第 1 层因子值最低） */
+export interface FactorLayerSummary {
+  layer: number;
+  cumRet: number;
+  meanRet: number;
+  annRet: number | null;
+  winRate: number;
+  days: number;
+}
+
+/** 多空组合（最高层 - 最低层）汇总（quant /factors/evaluate 返回） */
+export interface FactorLongShortSummary {
+  cumRet: number;
+  meanRet: number;
+  annRet: number | null;
+  winRate: number | null;
+}
+
+/** 分层回测结果（quant /factors/evaluate 返回；nav 键为 L1..LN 与 longShort） */
+export interface FactorLayerBacktest {
+  count: number;
+  dates: string[];
+  nav: Record<string, number[]>;
+  summary: FactorLayerSummary[];
+  longShort: FactorLongShortSummary;
+}
+
+/** 因子衰退曲线一点（quant /factors/evaluate 返回；不同持有期下的 IC 水平） */
+export interface FactorDecayPoint {
+  horizon: number;
+  icMean: number | null;
+  rankIcMean: number | null;
+  icir: number | null;
+  count: number;
+}
+
+/** 分层换手率单层（quant /factors/evaluate 返回；第 1 层因子值最低） */
+export interface FactorTurnoverLayer {
+  layer: number;
+  turnover: number | null;
+}
+
+/** 分位换手率（quant /factors/evaluate 返回；相邻两日同层成分股更替比例，越低越稳定、成本越低） */
+export interface FactorTurnover {
+  mean: number | null;
+  byLayer: FactorTurnoverLayer[];
+  /** 参与计算的相邻日对数 */
+  count: number;
+}
+
+/** 因子秩自相关（quant /factors/evaluate 返回；相邻两日因子排名 Spearman 相关，越接近 1 越稳定） */
+export interface FactorRankAutocorr {
+  mean: number | null;
+  std: number | null;
+  count: number;
+}
+
+/** 多空组合 Alpha/Beta 回归（quant /factors/evaluate 返回；多空日收益对等权市场日收益 OLS） */
+export interface FactorAlphaBeta {
+  /** 日频回归截距 */
+  alpha: number | null;
+  /** 回归斜率（市场暴露，多空应接近 0） */
+  beta: number | null;
+  rSquared: number | null;
+  /** 日频 alpha 按 252 交易日复利年化 */
+  annualAlpha: number | null;
+  count: number;
+}
+
+/** IC 正态性 QQ 采样点（quant /factors/evaluate 返回） */
+export interface FactorIcQqPoint {
+  theoretical: number;
+  sample: number;
+}
+
+/** IC 序列正态性检验（quant /factors/evaluate 返回；偏度/峰度/Jarque-Bera + QQ 点） */
+export interface FactorIcNormality {
+  /** 偏度（正态为 0） */
+  skew: number | null;
+  /** 峰度（正态为 3） */
+  kurtosis: number | null;
+  jarqueBera: number | null;
+  /** JB 检验 p 值（越小越拒绝正态） */
+  pValue: number | null;
+  count: number;
+  qq: FactorIcQqPoint[];
+}
+
+/** 月度 IC（quant /factors/evaluate 返回；按自然月聚合的 IC / RankIC 均值） */
+export interface FactorMonthlyIc {
+  /** 自然月（YYYY-MM） */
+  month: string;
+  ic: number | null;
+  rankIc: number | null;
+  count: number;
+}
+
+/** 样本切分信息（quant /factors/evaluate 返回；validRatio>0 且样本充足时非空） */
+export interface FactorEvaluationSplit {
+  /** 样本外占比（0~0.5） */
+  validRatio: number;
+  /** 样本外起始交易日（YYYY-MM-DD）；样本内(train)全部早于该日，两段不重叠 */
+  splitDate: string;
+}
+
+/** 样本外(valid)区间汇总（quant /factors/evaluate 返回；未切分或样本不足时整体为 null） */
+export interface FactorValidSummary {
+  ic: FactorIcSummary;
+  rankIc: FactorIcSummary;
+  longShort: FactorLongShortSummary;
+  turnover: FactorTurnover;
+  rankAutocorr: FactorRankAutocorr;
+  alphaBeta: FactorAlphaBeta;
+  monthlyIc: FactorMonthlyIc[];
+  /** 样本外有效截面交易日数 */
+  sampleCount: number;
+  startDate: string;
+  endDate: string;
+}
+
+/**
+ * 因子检验结果（quant /factors/evaluate 返回：IC / RankIC / ICIR / 分层回测 / 衰退）。
+ * ic / rankIc / layers 均在样本内(train)区间计算；validRatio>0 时另返回 split 与 valid 样本外指标。
+ */
+export interface FactorEvaluation {
+  expression: string;
+  universe: {
+    symbols: number;
+    bars: number;
+    startDate: string;
+    endDate: string;
+  };
+  horizon: number;
+  ic: FactorIcSummary;
+  rankIc: FactorIcSummary;
+  icSeries: FactorIcPoint[];
+  layers: FactorLayerBacktest;
+  /** 分位换手率（样本内） */
+  turnover: FactorTurnover;
+  /** 秩自相关（样本内） */
+  rankAutocorr: FactorRankAutocorr;
+  /** 多空 Alpha/Beta 回归（样本内） */
+  alphaBeta: FactorAlphaBeta;
+  /** IC 序列正态性（样本内） */
+  icNormality: FactorIcNormality;
+  /** 月度 IC（样本内） */
+  monthlyIc: FactorMonthlyIc[];
+  decay: FactorDecayPoint[];
+  /** 样本切分信息；未切分（validRatio=0 或样本不足）时为 null */
+  split: FactorEvaluationSplit | null;
+  /** 样本外(OOS)指标；未切分或样本外无法计算时为 null */
+  valid: FactorValidSummary | null;
+  elapsedMs: number;
+}
+
 /** 个股资金流排行一条（quant /fund-flow-rank 返回，金额单位：元，净占比：%） */
 export interface FundFlowRankItem {
   code: string;
@@ -291,6 +468,13 @@ const CONSTITUENTS_TIMEOUT_MS = 600_000;
  */
 const FACTOR_VALIDATE_TIMEOUT_MS = 30_000;
 
+/**
+ * 因子检验（IC/分层/衰退）超时（毫秒）。quant 侧需从库中取最多 maxSymbols 只标的、
+ * 约 bars 根日线组成面板，再逐因子值/分层/多持有期计算；取数走 COPY 直出已优化到秒级，
+ * 但衰退曲线含多个持有期重复评估，故放宽到 2 分钟避免默认 20s 误杀。
+ */
+const FACTOR_EVALUATE_TIMEOUT_MS = 120_000;
+
 async function getJson<T>(path: string, timeoutMs = QUANT_TIMEOUT_MS): Promise<T> {
   const res = await fetch(`${QUANT_URL}${path}`, {
     // 携带调用链上下文（X-Request-Id / X-Job-Run-Id 等），使 quant 访问日志能挂回本次调用来源
@@ -445,4 +629,28 @@ export const quant = {
       { expression },
       FACTOR_VALIDATE_TIMEOUT_MS,
     ),
+
+  /**
+   * 因子检验：在 date×symbol 面板上计算 IC / RankIC / ICIR、分层回测（多空）与因子衰退曲线。
+   * 复权口径固定 hfq（后复权）——qfq 含未来分红信息会造成前视偏差。
+   * expression（kind=expression）与 code（kind=python，须定义 compute(data)）二选一，code 优先；
+   * horizon 为主持有期（默认 1）；layers 为分层数（默认 5）；bars 为面板回溯交易日数（默认 500）。
+   */
+  evaluateFactor: (params: {
+    expression?: string;
+    code?: string;
+    horizon?: number;
+    layers?: number;
+    bars?: number;
+    maxSymbols?: number;
+    minSymbols?: number;
+    horizons?: number[];
+    /** 样本外占比（0~0.5）：>0 时按交易日切分样本内/样本外，另返回 split 与 valid 指标 */
+    validRatio?: number;
+    /**
+     * PIT 复权快照时刻（ISO 日期/时间）：只采用 known_at <= asOf 的复权因子版本，
+     * 等价于"站在历史某时刻"回放，消除前视偏差。缺省即使用最新快照。
+     */
+    asOf?: string;
+  }) => postJson<FactorEvaluation>("/api/v1/factors/evaluate", params, FACTOR_EVALUATE_TIMEOUT_MS),
 };

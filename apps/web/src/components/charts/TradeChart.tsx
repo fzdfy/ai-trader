@@ -80,12 +80,12 @@ export function TradeChart({ trades }: TradeChartProps) {
         yAxis: {
           type: "value",
           name: "收益率(%)",
-          nameTextStyle: axisLabelStyle,
+          nameTextStyle: axisLabelStyle(),
           axisLabel: {
             color: chartAxisText(),
             formatter: "{value}%",
           },
-          ...splitLineStyle,
+          ...splitLineStyle(),
         },
         series: [
           {

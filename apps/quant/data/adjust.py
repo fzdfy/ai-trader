@@ -86,14 +86,37 @@ def _build_points(
     dates: list[str], raw: list[float], qfq: list[float]
 ) -> list[AdjustParamPoint]:
     """按送转分割点分段，逐段估 ``p`` 后再按 ``D`` 跳变切行。"""
-    points: list[AdjustParamPoint] = []
     n = len(dates)
     bounds = [0] + _split_bounds(raw) + [n]
     nseg = len(bounds) - 1
+
+    # 逐段估 p 并标出非法段（合法前复权乘法因子必满足 0 < p <= 1）。
+    ratios: list[float | None] = []
+    for k in range(nseg):
+        est = _estimate_ratio(raw, qfq, bounds[k], bounds[k + 1])
+        ratios.append(est if 0.0 < est <= 1.0 else None)
+
+    # 非法段兜底：窗口截断（腾讯/东财单次约 800 根）会让送转前残段只剩极少 bar，若该残段
+    # 内 qfq 恰好全平（价格保留 2 位后同值），斜率中位数退化为 0（实测 920204.BJ：送转前
+    # 3 根 bar qfq 恒为 4.77 → p=0，会把残段价格全部归零）。改由「相邻更晚段 p × 该分割点
+    # 原始价跌幅」外推——更早段 p = 更晚段 p × 分割价跌幅，是前复权复权因子的结构性质
+    # （后复权累计因子在送转日按 1/跌幅 跳变）；末段恒为 1，外推仍越界则回落到 1。
+    for k in range(nseg - 1, -1, -1):
+        if ratios[k] is not None:
+            continue
+        if k == nseg - 1:
+            ratios[k] = 1.0
+            continue
+        b = bounds[k + 1]
+        r = raw[b] / raw[b - 1] if raw[b - 1] > 0 else 1.0
+        cand = (ratios[k + 1] or 1.0) * r
+        ratios[k] = cand if 0.0 < cand <= 1.0 else 1.0
+
+    points: list[AdjustParamPoint] = []
     for k in range(nseg):
         lo, hi = bounds[k], bounds[k + 1]
         last = k == nseg - 1
-        p = _estimate_ratio(raw, qfq, lo, hi)
+        p = ratios[k] if ratios[k] is not None else 1.0
         # 末段 p 理论恒为 1：估计值已贴近 1 时吸附为 1 并放细容差，
         # 以免 p 的舍入噪声在高价股上放大成伪段、同时避免吞掉小额分红台阶。
         if last and abs(p - 1.0) < 1e-4:

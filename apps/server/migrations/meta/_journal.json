@@ -176,6 +176,48 @@
       "when": 1790842715902,
       "tag": "0024_rare_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790872983040,
+      "tag": "0025_light_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790902973563,
+      "tag": "0026_little_retro_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790927291801,
+      "tag": "0027_fixed_the_professor",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791293556429,
+      "tag": "0028_flowery_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791295107547,
+      "tag": "0029_nappy_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791302871997,
+      "tag": "0030_curved_blue_shield",
+      "breakpoints": true
     }
   ]
 }

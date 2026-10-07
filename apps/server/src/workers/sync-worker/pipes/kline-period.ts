@@ -215,8 +215,10 @@ export async function klinePeriodPipeRun(opts?: { symbols?: string[] }): Promise
 
   // 一次性查出所有标的的最新日线日期：用于确定「可交易标的」分母与「当日已同步」分子。
   // 周期线由日线聚合而来，其最新日期不会超过日线；故以日线是否到达期望交易日为准。
+  // 取数用基表 bar1d_raw（time 与复权无关）：对带 LATERAL 的 bar1d_qfq 视图做
+  // GROUP BY symbol 的 MAX(time) 无法裁剪，会退化为全分区扫描 + 逐行探测 adj_factor（实测 ~98s）。
   const latestRes = await db.execute(sql`
-    SELECT symbol, MAX(time) AS latest FROM bar1d_qfq GROUP BY symbol
+    SELECT symbol, MAX(time) AS latest FROM bar1d_raw GROUP BY symbol
   `);
   const latestBySymbol = new Map<string, string>();
   const latestDateBySymbol = new Map<string, Date>();

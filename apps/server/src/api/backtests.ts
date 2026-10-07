@@ -22,13 +22,14 @@ backtestsRoute.get("/factors", async (c) => {
 // POST /api/v1/backtests/run
 backtestsRoute.post("/run", async (c) => {
   const body = await c.req.json();
-  const { symbol, strategy, params, config, startDate, endDate } = body as {
+  const { symbol, strategy, params, config, startDate, endDate, asOf } = body as {
     symbol?: string;
     strategy?: string;
     params?: Record<string, number>;
     config?: Record<string, unknown>;
     startDate?: string;
     endDate?: string;
+    asOf?: string;
   };
 
   if (!symbol) return badRequest(c, "symbol is required");
@@ -44,6 +45,7 @@ backtestsRoute.post("/run", async (c) => {
       config,
       startDate,
       endDate,
+      asOf,
     }),
   });
   const json = (await res.json()) as { detail?: string } & Record<string, unknown>;

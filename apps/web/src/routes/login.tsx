@@ -6,6 +6,8 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Button } from "@astryxdesign/core/Button";
+import { BrandLogo } from "../components/BrandLogo";
+import { useAppTheme } from "../components/AppThemeProvider";
 import { authClient } from "../lib/auth-client";
 
 export const Route = createFileRoute("/login")({
@@ -14,6 +16,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { preset } = useAppTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,9 +42,12 @@ function LoginPage() {
     <VStack gap={6} align="center" justify="center" style={{ minHeight: "100vh" }}>
       <Card padding={6} width={400}>
         <VStack gap={5}>
-          <VStack gap={2}>
-            <Heading level={2}>登录 AI Trader</Heading>
-            <Text type="supporting">输入邮箱和密码登录</Text>
+          <VStack gap={3} align="center">
+            <BrandLogo color={preset.accent} size={48} />
+            <VStack gap={1} align="center">
+              <Heading level={2}>Apollo Quant</Heading>
+              <Text type="supporting">登录你的账户</Text>
+            </VStack>
           </VStack>
 
           <VStack gap={4}>

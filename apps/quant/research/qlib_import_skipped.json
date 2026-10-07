@@ -1,0 +1,866 @@
+{
+  "built": 518,
+  "translated": 432,
+  "skipped": [
+    {
+      "source": "alpha158",
+      "name": "alpha158_VWAP0",
+      "qlib_name": "VWAP0",
+      "qlib_expr": "$vwap/$close",
+      "category": "qlib/alpha158/price",
+      "zh": "均价/收盘价",
+      "label": "VWAP0 · 均价/收盘价",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_BETA5",
+      "qlib_name": "BETA5",
+      "qlib_expr": "Slope($close, 5)/$close",
+      "category": "qlib/alpha158/rolling/BETA",
+      "zh": "斜率",
+      "label": "BETA5 · 斜率",
+      "reason": "translate: 算子 Slope 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_BETA10",
+      "qlib_name": "BETA10",
+      "qlib_expr": "Slope($close, 10)/$close",
+      "category": "qlib/alpha158/rolling/BETA",
+      "zh": "斜率",
+      "label": "BETA10 · 斜率",
+      "reason": "translate: 算子 Slope 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_BETA20",
+      "qlib_name": "BETA20",
+      "qlib_expr": "Slope($close, 20)/$close",
+      "category": "qlib/alpha158/rolling/BETA",
+      "zh": "斜率",
+      "label": "BETA20 · 斜率",
+      "reason": "translate: 算子 Slope 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_BETA30",
+      "qlib_name": "BETA30",
+      "qlib_expr": "Slope($close, 30)/$close",
+      "category": "qlib/alpha158/rolling/BETA",
+      "zh": "斜率",
+      "label": "BETA30 · 斜率",
+      "reason": "translate: 算子 Slope 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_BETA60",
+      "qlib_name": "BETA60",
+      "qlib_expr": "Slope($close, 60)/$close",
+      "category": "qlib/alpha158/rolling/BETA",
+      "zh": "斜率",
+      "label": "BETA60 · 斜率",
+      "reason": "translate: 算子 Slope 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RSQR5",
+      "qlib_name": "RSQR5",
+      "qlib_expr": "Rsquare($close, 5)",
+      "category": "qlib/alpha158/rolling/RSQR",
+      "zh": "趋势R方",
+      "label": "RSQR5 · 趋势R方",
+      "reason": "translate: 算子 Rsquare 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RSQR10",
+      "qlib_name": "RSQR10",
+      "qlib_expr": "Rsquare($close, 10)",
+      "category": "qlib/alpha158/rolling/RSQR",
+      "zh": "趋势R方",
+      "label": "RSQR10 · 趋势R方",
+      "reason": "translate: 算子 Rsquare 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RSQR20",
+      "qlib_name": "RSQR20",
+      "qlib_expr": "Rsquare($close, 20)",
+      "category": "qlib/alpha158/rolling/RSQR",
+      "zh": "趋势R方",
+      "label": "RSQR20 · 趋势R方",
+      "reason": "translate: 算子 Rsquare 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RSQR30",
+      "qlib_name": "RSQR30",
+      "qlib_expr": "Rsquare($close, 30)",
+      "category": "qlib/alpha158/rolling/RSQR",
+      "zh": "趋势R方",
+      "label": "RSQR30 · 趋势R方",
+      "reason": "translate: 算子 Rsquare 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RSQR60",
+      "qlib_name": "RSQR60",
+      "qlib_expr": "Rsquare($close, 60)",
+      "category": "qlib/alpha158/rolling/RSQR",
+      "zh": "趋势R方",
+      "label": "RSQR60 · 趋势R方",
+      "reason": "translate: 算子 Rsquare 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RESI5",
+      "qlib_name": "RESI5",
+      "qlib_expr": "Resi($close, 5)/$close",
+      "category": "qlib/alpha158/rolling/RESI",
+      "zh": "回归残差",
+      "label": "RESI5 · 回归残差",
+      "reason": "translate: 算子 Resi 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RESI10",
+      "qlib_name": "RESI10",
+      "qlib_expr": "Resi($close, 10)/$close",
+      "category": "qlib/alpha158/rolling/RESI",
+      "zh": "回归残差",
+      "label": "RESI10 · 回归残差",
+      "reason": "translate: 算子 Resi 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RESI20",
+      "qlib_name": "RESI20",
+      "qlib_expr": "Resi($close, 20)/$close",
+      "category": "qlib/alpha158/rolling/RESI",
+      "zh": "回归残差",
+      "label": "RESI20 · 回归残差",
+      "reason": "translate: 算子 Resi 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RESI30",
+      "qlib_name": "RESI30",
+      "qlib_expr": "Resi($close, 30)/$close",
+      "category": "qlib/alpha158/rolling/RESI",
+      "zh": "回归残差",
+      "label": "RESI30 · 回归残差",
+      "reason": "translate: 算子 Resi 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_RESI60",
+      "qlib_name": "RESI60",
+      "qlib_expr": "Resi($close, 60)/$close",
+      "category": "qlib/alpha158/rolling/RESI",
+      "zh": "回归残差",
+      "label": "RESI60 · 回归残差",
+      "reason": "translate: 算子 Resi 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLU5",
+      "qlib_name": "QTLU5",
+      "qlib_expr": "Quantile($close, 5, 0.8)/$close",
+      "category": "qlib/alpha158/rolling/QTLU",
+      "zh": "80分位比",
+      "label": "QTLU5 · 80分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLU10",
+      "qlib_name": "QTLU10",
+      "qlib_expr": "Quantile($close, 10, 0.8)/$close",
+      "category": "qlib/alpha158/rolling/QTLU",
+      "zh": "80分位比",
+      "label": "QTLU10 · 80分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLU20",
+      "qlib_name": "QTLU20",
+      "qlib_expr": "Quantile($close, 20, 0.8)/$close",
+      "category": "qlib/alpha158/rolling/QTLU",
+      "zh": "80分位比",
+      "label": "QTLU20 · 80分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLU30",
+      "qlib_name": "QTLU30",
+      "qlib_expr": "Quantile($close, 30, 0.8)/$close",
+      "category": "qlib/alpha158/rolling/QTLU",
+      "zh": "80分位比",
+      "label": "QTLU30 · 80分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLU60",
+      "qlib_name": "QTLU60",
+      "qlib_expr": "Quantile($close, 60, 0.8)/$close",
+      "category": "qlib/alpha158/rolling/QTLU",
+      "zh": "80分位比",
+      "label": "QTLU60 · 80分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLD5",
+      "qlib_name": "QTLD5",
+      "qlib_expr": "Quantile($close, 5, 0.2)/$close",
+      "category": "qlib/alpha158/rolling/QTLD",
+      "zh": "20分位比",
+      "label": "QTLD5 · 20分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLD10",
+      "qlib_name": "QTLD10",
+      "qlib_expr": "Quantile($close, 10, 0.2)/$close",
+      "category": "qlib/alpha158/rolling/QTLD",
+      "zh": "20分位比",
+      "label": "QTLD10 · 20分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLD20",
+      "qlib_name": "QTLD20",
+      "qlib_expr": "Quantile($close, 20, 0.2)/$close",
+      "category": "qlib/alpha158/rolling/QTLD",
+      "zh": "20分位比",
+      "label": "QTLD20 · 20分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLD30",
+      "qlib_name": "QTLD30",
+      "qlib_expr": "Quantile($close, 30, 0.2)/$close",
+      "category": "qlib/alpha158/rolling/QTLD",
+      "zh": "20分位比",
+      "label": "QTLD30 · 20分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha158",
+      "name": "alpha158_QTLD60",
+      "qlib_name": "QTLD60",
+      "qlib_expr": "Quantile($close, 60, 0.2)/$close",
+      "category": "qlib/alpha158/rolling/QTLD",
+      "zh": "20分位比",
+      "label": "QTLD60 · 20分位比",
+      "reason": "translate: 算子 Quantile 在 AKQuant 中无对应实现"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP59",
+      "qlib_name": "VWAP59",
+      "qlib_expr": "Ref($vwap, 59)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(59日前)",
+      "label": "VWAP59 · 均价(59日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP58",
+      "qlib_name": "VWAP58",
+      "qlib_expr": "Ref($vwap, 58)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(58日前)",
+      "label": "VWAP58 · 均价(58日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP57",
+      "qlib_name": "VWAP57",
+      "qlib_expr": "Ref($vwap, 57)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(57日前)",
+      "label": "VWAP57 · 均价(57日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP56",
+      "qlib_name": "VWAP56",
+      "qlib_expr": "Ref($vwap, 56)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(56日前)",
+      "label": "VWAP56 · 均价(56日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP55",
+      "qlib_name": "VWAP55",
+      "qlib_expr": "Ref($vwap, 55)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(55日前)",
+      "label": "VWAP55 · 均价(55日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP54",
+      "qlib_name": "VWAP54",
+      "qlib_expr": "Ref($vwap, 54)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(54日前)",
+      "label": "VWAP54 · 均价(54日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP53",
+      "qlib_name": "VWAP53",
+      "qlib_expr": "Ref($vwap, 53)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(53日前)",
+      "label": "VWAP53 · 均价(53日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP52",
+      "qlib_name": "VWAP52",
+      "qlib_expr": "Ref($vwap, 52)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(52日前)",
+      "label": "VWAP52 · 均价(52日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP51",
+      "qlib_name": "VWAP51",
+      "qlib_expr": "Ref($vwap, 51)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(51日前)",
+      "label": "VWAP51 · 均价(51日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP50",
+      "qlib_name": "VWAP50",
+      "qlib_expr": "Ref($vwap, 50)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(50日前)",
+      "label": "VWAP50 · 均价(50日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP49",
+      "qlib_name": "VWAP49",
+      "qlib_expr": "Ref($vwap, 49)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(49日前)",
+      "label": "VWAP49 · 均价(49日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP48",
+      "qlib_name": "VWAP48",
+      "qlib_expr": "Ref($vwap, 48)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(48日前)",
+      "label": "VWAP48 · 均价(48日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP47",
+      "qlib_name": "VWAP47",
+      "qlib_expr": "Ref($vwap, 47)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(47日前)",
+      "label": "VWAP47 · 均价(47日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP46",
+      "qlib_name": "VWAP46",
+      "qlib_expr": "Ref($vwap, 46)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(46日前)",
+      "label": "VWAP46 · 均价(46日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP45",
+      "qlib_name": "VWAP45",
+      "qlib_expr": "Ref($vwap, 45)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(45日前)",
+      "label": "VWAP45 · 均价(45日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP44",
+      "qlib_name": "VWAP44",
+      "qlib_expr": "Ref($vwap, 44)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(44日前)",
+      "label": "VWAP44 · 均价(44日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP43",
+      "qlib_name": "VWAP43",
+      "qlib_expr": "Ref($vwap, 43)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(43日前)",
+      "label": "VWAP43 · 均价(43日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP42",
+      "qlib_name": "VWAP42",
+      "qlib_expr": "Ref($vwap, 42)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(42日前)",
+      "label": "VWAP42 · 均价(42日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP41",
+      "qlib_name": "VWAP41",
+      "qlib_expr": "Ref($vwap, 41)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(41日前)",
+      "label": "VWAP41 · 均价(41日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP40",
+      "qlib_name": "VWAP40",
+      "qlib_expr": "Ref($vwap, 40)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(40日前)",
+      "label": "VWAP40 · 均价(40日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP39",
+      "qlib_name": "VWAP39",
+      "qlib_expr": "Ref($vwap, 39)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(39日前)",
+      "label": "VWAP39 · 均价(39日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP38",
+      "qlib_name": "VWAP38",
+      "qlib_expr": "Ref($vwap, 38)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(38日前)",
+      "label": "VWAP38 · 均价(38日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP37",
+      "qlib_name": "VWAP37",
+      "qlib_expr": "Ref($vwap, 37)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(37日前)",
+      "label": "VWAP37 · 均价(37日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP36",
+      "qlib_name": "VWAP36",
+      "qlib_expr": "Ref($vwap, 36)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(36日前)",
+      "label": "VWAP36 · 均价(36日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP35",
+      "qlib_name": "VWAP35",
+      "qlib_expr": "Ref($vwap, 35)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(35日前)",
+      "label": "VWAP35 · 均价(35日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP34",
+      "qlib_name": "VWAP34",
+      "qlib_expr": "Ref($vwap, 34)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(34日前)",
+      "label": "VWAP34 · 均价(34日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP33",
+      "qlib_name": "VWAP33",
+      "qlib_expr": "Ref($vwap, 33)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(33日前)",
+      "label": "VWAP33 · 均价(33日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP32",
+      "qlib_name": "VWAP32",
+      "qlib_expr": "Ref($vwap, 32)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(32日前)",
+      "label": "VWAP32 · 均价(32日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP31",
+      "qlib_name": "VWAP31",
+      "qlib_expr": "Ref($vwap, 31)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(31日前)",
+      "label": "VWAP31 · 均价(31日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP30",
+      "qlib_name": "VWAP30",
+      "qlib_expr": "Ref($vwap, 30)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(30日前)",
+      "label": "VWAP30 · 均价(30日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP29",
+      "qlib_name": "VWAP29",
+      "qlib_expr": "Ref($vwap, 29)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(29日前)",
+      "label": "VWAP29 · 均价(29日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP28",
+      "qlib_name": "VWAP28",
+      "qlib_expr": "Ref($vwap, 28)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(28日前)",
+      "label": "VWAP28 · 均价(28日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP27",
+      "qlib_name": "VWAP27",
+      "qlib_expr": "Ref($vwap, 27)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(27日前)",
+      "label": "VWAP27 · 均价(27日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP26",
+      "qlib_name": "VWAP26",
+      "qlib_expr": "Ref($vwap, 26)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(26日前)",
+      "label": "VWAP26 · 均价(26日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP25",
+      "qlib_name": "VWAP25",
+      "qlib_expr": "Ref($vwap, 25)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(25日前)",
+      "label": "VWAP25 · 均价(25日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP24",
+      "qlib_name": "VWAP24",
+      "qlib_expr": "Ref($vwap, 24)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(24日前)",
+      "label": "VWAP24 · 均价(24日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP23",
+      "qlib_name": "VWAP23",
+      "qlib_expr": "Ref($vwap, 23)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(23日前)",
+      "label": "VWAP23 · 均价(23日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP22",
+      "qlib_name": "VWAP22",
+      "qlib_expr": "Ref($vwap, 22)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(22日前)",
+      "label": "VWAP22 · 均价(22日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP21",
+      "qlib_name": "VWAP21",
+      "qlib_expr": "Ref($vwap, 21)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(21日前)",
+      "label": "VWAP21 · 均价(21日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP20",
+      "qlib_name": "VWAP20",
+      "qlib_expr": "Ref($vwap, 20)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(20日前)",
+      "label": "VWAP20 · 均价(20日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP19",
+      "qlib_name": "VWAP19",
+      "qlib_expr": "Ref($vwap, 19)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(19日前)",
+      "label": "VWAP19 · 均价(19日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP18",
+      "qlib_name": "VWAP18",
+      "qlib_expr": "Ref($vwap, 18)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(18日前)",
+      "label": "VWAP18 · 均价(18日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP17",
+      "qlib_name": "VWAP17",
+      "qlib_expr": "Ref($vwap, 17)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(17日前)",
+      "label": "VWAP17 · 均价(17日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP16",
+      "qlib_name": "VWAP16",
+      "qlib_expr": "Ref($vwap, 16)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(16日前)",
+      "label": "VWAP16 · 均价(16日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP15",
+      "qlib_name": "VWAP15",
+      "qlib_expr": "Ref($vwap, 15)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(15日前)",
+      "label": "VWAP15 · 均价(15日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP14",
+      "qlib_name": "VWAP14",
+      "qlib_expr": "Ref($vwap, 14)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(14日前)",
+      "label": "VWAP14 · 均价(14日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP13",
+      "qlib_name": "VWAP13",
+      "qlib_expr": "Ref($vwap, 13)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(13日前)",
+      "label": "VWAP13 · 均价(13日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP12",
+      "qlib_name": "VWAP12",
+      "qlib_expr": "Ref($vwap, 12)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(12日前)",
+      "label": "VWAP12 · 均价(12日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP11",
+      "qlib_name": "VWAP11",
+      "qlib_expr": "Ref($vwap, 11)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(11日前)",
+      "label": "VWAP11 · 均价(11日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP10",
+      "qlib_name": "VWAP10",
+      "qlib_expr": "Ref($vwap, 10)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(10日前)",
+      "label": "VWAP10 · 均价(10日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP9",
+      "qlib_name": "VWAP9",
+      "qlib_expr": "Ref($vwap, 9)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(9日前)",
+      "label": "VWAP9 · 均价(9日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP8",
+      "qlib_name": "VWAP8",
+      "qlib_expr": "Ref($vwap, 8)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(8日前)",
+      "label": "VWAP8 · 均价(8日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP7",
+      "qlib_name": "VWAP7",
+      "qlib_expr": "Ref($vwap, 7)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(7日前)",
+      "label": "VWAP7 · 均价(7日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP6",
+      "qlib_name": "VWAP6",
+      "qlib_expr": "Ref($vwap, 6)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(6日前)",
+      "label": "VWAP6 · 均价(6日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP5",
+      "qlib_name": "VWAP5",
+      "qlib_expr": "Ref($vwap, 5)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(5日前)",
+      "label": "VWAP5 · 均价(5日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP4",
+      "qlib_name": "VWAP4",
+      "qlib_expr": "Ref($vwap, 4)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(4日前)",
+      "label": "VWAP4 · 均价(4日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP3",
+      "qlib_name": "VWAP3",
+      "qlib_expr": "Ref($vwap, 3)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(3日前)",
+      "label": "VWAP3 · 均价(3日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP2",
+      "qlib_name": "VWAP2",
+      "qlib_expr": "Ref($vwap, 2)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(2日前)",
+      "label": "VWAP2 · 均价(2日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP1",
+      "qlib_name": "VWAP1",
+      "qlib_expr": "Ref($vwap, 1)/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(1日前)",
+      "label": "VWAP1 · 均价(1日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    },
+    {
+      "source": "alpha360",
+      "name": "alpha360_VWAP0",
+      "qlib_name": "VWAP0",
+      "qlib_expr": "$vwap/$close",
+      "category": "qlib/alpha360/VWAP",
+      "zh": "均价(0日前)",
+      "label": "VWAP0 · 均价(0日前)",
+      "reason": "translate: 引用了不支持的行情列 Vwap"
+    }
+  ]
+}

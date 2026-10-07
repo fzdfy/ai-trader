@@ -7,6 +7,8 @@ import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { Avatar } from "@astryxdesign/core/Avatar";
 import { ProfileDialog } from "../components/ProfileDialog";
+import { BrandLogo } from "../components/BrandLogo";
+import { useAppTheme } from "../components/AppThemeProvider";
 import { authClient } from "../lib/auth-client";
 
 const PUBLIC_PATHS = new Set(["/login", "/signup"]);
@@ -30,6 +32,7 @@ function RootLayout() {
   const location = useLocation();
   const { data: session } = authClient.useSession();
   const [profileOpen, setProfileOpen] = useState(false);
+  const { preset } = useAppTheme();
 
   // 公开页面（登录/注册）不展示导航
   if (PUBLIC_PATHS.has(location.pathname)) {
@@ -66,14 +69,8 @@ function RootLayout() {
                 gap: "var(--spacing-2)",
               }}
             >
-              <img
-                src="/logo.png"
-                alt="AI Trader"
-                width={48}
-                height={48}
-                style={{ borderRadius: "var(--radius-inner)", display: "block" }}
-              />
-              <Text weight="semibold" size="2xl">太阳神量化</Text>
+              <BrandLogo color={preset.accent} size={36} />
+              <Text weight="semibold" size="2xl">Apollo Quant</Text>
             </Link>
           }
           startContent={null}

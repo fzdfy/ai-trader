@@ -16,7 +16,7 @@ import { Agent } from "@mastra/core/agent";
 // ---------------------------------------------------------------------------
 
 /** 可用行情列 */
-const COLUMNS = ["Close", "Open", "High", "Low", "Volume"];
+const COLUMNS = ["Close", "Open", "High", "Low", "Volume", "Vwap"];
 
 /** 行情列（小写）集合：AKQuant 解析列名时会统一转小写，故校验不区分大小写 */
 const COLUMN_SET = new Set(COLUMNS.map((column) => column.toLowerCase()));
@@ -58,6 +58,12 @@ const OPERATOR_SPECS: OperatorSpec[] = [
   { group: TIME_SERIES_GROUP, name: "ArgMax", alias: "Ts_ArgMax", params: ["x", "d"], description: "d 日内最大值距今天数" },
   { group: TIME_SERIES_GROUP, name: "ArgMin", alias: "Ts_ArgMin", params: ["x", "d"], description: "d 日内最小值距今天数" },
   { group: TIME_SERIES_GROUP, name: "Ts_Rank", params: ["x", "d"], description: "d 日内当前值排名 (0-1)" },
+  { group: TIME_SERIES_GROUP, name: "Quantile", params: ["x", "d", "q"], description: "d 日滚动分位数 (q∈[0,1])" },
+  { group: TIME_SERIES_GROUP, name: "Slope", params: ["x", "d"], description: "d 日线性回归斜率" },
+  { group: TIME_SERIES_GROUP, name: "Rsquare", params: ["x", "d"], description: "d 日线性回归 R 方" },
+  { group: TIME_SERIES_GROUP, name: "Resi", params: ["x", "d"], description: "d 日线性回归残差（当前点）" },
+  { group: TIME_SERIES_GROUP, name: "Product", params: ["x", "d"], description: "d 日滚动连乘" },
+  { group: TIME_SERIES_GROUP, name: "DecayLinear", params: ["x", "d"], description: "d 日线性衰减加权均值" },
   { group: CROSS_SECTION_GROUP, name: "Rank", params: ["x"], description: "截面排名 (0-1)" },
   { group: CROSS_SECTION_GROUP, name: "Scale", params: ["x"], description: "归一化使 ∑|x| = 1" },
   { group: CROSS_SECTION_GROUP, name: "Standardize", alias: "ZScore", params: ["x"], description: "Z-score 标准化" },

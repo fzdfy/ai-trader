@@ -14,23 +14,44 @@ export function cssVar(name: string, fallback: string): string {
 }
 
 /**
- * 将 light-dark() 解析为实际颜色。
- * getComputedStyle 读取自定义属性时返回原始 token 流，light-dark() 不会
- * 被浏览器解析成具体颜色（canvas/echarts 无法识别），需手动解析。
- * 项目当前为浅色主题（body 白底），统一取 light 分支。
+ * 判断当前是否处于深色外观。
+ * 根 <Theme> 在显式 light/dark 时会把 data-theme 写到 <html>，
+ * 「跟随系统」时移除 data-theme，由 prefers-color-scheme 决定。
  */
-function resolveColor(value: string): string {
-  const v = value.trim();
-  if (!v.startsWith("light-dark(") || !v.endsWith(")")) return v;
-  const inner = v.slice("light-dark(".length, -1);
+function isDarkMode(): boolean {
+  const explicit = document.documentElement.dataset.theme;
+  if (explicit === "dark") return true;
+  if (explicit === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+/** 按顶层逗号切分 light-dark() 内部的浅色 / 深色两个分支 */
+function splitLightDark(inner: string): [string, string] {
   let depth = 0;
   for (let i = 0; i < inner.length; i++) {
     const c = inner[i];
     if (c === "(") depth += 1;
     else if (c === ")") depth -= 1;
-    else if (c === "," && depth === 0) return inner.slice(0, i).trim();
+    else if (c === "," && depth === 0) {
+      return [inner.slice(0, i).trim(), inner.slice(i + 1).trim()];
+    }
   }
-  return v;
+  const only = inner.trim();
+  return [only, only];
+}
+
+/**
+ * 将 light-dark() 解析为实际颜色。
+ * getComputedStyle 读取自定义属性时返回原始 token 流，light-dark() 不会
+ * 被浏览器解析成具体颜色（canvas/echarts 无法识别），需手动解析。
+ * 依据当前明暗外观取对应分支。
+ */
+function resolveColor(value: string): string {
+  const v = value.trim();
+  if (!v.startsWith("light-dark(") || !v.endsWith(")")) return v;
+  const inner = v.slice("light-dark(".length, -1);
+  const [light, dark] = splitLightDark(inner);
+  return isDarkMode() ? dark : light;
 }
 
 /** 将 #rrggbb 转为 rgba() 字符串（用于渐变/面积填充） */
@@ -87,16 +108,20 @@ export const chartEquity = () => cssVar("--chart-equity", "#0d4a3a");
 
 /**
  * echarts 通用轴样式（虚线网格 + 次级文字），各图表复用保证视觉统一。
+ * 以函数形式导出，使图表在主题/明暗切换重新渲染时能读取到最新颜色。
  */
-export const axisLabelStyle = {
-  color: chartAxisText(),
-  fontSize: 11,
-} as const;
+export const axisLabelStyle = () =>
+  ({
+    color: chartAxisText(),
+    fontSize: 11,
+  }) as const;
 
-export const splitLineStyle = {
-  lineStyle: { color: chartGrid(), type: "dashed" as const },
-} as const;
+export const splitLineStyle = () =>
+  ({
+    lineStyle: { color: chartGrid(), type: "dashed" as const },
+  }) as const;
 
-export const axisLineStyle = {
-  lineStyle: { color: chartGrid() },
-} as const;
+export const axisLineStyle = () =>
+  ({
+    lineStyle: { color: chartGrid() },
+  }) as const;

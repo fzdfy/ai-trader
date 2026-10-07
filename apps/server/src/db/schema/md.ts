@@ -779,24 +779,31 @@ export const bar1dRaw = pgTable(
 // ============================================================================
 
 /**
- * adj_factor — 复权因子表（事件驱动，append-only）
+ * adj_factor — 复权因子表（PIT 版本化，append-only）
  *
- * 定位：全市场复权参数的唯一事实源。事件只在送转/除权除息日产生，故为「稀疏事件表」，
- * 不做 hypertable（全市场量级约几万行）。
+ * 定位：全市场复权参数的唯一事实源，且**保留全部历史版本**。每次同步写入一份
+ * 「完整快照」（该标的本次反解出的所有分段），同一次同步的所有行共享同一 known_at，
+ * 故 known_at 即快照版本号；旧快照永不删除、不被覆盖，历史可完整回放。
  *
- * 字段语义（均在该生效日阶跃，之后保持；新事件只 append 一行、不改历史）：
+ * 字段语义（均在该生效日阶跃，之后保持）：
  *   qfq_ratio  = p_t，前复权乘法因子（送转/拆股累计比，无送转段恒为 1）
  *   qfq_offset = D_t，前复权加法偏移（最新段恒为 0）
+ *   known_at   = 该版本参数被系统写入（可知）的时刻 = 快照版本号
  *
- * 派生关系（见 bar1d_qfq / bar1d_hfq 视图）：
+ * 派生关系（见 bar1d_qfq / bar1d_hfq 视图，取已知的最新快照 known_at = max）：
  *   qfq_t = qfq_ratio · raw_t + qfq_offset
  *   hfq_t = scale · qfq_t + hfq_base
  *
  * 注意：qfq 并非纯加法——含送转/拆股的标的在送转日之前 qfq_ratio ≠ 1，
  * 故必须同时存乘法因子与加法偏移，不能退化为单一累加价差。
  *
- * 写入策略：sync-worker 的 adj-factor 管道按标的拉取整段序列后幂等 upsert
- * （PK (symbol, date)）。
+ * PIT：qfq 锚定最新交易日，新分红会改写全部历史分段——故同一 (symbol, date) 会随
+ * known_at 产生多个版本。视图默认取 max(known_at)（当前快照）；as-of 读取则取
+ * known_at <= T 的 max 快照（见 adj_factor_asof / bar1d_qfq_at 等函数），从而
+ * 「站在历史时刻 T 只用当时已知的因子」，消除前视偏差。
+ *
+ * 写入策略：sync-worker 的 adj-factor 管道按标的拉取整段序列后 append 一份快照
+ * （PK (symbol, date, known_at)），绝不删除 / 覆盖既有版本。
  */
 export const adjFactor = pgTable(
   "adj_factor",
@@ -805,6 +812,8 @@ export const adjFactor = pgTable(
     symbol: text("symbol").notNull(),
     /** 该参数生效起始日（送转/除权除息日，或窗口基线日） */
     date: date("date").notNull(),
+    /** 该版本参数被系统写入（可知）的时刻 = 快照版本号 */
+    knownAt: timestamp("known_at").notNull().defaultNow(),
     /** p_t：前复权乘法因子（送转/拆股累计比，无送转段恒为 1） */
     qfqRatio: numeric("qfq_ratio").notNull().default("1"),
     /** D_t：前复权加法偏移（最新段恒为 0） */
@@ -817,34 +826,44 @@ export const adjFactor = pgTable(
     ingestedAt: timestamp("ingested_at").notNull().defaultNow(),
   },
   (table) => [
-    primaryKey({ columns: [table.symbol, table.date] }),
+    primaryKey({ columns: [table.symbol, table.date, table.knownAt] }),
     index("adj_factor_symbol_date_idx").on(table.symbol, table.date),
+    index("adj_factor_symbol_known_at_idx").on(table.symbol, table.knownAt),
   ],
 );
 
 // ============================================================================
 
 /**
- * adj_factor_latest — 最新因子快照（每 symbol 一行）
+ * adj_factor_latest — 后复权全局仿射常量 S / B（PIT 版本化，append-only）
  *
- * 定位：把「后复权全局仿射常量 S / B」物化成一张 ~5000 行的小表，使后复权派生
- * （hfq = S · qfq + B）退化为一次 hash join + 逐行运算——即便全表扫描也毫无压力。
+ * 定位：把「后复权全局仿射常量 S / B」按快照留痕，供 hfq 视图按已知的最新快照做一次
+ * hash join。与 adj_factor 同源、同 known_at：hfq 虽锚定上市首日、价位本身不随分红变化，
+ * 但 (qfq, S, B) 会随 qfq 重锚而**联动改变**，故 S / B 也必须一并版本化，才能完整回放
+ * 任一时点的后复权口径。
  *
- * 写入策略：adj-factor 管道每次同步后按 adj_factor 重算 upsert。
- * 未收录的标的在视图中因 LEFT JOIN 缺失而按 scale = 1 / hfq_base = 0 处理（= 从未除权）。
+ * 写入策略：adj-factor 管道每次同步按标的 append 一份快照（PK (symbol, known_at)），
+ * 不删除 / 覆盖旧版本。未收录的标的在视图中因 LEFT JOIN 缺失而按 scale = 1 /
+ * hfq_base = 0 处理（= 从未除权）。
  */
-export const adjFactorLatest = pgTable("adj_factor_latest", {
-  /** 股票代码 */
-  symbol: text("symbol").primaryKey(),
-  /** 该参数生效日 = 该标的最后一个除权日（无除权则为窗口基线日） */
-  date: date("date").notNull(),
-  /** S：后复权乘法常量（标的级全局） */
-  scale: numeric("scale").notNull(),
-  /** B：后复权加法常量（标的级全局） */
-  hfqBase: numeric("hfq_base").notNull().default("0"),
-  /** 后端写入时间 */
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const adjFactorLatest = pgTable(
+  "adj_factor_latest",
+  {
+    /** 股票代码 */
+    symbol: text("symbol").notNull(),
+    /** 该版本参数被系统写入（可知）的时刻 = 快照版本号 */
+    knownAt: timestamp("known_at").notNull().defaultNow(),
+    /** 该参数生效日 = 该标的最后一个除权日（无除权则为窗口基线日） */
+    date: date("date").notNull(),
+    /** S：后复权乘法常量（标的级全局） */
+    scale: numeric("scale").notNull(),
+    /** B：后复权加法常量（标的级全局） */
+    hfqBase: numeric("hfq_base").notNull().default("0"),
+    /** 后端写入时间 */
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.symbol, table.knownAt] })],
+);
 
 // ============================================================================
 
@@ -854,6 +873,8 @@ export const adjFactorLatest = pgTable("adj_factor_latest", {
  * 由 bar1d_raw 与因子表复刻腾讯后复权全局仿射式：hfq = S · qfq + B，其中
  *   qfq   = qfq_ratio · raw + qfq_offset（取 date <= time 的最近一条）
  *   S / B = adj_factor_latest.scale / .hfq_base（标的级全局常量）
+ * 因子与常量均限定在**已知的最新快照**（known_at = 该标的 max(known_at)），故视图
+ * 等价于「当前时刻」口径；as-of 回放见 bar1d_hfq_at 函数。
  * LEFT JOIN 缺失按 qfq_ratio = 1 / qfq_offset = 0 / scale = 1 / hfq_base = 0 处理。
  */
 export const bar1dHfq = pgView("bar1d_hfq", {
@@ -890,10 +911,16 @@ export const bar1dHfq = pgView("bar1d_hfq", {
     select af."qfq_ratio" as qfq_ratio, af."qfq_offset" as qfq_offset
     from "adj_factor" af
     where af."symbol" = b."symbol" and af."date" <= b."time"::date
+      and af."known_at" = (
+        select max(af2."known_at") from "adj_factor" af2 where af2."symbol" = b."symbol"
+      )
     order by af."date" desc
     limit 1
   ) f on true
   left join "adj_factor_latest" l on l."symbol" = b."symbol"
+    and l."known_at" = (
+      select max(l2."known_at") from "adj_factor_latest" l2 where l2."symbol" = b."symbol"
+    )
 `);
 
 // ============================================================================
@@ -903,10 +930,12 @@ export const bar1dHfq = pgView("bar1d_hfq", {
  *
  * 由 bar1d_raw 与因子表按分段仿射模型派生前复权：
  *   qfq = qfq_ratio · raw + qfq_offset（取 date <= time 的最近一条）
- * 当 t = 最新交易日时 qfq_ratio = 1 / qfq_offset = 0 → qfq = raw；
- * LEFT JOIN 缺失按同值处理（从未除权）。
+ * 因子限定在**已知的最新快照**（known_at = 该标的 max(known_at)），故视图等价于
+ * 「当前时刻」口径；当 t = 最新交易日时 qfq_ratio = 1 / qfq_offset = 0 → qfq = raw；
+ * LEFT JOIN 缺失按同值处理（从未除权）。as-of 回放见 bar1d_qfq_at 函数。
  *
- * 关键性质：除权日只需 append 一行 adj_factor → 视图内 qfq 整体重锚，零数据重写。
+ * 关键性质：除权日只需 append 一份 adj_factor 快照 → 视图内 qfq 整体重锚，零数据重写；
+ * 旧快照因 known_at 版本化而完整保留，可经 as-of 函数精确回放历史口径。
  * 列与 bar1d_adj 同构并额外暴露 close_raw，消费者可无缝切换。
  */
 export const bar1dQfq = pgView("bar1d_qfq", {
@@ -943,6 +972,9 @@ export const bar1dQfq = pgView("bar1d_qfq", {
     select af."qfq_ratio" as qfq_ratio, af."qfq_offset" as qfq_offset
     from "adj_factor" af
     where af."symbol" = b."symbol" and af."date" <= b."time"::date
+      and af."known_at" = (
+        select max(af2."known_at") from "adj_factor" af2 where af2."symbol" = b."symbol"
+      )
     order by af."date" desc
     limit 1
   ) f on true

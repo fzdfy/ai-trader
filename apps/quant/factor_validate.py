@@ -8,8 +8,8 @@
 
 之所以要真跑一遍：静态校验只能排除危险语法 / 白名单外的算子，无法发现运行期错误
 （如除零、索引越界、返回非数值、算子签名写错、引用了白名单允许但数据里缺失的行情列
-等）。样本量刻意压到个位数标的，避免校验请求拖长；代码执行仍在 factor_code 的受限
-环境 + 行级看门狗内。
+等）。样本量刻意压在十余只标的以内，既保证截面类算子（rank / correlation）有足够
+横截面离散度，又避免校验请求拖长；代码执行仍在 factor_code 的受限环境 + 行级看门狗内。
 """
 
 from __future__ import annotations
@@ -33,8 +33,11 @@ log = get_logger("factor_validate")
 
 # 校验用样本：候选标的数量（先多取再按历史长度过滤）与每标的历史窗口。
 # 窗口取 CUSTOM_HISTORY_COUNT，覆盖 250 日均线等长周期算子。
+# 求值标的数取 10：候选帧本就按 20 只加载，多取几只求值几乎不增加 I/O 成本，
+# 却能让「截面 rank 再相关」类因子（如 Corr(Rank(Volume), ...)) 有足够的横截面
+# 离散度，避免 3 只时 rank 恒为常数导致相关系数退化为 NaN 的误判。
 SAMPLE_CANDIDATE_COUNT = 20
-SAMPLE_SYMBOL_COUNT = 3
+SAMPLE_SYMBOL_COUNT = 10
 SAMPLE_BARS = CUSTOM_HISTORY_COUNT
 
 # 校验执行超时（比正式选股更短，避免请求长时间挂起）

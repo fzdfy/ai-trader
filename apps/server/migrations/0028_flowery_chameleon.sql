@@ -1,0 +1,23 @@
+CREATE TABLE "factor_iteration" (
+	"id" bigserial PRIMARY KEY NOT NULL,
+	"run_id" bigint NOT NULL,
+	"round" integer NOT NULL,
+	"status" text NOT NULL,
+	"expression" text,
+	"ic_mean" double precision,
+	"rank_ic_mean" double precision,
+	"icir" double precision,
+	"t_stat" double precision,
+	"positive_ratio" double precision,
+	"long_short_ann_ret" double precision,
+	"long_short_cum_ret" double precision,
+	"monotonicity" double precision,
+	"retention" double precision,
+	"score" double precision,
+	"sample_count" integer,
+	"symbols" integer,
+	"message" text,
+	"is_best" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "factor_iteration_run_round_unq" UNIQUE("run_id","round")
+);

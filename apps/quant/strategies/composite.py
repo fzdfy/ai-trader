@@ -34,13 +34,18 @@ CompositeStrategy 通过 JSON 配置驱动，将多个因子加权求和得到�
 将配置写入类属性（与 AKQuant 参数机制保持一致）。
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
-from akquant import Strategy
+from akquant import Strategy, TimeInForce
 
 from factors import FACTOR_REGISTRY
 from factors.combine import apply_direction, combine_scores, normalize_combine
+
+# 引擎 bar.timestamp 为 UTC 纪元纳秒（timestamp_iso 比本地交易日早 8 小时），
+# 换算回 A 股本地交易日需 +8 小时，否则会取到前一自然日、令日期查表错位一天。
+_CN_TZ = timezone(timedelta(hours=8))
 
 # 历史数据回溯长度（需覆盖最长因子周期，且 <= 引擎 history_depth=100）
 HISTORY_COUNT = 61
@@ -105,7 +110,13 @@ class CompositeStrategy(Strategy):
 
     # ---- 运行时上下文（由 main.py 预解析后注入，非前端配置项）----
     is_st: bool = False  # 当前回测标的是否为 ST（解析 instrument.name 注入）
+    # 当前回测标的代码：引擎传给策略的 bar.symbol 恒为 "BENCHMARK"，涨跌停比例等
+    # 依赖真实代码的逻辑必须用本属性，不能用 bar.symbol。
+    symbol: str = ""
     market_trend: dict[str, bool] = {}  # 日期 -> 大盘看多与否（预计算指数趋势注入）
+    # 日期 -> 交易日历自然交易日序号（由 main.py 注入）。用于把持有期按「自然交易日」
+    # 计数：停牌日无 bar 会被引擎跳过，只数 bar 会把持有时间压短。空映射时退化为计数 bar。
+    trade_day_index: dict[str, int] = {}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -114,6 +125,8 @@ class CompositeStrategy(Strategy):
         self._prev_score: float | None = None
         # 当前持仓已持有的交易日数（用于持仓时间上限强制离场）
         self._holding_bars = 0
+        # 建仓当日对应的交易日历序号（用于按自然交易日计持有天数，未注入日历为 None）
+        self._entry_day_idx: int | None = None
         # 仓位层运行时状态
         self._add_count = 0  # 当前持仓已加仓次数
         self._partial_exited = False  # 是否已完成分批止盈减仓
@@ -186,7 +199,9 @@ class CompositeStrategy(Strategy):
         if self.partial_exit and not self._partial_exited and change >= self.take_profit:
             self._partial_exited = True
             keep = self._target_size * self.partial_exit_ratio
-            self.order_target_percent(symbol=bar.symbol, target_percent=keep)
+            self.order_target_percent(
+                symbol=bar.symbol, target_percent=keep, time_in_force=TimeInForce.Day
+            )
             self._prev_score = score
             return
 
@@ -195,7 +210,9 @@ class CompositeStrategy(Strategy):
             self._add_count += 1
             ratio = self.first_entry_ratio + self.add_size_ratio * self._add_count
             new_target = min(self._target_size * ratio, self._target_size)
-            self.order_target_percent(symbol=bar.symbol, target_percent=new_target)
+            self.order_target_percent(
+                symbol=bar.symbol, target_percent=new_target, time_in_force=TimeInForce.Day
+            )
 
         # 3) 离场信号：得分信号 + 止损/止盈（按风控层方式）+ 单笔最大亏损
         exit_signal = self._exit_signal(score)
@@ -208,17 +225,20 @@ class CompositeStrategy(Strategy):
             if self.max_loss_per_trade > 0 and change <= -self.max_loss_per_trade:
                 exit_signal = True
 
-        # 持仓时间上限：持有交易日数达到上限即强制离场
+        # 持仓时间上限：持有交易日数达到上限即强制离场（按自然交易日计，含停牌跳跃）
         self._holding_bars += 1
-        if self.max_holding_days > 0 and self._holding_bars >= self.max_holding_days:
+        if self.max_holding_days > 0 and self._held_trading_days(bar) >= self.max_holding_days:
             exit_signal = True
 
         if exit_signal:
             self._record_trade(change)
             self._update_consecutive_losses(change)
-            self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
+            self.order_target_percent(
+                symbol=bar.symbol, target_percent=0.0, time_in_force=TimeInForce.Day
+            )
             self._entry_price = 0.0
             self._holding_bars = 0
+            self._entry_day_idx = None
             self._add_count = 0
             self._partial_exited = False
             self._target_size = 0.0
@@ -237,9 +257,12 @@ class CompositeStrategy(Strategy):
             first = self._target_size * self.first_entry_ratio
         else:
             first = self._target_size
-        self.order_target_percent(symbol=bar.symbol, target_percent=first)
+        self.order_target_percent(
+            symbol=bar.symbol, target_percent=first, time_in_force=TimeInForce.Day
+        )
         self._entry_price = bar.close
         self._holding_bars = 0
+        self._entry_day_idx = self._day_index(bar)
 
     def _record_trade(self, change: float) -> None:
         """记录一笔已平仓交易的收益率（供凯利公式动态统计胜率/盈亏比）。"""
@@ -392,14 +415,18 @@ class CompositeStrategy(Strategy):
         return True
 
     def _at_limit(self, bar, data: dict[str, np.ndarray]) -> bool:
-        """判断当前 bar 是否触及涨跌停（基于前收盘价 × 涨跌停比例近似）。"""
+        """判断当前 bar 是否触及涨跌停（基于前收盘价 × 涨跌停比例近似）。
+
+        注：此处用后复权收盘价近似（引擎 bar 不含原始价），精度略低于撮合器在原始价
+        空间的判定，仅作入场软过滤；真正的成交拦截由 LimitMatcher 在原始价空间完成。
+        """
         closes = data["close"]
         if len(closes) < 2:
             return False
         prev_close = float(closes[-2])
         if prev_close <= 0:
             return False
-        ratio = self._limit_ratio(bar.symbol)
+        ratio = self._limit_ratio(self.symbol or getattr(bar, "symbol", "") or "")
         limit_up = prev_close * (1.0 + ratio)
         limit_down = prev_close * (1.0 - ratio)
         cur = float(bar.close)
@@ -416,9 +443,37 @@ class CompositeStrategy(Strategy):
             return 0.30
         return 0.10
 
+    def _day_index(self, bar) -> int | None:
+        """取 bar 日期在交易日历中的序号；未注入日历 / 无该日时返回 None。"""
+        if not self.trade_day_index:
+            return None
+        d = _bar_date(bar)
+        if d is None:
+            return None
+        return self.trade_day_index.get(d)
+
+    def _held_trading_days(self, bar) -> int:
+        """持有天数：优先按交易日历的自然交易日差（含停牌跳跃），否则退化为计数 bar。"""
+        cur = self._day_index(bar)
+        if cur is not None and self._entry_day_idx is not None:
+            return cur - self._entry_day_idx
+        return self._holding_bars
+
 
 def _bar_date(bar) -> str | None:
-    """从 bar 对象中稳健地提取日期字符串（YYYY-MM-DD）。"""
+    """从 bar 对象中稳健地提取**本地交易日**字符串（YYYY-MM-DD）。
+
+    引擎 bar 无 time/date 等属性：只有 ``timestamp``（UTC 纪元纳秒）与
+    ``timestamp_iso``（UTC 字符串，比本地交易日早 8 小时）。故优先按 ``timestamp``
+    加 8 小时换算回 A 股本地日期，避免日期查表整体错位一天；其余属性作为兜底。
+    """
+    ts = getattr(bar, "timestamp", None)
+    if ts is not None:
+        try:
+            seconds = int(ts) // 1_000_000_000
+            return datetime.fromtimestamp(seconds, tz=_CN_TZ).strftime("%Y-%m-%d")
+        except (TypeError, ValueError, OSError, OverflowError):
+            pass
     for attr in ("time", "datetime", "date", "name"):
         v = getattr(bar, attr, None)
         if v is None:
@@ -435,15 +490,20 @@ def _bar_date(bar) -> str | None:
 def build_composite_strategy(
     config: dict[str, Any],
     *,
+    symbol: str | None = None,
     is_st: bool = False,
     market_trend: dict[str, bool] | None = None,
+    trade_day_index: dict[str, int] | None = None,
 ) -> type[CompositeStrategy]:
     """根据 JSON 配置动态构建 CompositeStrategy 子类。
 
     Args:
         config: 策略配置 JSON（结构见模块 docstring）
+        symbol: 当前回测标的代码（引擎 bar.symbol 恒为 BENCHMARK，涨跌停比例等需真实代码）
         is_st: 当前回测标的是否为 ST（由 main.py 解析 instrument.name 注入）
         market_trend: 日期 -> 大盘看多与否（由 main.py 预计算指数趋势注入）
+        trade_day_index: 日期 -> 自然交易日序号（由 main.py 读取交易日历注入），
+            供持仓时间上限按交易日计数；缺省为空映射，退化为计数 bar
 
     Returns:
         配置注入后的 CompositeStrategy 子类（可直接传给 engine.run）
@@ -490,7 +550,9 @@ def build_composite_strategy(
         "entry_st_filter": bool(entry.get("stFilter", False)),
         "entry_market_filter": bool(entry.get("marketFilter", False)),
         "is_st": bool(is_st),
+        "symbol": symbol or "",
         "market_trend": market_trend or {},
+        "trade_day_index": trade_day_index or {},
         "exit_threshold": float(exit_cfg.get("value", 0.30)),
         "exit_type": "cross" if exit_cfg.get("type", "threshold") == "cross" else "threshold",
         "max_holding_days": int(exit_cfg.get("maxHoldingDays", 0) or 0),

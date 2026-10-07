@@ -9,7 +9,7 @@
 每个策略通过类属性暴露可调参数，回测时通过子类化动态覆盖参数值。
 """
 
-from akquant import Strategy
+from akquant import Strategy, TimeInForce
 import numpy as np
 
 
@@ -73,12 +73,16 @@ class MACrossStrategy(Strategy):
         # 金叉买入信号：快线从下方上穿慢线
         if fast_prev <= slow_prev and fast_ma > slow_ma:
             if pos <= 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.95)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.95, time_in_force=TimeInForce.Day
+                )
 
         # 死叉卖出信号：快线从上方下穿慢线
         elif fast_prev >= slow_prev and fast_ma < slow_ma:
             if pos > 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.0, time_in_force=TimeInForce.Day
+                )
 
 
 # ============================================================================
@@ -140,12 +144,16 @@ class RSIStrategy(Strategy):
         # 超卖买入信号：RSI 从上方下穿 oversold 阈值
         if rsi_prev >= self.oversold and rsi_curr < self.oversold:
             if pos <= 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.95)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.95, time_in_force=TimeInForce.Day
+                )
 
         # 超买卖出信号：RSI 从下方上穿 overbought 阈值
         elif rsi_prev <= self.overbought and rsi_curr > self.overbought:
             if pos > 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.0, time_in_force=TimeInForce.Day
+                )
 
 
 # ============================================================================
@@ -208,12 +216,16 @@ class MACDStrategy(Strategy):
         # DIF 金叉 DEA：买入信号
         if dif_prev <= dea_prev and dif_curr > dea_curr:
             if pos <= 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.95)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.95, time_in_force=TimeInForce.Day
+                )
 
         # DIF 死叉 DEA：卖出信号
         elif dif_prev >= dea_prev and dif_curr < dea_curr:
             if pos > 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.0, time_in_force=TimeInForce.Day
+                )
 
 
 # ============================================================================
@@ -281,12 +293,16 @@ class BollingerStrategy(Strategy):
         # c[-2] 是上一根收盘价，c[-1] 是当前收盘价
         if c[-2] >= prev_lower and c[-1] < lower:
             if pos <= 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.95)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.95, time_in_force=TimeInForce.Day
+                )
 
         # 突破上轨卖出信号：价格从下方向上穿越上轨
         elif c[-2] <= prev_upper and c[-1] > upper:
             if pos > 0:
-                self.order_target_percent(symbol=bar.symbol, target_percent=0.0)
+                self.order_target_percent(
+                    symbol=bar.symbol, target_percent=0.0, time_in_force=TimeInForce.Day
+                )
 
 
 # ============================================================================

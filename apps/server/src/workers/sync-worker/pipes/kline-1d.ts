@@ -34,6 +34,16 @@ const MAX_FETCH_ATTEMPTS = 3;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
+ * 需随行情一并入库、但不在 instrument 表中的大盘基准指数。
+ *
+ * 为什么单列而不落 instrument：指数若进 instrument，会被 news 白名单 / 标的搜索 / features
+ * 等一切「以 instrument 为域」的下游管道一并纳入，且 adj-factor 会去反解本不存在的除权因子。
+ * 故指数不入 instrument，仅在此并入 kline-1d 同步域。000001.SH 为 quant 侧大盘过滤
+ * （marketFilter）所用基准，缺失会导致该过滤静默失效（market_trend 恒为空、形同关闭）。
+ */
+const MARKET_INDEX_SYMBOLS: readonly string[] = ["000001.SH"];
+
+/**
  * 按标的选源。
  * 北交所历史行情腾讯无数据（实测仅 1 根）、mootdx TCP 不可达、百度端点已 403，
  * 故北交所改走东财 push2his（可覆盖 BJ 全历史，fqt=0/1/2 三口径齐全）。
@@ -153,11 +163,16 @@ export async function kline1dPipeRun(opts?: { forceFull?: boolean }): Promise<vo
     return;
   }
 
-  // 获取同步标的：全部上市标的
-  const symbols = await db
+  // 获取同步标的：全部上市标的 + 大盘基准指数（指数不在 instrument，见 MARKET_INDEX_SYMBOLS）
+  const listed = await db
     .select({ symbol: instrument.symbol })
     .from(instrument)
     .where(eq(instrument.status, "listed"));
+  const seen = new Set(listed.map((r) => r.symbol));
+  const symbols = [
+    ...listed,
+    ...MARKET_INDEX_SYMBOLS.filter((s) => !seen.has(s)).map((symbol) => ({ symbol })),
+  ];
 
   if (symbols.length === 0) {
     console.log("[kline-1d] no listed symbols, skip");
@@ -580,10 +595,11 @@ export async function kline1dBackfillRun(opts?: { force?: boolean }): Promise<vo
   // 下游定向重收敛：回补改写了这些标的的历史日线，其复权仿射区间与周期线分组均已变化。
   // 只对「本次实际写入的标的」重跑，避免全市场无谓重算；失败向上抛（job 标 failed）由
   // deadline 窗口内重试兜底 —— 与全链路「杜绝假成功」的口径一致。
-  if (affected.size > 0) {
-    const symbols = [...affected];
-    console.log(`[kline-1d-backfill] 触发下游定向重收敛：${symbols.length} 只标的`);
-    await adjFactorPipeRun({ symbols });
-    await klinePeriodPipeRun({ symbols });
+  // 排除大盘指数：指数无除权，不应反解复权因子，也无须重建周期线（marketFilter 只读日线）。
+  const affectedSymbols = [...affected].filter((s) => !MARKET_INDEX_SYMBOLS.includes(s));
+  if (affectedSymbols.length > 0) {
+    console.log(`[kline-1d-backfill] 触发下游定向重收敛：${affectedSymbols.length} 只标的`);
+    await adjFactorPipeRun({ symbols: affectedSymbols });
+    await klinePeriodPipeRun({ symbols: affectedSymbols });
   }
 }

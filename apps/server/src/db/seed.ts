@@ -1,6 +1,11 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { db } from "./index";
-import { strategyConfig } from "./schema";
-import { eq } from "drizzle-orm";
+import { factorRegistry, strategyConfig } from "./schema";
+import { eq, sql } from "drizzle-orm";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("seed");
 
 /**
  * atrus 团队 5 个 2026 年 A 股多因子策略（创建者 atrus，公开）。
@@ -310,4 +315,53 @@ export async function ensureAtrusStrategiesSeeded() {
       isPublic: true, // atrus 团队策略公开
     })),
   );
+}
+
+/** 内置因子种子项（factor-registry.seed.json 单项结构） */
+interface FactorRegistrySeed {
+  name: string;
+  label: string;
+  category: string;
+  direction: number;
+  description: string | null;
+  kind: string;
+  expression: string | null;
+}
+
+/** 种子载荷路径：与源码同目录，随 server 镜像一起分发 */
+const FACTOR_SEED_PATH = fileURLToPath(new URL("factor-registry.seed.json", import.meta.url));
+
+/**
+ * 幂等地灌入内置因子（Alpha101 / Alpha158 / Alpha360，共 600 条）。
+ * - 以 name 为主键 upsert，重复启动不产生脏数据；
+ * - setWhere 限定只覆盖 created_by='system' 的行，用户同名自定义因子不被篡改；
+ * - 失败不抛出（避免拖垮启动），仅记日志。
+ */
+export async function ensureFactorsSeeded(): Promise<void> {
+  try {
+    const rows = JSON.parse(readFileSync(FACTOR_SEED_PATH, "utf8")) as FactorRegistrySeed[];
+    if (rows.length === 0) return;
+
+    await db
+      .insert(factorRegistry)
+      .values(rows.map((r) => ({ ...r, createdBy: "system", isPublic: true })))
+      .onConflictDoUpdate({
+        target: factorRegistry.name,
+        set: {
+          label: sql`excluded.label`,
+          category: sql`excluded.category`,
+          direction: sql`excluded.direction`,
+          description: sql`excluded.description`,
+          kind: sql`excluded.kind`,
+          expression: sql`excluded.expression`,
+          isPublic: sql`excluded.is_public`,
+        },
+        // 仅更新内置因子；用户自定义因子（created_by 非 system）保持原样
+        setWhere: eq(factorRegistry.createdBy, "system"),
+      });
+
+    log.info({ count: rows.length }, "内置因子已灌入");
+  } catch (error) {
+    log.error({ err: error }, "seed factors failed");
+  }
 }

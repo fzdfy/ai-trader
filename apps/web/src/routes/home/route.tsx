@@ -15,6 +15,7 @@ import {
   Gauge,
   Workflow,
   SlidersHorizontal,
+  TrendingDown,
   Target,
   RefreshCw,
   ClipboardList,
@@ -22,6 +23,9 @@ import {
   ListChecks,
   Database,
   Table2,
+  Palette,
+  Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
 
@@ -145,7 +149,23 @@ function HomeLayout() {
                 label="因子"
                 href="/home/factors"
                 icon={<SlidersHorizontal size={16} />}
-                isSelected={location.pathname.startsWith("/home/factors")}
+                isSelected={
+                  location.pathname.startsWith("/home/factors") &&
+                  !location.pathname.startsWith("/home/factors/compare") &&
+                  !location.pathname.startsWith("/home/factors/iterate")
+                }
+              />
+              <SideNavItem
+                label="衰退对比"
+                href="/home/factors/compare"
+                icon={<TrendingDown size={16} />}
+                isSelected={location.pathname.startsWith("/home/factors/compare")}
+              />
+              <SideNavItem
+                label="AI 迭代"
+                href="/home/factors/iterate"
+                icon={<Sparkles size={16} />}
+                isSelected={location.pathname.startsWith("/home/factors/iterate")}
               />
             </SideNavItem>
           </SideNavSection>
@@ -163,6 +183,18 @@ function HomeLayout() {
                 href="/home/data-center"
                 icon={<Table2 size={16} />}
                 isSelected={location.pathname.startsWith("/home/data-center")}
+              />
+              <SideNavItem
+                label="主题设置"
+                href="/home/settings"
+                icon={<Palette size={16} />}
+                isSelected={location.pathname.startsWith("/home/settings")}
+              />
+              <SideNavItem
+                label="知识库"
+                href="/home/knowledge"
+                icon={<BookOpen size={16} />}
+                isSelected={location.pathname.startsWith("/home/knowledge")}
               />
             </SideNavItem>
           </SideNavSection>

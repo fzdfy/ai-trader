@@ -94,14 +94,14 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
         xAxis: {
           type: "category",
           data: dates,
-          ...axisLineStyle,
+          ...axisLineStyle(),
           axisLabel: { color: chartAxisText(), fontSize: 10 },
           axisTick: { show: false },
         },
         yAxis: {
           type: "value",
           name: "净流入(元)",
-          nameTextStyle: axisLabelStyle,
+          nameTextStyle: axisLabelStyle(),
           axisLabel: {
             color: chartAxisText(),
             formatter: (v: number) => {
@@ -111,7 +111,7 @@ export function FundFlowChart({ data }: FundFlowChartProps) {
               return String(v);
             },
           },
-          ...splitLineStyle,
+          ...splitLineStyle(),
         },
         series: FLOW_TYPES.map((t) => ({
           name: t.label,

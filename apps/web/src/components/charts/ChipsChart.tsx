@@ -82,12 +82,12 @@ export function ChipsChart({ distribution, currentPrice }: ChipsChartProps) {
         xAxis: {
           type: "value",
           name: "筹码占比(%)",
-          nameTextStyle: axisLabelStyle,
+          nameTextStyle: axisLabelStyle(),
           axisLabel: {
             color: chartAxisText(),
             formatter: "{value}%",
           },
-          ...splitLineStyle,
+          ...splitLineStyle(),
         },
         yAxis: {
           type: "category",

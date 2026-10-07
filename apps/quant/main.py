@@ -1,13 +1,22 @@
 """AI Trader Quant Service — FastAPI + AKQuant 回测微服务。"""
 from typing import Any
 
+from akquant import AssetType
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from data.router import router as data_router
-from data_loader import compute_market_trend, is_st_symbol, load_kline
+from data_loader import (
+    compute_market_trend,
+    is_st_symbol,
+    load_kline,
+    load_raw_close,
+    load_trade_day_index,
+)
 from engine import get_strategy_list, run
+from factor_code import FactorCodeError
+from factor_eval import evaluate_factor
 from factor_validate import validate_factor_code_runnable, validate_factor_expression_runnable
 from factors import get_factor_list
 from feature_store import compute_features
@@ -16,10 +25,11 @@ from middleware.request_id import RequestIdMiddleware
 from screener import screen
 from strategies import STRATEGIES
 from strategies.composite import build_composite_strategy
+from strategies.limit_matcher import LimitMatcher, compute_limit_sets
 
 log = get_logger("main")
 
-# 大盘过滤使用的基准指数（上证指数），bar1d_qfq 中有其日线数据
+# 大盘过滤使用的基准指数（上证指数），复权日线视图中有其日线数据
 MARKET_INDEX_SYMBOL = "000001.SH"
 
 
@@ -31,6 +41,9 @@ class BacktestRequest(BaseModel):
     config: dict[str, Any] | None = None
     startDate: str | None = None
     endDate: str | None = None
+    # PIT 复权：只采用 known_at <= asOf 的复权因子快照（"站在历史某时刻"回放）；
+    # 缺省 None 即使用最新快照。当前仅有一个快照（2026-10-01），早于该时刻等价于不复权。
+    asOf: str | None = None
 
 
 class ScreenRequest(BaseModel):
@@ -48,6 +61,23 @@ class ValidateCodeRequest(BaseModel):
 
 class ValidateExpressionRequest(BaseModel):
     expression: str
+
+
+class FactorEvalRequest(BaseModel):
+    # 表达式因子（kind=expression）与 Python 代码因子（kind=python）二选一，code 优先
+    expression: str = ""
+    code: str | None = None
+    horizon: int = 1
+    layers: int = 5
+    bars: int = 500
+    maxSymbols: int = 800
+    minSymbols: int = 20
+    horizons: list[int] | None = None
+    # 样本外占比（0~0.5）：>0 时按交易日切分样本内/样本外，另返回 valid 指标
+    validRatio: float = 0.0
+    # PIT 复权：只采用 known_at <= asOf 的复权因子快照（"站在历史某时刻"回放）；
+    # 缺省 None 即使用最新快照。当前仅有一个快照（2026-10-01），早于该时刻等价于不复权。
+    asOf: str | None = None
 
 
 app = FastAPI(title="AI Trader Quant", version="0.1.0")
@@ -89,28 +119,49 @@ def list_factors():
 def run_backtest(req: BacktestRequest, request: Request) -> dict[str, Any]:
     request_id = getattr(request.state, "request_id", "-")
 
-    df = load_kline(req.symbol, req.startDate, req.endDate)
+    df = load_kline(req.symbol, req.startDate, req.endDate, as_of=req.asOf)
     if df.empty:
         raise HTTPException(404, f"No data for {req.symbol}")
+
+    # ST 状态影响涨跌停比例（限价撮合器需要），统一解析一次
+    is_st = is_st_symbol(req.symbol)
 
     # 自定义多因子策略：通过 config JSON 构建 CompositeStrategy
     if req.strategy == "composite":
         if not req.config:
             raise HTTPException(400, "config is required for composite strategy")
-        # 解析入场过滤所需的运行时上下文：ST 状态 + 大盘趋势
+        # 解析入场过滤所需的运行时上下文：大盘趋势
         entry = req.config.get("entry", {})
-        # ST 状态在 ST 过滤或涨跌停过滤时都需要（涨跌停比例依赖是否 ST）
-        need_st = bool(entry.get("stFilter") or entry.get("limitFilter"))
-        is_st = is_st_symbol(req.symbol) if need_st else False
         market_trend: dict[str, bool] = {}
         if entry.get("marketFilter"):
-            market_trend = compute_market_trend(MARKET_INDEX_SYMBOL, req.startDate, req.endDate)
+            market_trend = compute_market_trend(
+                MARKET_INDEX_SYMBOL, req.startDate, req.endDate, as_of=req.asOf
+            )
+        # 持仓时间上限按「自然交易日」计数：注入交易日历序号（停牌日无 bar 会被引擎
+        # 跳过，只数 bar 会把持有期压短）。仅在启用 maxHoldingDays 时才查库。
+        exit_cfg = req.config.get("exit", {})
+        trade_day_index: dict[str, int] = {}
+        if int(exit_cfg.get("maxHoldingDays", 0) or 0) > 0:
+            trade_day_index = load_trade_day_index(req.startDate, req.endDate)
         strategy_cls = build_composite_strategy(
-            req.config, is_st=is_st, market_trend=market_trend
+            req.config,
+            symbol=req.symbol,
+            is_st=is_st,
+            market_trend=market_trend,
+            trade_day_index=trade_day_index,
         )
     else:
         base_cls = _get_strategy_cls(req.strategy)
         strategy_cls = _apply_params(base_cls, req.params)
+
+    cost = req.config.get("cost") if req.config else None
+
+    # 涨跌停成交约束：在**原始价**空间按前收 ± 涨跌幅算出逐 bar 的涨停/跌停集合，
+    # 交给自定义撮合器拦截「涨停买不进 / 跌停卖不出」。原引擎无此约束，会在涨跌停价
+    # 照常成交；未命中涨跌停时该撮合器的成交口径与内置撮合器逐字段一致。
+    raw_close = load_raw_close(req.symbol, req.startDate, req.endDate)
+    limit_up, limit_down = compute_limit_sets(df, raw_close, req.symbol, is_st)
+    matcher = LimitMatcher(cost, limit_up=limit_up, limit_down=limit_down)
 
     log.info(
         "回测开始",
@@ -118,9 +169,11 @@ def run_backtest(req: BacktestRequest, request: Request) -> dict[str, Any]:
         strategy=strategy_cls.__name__,
         symbol=req.symbol,
         params=req.params,
+        limit_up_bars=len(limit_up),
+        limit_down_bars=len(limit_down),
     )
 
-    result = run(df, strategy_cls, cost=req.config.get("cost") if req.config else None)
+    result = run(df, strategy_cls, cost=cost, custom_matchers={AssetType.Stock: matcher})
 
     # 注入 symbol / strategy 到 report 块
     result.setdefault("report", {})
@@ -185,6 +238,43 @@ def validate_factor_expression_endpoint(
     except Exception as e:
         log.error("因子表达式运行校验失败", request_id=request_id, error=str(e))
         raise HTTPException(500, f"Factor expression validation failed: {e}")
+
+
+@app.post("/api/v1/factors/evaluate")
+def evaluate_factor_endpoint(req: FactorEvalRequest, request: Request) -> dict[str, Any]:
+    """因子检验：对表达式 / Python 代码因子做 IC / RankIC / ICIR / 分层回测 / 因子衰退。"""
+    request_id = getattr(request.state, "request_id", "-")
+    log.info(
+        "因子检验开始",
+        request_id=request_id,
+        horizon=req.horizon,
+        layers=req.layers,
+        expressionLength=len(req.expression or ""),
+        codeLength=len(req.code or ""),
+    )
+    try:
+        result = evaluate_factor(
+            req.expression,
+            horizon=req.horizon,
+            layers=req.layers,
+            bars=req.bars,
+            max_symbols=req.maxSymbols,
+            min_symbols=req.minSymbols,
+            horizons=req.horizons,
+            valid_ratio=req.validRatio,
+            code=req.code,
+            as_of=req.asOf,
+        )
+        return {"success": True, **result}
+    except FactorCodeError as e:
+        log.warning("因子代码无效", request_id=request_id, error=str(e))
+        raise HTTPException(400, f"Factor code invalid: {e}")
+    except ValueError as e:
+        log.warning("因子检验参数无效", request_id=request_id, error=str(e))
+        raise HTTPException(400, f"Factor evaluation invalid: {e}")
+    except Exception as e:
+        log.error("因子检验失败", request_id=request_id, error=str(e))
+        raise HTTPException(500, f"Factor evaluation failed: {e}")
 
 
 @app.get("/health")

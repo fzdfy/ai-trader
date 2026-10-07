@@ -1,0 +1,1 @@
+ALTER TABLE "factor_evaluation" ADD COLUMN "decay" jsonb;

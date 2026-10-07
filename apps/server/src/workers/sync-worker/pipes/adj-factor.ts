@@ -7,10 +7,12 @@
  *   qfq_t = qfq_ratio · raw_t + qfq_offset   （分段；qfq_ratio 为送转/拆股累计比）
  *   hfq_t = scale · qfq_t + hfq_base          （全局，标的级常量）
  *
- * 落库：
- *   - adj_factor         每 (symbol, date) 一段（date 为段起始日）。按 PK 幂等 upsert，
- *                        并在每次同步后删除不在本次快照内的旧段，使表恒等于最新快照。
- *   - adj_factor_latest  每 symbol 一行（scale / hfq_base），供 hfq 视图 hash join。
+ * 落库（PIT 版本化，append-only）：
+ *   - adj_factor         每 (symbol, date, known_at) 一段（date 为段起始日）。每次同步
+ *                        append 一份该标的的完整快照（同批各行共享同一 known_at）；旧快照
+ *                        永不删除 / 覆盖，视图默认取 max(known_at) 的最新快照。
+ *   - adj_factor_latest  每 (symbol, known_at) 一份（scale / hfq_base），供 hfq 视图按
+ *                        最新快照 hash join。
  *
  * 口径铁律：源按市场固定（沪深 tencent / 北交所 eastmoney），失败退避重试后仍失败按
  * 「缺失」计数，绝不降级到其他源，否则会污染 qfq 口径。
@@ -22,7 +24,7 @@
 import { db } from "../../../db";
 import { adjFactor, adjFactorLatest, instrument } from "../../../db/schema";
 import { quant, type AdjustParams } from "../../../lib/quant";
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { updateProgress } from "../progress";
 
 /** 按市场选反解源：北交所腾讯无历史改走东财，其余固定腾讯。 */
@@ -60,18 +62,20 @@ async function fetchParams(symbol: string): Promise<AdjustParams | null> {
   return null;
 }
 
-/** 幂等落库单标的参数（快照式：先 upsert 本次段，再删除不在本次快照内的旧段）。返回段数。 */
-async function upsertParams(params: AdjustParams): Promise<number> {
+/** append 单标的复权参数快照（PIT 版本化：只新增、绝不删改既有版本）。返回段数。 */
+async function writeSnapshot(params: AdjustParams): Promise<number> {
   const dates = params.points.map((p) => p.date);
   if (dates.length === 0) return 0;
   const now = new Date();
 
+  // 一份快照 = 同批全部段共享同一 known_at（即版本号）；onConflictDoNothing 保证同批重放幂等
   await db
     .insert(adjFactor)
     .values(
       params.points.map((p) => ({
         symbol: params.symbol,
         date: p.date,
+        knownAt: now,
         qfqRatio: String(p.qfq_ratio),
         qfqOffset: String(p.qfq_offset),
         source: params.source,
@@ -79,41 +83,20 @@ async function upsertParams(params: AdjustParams): Promise<number> {
         ingestedAt: now,
       })),
     )
-    .onConflictDoUpdate({
-      target: [adjFactor.symbol, adjFactor.date],
-      set: {
-        qfqRatio: sql.raw("excluded.qfq_ratio"),
-        qfqOffset: sql.raw("excluded.qfq_offset"),
-        source: sql.raw("excluded.source"),
-        sourceUpdatedAt: sql.raw("excluded.source_updated_at"),
-        ingestedAt: sql.raw("excluded.ingested_at"),
-      },
-    });
-
-  // 快照式收敛：删除不在本次参数集合内的旧段，避免窗口前移后遗留陈旧分段
-  await db
-    .delete(adjFactor)
-    .where(and(eq(adjFactor.symbol, params.symbol), notInArray(adjFactor.date, dates)));
+    .onConflictDoNothing();
 
   if (params.latest_date !== "") {
     await db
       .insert(adjFactorLatest)
       .values({
         symbol: params.symbol,
+        knownAt: now,
         date: params.latest_date,
         scale: String(params.scale),
         hfqBase: String(params.hfq_base),
         updatedAt: now,
       })
-      .onConflictDoUpdate({
-        target: adjFactorLatest.symbol,
-        set: {
-          date: sql.raw("excluded.date"),
-          scale: sql.raw("excluded.scale"),
-          hfqBase: sql.raw("excluded.hfq_base"),
-          updatedAt: sql.raw("excluded.updated_at"),
-        },
-      });
+      .onConflictDoNothing();
   }
 
   return dates.length;
@@ -153,7 +136,7 @@ export async function adjFactorPipeRun(opts?: { symbols?: string[] }): Promise<v
       const symbol = symbols[idx++]!;
       const params = await fetchParams(symbol);
       if (params != null && params.points.length > 0) {
-        segments += await upsertParams(params);
+        segments += await writeSnapshot(params);
         synced++;
       } else {
         if (missingSample.length < 20) missingSample.push(symbol);

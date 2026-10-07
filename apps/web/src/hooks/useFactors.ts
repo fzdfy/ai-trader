@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "../lib/auth-client";
 
@@ -53,7 +53,7 @@ interface ApiResponse<T> {
   data: T;
 }
 
-/** 因子分类中文名（category 为英文 key） */
+/** 内置因子分类中文名（category 为英文 key） */
 export const FACTOR_CATEGORY_LABELS: Record<string, string> = {
   momentum: "动量",
   trend: "趋势",
@@ -61,6 +61,78 @@ export const FACTOR_CATEGORY_LABELS: Record<string, string> = {
   volatility: "波动",
   custom: "自定义",
 };
+
+/** qlib Alpha158 滚动算子中文名（category 形如 qlib/alpha158/rolling/<OP>） */
+const ALPHA158_ROLLING_LABELS: Record<string, string> = {
+  ROC: "变动率",
+  MA: "均线比",
+  STD: "波动率比",
+  MAX: "最高价比",
+  MIN: "最低价比",
+  RANK: "价格分位",
+  RSV: "随机指标",
+  IMAX: "高点距今天数",
+  IMIN: "低点距今天数",
+  IMXD: "高低点间隔",
+  CORR: "价量相关",
+  CORD: "价量变化相关",
+  CNTP: "上涨天数占比",
+  CNTN: "下跌天数占比",
+  CNTD: "涨跌天数差",
+  SUMP: "涨幅占比",
+  SUMN: "跌幅占比",
+  SUMD: "涨跌占比差",
+  VMA: "量均线比",
+  VSTD: "量波动比",
+  WVMA: "量价波动",
+  VSUMP: "增量占比",
+  VSUMN: "减量占比",
+  VSUMD: "增减量占比差",
+};
+
+/** qlib Alpha360 分组中文名（category 形如 qlib/alpha360/<GROUP>） */
+const ALPHA360_GROUP_LABELS: Record<string, string> = {
+  CLOSE: "收盘价",
+  OPEN: "开盘价",
+  HIGH: "最高价",
+  LOW: "最低价",
+  VOLUME: "成交量",
+  VWAP: "成交额均价",
+};
+
+/** WorldQuant Alpha101 分类 key（种子库内置） */
+const ALPHA101_CATEGORY = "alpha101";
+const ALPHA101_GROUP = "Alpha101";
+
+const ALPHA158_ROLLING_PREFIX = "qlib/alpha158/rolling/";
+const ALPHA360_PREFIX = "qlib/alpha360/";
+
+/** 因子分类的中文分组标题（用于筛选器分组） */
+export function factorCategoryGroup(category: string): string {
+  if (category in FACTOR_CATEGORY_LABELS) return "自定义分类";
+  if (category === ALPHA101_CATEGORY) return ALPHA101_GROUP;
+  if (category.startsWith("qlib/alpha158/")) return "qlib · Alpha158";
+  if (category.startsWith(ALPHA360_PREFIX)) return "qlib · Alpha360";
+  return "其他";
+}
+
+/** 把 category key 转成中文名（兼容自定义分类与 qlib 导入分类） */
+export function formatFactorCategory(category: string): string {
+  const builtin = FACTOR_CATEGORY_LABELS[category];
+  if (builtin) return builtin;
+  if (category === ALPHA101_CATEGORY) return "α101 · WorldQuant";
+  if (category === "qlib/alpha158/kbar") return "α158 · K线形态";
+  if (category === "qlib/alpha158/price") return "α158 · 价格";
+  if (category.startsWith(ALPHA158_ROLLING_PREFIX)) {
+    const op = category.slice(ALPHA158_ROLLING_PREFIX.length);
+    return `α158 · ${ALPHA158_ROLLING_LABELS[op] ?? op}`;
+  }
+  if (category.startsWith(ALPHA360_PREFIX)) {
+    const group = category.slice(ALPHA360_PREFIX.length);
+    return `α360 · ${ALPHA360_GROUP_LABELS[group] ?? group}`;
+  }
+  return category;
+}
 
 // ---------- 请求函数（hook 与 Route loader 共用） ----------
 
@@ -380,4 +452,545 @@ export function useFactorDefinitionTesting(initialExpression: string, initialCod
   };
 
   return { expression, code, reset };
+}
+
+// ---------- 因子检验（IC / RankIC / ICIR / 分层回测 / 衰退） ----------
+
+/** 逐日 IC 一条（date 为 YYYY-MM-DD） */
+export interface FactorIcPoint {
+  date: string;
+  ic: number;
+  rankIc: number;
+  count: number;
+}
+
+/** IC / RankIC 序列汇总指标 */
+export interface FactorIcSummary {
+  mean: number | null;
+  std: number | null;
+  /** ICIR = mean(IC) / std(IC) */
+  icir: number | null;
+  /** t 值 = ICIR × sqrt(交易日数) */
+  tStat: number | null;
+  /** IC > 0 的交易日占比 */
+  positiveRatio: number | null;
+  /** 年化 ICIR = ICIR × sqrt(252) */
+  icirAnnual: number | null;
+  count: number;
+}
+
+/** 分层回测单层汇总（第 1 层因子值最低） */
+export interface FactorLayerSummary {
+  layer: number;
+  cumRet: number;
+  meanRet: number;
+  annRet: number | null;
+  winRate: number;
+  days: number;
+}
+
+/** 多空组合（最高层 - 最低层）汇总 */
+export interface FactorLongShortSummary {
+  cumRet: number;
+  meanRet: number;
+  annRet: number | null;
+  winRate: number | null;
+}
+
+/** 分层回测结果（nav 键为 L1..LN 与 longShort） */
+export interface FactorLayerBacktest {
+  count: number;
+  dates: string[];
+  nav: Record<string, number[]>;
+  summary: FactorLayerSummary[];
+  longShort: FactorLongShortSummary;
+}
+
+/** 因子衰退一点（不同持有期下的 IC 水平） */
+export interface FactorDecayPoint {
+  horizon: number;
+  icMean: number | null;
+  rankIcMean: number | null;
+  icir: number | null;
+  count: number;
+}
+
+/** 分位换手率单层（第 1 层因子值最低） */
+export interface FactorTurnoverLayer {
+  layer: number;
+  turnover: number | null;
+}
+
+/** 分位换手率（相邻交易日各分层持仓的变动比例；衡量调仓成本） */
+export interface FactorTurnover {
+  mean: number | null;
+  byLayer: FactorTurnoverLayer[];
+  count: number;
+}
+
+/** 秩自相关（相邻交易日因子排名的一致性；越高越稳定） */
+export interface FactorRankAutocorr {
+  mean: number | null;
+  std: number | null;
+  count: number;
+}
+
+/** 多空组合 vs 市场等权收益的 OLS 回归（alpha 为选股超额，beta 为市场暴露） */
+export interface FactorAlphaBeta {
+  alpha: number | null;
+  beta: number | null;
+  rSquared: number | null;
+  annualAlpha: number | null;
+  count: number;
+}
+
+/** IC 正态性 QQ 图一点 */
+export interface FactorIcQqPoint {
+  theoretical: number;
+  sample: number;
+}
+
+/** IC 正态性（偏度/峰度/Jarque-Bera 检验 + QQ 数据） */
+export interface FactorIcNormality {
+  skew: number | null;
+  kurtosis: number | null;
+  jarqueBera: number | null;
+  pValue: number | null;
+  count: number;
+  qq: FactorIcQqPoint[];
+}
+
+/** 月度 IC 一点（month 为 YYYY-MM） */
+export interface FactorMonthlyIc {
+  month: string;
+  ic: number | null;
+  rankIc: number | null;
+  count: number;
+}
+
+/** 样本切分信息（validRatio>0 且样本充足时非空） */
+export interface FactorEvaluationSplit {
+  /** 样本外占比（0~0.5） */
+  validRatio: number;
+  /** 样本外起始交易日（YYYY-MM-DD） */
+  splitDate: string;
+}
+
+/** 样本外(valid)区间汇总；未切分或样本外无法计算时为 null */
+export interface FactorValidSummary {
+  ic: FactorIcSummary;
+  rankIc: FactorIcSummary;
+  longShort: FactorLongShortSummary;
+  turnover: FactorTurnover;
+  rankAutocorr: FactorRankAutocorr;
+  alphaBeta: FactorAlphaBeta;
+  monthlyIc: FactorMonthlyIc[];
+  /** 样本外有效截面交易日数 */
+  sampleCount: number;
+  startDate: string;
+  endDate: string;
+}
+
+/** 因子检验结果 */
+export interface FactorEvaluation {
+  expression: string;
+  universe: {
+    symbols: number;
+    bars: number;
+    startDate: string;
+    endDate: string;
+  };
+  horizon: number;
+  ic: FactorIcSummary;
+  rankIc: FactorIcSummary;
+  icSeries: FactorIcPoint[];
+  layers: FactorLayerBacktest;
+  /** 分位换手率（衡量调仓成本） */
+  turnover: FactorTurnover;
+  /** 秩自相关（因子排名稳定性） */
+  rankAutocorr: FactorRankAutocorr;
+  /** 多空组合 vs 市场等权回归（alpha/beta） */
+  alphaBeta: FactorAlphaBeta;
+  /** IC 正态性（偏度/峰度/JB 检验/QQ） */
+  icNormality: FactorIcNormality;
+  /** 月度 IC */
+  monthlyIc: FactorMonthlyIc[];
+  decay: FactorDecayPoint[];
+  /** 样本切分信息；未切分（validRatio=0 或样本不足）时为 null */
+  split: FactorEvaluationSplit | null;
+  /** 样本外(OOS)指标；未切分或样本外无法计算时为 null */
+  valid: FactorValidSummary | null;
+  elapsedMs: number;
+}
+
+/** 因子检验参数（均可省略，交由 quant 侧默认值与上限钳制） */
+export interface FactorEvaluationParams {
+  horizon?: number;
+  layers?: number;
+  bars?: number;
+  maxSymbols?: number;
+  minSymbols?: number;
+  horizons?: number[];
+  /** 样本外占比（0~0.5）：>0 时按交易日切分样本内/样本外，用于度量过拟合 */
+  validRatio?: number;
+  /**
+   * PIT 复权基准日（YYYY-MM-DD）：只采用该日之前（known_at <= asOf）的复权因子快照，
+   * 等价于「站在历史某时刻」回放，用于消除前视偏差；留空即用最新快照。
+   */
+  asOf?: string;
+}
+
+/**
+ * 因子检验：在全市场面板上计算 IC / RankIC / ICIR、分层回测与因子衰退。
+ *
+ * 计算较重（quant 侧需从库中取最多 maxSymbols 只标的、约 bars 根日线组成面板），
+ * 耗时可达数十秒；表达式因子与 Python 代码因子均可用（后者由 quant 侧受限执行）。
+ * 传 validRatio>0 时另返回 split 与样本外(OOS)指标，用于判断过拟合。
+ */
+export function useFactorEvaluation(name: string) {
+  const userId = authClient.useSession().data?.user.id;
+
+  return useMutation({
+    mutationFn: async (params: FactorEvaluationParams = {}) => {
+      const res = await fetch(`/api/v1/factors/${encodeURIComponent(name)}/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
+        body: JSON.stringify(params),
+      });
+      const json = (await res.json()) as ApiResponse<FactorEvaluation>;
+      if (!json.success) throw new Error((json as unknown as { error: string }).error);
+      return json.data;
+    },
+  });
+}
+
+// ---------- 因子批量检验（列表页指标列 + 后台批量落库） ----------
+
+/** 落库的因子检验结果行（GET /evaluations 返回；一行 = 一个因子最近一次检验快照） */
+export interface FactorEvaluationRow {
+  factorName: string;
+  category: string;
+  horizon: number;
+  icMean: number | null;
+  icStd: number | null;
+  icir: number | null;
+  tStat: number | null;
+  icPositiveRatio: number | null;
+  rankIcMean: number | null;
+  rankIcir: number | null;
+  longShortCumRet: number | null;
+  longShortAnnRet: number | null;
+  longShortWinRate: number | null;
+  /** 分位换手率均值（衡量调仓成本） */
+  turnoverMean: number | null;
+  /** 秩自相关均值（因子排名稳定性） */
+  rankAutocorrMean: number | null;
+  /** 多空组合 beta（市场暴露） */
+  longShortBeta: number | null;
+  /** 多空组合年化 alpha（选股超额） */
+  longShortAlpha: number | null;
+  /** IC 偏度 */
+  icSkew: number | null;
+  /** IC 峰度 */
+  icKurtosis: number | null;
+  sampleCount: number;
+  symbols: number;
+  bars: number;
+  startDate: string | null;
+  endDate: string | null;
+  /** 因子衰退曲线：各持有期的 IC / RankIC / ICIR（供跨因子衰退对比页） */
+  decay: FactorDecayPoint[] | null;
+  /** 诊断指标完整结构（换手率/秩自相关/alpha-beta/IC 正态性/月度 IC） */
+  diagnostics: {
+    turnover: FactorTurnover;
+    rankAutocorr: FactorRankAutocorr;
+    alphaBeta: FactorAlphaBeta;
+    icNormality: FactorIcNormality;
+    monthlyIc: FactorMonthlyIc[];
+  } | null;
+  /** 该因子检验失败时的原因；成功时为 null */
+  error: string | null;
+  elapsedMs: number | null;
+  updatedAt: string;
+}
+
+/** 批量检验任务状态（GET /evaluations/status 返回；无任务时为 idle） */
+export interface FactorEvaluationStatus {
+  status: "idle" | "pending" | "running" | "success" | "failed";
+  total: number | null;
+  processed: number | null;
+  message: string | null;
+  error: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+const IDLE_EVALUATION_STATUS: FactorEvaluationStatus = {
+  status: "idle",
+  total: null,
+  processed: null,
+  message: null,
+  error: null,
+  startedAt: null,
+  finishedAt: null,
+};
+
+/** 拉取全部因子的最近一次检验结果（因子名 → 指标） */
+export async function fetchFactorEvaluations(): Promise<FactorEvaluationRow[]> {
+  const res = await fetch("/api/v1/factors/evaluations");
+  const json = (await res.json()) as ApiResponse<FactorEvaluationRow[]>;
+  return json.success ? json.data : [];
+}
+
+/** 因子检验结果列表（列表页指标列数据源） */
+export function useFactorEvaluationsQuery() {
+  return useQuery({
+    queryKey: ["factor-evaluations"],
+    queryFn: fetchFactorEvaluations,
+  });
+}
+
+/**
+ * 批量检验任务状态。任务进行中时按 3s 轮询进度，落定后自动停止；
+ * 由「进行中」转入成功/失败时刷新结果列表，让指标列立即更新。
+ */
+export function useFactorEvaluationStatus() {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["factor-evaluations", "status"],
+    queryFn: async (): Promise<FactorEvaluationStatus> => {
+      const res = await fetch("/api/v1/factors/evaluations/status");
+      const json = (await res.json()) as ApiResponse<FactorEvaluationStatus>;
+      return json.success ? json.data : IDLE_EVALUATION_STATUS;
+    },
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 3000 : false),
+  });
+
+  const status = query.data?.status ?? null;
+  const prevStatus = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevStatus.current === "running" && (status === "success" || status === "failed")) {
+      queryClient.invalidateQueries({ queryKey: ["factor-evaluations"] });
+    }
+    prevStatus.current = status;
+  }, [status, queryClient]);
+
+  return query;
+}
+
+/**
+ * 触发批量检验（后台串行执行，立即返回 runId）。可传 names 限定子集（列表页按当前筛选传入）；
+ * 不传则检验当前用户可见的全部表达式因子。
+ */
+export function useRefreshFactorEvaluations() {
+  const queryClient = useQueryClient();
+  const userId = authClient.useSession().data?.user.id;
+
+  return useMutation({
+    mutationFn: async (input: { names?: string[] } = {}) => {
+      const res = await fetch("/api/v1/factors/evaluations/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
+        body: JSON.stringify(input),
+      });
+      const json = (await res.json()) as ApiResponse<{
+        accepted: boolean;
+        runId: number;
+        total: number;
+      }>;
+      if (!json.success) throw new Error((json as unknown as { error: string }).error);
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["factor-evaluations"] });
+    },
+  });
+}
+
+// ---------- AI 因子迭代（路线 B 闭环：生成 → 评价 → 反馈 → 迭代） ----------
+
+/** 单轮迭代轨迹（GET /iterate/runs/:runId 的 rounds 元素，对应 factor_iteration 一行） */
+export interface FactorIterateRound {
+  id: number;
+  runId: number;
+  /** 轮次（从 1 开始） */
+  round: number;
+  /** evaluated=评价成功 | invalid=校验未通过 | failed=生成/评价异常 | stopped=主动终止 */
+  status: string;
+  expression: string | null;
+  /** IC 均值（Pearson） */
+  icMean: number | null;
+  /** RankIC 均值（Spearman） */
+  rankIcMean: number | null;
+  icir: number | null;
+  tStat: number | null;
+  /** IC > 0 的交易日占比 */
+  positiveRatio: number | null;
+  longShortAnnRet: number | null;
+  longShortCumRet: number | null;
+  /** 分层单调性 */
+  monotonicity: number | null;
+  /** 衰退保留率 */
+  retention: number | null;
+  /** 跨轮排序的综合评分 */
+  score: number | null;
+  sampleCount: number | null;
+  symbols: number | null;
+  /** 样本外占比（0~0.5）；0 或 null 表示未做切分 */
+  validRatio: number | null;
+  /** 样本外起始交易日（YYYY-MM-DD）；未切分为空 */
+  splitDate: string | null;
+  /** 样本外 IC 均值（Pearson） */
+  validIcMean: number | null;
+  /** 样本外 RankIC 均值（Spearman 秩相关） */
+  validRankIcMean: number | null;
+  /** 样本外 ICIR = mean(IC) / std(IC) */
+  validIcir: number | null;
+  /** 样本外分层多空组合年化收益 */
+  validLongShortAnnRet: number | null;
+  /** 样本外分层多空组合累计收益 */
+  validLongShortCumRet: number | null;
+  /** 样本外有效截面交易日数 */
+  validSampleCount: number | null;
+  /** 非成功轮的原因说明（成功轮为空） */
+  message: string | null;
+  /** 是否为本次任务的最佳轮 */
+  isBest: boolean;
+  createdAt: string;
+}
+
+/** 迭代任务（GET /iterate/runs[/:runId] 的 run，对应 job_run 一行） */
+export interface FactorIterateRun {
+  id: number;
+  status: string;
+  total: number | null;
+  processed: number | null;
+  message: string | null;
+  error: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+/** 迭代任务状态（GET /iterate/status 返回；无任务时为 idle） */
+export interface FactorIterateStatus {
+  status: "idle" | "pending" | "running" | "success" | "failed";
+  total: number | null;
+  processed: number | null;
+  message: string | null;
+  error: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+/** 触发 AI 迭代的参数（除 description 外均可省略，交由服务端默认值与上限钳制） */
+export interface FactorIterateParams {
+  description: string;
+  /** 最多迭代轮次，服务端默认 3、上限 5 */
+  rounds?: number;
+  horizon?: number;
+  layers?: number;
+  bars?: number;
+  maxSymbols?: number;
+  minSymbols?: number;
+}
+
+/** 单次迭代详情：任务 + 逐轮轨迹 */
+export interface FactorIterateDetail {
+  run: FactorIterateRun;
+  rounds: FactorIterateRound[];
+}
+
+const IDLE_ITERATE_STATUS: FactorIterateStatus = {
+  status: "idle",
+  total: null,
+  processed: null,
+  message: null,
+  error: null,
+  startedAt: null,
+  finishedAt: null,
+};
+
+/**
+ * 触发 AI 因子迭代（后台执行，立即返回 runId）。
+ * 采纳最佳轮仍需另行调用 useCreateFactor 落库，迭代本身不写因子表。
+ */
+export function useFactorIterate() {
+  const queryClient = useQueryClient();
+  const userId = authClient.useSession().data?.user.id;
+
+  return useMutation({
+    mutationFn: async (params: FactorIterateParams) => {
+      const res = await fetch("/api/v1/factors/iterate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
+        body: JSON.stringify(params),
+      });
+      const json = (await res.json()) as ApiResponse<{
+        accepted: boolean;
+        runId: number;
+        total: number;
+      }>;
+      if (!json.success) throw new Error((json as unknown as { error: string }).error);
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["factor-iterate", "status"] });
+      queryClient.invalidateQueries({ queryKey: ["factor-iterate", "runs"] });
+    },
+  });
+}
+
+/**
+ * AI 迭代任务状态。任务进行中时按 3s 轮询进度，落定后自动停止；
+ * 由「进行中」转入成功/失败时刷新历史列表，让轨迹入口立即更新。
+ */
+export function useFactorIterateStatus() {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["factor-iterate", "status"],
+    queryFn: async (): Promise<FactorIterateStatus> => {
+      const res = await fetch("/api/v1/factors/iterate/status");
+      const json = (await res.json()) as ApiResponse<FactorIterateStatus>;
+      return json.success ? json.data : IDLE_ITERATE_STATUS;
+    },
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 3000 : false),
+  });
+
+  const status = query.data?.status ?? null;
+  const prevStatus = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevStatus.current === "running" && (status === "success" || status === "failed")) {
+      queryClient.invalidateQueries({ queryKey: ["factor-iterate", "runs"] });
+    }
+    prevStatus.current = status;
+  }, [status, queryClient]);
+
+  return query;
+}
+
+/** 最近若干次 AI 迭代任务（历史轨迹入口） */
+export function useFactorIterateRuns(limit = 10) {
+  return useQuery({
+    queryKey: ["factor-iterate", "runs", limit],
+    queryFn: async (): Promise<FactorIterateRun[]> => {
+      const res = await fetch(`/api/v1/factors/iterate/runs?limit=${limit}`);
+      const json = (await res.json()) as ApiResponse<{ runs: FactorIterateRun[] }>;
+      return json.success ? json.data.runs : [];
+    },
+  });
+}
+
+/** 单次 AI 迭代的逐轮轨迹；任务进行中时按 3s 轮询，落定后自动停止 */
+export function useFactorIterateRun(runId: number | null | undefined) {
+  return useQuery({
+    queryKey: ["factor-iterate", "run", runId],
+    enabled: runId != null,
+    queryFn: async (): Promise<FactorIterateDetail> => {
+      const res = await fetch(`/api/v1/factors/iterate/runs/${runId}`);
+      const json = (await res.json()) as ApiResponse<FactorIterateDetail>;
+      if (!json.success) throw new Error((json as unknown as { error: string }).error);
+      return json.data;
+    },
+    refetchInterval: (q) => (q.state.data?.run.status === "running" ? 3000 : false),
+  });
 }

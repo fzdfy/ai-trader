@@ -29,7 +29,7 @@ const STRATEGY_COLUMNS = [
         params={{ strategyId: String(row.id) }}
         style={{ textDecoration: "none" }}
       >
-        <Text style={{ color: "var(--color-text-blue)" }}>{row.name}</Text>
+        <Text style={{ color: "var(--color-text-accent)" }}>{row.name}</Text>
       </Link>
     ),
   },

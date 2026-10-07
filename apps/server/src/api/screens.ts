@@ -35,8 +35,8 @@ type ScreenScope =
 
 /** 固定阈值：涨幅榜 —— 最新交易日相对上一交易日涨幅 ≥ 3% */
 const GAIN_3_SQL = sql`
-  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_qfq),
-       d1 AS (SELECT MAX(time) AS t FROM bar1d_qfq WHERE time < (SELECT t FROM d0))
+  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_raw),
+       d1 AS (SELECT MAX(time) AS t FROM bar1d_raw WHERE time < (SELECT t FROM d0))
   SELECT a.symbol
   FROM bar1d_qfq a
   JOIN bar1d_qfq b ON b.symbol = a.symbol
@@ -51,7 +51,7 @@ const GAIN_3_SQL = sql`
  *  用「原始价 close_raw × 成交量(手) × 100」估算——必须用 close_raw 而非前复权 close，
  *  否则除权日成交额失真。 */
 const AMOUNT_1B_SQL = sql`
-  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_qfq)
+  WITH d0 AS (SELECT MAX(time) AS t FROM bar1d_raw)
   SELECT b.symbol
   FROM bar1d_qfq b
   WHERE b.time = (SELECT t FROM d0)
@@ -64,7 +64,7 @@ const LIMIT_UP_1_SQL = sql`
     SELECT trade_date
     FROM trading_calendar
     WHERE is_trading_day = true
-      AND trade_date <= (SELECT MAX(time)::date FROM bar1d_qfq)
+      AND trade_date <= (SELECT MAX(time)::date FROM bar1d_raw)
     ORDER BY trade_date DESC
     LIMIT 101
   ),

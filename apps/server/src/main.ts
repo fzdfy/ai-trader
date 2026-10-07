@@ -6,6 +6,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { api } from "./api";
 import { auth } from "./auth";
 import { db } from "./db";
+import { ensureFactorsSeeded } from "./db/seed";
 import { jobRun } from "./db/schema";
 import { requestId } from "./middleware/request-id";
 import { createLogger } from "./lib/logger";
@@ -72,5 +73,7 @@ const port = 3001;
 serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, async () => {
   // 启动时清理进程重启遗留的 running 手动同步（async，不阻塞监听）
   void cleanupInterruptedSyncs();
+  // 启动时幂等灌入内置因子（Alpha101 / Alpha158 / Alpha360，async，不阻塞监听）
+  void ensureFactorsSeeded();
   log.info({ port }, "listening");
 });

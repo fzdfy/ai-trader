@@ -1,0 +1,23 @@
+CREATE TABLE "factor_evaluation" (
+	"factor_name" text PRIMARY KEY NOT NULL,
+	"category" text NOT NULL,
+	"horizon" integer DEFAULT 1 NOT NULL,
+	"ic_mean" double precision,
+	"ic_std" double precision,
+	"icir" double precision,
+	"t_stat" double precision,
+	"ic_positive_ratio" double precision,
+	"rank_ic_mean" double precision,
+	"rank_icir" double precision,
+	"long_short_cum_ret" double precision,
+	"long_short_ann_ret" double precision,
+	"long_short_win_rate" double precision,
+	"sample_count" integer DEFAULT 0 NOT NULL,
+	"symbols" integer DEFAULT 0 NOT NULL,
+	"bars" integer DEFAULT 0 NOT NULL,
+	"start_date" text,
+	"end_date" text,
+	"error" text,
+	"elapsed_ms" integer,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);

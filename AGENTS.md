@@ -2,75 +2,48 @@
 
 Project-specific guidance for AI coding agents.
 
-## 项目架构
+> **项目知识的唯一事实源是 [`docs/`](./docs/README.md)。** 本文件只放两类东西：① 每次动手都必须遵守的**常驻约束**；② **导航与铁律索引**。知识细节一律写到 `docs/`，这里不再重复。
 
-pnpm monorepo，智能 A 股分析与策略平台：
+## 项目一句话
 
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| 前端 | `apps/web` | React + Vite；nginx 代理（:80，本地 :9080） |
-| API | `apps/server` | Hono（:3001）；含 sync-worker / feature-worker 定时任务 |
-| 回测 | `apps/quant` | Python FastAPI + akquant（:3002） |
-| 数据库 | PostgreSQL | :5432，pgvector |
+pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，:9080）· `apps/server`（Hono API + sync / feature worker，:3001）· `apps/quant`（Python FastAPI + akquant，:3002）· PostgreSQL（:5432，pgvector）· 日志栈 Alloy → Loki → Grafana。全局图见 [docs/README.md](./docs/README.md)。
 
-## 数据链路
+## 知识导航（唯一事实源：docs/）
 
-**取数层与回测读取层是两条独立链路**，改动数据源前必须先分清要改哪一层：
+| 我想… | 去哪里看 |
+|---|---|
+| 搞懂系统长什么样（模块 / 端口 / 容器 / 部署） | [docs/architecture.md](./docs/architecture.md) |
+| 改数据源 / 排查数据问题（A/B/C 三条链路） | [docs/data-pipeline.md](./docs/data-pipeline.md) |
+| **动手改任何核心代码前**先看约束 | [docs/invariants.md](./docs/invariants.md) |
+| 线上出问题（僵尸任务 / 东财熔断 / 回测超时） | [docs/runbooks.md](./docs/runbooks.md) |
+| 想重复论证某个已定结论前 | [docs/decisions.md](./docs/decisions.md) |
+| 遇到怪现象 / 想认领技术债 | [docs/issues.md](./docs/issues.md) |
+| 看不懂某个术语 | [docs/glossary.md](./docs/glossary.md) |
+| 想知道下一步做什么 | [docs/roadmap.md](./docs/roadmap.md) |
 
-| 链路 | 位置 | 性质 |
-|------|------|------|
-| A 取数层 | `apps/quant/data/`（router → registry → providers） | 实时抓取，不落库，供前端与 agent 使用 |
-| B 入库层 | `apps/server/src/workers/sync-worker/pipes/` | cron 拉取后写入 PostgreSQL |
-| C 回测读取层 | `apps/quant/data_loader.load_kline` | 只查 `bar1d_qfq` 前复权视图（由原始价基表 `bar1d_raw` + 复权因子表按分段仿射模型派生） |
+## 铁律索引（每条详情与证据见 [docs/invariants.md](./docs/invariants.md)）
 
-完整链路：sync-worker → quant `/api/v1/data/kline` → PostgreSQL → `load_kline` → 回测引擎。
+- **INV-1** 取数按「不封 IP 优先」：mootdx > 腾讯 > 新浪 / 巨潮 / 同花顺 > 东财。
+- **INV-2** 东财仅用于其独有数据，且必须走统一 `em_get()`，禁止直接 `requests.get`。
+- **INV-3** `em_get` 防雪崩不可改：锁只覆盖单次请求、重试睡眠在锁外、连续失败 5 次熔断（冷却 **300s**）。
+- **INV-4** 东财行情类端点统一走 `push2delay`，不用实时 `push2`。
+- **INV-5** 东财个股新闻必须用 `cmsArticleWebOld` 参数并正确解 JSONP。
+- **INV-6** 同一条降级链内不得混用不同复权口径。
+- **INV-7** 回测入库源按标的固定（沪深腾讯 / 北交所东财），禁止静默降级。
+- **INV-8** 回测复权默认后复权 `hfq`；前复权 `qfq` 禁止用于回测。
+- **INV-9** `load_kline` 输出契约（`time` 索引 + `open/high/low/close/volume/amount/indicators`）不可改。
+- **INV-10** PIT 复权：`as_of` 只取 `known_at <= as_of` 的复权快照。
+- **INV-11** 任务记录表名是单数 `job_run`（写 `job_runs` 会报 `relation does not exist`）。
+- **INV-12** 切取数层只改 `registry.py` 的 `_PROVIDER_CLASSES` + `_CAPABILITY_PRIORITY`。
+- **INV-13** 切回测数据源必须改入库管道 + 重建历史数据 + 新旧源双跑比对。
+- **INV-14** 换源 / 回测前必查：复权 PIT 化、停牌标记、涨跌停成交判定；baostock 不支持北交所。
 
-### 切换数据源的两条路径
+## 常驻约束（每次动手都要遵守）
 
-- **切取数层**：只需改两处 —— `data/registry.py` 的 `_PROVIDER_CLASSES`（注册 provider 类）与 `_CAPABILITY_PRIORITY`（决定降级链顺序）。新 provider 放 `data/providers/<name>/provider.py`，实现 `data/base.py` 的 `MarketProvider` 协议。验证用 `GET /api/v1/data/sources` 与 `GET /api/v1/data/kline?symbol=...&source=<name>`。
-- **切回测数据源**：必须改入库管道（`pipes/kline-1d.ts` 中 `source` 硬编码为 `tencent`）、重建历史数据，并做新旧源双跑比对后再上生产。
-
-### 数据源铁律
-
-- 优先级：mootdx（TCP，不封 IP）> 腾讯（HTTP GBK，不封 IP）> 新浪 / 巨潮 / 同花顺 > 东财（有风控会封 IP，仅用于其独有数据）。
-- 东财必须走统一的 `em_get()` 串行限流，禁止直接 `requests.get`。
-- `em_get` 防雪崩加固：串行锁只覆盖「等待最小间隔 + 发起单次请求」，重试退避睡眠放在锁外；连续失败达阈值（5）即熔断跳闸，冷却 30s 内东财请求快速失败上抛，交给上层降级链；`_em_get_kline` 遇熔断直接上抛，不再做 `/..` 二次重试。
-- 行情类端点统一走 `push2delay`（延迟行情），不用实时 `push2`——后者并发下易 `RemoteDisconnected`。
-- 东财个股新闻（`search-api-web.eastmoney.com/search/jsonp`）必须用 `type:["cmsArticleWebOld"]` + `param.cmsArticleWebOld` 子对象；旧值 `type:["819"]` 已废弃，会返回 `包含未知的type：819`。响应是 JSONP，取首个 `(` 与末个 `)` 之间再 `JSON.parse`（勿用贪婪正则，会吞掉结尾 `)`/`;`），列表在 `result.cmsArticleWebOld`。
-- **同一条降级链内不得混用不同复权口径**；`kline-1d.ts` 硬编码 `source=tencent` 正是为防止降级污染口径。
-- `load_kline` 的输出契约（`time` 索引 + `open/high/low/close/volume/amount/indicators`）不可更改，否则回测、选股、指标三处会同时失效。
-
-### A 股回测可信度缺口（回测或换源前必查）
-
-复权 PIT 化（现用 `qfq` 前复权，存在前视偏差）、停牌标记、涨跌停成交判定。另注意 baostock 不支持北交所。
-
-## 回测服务（apps/quant）
-
-- 框架为 akquant（`pyproject.toml` 依赖 `akquant>=0.3.22`）。
-- 策略注册表在 `strategies/__init__.py`（`ma_cross` / `rsi` / `macd` / `bollinger`）；`main.py` 的 `_apply_params` 通过 `type()` 子类化覆盖类属性。
-- `engine.run(df, strategy, ...)` 的 `**kwargs` 会透传给 akquant 的 `run_backtest`，故无需改动 `engine.py` 即可传入 `strategy_source` / `strategy_loader`。
-- akquant 的 `python_plain` loader **只接受文件路径，不接受源码字符串**（传 bytes 会 TypeError），动态模块名带 uuid 后缀。
-- 已知缺陷：`POST /api/v1/backtests/run` 为同步函数且**没有 try/except**（同文件其他端点都有）；`server/src/api/backtests.ts` 的 fetch **没有 AbortSignal**；nginx `proxy_read_timeout 120s`，超时返回 HTML 504 会导致前端解析失败。
-
-## 日志与可观测性
-
-- 日志用 pino（`apps/server/src/lib/logger.ts`）：生产 JSON、开发 pino-pretty；`level` 在产出端就归一为字符串（采集侧把它当 Loki label，数字会变成无意义取值）。
-- 全链路追踪用 AsyncLocalStorage（`apps/server/src/lib/request-context.ts`）：HTTP 入口由 `middleware/request-id.ts` 建上下文（`source=external`），定时任务由 `wrapJob` 建（`source=scheduled|manual`）；`lib/quant.ts` 把上下文作为 `X-Request-Id` / `X-Job-Run-Id` 等请求头透传到 quant，实现接口日志 ↔ 定时任务日志 ↔ quant 内部调用的归集。
-- 采集栈 Grafana Alloy → Loki → Grafana（`docker/alloy`、`docker/loki`、`docker/grafana`）；`request_id` / `job_run_id` 等高基数字段进 Loki **structured metadata**，不做 label（防索引爆炸）。
-
-## 定时任务与任务记录（job_run）
-
-- 任务记录表名是 `job_run`（**单数**，`apps/server/src/db/schema/ops.ts`）；手工查询写成 `job_runs` 会报 `relation does not exist`。
-- 三种「非正常结束」标记，排查任务状态前先分清来源：`interrupted (stale)`（`runner.ts` 的 `cleanupStaleRuns`，worker 每 10 分钟 + 各查询/触发接口前调用）、`interrupted (worker restart)`（worker 启动 `cleanupInterruptedJobs`）、`interrupted (server restart)`（server 启动 `cleanupInterruptedSyncs`，只处理 sync-manual）。
-- 僵尸阈值 `STALE_RUN_MS = 3h`，且**以 `startedAt` 判活**：真在跑的长任务会被误判僵尸、DB 行改判 failed（进程不受影响，仍继续跑）。改进方向是引入心跳（`updateProgress` 顺带续期）后按「最近心跳」判活。
-- 已知问题：worker 启动清理会把 **server 手动同步正在跑的子任务**一并标 failed（跨进程误杀，DB 记录与真实运行状态不一致）。
-- kline-1d 全市场（约 5552 只，源固定腾讯）正常约 46 分钟跑完。2026-09-21 诊断：东财雪崩拖垮 quant 后单标的请求大面积超时，整批耗时 >3h，被 `cleanupStaleRuns` 按阈值误杀（`3056`/`3310` 的 `finished_at - started_at` 精确等于 3h，进度仅 782/5552、833/5553）。东财加固后**待观察**下一交易日 15:10 那轮是否恢复。
-
-## 已确立结论（勿重复论证）
-
-- akquant 策略**无法平滑迁移到 QMT / PTrade**：大 QMT 是 Python 3.6.8 + GBK + `ContextInfo` 的封闭沙箱，MiniQMT 没有回测引擎，两者官方声明不兼容；PTrade 各券商版本 API 也不一致。
-- 研究/执行分离的正确做法是**交换数据契约而非交换代码**：研究侧产出 `target_weights`（date / symbol / target_weight），执行侧只保留平台相关的下单薄壳。
-- 前端「编写 Python 并运行策略」目前缺三样：编辑器依赖（web 端无 monaco / codemirror 等）、源码到可运行策略的通路、能承载崩溃与超时的执行边界。
+- 改数据源前先分清要改「取数层」还是「回测读取层」——两条独立链路，见 [data-pipeline.md](./docs/data-pipeline.md)。
+- 回测要可信：默认后复权、PIT 取数、涨跌停按**原始价前收**判定。
+- 排查任务状态先分清 `interrupted (stale | worker restart | server restart)` 三种来源，见 [runbooks.md](./docs/runbooks.md)。
+- 不要重复论证 [decisions.md](./docs/decisions.md) 里已定的结论。
 
 ## 工具链注意
 

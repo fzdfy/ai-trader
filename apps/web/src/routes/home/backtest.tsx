@@ -98,6 +98,8 @@ function isoDate(d: Date): ISODateString {
   return `${y}-${m}-${day}` as ISODateString;
 }
 
+const TODAY_ISO = isoDate(new Date());
+
 const TRADE_COLUMNS = [
   { key: "entryTime" as const, header: "买入日", width: proportional(1.5) },
   { key: "exitTime" as const, header: "卖出日", width: proportional(1.5) },
@@ -364,6 +366,9 @@ function BacktestPage() {
   const [endDate, setEndDate] = useState<ISODateString | undefined>(
     isoDate(new Date()),
   );
+  // PIT 复权基准日：留空（undefined）用最新复权因子快照；指定日期则只用该日之前的快照，
+  // 消除前视偏差。当前库内仅一个快照（2026-10-01），早于该日等价于不复权。
+  const [asOf, setAsOf] = useState<ISODateString | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [resultTab, setResultTab] = useState("overview");
@@ -391,6 +396,7 @@ function BacktestPage() {
         config: toRunConfig(selectedCustomStrategy.configJson),
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        asOf: asOf || undefined,
       };
     } else {
       const resolved: Record<string, number> = {};
@@ -405,6 +411,7 @@ function BacktestPage() {
         params: resolved,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        asOf: asOf || undefined,
       };
     }
 
@@ -423,6 +430,7 @@ function BacktestPage() {
     params,
     startDate,
     endDate,
+    asOf,
   ]);
 
   /** 核心指标列表（对齐 AKQuant 12 项完整指标） */
@@ -514,6 +522,19 @@ function BacktestPage() {
               variant="primary"
               isDisabled={!symbol || loading}
               onClick={runBacktest}
+            />
+          </HStack>
+
+          <HStack gap={3} align="end">
+            <DateInput
+              label="PIT 复权基准日"
+              description="留空用最新快照；指定日期则只用该日之前的复权因子，消除前视偏差"
+              value={asOf}
+              onChange={setAsOf}
+              max={TODAY_ISO}
+              hasClear
+              placeholder="最新快照"
+              style={{ width: 200 }}
             />
           </HStack>
 

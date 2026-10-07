@@ -1,25 +1,27 @@
 """导出 PostgreSQL 日线为 qlib 可消费的 per-symbol CSV。
 
-把本地前复权日线导出成「每标的一个 CSV」，再用 qlib 自带的 ``scripts/dump_bin.py``
+把本地后复权日线导出成「每标的一个 CSV」，再用 qlib 自带的 ``scripts/dump_bin.py``
 转成 ``.bin`` 数据目录，供 qlib 研究侧使用（因子挖掘 / 多模型横评 / IC·分层评价）。
 本脚本只做导出，不依赖 qlib，也不改动任何在线服务。
 
-**因子应用层化（批量路径专用）**：本脚本不再查询 ``bar1d_qfq`` 视图——该视图用
+**因子应用层化（批量路径专用）**：本脚本不再查询复权视图——视图用
 ``LEFT JOIN LATERAL ... date <= b.time ORDER BY date DESC LIMIT 1`` 逐行反向探测
 ``adj_factor``，跨标的批量扫描时命中率极低（Memoize 0 hit），并伴随 numeric 任意精度
 运算开销。改为直接扫 ``bar1d_raw``，一次性把体量极小（约 5 万行 / 12MB，分段常数）的
-``adj_factor`` 读进内存，在应用层用向量化 as-of merge（``np.searchsorted(side="right")-1``
-取 date <= time 的最近段，缺省 ratio=1 / offset=0）复刻视图口径：
+``adj_factor`` 与 ``adj_factor_latest``（每标的 S / B）读进内存，在应用层用向量化
+as-of merge（``np.searchsorted(side="right")-1`` 取 date <= time 的最近段，缺省
+ratio=1 / offset=0）复刻视图口径：
 
     qfq_t = ratio_t * raw_t + offset_t      （ratio_t / offset_t 取 date <= t 的最近段）
+    hfq_t = scale * qfq_t   + hfq_base      （scale / hfq_base 为标的级全局常量）
 
-语义与 ``verify_adjust.py`` 的 ``_reconstruct`` 完全一致（最新段 ratio=1 / offset=0，
-故最新交易日 qfq.close == raw.close）。单标的热路径（``data_loader.load_kline`` 等）仍走
-视图，本改造仅针对批量导出/研究路径。
+语义与 ``verify_adjust.py`` 的 ``_reconstruct`` 完全一致。
 
-⚠️ 复权口径：``bar1d_qfq`` 为前复权（qfq），存在前视偏差。qlib 的 Alpha158 等
-因子全靠价格重算，直接使用会让 IC 系统性虚高；研究结论是否可信，取决于复权
-PIT 化（详见 AGENTS.md「A 股回测可信度缺口」）。
+✅ 复权口径（PIT 安全）：导出**后复权（hfq）**，而非前复权（qfq）。后复权锚定上市
+首日，除权只在除权日之后引入新因子、不改写历史价位，故同一历史日无论何时导出价位
+恒定、历史序列不随未来分红变化 → 无前视偏差，适合 qlib 的 Alpha158 等价格类因子。
+前复权锚定最新交易日、会被新分红反复重锚，禁止用于研究/回测（详见 AGENTS.md
+「A 股回测可信度缺口」）。
 
 ⚠️ 成交单位：沪深成交量为「手」（约 ×100 股），北交所（.BJ）为「股」且自带
 成交额；``amount`` 列沪深多为 NULL，做横截面因子前需自行归一化。
@@ -124,6 +126,23 @@ def fetch_factors(conn) -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
     return factors
 
 
+def fetch_latest(conn) -> dict[str, tuple[float, float]]:
+    """一次性读入每标的的后复权全局仿射常量 ``(scale, hfq_base)``。
+
+    ``adj_factor_latest`` 每标的仅一行，直接映射 ``{symbol: (scale, hfq_base)}``；
+    缺失（如指数 / ETF）时由 ``apply_adjust`` 缺省为 (1.0, 0.0)，与 ``bar1d_hfq``
+    视图外层 ``coalesce(l.scale, 1)`` / ``coalesce(l.hfq_base, 0)`` 完全一致。
+    """
+    latest: dict[str, tuple[float, float]] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT symbol, scale::float8, hfq_base::float8 FROM adj_factor_latest"
+        )
+        for symbol, scale, hfq_base in cur:
+            latest[symbol] = (scale, hfq_base)
+    return latest
+
+
 def iter_bars(conn, symbols: list[str], start: str | None, end: str | None):
     """按 symbol、time 升序流式返回**不复权**日线，避免全量载入内存。
 
@@ -158,20 +177,22 @@ def apply_adjust(
     symbol: str,
     buf: list[tuple],
     factors: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]],
+    latest: dict[str, tuple[float, float]],
 ) -> list[list]:
-    """对一个标的的 raw 日线做向量化 as-of merge 应用前复权，返回 CSV 行。
+    """对一个标的的 raw 日线做向量化 as-of merge 应用**后复权**，返回 CSV 行。
 
     ``buf`` 为按 time 升序的 ``(date, open, high, low, close, volume, amount)`` 元组。
-    复刻视图语义：每根 bar 取 ``date <= time`` 的最近段 (ratio, offset)；无因子
-    （如指数 / ETF）或早于首个因子段时缺省 ratio=1 / offset=0，此时输出等于 raw。
-    volume / amount 不参与复权，原样透传。
+    复刻 ``bar1d_hfq`` 视图语义：每根 bar 先取 ``date <= time`` 的最近段 (ratio, offset)
+    得 ``qfq = ratio*raw + offset``，再叠加标的级全局常量 ``hfq = scale*qfq + hfq_base``；
+    无因子（如指数 / ETF）或早于首个因子段时缺省 ratio=1 / offset=0，且缺省
+    scale=1 / hfq_base=0，此时输出等于 raw。volume / amount 不参与复权，原样透传。
     """
     bar_dates = np.array([row[0] for row in buf], dtype="datetime64[D]")
     raw = np.array([[row[1], row[2], row[3], row[4]] for row in buf], dtype="float64")
 
     entry = factors.get(symbol)
     if entry is None:
-        adj = raw
+        qfq = raw
     else:
         f_dates, f_ratio, f_offset = entry
         idx = np.searchsorted(f_dates, bar_dates, side="right") - 1
@@ -179,7 +200,10 @@ def apply_adjust(
         safe = np.where(hit, idx, 0)
         ratio = np.where(hit, f_ratio[safe], 1.0)
         offset = np.where(hit, f_offset[safe], 0.0)
-        adj = raw * ratio[:, None] + offset[:, None]
+        qfq = raw * ratio[:, None] + offset[:, None]
+
+    scale, hfq_base = latest.get(symbol, (1.0, 0.0))
+    adj = qfq * scale + hfq_base
 
     return [
         [
@@ -214,6 +238,7 @@ def export(
         if not symbols:
             return {"symbols": 0, "written": 0, "skipped": 0, "rows": 0}
         factors = fetch_factors(conn)
+        latest = fetch_latest(conn)
 
         written = skipped = rows_total = 0
         current_symbol: str | None = None
@@ -226,7 +251,7 @@ def export(
                 return
             write_csv(
                 data_path / f"{to_qlib_code(symbol)}.csv",
-                apply_adjust(symbol, buf, factors),
+                apply_adjust(symbol, buf, factors, latest),
             )
             written += 1
             rows_total += len(buf)
@@ -255,7 +280,7 @@ def export(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="导出前复权日线为 qlib per-symbol CSV")
+    parser = argparse.ArgumentParser(description="导出后复权日线为 qlib per-symbol CSV")
     parser.add_argument(
         "--data-path",
         default="research/qlib_csv",

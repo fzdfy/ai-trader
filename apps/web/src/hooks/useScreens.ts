@@ -63,6 +63,16 @@ export function useRunScreen(queryKey: QueryKey) {
         headers: { "Content-Type": "application/json", "X-User-Id": userId ?? "" },
         body: JSON.stringify(input),
       });
+      // 超时/网关错误时上游返回的是 HTML 错误页，直接 res.json() 会抛
+      // 「Unexpected token '<'」这类无意义报错，这里按 Content-Type 兜底成可读提示
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          res.status === 504 || res.status === 408
+            ? "选股超时，请缩小股票池范围或减少数量后重试"
+            : `选股失败（HTTP ${res.status}），请稍后重试`,
+        );
+      }
       const json = (await res.json()) as ApiResponse<ScreenResult>;
       if (!json.success) throw new Error(json.error ?? "选股失败");
       return json.data;
