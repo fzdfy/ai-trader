@@ -12,6 +12,9 @@ coverage/
 routeTree.gen.ts
 pgdata/
 .tanstack
+.pnpm-store/
+**/.venv/
+draft_*_folder/
 
 # Python 缓存文件
 **/__pycache__/
