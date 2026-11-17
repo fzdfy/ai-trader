@@ -1,244 +1,270 @@
-import { Outlet, createFileRoute, useLocation } from "@tanstack/react-router";
-import { SideNav, SideNavSection, SideNavItem } from "@astryxdesign/core/SideNav";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
+import { useEffect, useRef, useState } from "react";
+import { Link, Outlet, createFileRoute, useLocation } from "@tanstack/react-router";
 import {
-  LineChart,
-  LayoutGrid,
-  Search,
-  Activity,
-  BarChart3,
   ArrowLeftRight,
+  BarChart3,
+  BookOpen,
+  ClipboardList,
+  Database,
+  FileText,
+  Gauge,
   Grid2x2,
   History,
-  Gauge,
-  Workflow,
-  SlidersHorizontal,
-  TrendingDown,
-  Target,
-  RefreshCw,
-  ClipboardList,
-  FileText,
+  LayoutGrid,
   ListChecks,
-  Database,
-  Table2,
+  Menu,
   Palette,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
   Sparkles,
-  BookOpen,
+  Table2,
+  Target,
+  TrendingDown,
+  Workflow,
+  X,
 } from "lucide-react";
 import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
-
-/** 将 ISO 时间格式化为「YYYY-MM-DD HH:mm:ss」 */
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "暂无数据";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "暂无数据";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+import { isDrawerDismissKey } from "../../lib/workbench-navigation";
 
 export const Route = createFileRoute("/home")({
   component: HomeLayout,
 });
 
+const NAV_GROUPS = [
+  {
+    label: "行情",
+    items: [
+      { label: "板块", href: "/home/market/boards", icon: LayoutGrid },
+      { label: "个股", href: "/home/market/stock", icon: Search },
+    ],
+  },
+  {
+    label: "信号",
+    items: [
+      { label: "筹码分布", href: "/home/signals/chips", icon: BarChart3 },
+      { label: "资金流向", href: "/home/signals/fundflow", icon: ArrowLeftRight },
+      { label: "热力图", href: "/home/signals/heatmap", icon: Grid2x2 },
+    ],
+  },
+  {
+    label: "复盘",
+    items: [
+      { label: "今日复盘", href: "/home/reviews/today", icon: FileText },
+      { label: "历史复盘", href: "/home/reviews/history", icon: ListChecks },
+    ],
+  },
+  {
+    label: "量化",
+    items: [
+      { label: "回测", href: "/home/backtest", icon: History },
+      { label: "选股", href: "/home/screens", icon: Target },
+      { label: "策略", href: "/home/strategies", icon: Workflow },
+      { label: "因子", href: "/home/factors", icon: SlidersHorizontal },
+      { label: "衰退对比", href: "/home/factors/compare", icon: TrendingDown },
+      { label: "AI 迭代", href: "/home/factors/iterate", icon: Sparkles },
+    ],
+  },
+  {
+    label: "系统",
+    items: [
+      { label: "同步中心", href: "/home/sync", icon: RefreshCw },
+      { label: "数据中心", href: "/home/data-center", icon: Table2 },
+      { label: "主题设置", href: "/home/settings", icon: Palette },
+      { label: "知识库", href: "/home/knowledge", icon: BookOpen },
+    ],
+  },
+] as const;
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "暂无数据";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "暂无数据";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function isSelected(pathname: string, href: string): boolean {
+  if (href === "/home/factors") {
+    return (
+      pathname.startsWith(href) &&
+      !pathname.startsWith("/home/factors/compare") &&
+      !pathname.startsWith("/home/factors/iterate")
+    );
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function syncButtonLabel(
+  pending: boolean,
+  autoSyncing: boolean,
+  manualSyncing: boolean,
+): string {
+  if (pending) return "启动中";
+  if (manualSyncing) return "同步中";
+  if (autoSyncing) return "自动更新中";
+  return "手动更新";
+}
+
 function HomeLayout() {
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const { data: syncInfo } = useLastUpdated();
   const runSync = useRunSync();
   const syncStatus = useSyncStatus();
-  // 定时任务（cron worker）运行中的同步，区别于手动同步（sync-manual）
-  const autoSyncing = (syncStatus.data?.runningJobs ?? []).some(
-    (name) => name !== "sync-manual",
-  );
-  // 手动同步进行中（异步触发后由 /sync/status 轮询反映）
-  const manualSyncing = (syncStatus.data?.runningJobs ?? []).includes("sync-manual");
+  const runningJobs = syncStatus.data?.runningJobs ?? [];
+  const manualSyncing = runningJobs.includes("sync-manual");
+  const autoSyncing = runningJobs.some((name) => name !== "sync-manual");
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isDrawerDismissKey(event.key)) {
+        event.preventDefault();
+        setMobileOpen(false);
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      menuButtonRef.current?.focus();
+    };
+  }, [mobileOpen]);
+
   return (
-    <div style={{ display: "flex", height: "100%", width: "100%" }}>
-      {/* 侧边栏 */}
-      <div
-        style={{
-          minWidth: 200,
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "auto",
-        }}
+    <div className="flex h-full min-h-0 bg-app-canvas">
+      {mobileOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-sm lg:hidden"
+          aria-label="关闭导航"
+          onClick={() => setMobileOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        id="business-navigation"
+        role={mobileOpen ? "dialog" : undefined}
+        aria-label="业务导航"
+        aria-modal={mobileOpen ? true : undefined}
+        className={`workbench-sidebar fixed inset-y-15 left-0 z-50 flex w-58 shrink-0 flex-col border-r border-app-line p-3 transition-transform lg:static lg:z-auto lg:translate-x-0 ${
+          mobileOpen
+            ? "translate-x-0 max-lg:visible max-lg:pointer-events-auto"
+            : "-translate-x-full max-lg:invisible max-lg:pointer-events-none"
+        }`}
       >
-        <SideNav>
-          <SideNavSection title="行情" isHeaderHidden>
-            <SideNavItem label="行情" icon={<LineChart size={16} />}>
-              <SideNavItem
-                label="板块"
-                href="/home/market/boards"
-                icon={<LayoutGrid size={16} />}
-                isSelected={location.pathname.startsWith("/home/market/boards")}
-              />
-              <SideNavItem
-                label="个股"
-                href="/home/market/stock"
-                icon={<Search size={16} />}
-                isSelected={
-                  location.pathname.startsWith("/home/market/stock") &&
-                  location.searchStr.includes("tab=stock")
-                }
-              />
-            </SideNavItem>
-          </SideNavSection>
-
-          <SideNavSection title="信号" isHeaderHidden>
-            <SideNavItem label="信号" icon={<Activity size={16} />}>
-              <SideNavItem
-                label="筹码分布"
-                href="/home/signals/chips"
-                icon={<BarChart3 size={16} />}
-                isSelected={location.pathname.startsWith("/home/signals/chips")}
-              />
-              <SideNavItem
-                label="资金流向"
-                href="/home/signals/fundflow"
-                icon={<ArrowLeftRight size={16} />}
-                isSelected={location.pathname.startsWith("/home/signals/fundflow")}
-              />
-              <SideNavItem
-                label="热力图"
-                href="/home/signals/heatmap"
-                icon={<Grid2x2 size={16} />}
-                isSelected={location.pathname.startsWith("/home/signals/heatmap")}
-              />
-            </SideNavItem>
-          </SideNavSection>
-
-          <SideNavSection title="复盘" isHeaderHidden>
-            <SideNavItem label="复盘" icon={<ClipboardList size={16} />}>
-              <SideNavItem
-                label="今日复盘"
-                href="/home/reviews/today"
-                icon={<FileText size={16} />}
-                isSelected={location.pathname === "/home/reviews/today"}
-              />
-              <SideNavItem
-                label="历史复盘"
-                href="/home/reviews/history"
-                icon={<ListChecks size={16} />}
-                isSelected={location.pathname.startsWith("/home/reviews/history")}
-              />
-            </SideNavItem>
-          </SideNavSection>
-
-          <SideNavSection title="量化" isHeaderHidden>
-            <SideNavItem label="量化" icon={<Gauge size={16} />}>
-              <SideNavItem
-                label="回测"
-                href="/home/backtest"
-                icon={<History size={16} />}
-                isSelected={location.pathname === "/home/backtest"}
-              />
-              <SideNavItem
-                label="选股"
-                href="/home/screens"
-                icon={<Target size={16} />}
-                isSelected={location.pathname.startsWith("/home/screens")}
-              />
-              <SideNavItem
-                label="策略"
-                href="/home/strategies"
-                icon={<Workflow size={16} />}
-                isSelected={location.pathname.startsWith("/home/strategies")}
-              />
-              <SideNavItem
-                label="因子"
-                href="/home/factors"
-                icon={<SlidersHorizontal size={16} />}
-                isSelected={
-                  location.pathname.startsWith("/home/factors") &&
-                  !location.pathname.startsWith("/home/factors/compare") &&
-                  !location.pathname.startsWith("/home/factors/iterate")
-                }
-              />
-              <SideNavItem
-                label="衰退对比"
-                href="/home/factors/compare"
-                icon={<TrendingDown size={16} />}
-                isSelected={location.pathname.startsWith("/home/factors/compare")}
-              />
-              <SideNavItem
-                label="AI 迭代"
-                href="/home/factors/iterate"
-                icon={<Sparkles size={16} />}
-                isSelected={location.pathname.startsWith("/home/factors/iterate")}
-              />
-            </SideNavItem>
-          </SideNavSection>
-
-          <SideNavSection title="系统" isHeaderHidden>
-            <SideNavItem label="系统" icon={<Database size={16} />}>
-              <SideNavItem
-                label="同步中心"
-                href="/home/sync"
-                icon={<RefreshCw size={16} />}
-                isSelected={location.pathname.startsWith("/home/sync")}
-              />
-              <SideNavItem
-                label="数据中心"
-                href="/home/data-center"
-                icon={<Table2 size={16} />}
-                isSelected={location.pathname.startsWith("/home/data-center")}
-              />
-              <SideNavItem
-                label="主题设置"
-                href="/home/settings"
-                icon={<Palette size={16} />}
-                isSelected={location.pathname.startsWith("/home/settings")}
-              />
-              <SideNavItem
-                label="知识库"
-                href="/home/knowledge"
-                icon={<BookOpen size={16} />}
-                isSelected={location.pathname.startsWith("/home/knowledge")}
-              />
-            </SideNavItem>
-          </SideNavSection>
-        </SideNav>
-
-        {/* 数据更新时间 + 手动更新 */}
-        <div
-          style={{
-            marginTop: "auto",
-            padding: "var(--spacing-3)",
-            borderTop: "1px solid var(--color-border)",
-          }}
-        >
-          <VStack gap={2}>
-            <Text size="sm" type="supporting">
-              数据更新于
-            </Text>
-            <Text size="sm">{formatDateTime(syncInfo?.updatedAt)}</Text>
-            {autoSyncing && (
-              <Text size="sm" type="supporting">
-                自动更新中...
-              </Text>
-            )}
-            {manualSyncing && (
-              <Text size="sm" type="supporting">
-                手动同步中...
-              </Text>
-            )}
-            <Button
-              label={runSync.isPending ? "启动中..." : manualSyncing ? "同步中..." : "手动更新"}
-              variant="ghost"
-              size="sm"
-              icon={<RefreshCw size={14} />}
-              isDisabled={runSync.isPending || autoSyncing || manualSyncing}
-              onClick={() => runSync.mutate()}
-            />
-          </VStack>
+        <div className="mb-3 flex items-center justify-between px-2 lg:hidden">
+          <span className="text-sm font-semibold text-app-ink">业务导航</span>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="grid size-8 place-items-center rounded-lg text-app-muted hover:bg-app-panel hover:text-app-ink"
+            aria-label="关闭导航"
+            onClick={() => setMobileOpen(false)}
+          >
+            <X className="size-4" />
+          </button>
         </div>
-      </div>
 
-      {/* 内容区 */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "var(--spacing-4)" }}>
-        <Outlet />
-      </div>
+        <Link
+          to="/home"
+          onClick={() => setMobileOpen(false)}
+          className={`focus-ring mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition ${
+            location.pathname === "/home"
+              ? "bg-app-panel font-medium text-app-ink shadow-sm"
+              : "text-app-muted hover:bg-app-panel hover:text-app-ink"
+          }`}
+        >
+          <Gauge className="size-4 text-primary" />
+          今日工作台
+        </Link>
+
+        <nav className="min-h-0 flex-1 overflow-y-auto px-1" aria-label="业务导航">
+          {NAV_GROUPS.map((group) => (
+            <section key={group.label} className="mb-4">
+              <p className="mb-1.5 px-2 text-[10px] font-medium text-app-faint">{group.label}</p>
+              <div className="space-y-0.5">
+                {group.items.map(({ label, href, icon: Icon }) => {
+                  const selected = isSelected(location.pathname, href);
+                  return (
+                    <Link
+                      key={href}
+                      to={href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`focus-ring flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition ${
+                        selected
+                          ? "bg-primary font-medium text-primary-foreground shadow-[0_7px_18px_rgba(49,87,232,0.16)]"
+                          : "text-app-muted hover:bg-app-panel hover:text-app-ink"
+                      }`}
+                    >
+                      <Icon className="size-3.5" />
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </nav>
+
+        <div className="mt-2 border-t border-app-line pt-3">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-[10px] text-app-faint">数据状态</span>
+            <span className="flex items-center gap-1 text-[10px] text-app-success">
+              <span className="size-1.5 rounded-full bg-app-success" />
+              在线
+            </span>
+          </div>
+          <p className="px-1 text-xs text-app-muted">{formatDateTime(syncInfo?.updatedAt)}</p>
+          <button
+            type="button"
+            className="focus-ring mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-app-line bg-app-panel px-2 py-2 text-xs text-app-muted transition hover:border-app-line-strong hover:text-app-ink disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={runSync.isPending || autoSyncing || manualSyncing}
+            onClick={() => runSync.mutate()}
+          >
+            <RefreshCw
+              className={`size-3.5 ${runSync.isPending || autoSyncing || manualSyncing ? "animate-spin" : ""}`}
+            />
+            {syncButtonLabel(runSync.isPending, autoSyncing, manualSyncing)}
+          </button>
+        </div>
+      </aside>
+
+      <main className="min-w-0 flex-1 overflow-hidden">
+        <div className="flex h-full flex-col">
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-app-line bg-app-panel/90 px-4 backdrop-blur lg:hidden">
+            <button
+              ref={menuButtonRef}
+              type="button"
+              className="grid size-8 place-items-center rounded-lg border border-app-line text-app-muted"
+              aria-label="打开导航"
+              aria-controls="business-navigation"
+              aria-expanded={mobileOpen}
+              aria-haspopup="dialog"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu className="size-4" />
+            </button>
+            <span className="text-sm font-medium text-app-ink">业务导航</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+            <Outlet />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

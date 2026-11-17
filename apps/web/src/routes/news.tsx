@@ -31,7 +31,7 @@ function NewsPage() {
   // IntersectionObserver 触发加载更多
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
-      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+      if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
         fetchNextPage();
       }
     },
@@ -85,8 +85,16 @@ function NewsPage() {
 
       {allArticles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-2)" }}>
-          {allArticles.map((article) => (
-            <a
+          {allArticles.map((article) => {
+            const sourceStyle =
+              SOURCE_COLORS[article.source] ??
+              SOURCE_COLORS.eastmoney_global ?? {
+                bg: "var(--color-background-neutral)",
+                text: "var(--color-text-primary)",
+              };
+
+            return (
+              <a
               key={article.id}
               href={article.url || "#"}
               target="_blank"
@@ -118,8 +126,8 @@ function NewsPage() {
                     borderRadius: "var(--radius-xs)",
                     fontSize: "var(--font-size-xs)",
                     fontWeight: 500,
-                    background: (SOURCE_COLORS[article.source] ?? SOURCE_COLORS.eastmoney_global).bg,
-                    color: (SOURCE_COLORS[article.source] ?? SOURCE_COLORS.eastmoney_global).text,
+                    background: sourceStyle.bg,
+                    color: sourceStyle.text,
                   }}
                 >
                   {SOURCE_LABELS[article.source] ?? article.source}
@@ -156,8 +164,9 @@ function NewsPage() {
                   </div>
                 </div>
               </div>
-            </a>
-          ))}
+              </a>
+            );
+          })}
         </div>
       )}
 

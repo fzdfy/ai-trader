@@ -10,7 +10,7 @@
 | 术语 | 英文 / 缩写 | 释义 | 位置 |
 |---|---|---|---|
 | monorepo | — | pnpm 工作区单仓多包，四个应用模块 + 一个数据库 + 一套日志栈 | `apps/`、`packages/`（[architecture.md:7-21](file:///Users/wukailin/Documents/study/ai-trader/docs/architecture.md#L7-L21)） |
-| 前端 | web | React + Vite + TanStack Router + Astryx，经 nginx 托管 | `apps/web`（[README.md:11](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L11)） |
+| 前端 | web | React + Vite + TanStack Router + Preline + Tailwind CSS，经 nginx 托管 | `apps/web`（[README.md:11](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L11)） |
 | API | server | Hono + Drizzle，含 sync-worker / feature-worker 定时任务 | `apps/server`（[AGENTS.md](../AGENTS.md)） |
 | 回测服务 | quant | Python FastAPI + akquant | `apps/quant`（[AGENTS.md](../AGENTS.md)） |
 | 数据同步 Worker | worker / sync-worker | 定时（cron）拉取数据写入 PostgreSQL | `apps/server/src/workers/`（[architecture.md:56](file:///Users/wukailin/Documents/study/ai-trader/docs/architecture.md#L56)） |

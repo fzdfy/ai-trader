@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { Card } from "@astryxdesign/core/Card";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { TextInput } from "@preline-ui/TextInput";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { TabList, Tab } from "@preline-ui/TabList";
+import { Card } from "@preline-ui/Card";
 import { ChipsChart } from "../../../../components/charts/ChipsChart";
 import { MetricCard } from "./MetricCard";
 import { useChipsQuery, useIndustryBoardsQuery } from "../../../../hooks/useChips";

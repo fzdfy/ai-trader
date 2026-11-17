@@ -1,24 +1,24 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Card } from "@astryxdesign/core/Card";
-import { Badge } from "@astryxdesign/core/Badge";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Icon } from "@astryxdesign/core/Icon";
-import { HoverCard } from "@astryxdesign/core/HoverCard";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { Section } from "@astryxdesign/core/Section";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Card } from "@preline-ui/Card";
+import { Badge } from "@preline-ui/Badge";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { Icon } from "@preline-ui/Icon";
+import { HoverCard } from "@preline-ui/HoverCard";
+import { TextInput } from "@preline-ui/TextInput";
+import { Section } from "@preline-ui/Section";
+import { SegmentedControl, SegmentedControlItem } from "@preline-ui/SegmentedControl";
 import {
   Table,
   proportional,
   useTableSelection,
   useTableSortable,
   useTableSortableState,
-} from "@astryxdesign/core/Table";
+} from "@preline-ui/Table";
 import {
   FactorDecayChart,
   type FactorDecaySeries,

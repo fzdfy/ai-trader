@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
-import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { Button } from "@astryxdesign/core/Button";
-import { FileInput } from "@astryxdesign/core/FileInput";
-import { Avatar } from "@astryxdesign/core/Avatar";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
+import { Dialog, DialogHeader } from "@preline-ui/Dialog";
+import { Layout, LayoutContent, LayoutFooter } from "@preline-ui/Layout";
+import { TextInput } from "@preline-ui/TextInput";
+import { Button } from "@preline-ui/Button";
+import { FileInput } from "@preline-ui/FileInput";
+import { Avatar } from "@preline-ui/Avatar";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
 import { authClient } from "../lib/auth-client";
 import { useUploadAvatar } from "../hooks/useProfile";
 

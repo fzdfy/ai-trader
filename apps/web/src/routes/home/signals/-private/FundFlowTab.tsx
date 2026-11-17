@@ -5,11 +5,11 @@
  * 红涨绿跌（A 股惯例）：净流入为正（红），流出为负（绿）。
  */
 import { useState } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Table, proportional } from "@astryxdesign/core/Table";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { Table, proportional } from "@preline-ui/Table";
 import {
   useFundFlowRankQuery,
   type FundFlowRankRow,

@@ -1,7 +1,7 @@
 import type { ReactNode, RefObject } from "react";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { FieldStatus } from "@astryxdesign/core/FieldStatus";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { FieldStatus } from "@preline-ui/FieldStatus";
 
 export interface CodeEditorStatus {
   type: "error" | "warning" | "success";
@@ -28,13 +28,13 @@ interface CodeEditorFrameProps {
   containerRef: RefObject<HTMLDivElement | null>;
   height: number;
   description?: string;
-  /** 校验状态（优先级高于 description），与 Astryx 表单控件口径一致 */
+  /** 校验状态（优先级高于 description），与统一表单控件口径一致 */
   status?: CodeEditorStatus;
 }
 
 /**
  * 代码编辑器的外壳：容器 + 下方说明 / 校验提示。
- * CodeMirror 自身不带 Astryx 的 FieldStatus，这里补齐错误反馈的展示。
+ * CodeMirror 自身不带统一 FormFieldStatus，这里补齐错误反馈的展示。
  */
 export function CodeEditorFrame({
   containerRef,

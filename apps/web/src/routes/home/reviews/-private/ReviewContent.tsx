@@ -10,9 +10,9 @@
  * 因此历史数据也能直接渲染，且与生成时结构保持一致（可追溯、可复现）。
  */
 import { memo, useEffect, useRef } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Table, proportional } from "@astryxdesign/core/Table";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Table, proportional } from "@preline-ui/Table";
 import { echarts } from "../../../../lib/echarts";
 import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
 import {

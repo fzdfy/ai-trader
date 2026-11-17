@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Slider } from "@astryxdesign/core/Slider";
-import { Switch } from "@astryxdesign/core/Switch";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Slider } from "@preline-ui/Slider";
+import { Switch } from "@preline-ui/Switch";
 import type { Factor } from "../hooks/useFactors";
 
 /** 单个因子的可编辑配置（值 + 权重 + 方向） */

@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { QueryKey } from "@tanstack/react-query";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Section } from "@astryxdesign/core/Section";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { Section } from "@preline-ui/Section";
 import {
   Table,
   proportional,
   useTableSelection,
   useTableSortable,
   useTableSortableState,
-} from "@astryxdesign/core/Table";
-import { Selector } from "@astryxdesign/core/Selector";
-import { MultiSelector } from "@astryxdesign/core/MultiSelector";
-import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { Tooltip } from "@astryxdesign/core/Tooltip";
-import { ProgressBar } from "@astryxdesign/core/ProgressBar";
-import { Badge } from "@astryxdesign/core/Badge";
+} from "@preline-ui/Table";
+import { Selector } from "@preline-ui/Selector";
+import { MultiSelector } from "@preline-ui/MultiSelector";
+import { ToggleButton, ToggleButtonGroup } from "@preline-ui/ToggleButton";
+import { TextInput } from "@preline-ui/TextInput";
+import { Tooltip } from "@preline-ui/Tooltip";
+import { ProgressBar } from "@preline-ui/ProgressBar";
+import { Badge } from "@preline-ui/Badge";
 import { fetchStrategies } from "../../hooks/useStrategies";
 import { fetchFactors, useFactorEvaluationsQuery } from "../../hooks/useFactors";
 import { fetchBoards } from "../../hooks/useBoards";

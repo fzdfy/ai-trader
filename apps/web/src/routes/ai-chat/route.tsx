@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute, Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState, useEffect } from "react";
-import { Text } from "@astryxdesign/core/Text";
+import { Text } from "@preline-ui/Text";
 
 type Thread = {
   id: string;
@@ -116,6 +116,7 @@ function AIChatLayout() {
                 key={t.id}
                 to="/ai-chat/c/$threadId"
                 params={{ threadId: t.id }}
+                search={{}}
                 style={{ textDecoration: "none", display: "block" }}
               >
                 <div

@@ -7,7 +7,7 @@
     "build:web": "dotenvx run -f .env.local -- turbo build --filter=@ai-trader/web",
     "start": "dotenvx run -f .env.local -- turbo start",
     "start:server": "dotenvx run -f .env.local -- turbo start --filter @ai-trader/server",
-    "lint": "oxlint . && turbo lint",
+    "lint": "oxlint .",
     "format": "oxfmt",
     "check-types": "turbo check-types",
     "db:push": "turbo db:push",
@@ -32,9 +32,8 @@
     "stock-sdk": "^2.4.2"
   },
   "devDependencies": {
-    "@ai-trader/eslint-config": "workspace:*",
-    "@astryxdesign/cli": "^0.1.5",
     "@dotenvx/dotenvx": "^2.15.1",
+    "@fission-ai/openspec": "^2.0.0",
     "@oxc-node/core": "^0.1.0",
     "@total-typescript/tsconfig": "^1.0.4",
     "@types/node": "^22.10.5",

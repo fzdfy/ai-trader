@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Badge } from "@astryxdesign/core/Badge";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Table, proportional } from "@astryxdesign/core/Table";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Badge } from "@preline-ui/Badge";
+import { Spinner } from "@preline-ui/Spinner";
+import { Table, proportional } from "@preline-ui/Table";
 import { useStrategiesQuery } from "../../../hooks/useStrategies";
 
 type StrategyRow = Record<string, unknown> & {

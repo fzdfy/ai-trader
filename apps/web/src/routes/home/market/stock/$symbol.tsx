@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate, useParams, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Button } from "@astryxdesign/core/Button";
-import { Text } from "@astryxdesign/core/Text";
-import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Button } from "@preline-ui/Button";
+import { Text } from "@preline-ui/Text";
+import { TabList, Tab } from "@preline-ui/TabList";
 import {
   init,
   dispose,

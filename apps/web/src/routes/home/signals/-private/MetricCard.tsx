@@ -1,5 +1,5 @@
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
 
 interface MetricCardProps {
   label: string;

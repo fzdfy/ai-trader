@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Text } from "@astryxdesign/core/Text";
+import { Text } from "@preline-ui/Text";
+import type mermaid from "mermaid";
 
-let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
+let mermaidPromise: Promise<typeof mermaid> | null = null;
 
 function loadMermaid() {
   if (!mermaidPromise) {

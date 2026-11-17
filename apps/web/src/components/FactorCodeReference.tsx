@@ -1,7 +1,7 @@
-import { Card } from "@astryxdesign/core/Card";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Code } from "@astryxdesign/core/Code";
+import { Card } from "@preline-ui/Card";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Code } from "@preline-ui/Code";
 
 /**
  * Python 因子示例代码。

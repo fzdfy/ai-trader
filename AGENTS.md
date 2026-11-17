@@ -2,7 +2,7 @@
 
 Project-specific guidance for AI coding agents.
 
-> **项目知识的唯一事实源是 [`docs/`](./docs/README.md)。** 本文件只放两类东西：① 每次动手都必须遵守的**常驻约束**；② **导航与铁律索引**。知识细节一律写到 `docs/`，这里不再重复。
+> **项目知识的唯一事实源是 [`docs/`](./docs/README.md)。** 本文件只放三类东西：① 每次动手都必须遵守的**常驻约束**；② **导航与铁律索引**；③ 规范驱动开发工作流。
 
 ## 项目一句话
 
@@ -13,6 +13,7 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 | 我想… | 去哪里看 |
 |---|---|
 | 搞懂系统长什么样（模块 / 端口 / 容器 / 部署） | [docs/architecture.md](./docs/architecture.md) |
+| 查看长期工程标准 | [总览](./docs/standards/README.md) · [架构](./docs/standards/architecture.md) · [前端](./docs/standards/frontend.md) · [后端](./docs/standards/backend.md) · [数据](./docs/standards/database.md) · [Agent](./docs/standards/agent.md) · [UI](./docs/standards/design.md) |
 | 改数据源 / 排查数据问题（A/B/C 三条链路） | [docs/data-pipeline.md](./docs/data-pipeline.md) |
 | **动手改任何核心代码前**先看约束 | [docs/invariants.md](./docs/invariants.md) |
 | 线上出问题（僵尸任务 / 东财熔断 / 回测超时） | [docs/runbooks.md](./docs/runbooks.md) |
@@ -20,6 +21,8 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 | 遇到怪现象 / 想认领技术债 | [docs/issues.md](./docs/issues.md) |
 | 看不懂某个术语 | [docs/glossary.md](./docs/glossary.md) |
 | 想知道下一步做什么 | [docs/roadmap.md](./docs/roadmap.md) |
+| 查看视觉原型与探索稿 | [docs/design/prototypes/](./docs/design/prototypes/) |
+| 查看当前变更规格与任务 | [openspec/changes/](./openspec/changes/) |
 
 ## 铁律索引（每条详情与证据见 [docs/invariants.md](./docs/invariants.md)）
 
@@ -44,45 +47,56 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 - 回测要可信：默认后复权、PIT 取数、涨跌停按**原始价前收**判定。
 - 排查任务状态先分清 `interrupted (stale | worker restart | server restart)` 三种来源，见 [runbooks.md](./docs/runbooks.md)。
 - 不要重复论证 [decisions.md](./docs/decisions.md) 里已定的结论。
+- 长期事实写入 `docs/standards/`；单次行为变更写入 OpenSpec；不要只改对话或临时原型。
+- 非平凡开发必须先澄清与规格，再使用 `tasks.md` 实施；禁止无计划直接改业务代码。
+- 前端统一使用 Preline UI + Tailwind CSS；新增和重写 UI 必须复用 `apps/web/src/components/preline-ui/` 语义组件。
+- 量化工作台原稿 `quant-workbench-assistant.html` 不得覆盖；新视觉探索必须复制到 `docs/design/prototypes/explorations/`。
 
 ## 工具链注意
 
 - `apps/quant/.venv` 被 gitignore，**代码搜索工具会静默跳过该目录**；查 akquant 本体源码须用 shell `grep`。
 - 校验命令：`pnpm check-types`、`pnpm lint`。quant 侧未配置 lint / 类型检查命令。
 
-## Astryx Design CLI
-<!-- ASTRYX:START -->
-Astryx v0.1.5 · 149 components
-CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
+## 前端设计与 Preline
 
-SETUP (once, in your app entry e.g. main.tsx) — without these, components render unstyled:
-  import "@astryxdesign/core/reset.css";
-  import "@astryxdesign/core/astryx.css";
+- 编写或重写界面时使用 Preline UI + Tailwind CSS v4；详细规则见 [design.md](./docs/standards/design.md) 和 [frontend.md](./docs/standards/frontend.md)。
+- Preline 只负责 DOM 行为。使用 `preline/non-auto`，在路由挂载后初始化；手动实例必须在卸载时 `destroy()`。
+- 颜色、边框、表面、间距和状态使用 Preline/Tailwind 语义 token，不在业务组件散落 raw hex。
+- 密集数据使用行式 Table/List；Card 只用于独立指标、设置分组或内容块。
+- 新 UI 必须支持浅色、深色、移动端、键盘焦点和 reduced motion。
+- 每次编写/修改前端界面时调用 `frontend-design` skill；编写/修改 React 时调用 `react-best-practices` skill。
 
-WORKFLOW — discover, don't guess. Before writing UI:
-1. `astryx build "<idea>"` — START HERE: returns a kit (closest [page] + [block]s + [component]s). No args = full playbook.
-2. `astryx template <name> [--skeleton]` — scaffold the [page]/[block]s it named, or study their layout. Templates are reference code.
-3. `astryx component <Name>` — props + examples for every component you use.
+## 规范驱动 AI Coding
 
-RULES:
-- No <div> — components do all layout/spacing. Full page → AppShell; sidebar nav → SideNav.
-- Frame first: pick the shell (AppShell / Layout+LayoutPanel) and budget regions in px BEFORE writing content (`astryx docs layout`).
-- Dense data = rows (Table, List/Item) edge-to-edge — never Card-wrapped list items. Card = dashboard widgets, galleries, settings groups only.
-- Status → StatusDot/Token; Badge only for counts and enumerated states, never decoration.
-- Custom styling: component props first; else style/className with tokens — var(--color-*|--spacing-*|--radius-*). No raw hex/px. (No StyleX/Tailwind compiler here — don't use xstyle/utility classes.)
-- Tokens for every value (`astryx docs tokens`). Brand/accent via `astryx theme` — never override --color-* in :root.
+非平凡开发按以下阶段执行：
 
-MORE CLI:
-  search "<query>"   find any component / hook / doc / template / block
-  component --list   149 components by category
-  template --list    page + block recipes
-  docs <topic>       color, elevation, icons, illustrations, layout, migration, motion, principles, shape, spacing, styling, theme, tokens, typography
-  swizzle <Name>     eject component source for deep customization
-  upgrade --apply    run after any @astryxdesign/core bump
-<!-- ASTRYX:END -->
+| 阶段 | Skill / 工具 | 产物 |
+|---|---|---|
+| 需求澄清 | `grill-with-docs` + `grilling` + `domain-modeling` | 术语、ADR、边界和异常场景 |
+| 需求分析 | `openspec-propose` / `openspec-continue-change` | proposal、capability specs |
+| 技术方案 | `brainstorming` | design、替代方案与取舍 |
+| 实施计划 | OpenSpec | `tasks.md` |
+| 编码前简化 | `ponytail` | 最小完整方案 |
+| 编码实施 | `test-driven-development` | RED → GREEN 证据 |
+| 编码后精简 | `code-simplifier` | 行为不变的可读性改进 |
+| 最终检查 | `requesting-code-review` + `ponytail-review` | 质量、安全、复杂度结论 |
+| 归档 | `openspec-verify-change` + `openspec-archive-change` | 验证结果与同步规格 |
 
-## Frontend Design
-- **每次编写/修改前端界面时，必须调用 `frontend-design` skill**（包括页面布局、组件、图表展示等一切前端 UI 工作），确保设计质量。
+规则：
 
-## React Best Practices
-- **编写/修改 React 代码时，必须调用 `vercel-react-best-practices` skill**（React/Next.js 性能优化规范），确保组件实现符合最佳实践。
+- 需求不确定时先使用 Grill-with-docs，不把猜测写成规格。
+- 只有 `tasks.md` 是实施任务清单；对话中的临时清单不替代它。
+- 没有失败测试证据，不得声称新行为通过。
+- 完成声明前使用 `verification-before-completion` 并运行最新完整验证命令。
+- 用户明确要求一次性执行完整流程时，可按顺序执行规划和实施，但仍保留各阶段产物。
+
+## 文件职责
+
+- `AGENTS.md`：工作入口、常驻约束、工具路由。
+- `docs/standards/`：长期技术标准。
+- `.agents/skills/`：可执行专业方法。
+- `openspec/specs/`：长期系统行为规格。
+- `openspec/changes/`：单次变更记录。
+- `docs/design/prototypes/initial/`：确认过的视觉基准。
+- `docs/design/prototypes/explorations/`：不覆盖原稿的探索版本。
+- `docs/adr/`：难回滚、非显然、存在真实取舍的决策。

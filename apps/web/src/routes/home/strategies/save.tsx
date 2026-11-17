@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
 import { StrategyForm } from "../../../components/StrategyForm";
 import {
   useStrategyQuery,

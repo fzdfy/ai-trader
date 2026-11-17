@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Table, proportional } from "@astryxdesign/core/Table";
-import { IconButton } from "@astryxdesign/core/IconButton";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { TextInput } from "@preline-ui/TextInput";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { Table, proportional } from "@preline-ui/Table";
+import { IconButton } from "@preline-ui/IconButton";
 import { MinusIcon, PlusIcon } from "lucide-react";
 import {
   useInstrumentsQuery,

@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { TextArea } from "@astryxdesign/core/TextArea";
-import { Button } from "@astryxdesign/core/Button";
-import { Badge } from "@astryxdesign/core/Badge";
-import { Card } from "@astryxdesign/core/Card";
-import { Code } from "@astryxdesign/core/Code";
-import { ProgressBar } from "@astryxdesign/core/ProgressBar";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { TextArea } from "@preline-ui/TextArea";
+import { Button } from "@preline-ui/Button";
+import { Badge } from "@preline-ui/Badge";
+import { Card } from "@preline-ui/Card";
+import { Code } from "@preline-ui/Code";
+import { ProgressBar } from "@preline-ui/ProgressBar";
+import { SegmentedControl, SegmentedControlItem } from "@preline-ui/SegmentedControl";
 import { Sparkles } from "lucide-react";
 import {
   useFactorIterate,

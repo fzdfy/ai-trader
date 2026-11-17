@@ -5,11 +5,11 @@
  * 数据源：GET /api/v1/data-center/tables
  */
 import { Link } from "@tanstack/react-router";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Card } from "@astryxdesign/core/Card";
-import { Grid } from "@astryxdesign/core/Grid";
-import { Spinner } from "@astryxdesign/core/Spinner";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Card } from "@preline-ui/Card";
+import { Grid } from "@preline-ui/Grid";
+import { Spinner } from "@preline-ui/Spinner";
 import { useDataCenterTables, type DataTableSummary } from "../../../hooks/useDataCenter";
 
 const pad = (n: number) => String(n).padStart(2, "0");

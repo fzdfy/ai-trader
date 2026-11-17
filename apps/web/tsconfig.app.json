@@ -1,11 +1,15 @@
 {
   "extends": "@total-typescript/tsconfig/bundler/dom/app",
-  "exclude": ["dist", "node_modules"],
+  "exclude": ["dist", "node_modules", "src/**/*.test.ts"],
   "include": ["src"],
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "lib": ["DOM", "ESNext"],
     "moduleResolution": "bundler",
+    "paths": {
+      "@preline-ui/*": ["./src/components/preline-ui/*"]
+    },
     "skipLibCheck": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo"
   }

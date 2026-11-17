@@ -2,11 +2,11 @@
  * 历史复盘列表页 — 展示所有已生成的复盘日期，点击进入详情。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Table, proportional } from "@astryxdesign/core/Table";
+import { VStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Spinner } from "@preline-ui/Spinner";
+import { Table, proportional } from "@preline-ui/Table";
 import { useReviewListQuery, type ReviewListItem } from "../../../hooks/useReviews";
 import { formatDateTime } from "./-private/utils";
 

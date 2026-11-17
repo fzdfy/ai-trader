@@ -7,7 +7,7 @@
     "dev": "node --import @oxc-node/core/register --watch ./src/main.ts",
     "start": "node --import @oxc-node/core/register ./src/main.ts",
     "check-types": "tsgo -b --noEmit",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "format": "oxfmt",
     "db:pull": "drizzle-kit pull",
     "db:generate": "drizzle-kit generate",
@@ -50,11 +50,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@ai-trader/eslint-config": "workspace:*",
     "@types/node": "^22.10.5",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.11.10",
-    "drizzle-kit": "^0.30.4",
-    "eslint": "^9.38.0"
+    "drizzle-kit": "^0.30.4"
   }
 }

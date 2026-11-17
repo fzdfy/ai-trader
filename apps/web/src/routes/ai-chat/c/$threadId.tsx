@@ -3,6 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChatPanel } from "../-private/ChatPanel";
 
 export const Route = createFileRoute("/ai-chat/c/$threadId")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+  }),
   component: ThreadSessionPage,
 });
 
@@ -21,7 +24,7 @@ function ThreadSessionPage() {
         replace: true,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return <ChatPanel threadId={threadId} initialQuestion={q as string | undefined} />;

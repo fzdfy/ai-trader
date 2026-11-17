@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Slider } from "@astryxdesign/core/Slider";
-import { Switch } from "@astryxdesign/core/Switch";
-import { Section } from "@astryxdesign/core/Section";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Slider } from "@preline-ui/Slider";
+import { Switch } from "@preline-ui/Switch";
+import { Section } from "@preline-ui/Section";
+import { SegmentedControl, SegmentedControlItem } from "@preline-ui/SegmentedControl";
 import type { EntryType } from "../hooks/useStrategies";
 import { formatFactorCategory } from "../hooks/useFactors";
 

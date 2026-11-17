@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { Card } from "@astryxdesign/core/Card";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { TabList, Tab } from "@preline-ui/TabList";
+import { Card } from "@preline-ui/Card";
 import { HeatmapChart, type HeatmapItem } from "../../../../components/charts/HeatmapChart";
 import { useHeatmapQuery, useHeatmapBoardQuery } from "../../../../hooks/useHeatmap";
 import { toSymbol } from "../../../../lib/format";

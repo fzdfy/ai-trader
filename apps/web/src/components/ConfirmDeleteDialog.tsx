@@ -1,8 +1,8 @@
-import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
-import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
-import { Button } from "@astryxdesign/core/Button";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
+import { Dialog, DialogHeader } from "@preline-ui/Dialog";
+import { Layout, LayoutContent, LayoutFooter } from "@preline-ui/Layout";
+import { Button } from "@preline-ui/Button";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
 
 interface ConfirmDeleteDialogProps {
   isOpen: boolean;

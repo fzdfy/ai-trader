@@ -4,11 +4,11 @@
  * 模块结构固定（代码写死），直接渲染该条记录中快照的 sections（可追溯、可复现）。
  */
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
 import { useReviewQuery } from "../../../../hooks/useReviews";
 import { ReviewContent } from "../-private/ReviewContent";
 import { formatDateTime } from "../-private/utils";

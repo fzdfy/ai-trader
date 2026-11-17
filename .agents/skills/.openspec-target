@@ -1,0 +1,10 @@
+codex
+keep openspec-apply-change
+keep openspec-archive-change
+keep openspec-continue-change
+keep openspec-explore
+keep openspec-onboard
+keep openspec-propose
+keep openspec-sync-specs
+keep openspec-update-change
+keep openspec-verify-change

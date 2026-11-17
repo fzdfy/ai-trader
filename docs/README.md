@@ -8,7 +8,7 @@ pnpm monorepo，四个模块 + 一个数据库 + 一套日志栈，Docker Compos
 
 | 模块 | 路径 | 技术 | 本地端口 |
 |---|---|---|---|
-| 前端 | `apps/web` | React 19 + Vite + TanStack Router + Astryx | 9080（容器内 80，nginx） |
+| 前端 | `apps/web` | React 19 + Vite + TanStack Router + Preline + Tailwind CSS | 9080（容器内 80，nginx） |
 | API | `apps/server` | Hono + Drizzle | 3001 |
 | 数据同步 Worker | `apps/server/src/workers` | 定时任务（cron） | — |
 | 回测 | `apps/quant` | Python FastAPI + akquant | 3002 |

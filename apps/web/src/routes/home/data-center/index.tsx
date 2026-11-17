@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { VStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
+import { VStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
 import { DataTableList } from "../-private/DataTableList";
 
 export const Route = createFileRoute("/home/data-center/")({

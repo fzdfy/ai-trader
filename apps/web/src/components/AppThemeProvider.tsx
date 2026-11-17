@@ -1,9 +1,4 @@
-/**
- * 应用主题 Provider — 持有当前预设色板与显示模式，包裹 Astryx <Theme>。
- *
- * 根级 Theme 会把 data-theme / data-astryx-theme 同步到 <html>，
- * 从而驱动 light-dark() 与 @scope 主题 CSS 生效；选择结果写入 localStorage。
- */
+/** 应用主题 Provider — 持有当前预设强调色与明暗模式。 */
 import {
   createContext,
   useCallback,
@@ -13,8 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Theme } from "@astryxdesign/core/theme";
 import { applyFavicon } from "../lib/favicon";
+import { resolveThemeMode } from "../lib/preline-theme";
 import {
   readStoredMode,
   readStoredPresetId,
@@ -56,6 +51,29 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     applyFavicon(preset.accent);
   }, [preset.accent]);
 
+  useEffect(() => {
+    const media = globalThis.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const resolved = resolveThemeMode(mode, media.matches);
+      document.documentElement.classList.toggle("dark", resolved === "dark");
+      document.documentElement.dataset.prelineTheme = `theme-${preset.id}`;
+      document.documentElement.style.colorScheme = resolved;
+      document.documentElement.style.setProperty("--primary", preset.accent);
+      document.documentElement.style.setProperty(
+        "--primary-hover",
+        `color-mix(in srgb, ${preset.accent} 86%, black)`,
+      );
+      document.documentElement.style.setProperty(
+        "--primary-active",
+        `color-mix(in srgb, ${preset.accent} 74%, black)`,
+      );
+    };
+
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [mode, preset.accent, preset.id]);
+
   const setPresetId = useCallback((id: string) => {
     setPresetIdState(id);
     writeStoredPresetId(id);
@@ -71,11 +89,5 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     [preset, mode, setPresetId, setMode],
   );
 
-  return (
-    <AppThemeContext.Provider value={value}>
-      <Theme theme={preset.theme} mode={mode}>
-        {children}
-      </Theme>
-    </AppThemeContext.Provider>
-  );
+  return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
 }

@@ -15,7 +15,7 @@
  *
  * 退出码：L1/L3 出现违例 → 1（确定性契约被破坏）；L2/L4/L5 超差仅告警（含源端既定瑕疵）。
  */
-/* eslint-disable unicorn/no-process-exit -- 独立 CLI 校验脚本，以退出码表示结果 */
+/* oxlint-disable unicorn/no-process-exit -- 独立 CLI 校验脚本，以退出码表示结果 */
 import { db } from "../src/db/index";
 import { sql } from "drizzle-orm";
 import { quant } from "../src/lib/quant";

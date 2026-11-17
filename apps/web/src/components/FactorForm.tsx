@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { TextArea } from "@astryxdesign/core/TextArea";
-import { Button } from "@astryxdesign/core/Button";
-import { IconButton } from "@astryxdesign/core/IconButton";
-import { Switch } from "@astryxdesign/core/Switch";
-import { HoverCard } from "@astryxdesign/core/HoverCard";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { TextInput } from "@preline-ui/TextInput";
+import { TextArea } from "@preline-ui/TextArea";
+import { Button } from "@preline-ui/Button";
+import { IconButton } from "@preline-ui/IconButton";
+import { Switch } from "@preline-ui/Switch";
+import { HoverCard } from "@preline-ui/HoverCard";
+import { SegmentedControl, SegmentedControlItem } from "@preline-ui/SegmentedControl";
 import { BookOpenText, Sparkles } from "lucide-react";
 import {
   useGenerateFactorExpression,

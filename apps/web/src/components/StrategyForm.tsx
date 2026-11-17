@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { TextArea } from "@astryxdesign/core/TextArea";
-import { Button } from "@astryxdesign/core/Button";
-import { Switch } from "@astryxdesign/core/Switch";
-import { Section } from "@astryxdesign/core/Section";
-import { TabList, Tab } from "@astryxdesign/core/TabList";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { TextInput } from "@preline-ui/TextInput";
+import { TextArea } from "@preline-ui/TextArea";
+import { Button } from "@preline-ui/Button";
+import { Switch } from "@preline-ui/Switch";
+import { Section } from "@preline-ui/Section";
+import { TabList, Tab } from "@preline-ui/TabList";
+import { SegmentedControl, SegmentedControlItem } from "@preline-ui/SegmentedControl";
 import {
   factorCategoryGroup,
   formatFactorCategory,

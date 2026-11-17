@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "unicorn", "react"],
+  "rules": {
+    "typescript/no-explicit-any": "warn",
+    "typescript/consistent-type-imports": "error",
+    "import/no-default-export": "off",
+    "unicorn/filename-case": "off"
+  },
+  "ignorePatterns": [
+    "dist",
+    ".turbo",
+    "node_modules",
+    "migrations",
+    "routeTree.gen.ts"
+  ],
+  "env": {
+    "node": true,
+    "browser": true
+  }
+}

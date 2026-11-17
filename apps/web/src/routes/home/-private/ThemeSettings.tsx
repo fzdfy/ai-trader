@@ -4,13 +4,13 @@
  * 选择即时生效并自动持久化（localStorage），下方提供实时预览。
  */
 import { type ReactNode } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Card } from "@astryxdesign/core/Card";
-import { Button } from "@astryxdesign/core/Button";
-import { StatusDot } from "@astryxdesign/core/StatusDot";
-import { SelectableCard } from "@astryxdesign/core/SelectableCard";
-import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Card } from "@preline-ui/Card";
+import { Button } from "@preline-ui/Button";
+import { StatusDot } from "@preline-ui/StatusDot";
+import { SelectableCard } from "@preline-ui/SelectableCard";
+import { SegmentedControl, SegmentedControlItem } from "@preline-ui/SegmentedControl";
 import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { useAppTheme } from "../../../components/AppThemeProvider";
 import { MODE_LABELS, THEME_PRESETS, type AppThemeMode } from "../../../lib/app-theme";

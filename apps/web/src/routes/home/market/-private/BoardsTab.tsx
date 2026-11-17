@@ -1,8 +1,8 @@
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Table, proportional } from "@astryxdesign/core/Table";
-import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Spinner } from "@preline-ui/Spinner";
+import { Table, proportional } from "@preline-ui/Table";
+import { TabList, Tab } from "@preline-ui/TabList";
 import { useBoardsQuery, type BoardItem } from "../../../../hooks/useBoards";
 import { chartUp, chartDown } from "../../../../lib/theme";
 

@@ -2,12 +2,12 @@ import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Avatar } from "@astryxdesign/core/Avatar";
-import { Markdown } from "@astryxdesign/core/Markdown";
-import { Spinner } from "@astryxdesign/core/Spinner";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Avatar } from "@preline-ui/Avatar";
+import { Markdown } from "@preline-ui/Markdown";
+import { Spinner } from "@preline-ui/Spinner";
 import {
   ChatComposer,
   ChatComposerInput,
@@ -16,9 +16,9 @@ import {
   ChatMessageBubble,
   ChatMessageMetadata,
   ChatToolCalls,
-} from "@astryxdesign/core/Chat";
-import { Timestamp } from "@astryxdesign/core/Timestamp";
-import { Icon } from "@astryxdesign/core/Icon";
+} from "@preline-ui/Chat";
+import { Timestamp } from "@preline-ui/Timestamp";
+import { Icon } from "@preline-ui/Icon";
 
 // ---- 类型 ----
 

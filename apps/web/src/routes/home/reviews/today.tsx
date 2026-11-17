@@ -8,12 +8,12 @@
  * 已有复盘（历史生成结果）则直接渲染；无数据时提示并引导生成。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Section } from "@astryxdesign/core/Section";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { Section } from "@preline-ui/Section";
 import {
   useGenerateReviewStream,
   useReviewQuery,

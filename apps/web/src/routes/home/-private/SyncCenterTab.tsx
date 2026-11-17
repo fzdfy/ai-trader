@@ -5,14 +5,14 @@
  * 数据源：GET /api/v1/sync/modules（3s 轮询）与 GET /api/v1/sync/records。
  */
 import { useState } from "react";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Card } from "@astryxdesign/core/Card";
-import { StatusDot } from "@astryxdesign/core/StatusDot";
-import { ProgressBar } from "@astryxdesign/core/ProgressBar";
-import { Table, proportional } from "@astryxdesign/core/Table";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
+import { Spinner } from "@preline-ui/Spinner";
+import { Card } from "@preline-ui/Card";
+import { StatusDot } from "@preline-ui/StatusDot";
+import { ProgressBar } from "@preline-ui/ProgressBar";
+import { Table, proportional } from "@preline-ui/Table";
 import {
   useSyncModules,
   useSyncRecords,

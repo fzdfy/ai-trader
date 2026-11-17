@@ -85,9 +85,11 @@ export function useRunScreen(queryKey: QueryKey) {
 
 /** 只读缓存查询：按 queryKey 读取上次选股结果，不发起请求（结果由 useRunScreen 写入） */
 export function useScreenResult(queryKey: QueryKey) {
+  const queryClient = useQueryClient();
   return useQuery<ScreenResult | undefined, Error, ScreenResult | undefined, QueryKey>({
     queryKey,
     enabled: false,
     staleTime: Infinity,
+    queryFn: () => queryClient.getQueryData<ScreenResult>(queryKey),
   });
 }

@@ -1,6 +1,6 @@
-import { HStack } from "@astryxdesign/core/Stack";
-import { Button } from "@astryxdesign/core/Button";
-import { IconButton } from "@astryxdesign/core/IconButton";
+import { HStack } from "@preline-ui/Stack";
+import { Button } from "@preline-ui/Button";
+import { IconButton } from "@preline-ui/IconButton";
 import { Info, Play } from "lucide-react";
 
 interface DefinitionTestBarProps {

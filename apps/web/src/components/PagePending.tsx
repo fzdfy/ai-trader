@@ -1,5 +1,5 @@
-import { VStack } from "@astryxdesign/core/Stack";
-import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { VStack } from "@preline-ui/Stack";
+import { Skeleton } from "@preline-ui/Skeleton";
 
 /** 页面加载骨架屏，模拟标题 + 内容区布局 */
 export function PagePending() {

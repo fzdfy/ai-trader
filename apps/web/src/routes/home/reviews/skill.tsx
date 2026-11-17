@@ -4,10 +4,10 @@
  * 复盘方法论（「复盘模块」结构 + 「总结输出要求」）内容固定，仅作展示，不可修改。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { VStack, HStack } from "@astryxdesign/core/Stack";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Button } from "@astryxdesign/core/Button";
+import { VStack, HStack } from "@preline-ui/Stack";
+import { Heading } from "@preline-ui/Heading";
+import { Text } from "@preline-ui/Text";
+import { Button } from "@preline-ui/Button";
 import { ReviewSkillViewer } from "./-private/ReviewSkillViewer";
 
 export const Route = createFileRoute("/home/reviews/skill")({

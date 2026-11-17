@@ -4,10 +4,10 @@
  * 复盘方法论已固定（「复盘模块」结构 + 「总结输出要求」），仅作展示，不可在此修改。
  * 已生成的历史复盘使用其生成时快照的 sections 渲染，不受影响。
  */
-import { VStack } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { Spinner } from "@astryxdesign/core/Spinner";
-import { Section } from "@astryxdesign/core/Section";
+import { VStack } from "@preline-ui/Stack";
+import { Text } from "@preline-ui/Text";
+import { Spinner } from "@preline-ui/Spinner";
+import { Section } from "@preline-ui/Section";
 import { useReviewSkillQuery } from "../../../../hooks/useReviews";
 
 export function ReviewSkillViewer() {

@@ -1,0 +1,214 @@
+:root {
+  --canvas: #f6f5f1;
+  --panel: #ffffff;
+  --surface: #eef1f7;
+  --surface-strong: #e3e7f0;
+  --ink: #202a42;
+  --ink-secondary: #39465f;
+  --ink-muted: #727f98;
+  --ink-faint: #9da7b9;
+  --line: #e2e5ec;
+  --line-strong: #cbd3df;
+
+  --background: var(--canvas);
+  --background-plain: var(--panel);
+  --foreground: var(--ink);
+  --foreground-inverse: #ffffff;
+  --border: var(--line);
+  --layer: var(--panel);
+  --surface-foreground: var(--ink-secondary);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --card: var(--panel);
+  --card-border: var(--line);
+  --navbar: var(--panel);
+  --navbar-foreground: var(--ink);
+  --navbar-border: var(--line);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink-secondary);
+  --sidebar-border: var(--line);
+
+  --primary: #3157e8;
+  --primary-hover: #2448ce;
+  --primary-focus: #2448ce;
+  --primary-active: #1f3dbb;
+  --primary-checked: #3157e8;
+  --primary-foreground: #ffffff;
+  --primary-line: transparent;
+
+  --secondary: var(--ink);
+  --secondary-hover: #172035;
+  --secondary-focus: #172035;
+  --secondary-active: #111827;
+  --secondary-foreground: #ffffff;
+  --secondary-line: transparent;
+
+  --destructive: #e7525b;
+  --destructive-hover: #d43f49;
+  --destructive-focus: #d43f49;
+  --destructive-foreground: #ffffff;
+  --success: #0b967a;
+  --success-soft: #def6ee;
+  --warning: #c08321;
+  --warning-soft: #fff2d8;
+
+  --chart-up: #e7525b;
+  --chart-down: #0b967a;
+  --chart-gain: #e7525b;
+  --chart-loss: #0b967a;
+  --chart-grid: light-dark(#e6e9f0, #2a3447);
+  --chart-axis-text: light-dark(#727f98, #9aa7bd);
+  --chart-current: #3157e8;
+  --chart-equity: light-dark(#202a42, #eef2f9);
+}
+
+.dark {
+  --canvas: #111521;
+  --panel: #171d2a;
+  --surface: #1d2534;
+  --surface-strong: #273044;
+  --ink: #eef2f9;
+  --ink-secondary: #d6ddeb;
+  --ink-muted: #9aa7bd;
+  --ink-faint: #71809a;
+  --line: #2a3447;
+  --line-strong: #3b4960;
+
+  --background: var(--canvas);
+  --background-plain: var(--panel);
+  --foreground: var(--ink);
+  --foreground-inverse: #111521;
+  --border: var(--line);
+  --layer: var(--surface);
+  --surface-foreground: var(--ink-secondary);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --card: var(--panel);
+  --card-border: var(--line);
+  --navbar: var(--panel);
+  --navbar-foreground: var(--ink);
+  --navbar-border: var(--line);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink-secondary);
+  --sidebar-border: var(--line);
+
+  --primary: #5b79ff;
+  --primary-hover: #718cff;
+  --primary-focus: #718cff;
+  --primary-active: #4968eb;
+  --primary-checked: #5b79ff;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f9;
+  --secondary-hover: #ffffff;
+  --secondary-focus: #ffffff;
+  --secondary-active: #ffffff;
+  --secondary-foreground: #111521;
+  --destructive: #ff7a82;
+  --destructive-hover: #ff969c;
+  --destructive-focus: #ff969c;
+  --destructive-foreground: #111521;
+  --success: #35c4a1;
+  --success-soft: #15332d;
+  --warning: #f4c765;
+  --warning-soft: #322817;
+}
+
+@theme inline {
+  --color-app-canvas: var(--canvas);
+  --color-app-panel: var(--panel);
+  --color-app-surface: var(--surface);
+  --color-app-surface-strong: var(--surface-strong);
+  --color-app-ink: var(--ink);
+  --color-app-ink-secondary: var(--ink-secondary);
+  --color-app-muted: var(--ink-muted);
+  --color-app-faint: var(--ink-faint);
+  --color-app-line: var(--line);
+  --color-app-line-strong: var(--line-strong);
+  --color-app-success: var(--success);
+  --color-app-success-soft: var(--success-soft);
+  --color-app-warning: var(--warning);
+  --color-app-warning-soft: var(--warning-soft);
+  --color-chart-up: var(--chart-up);
+  --color-chart-down: var(--chart-down);
+}
+
+.preline-app {
+  color: var(--ink);
+  background: var(--canvas);
+  font-family:
+    "SF Pro Display",
+    "SF Pro Text",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    sans-serif;
+}
+
+.preline-app .tabular-nums,
+.preline-app .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.preline-app .focus-ring:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.auth-hero {
+  color: var(--ink) !important;
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--warning) 16%, transparent), transparent 30%),
+    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 34%),
+    linear-gradient(175deg, #eff2f8, #e9edf5) !important;
+  border-right: 1px solid var(--line);
+}
+
+.dark .auth-hero {
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--warning) 10%, transparent), transparent 30%),
+    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 34%),
+    linear-gradient(175deg, #171e2d, #111521) !important;
+}
+
+.auth-hero h1 {
+  color: var(--ink) !important;
+}
+
+.auth-hero p {
+  color: var(--ink-muted) !important;
+}
+
+.auth-hero p.text-primary {
+  color: var(--primary) !important;
+}
+
+.auth-primary-button {
+  color: var(--primary-foreground) !important;
+  background: var(--primary) !important;
+}
+
+.auth-primary-button:hover {
+  background: var(--primary-hover) !important;
+}
+
+.workbench-sidebar {
+  background: linear-gradient(175deg, #eff2f8, #e9edf5);
+}
+
+.workbench-ai-card {
+  background:
+    radial-gradient(circle at 88% -8%, color-mix(in srgb, var(--warning) 22%, transparent), transparent 34%),
+    linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--primary) 8%, var(--panel)));
+  border-color: var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preline-app *,
+  .preline-app *::before,
+  .preline-app *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

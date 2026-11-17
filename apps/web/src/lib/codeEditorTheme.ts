@@ -25,7 +25,7 @@ import {
 } from "@codemirror/autocomplete";
 import { tags as syntaxTags } from "@lezer/highlight";
 
-/** 语法着色沿用 astryx 主题的 --color-syntax-* token，与全站代码块口径一致 */
+/** 语法着色沿用全局 --color-syntax-* token，与全站代码块口径一致 */
 export const codeHighlightStyle = HighlightStyle.define([
   {
     tag: [
