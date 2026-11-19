@@ -10,7 +10,7 @@ pnpm monorepo，四个模块 + 一个数据库 + 一套日志栈，Docker Compos
 |---|---|---|---|
 | 前端 | `apps/web` | React 19 + Vite + TanStack Router + Preline + Tailwind CSS | 9080（容器内 80，nginx） |
 | API | `apps/server` | Hono + Drizzle | 3001 |
-| 数据同步 Worker | `apps/server/src/workers` | 定时任务（cron） | — |
+| Worker | `apps/server/src/workers` | 同步 / 特征 / 工作流任务 | — |
 | 回测 | `apps/quant` | Python FastAPI + akquant | 3002 |
 | 数据库 | — | PostgreSQL + pgvector | 5432 |
 | 日志栈 | `docker/` | Alloy → Loki → Grafana | Loki 3100 / Alloy 12345 / Grafana 3010 |
@@ -28,6 +28,8 @@ flowchart LR
   S --> Q["quant :3002（回测）"]
   Q --> PG
   W["worker（定时同步）"] --> PG
+  WW["workflow-worker（工作流）"] --> PG
+  WW --> Q
 ```
 
 ### 1.2 数据三链路（最容易踩坑的地方）
@@ -89,8 +91,13 @@ flowchart LR
 | [runbooks.md](./runbooks.md) | 排障手册：僵尸任务 / 东财熔断 / 回测超时 | 线上出问题时 |
 | [decisions.md](./decisions.md) | 决策记录（已决·勿翻案） | 想重复论证某个结论前 |
 | [issues.md](./issues.md) | 已知缺陷 & 技术债 | 遇到怪现象时先查这里 |
-| [glossary.md](./glossary.md) | 术语表 | 看不懂某个词时 |
+| [standards/development-workflow.md](./standards/development-workflow.md) | AI 开发流程、文档职责和完成条件 | 开始需求、规划、实施或归档时 |
+| [glossary.md](./glossary.md) | 业务、设计与领域术语 | 需要确认产品语言时 |
+| [technical-glossary.md](./technical-glossary.md) | 架构、平台和实现术语索引 | 需要定位代码概念时 |
+| [superpowers/specs/](./superpowers/specs/) | 已确认或进行中的技术方案设计 | 查看需求背后的完整方案时 |
+| [OpenSpec changes](../openspec/changes/) | 单个需求当前有效的 proposal、specs、design 和 tasks | 实施或追踪需求时 |
 | [roadmap.md](./roadmap.md) | 路线图（已完成 / 进行中 / 待办） | 想知道下一步做什么 |
+| [workflow-guide.md](./workflow-guide.md) | 工作流列表、画布、发布、运行和归档 | 使用或介绍自定义工作流 |
 
 ## 3. 建议阅读路径
 

@@ -10,6 +10,8 @@
 | 数据 | [database.md](./database.md) | [数据工程规范](https://my.feishu.cn/wiki/KdOSwEq5gi7X48kOBDUcA7vznXc) |
 | Agent | [agent.md](./agent.md) | [Agent 工程规范](https://my.feishu.cn/wiki/PiLYwVocViMFwTkJwMlcnlWonLc) |
 | UI 设计 | [design.md](./design.md) | [UI 设计规范](https://my.feishu.cn/wiki/Y2UtwvOAjiO0r6kZ0ULcFqsnnOf) |
+| 产品工作流 | [workflow.md](./workflow.md) | — |
+| AI 开发工作流 | [development-workflow.md](./development-workflow.md) | — |
 
 ## 关系
 
@@ -18,6 +20,7 @@
 - `.agents/skills/`：可执行的专业工作方法。
 - `openspec/specs/`：长期系统行为规格。
 - `openspec/changes/`：单次变更的提案、设计、任务与增量规格。
+- `docs/superpowers/specs/`：完整技术方案设计稿。
 - `docs/design/prototypes/`：视觉原型基准、探索和历史资产。
 
 ## 维护规则

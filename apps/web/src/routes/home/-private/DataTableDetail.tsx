@@ -9,11 +9,9 @@
  * 数据源：GET /api/v1/data-center/tables/:table
  */
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import { VStack, HStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
-import { Button } from "@preline-ui/Button";
 import { Badge } from "@preline-ui/Badge";
 import { Spinner } from "@preline-ui/Spinner";
 import { StatusDot } from "@preline-ui/StatusDot";
@@ -151,7 +149,7 @@ const RECORD_DEFS = [
       const meta = statusMeta(row.status);
       return (
         <HStack gap={2} align="center">
-          <StatusDot variant={meta.variant} label={meta.label} isPulsing={row.status === "running"} />
+          <StatusDot variant={meta.variant} isPulsing={row.status === "running"} />
           <Text size="sm">{meta.label}</Text>
         </HStack>
       );
@@ -199,7 +197,7 @@ const RECORD_DEFS = [
     header: "消息",
     width: proportional(2.4),
     renderCell: (row: RecordRow) => (
-      <Text size="sm" type="supporting" wordBreak="break-all">
+      <Text size="sm" type="supporting" className="break-all">
         {row.error ?? row.message ?? "-"}
       </Text>
     ),
@@ -250,14 +248,14 @@ function SourceBlock({
               <VStack gap={1}>
                 {source.upstream.map((up) => (
                   <HStack key={up.url} gap={2} align="center" wrap="wrap">
-                    <Text type="code" size="sm" wordBreak="break-all">
+                    <Text type="code" size="sm" className="break-all">
                       {source.endpoint}
                     </Text>
                     <Text type="supporting" size="sm">
                       →
                     </Text>
                     <Badge label={up.method} variant={up.method === "GET" ? "blue" : "warning"} />
-                    <Text type="code" size="sm" wordBreak="break-all">
+                    <Text type="code" size="sm" className="break-all">
                       {up.url}
                     </Text>
                     {up.target ? (
@@ -269,7 +267,7 @@ function SourceBlock({
                 ))}
               </VStack>
             ) : (
-              <Text type="code" size="sm" wordBreak="break-all">
+              <Text type="code" size="sm" className="break-all">
                 {source.endpoint}
               </Text>
             )}
@@ -523,12 +521,6 @@ export function DataTableDetailView({ table }: { table: string }) {
 
   return (
     <VStack gap={4}>
-      <HStack gap={2} align="center">
-        <Link to="/home/data-center" style={{ textDecoration: "none" }}>
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
-      </HStack>
-
       <VStack gap={1}>
         <HStack gap={2} align="center">
           <Heading level={2}>{data.name}</Heading>

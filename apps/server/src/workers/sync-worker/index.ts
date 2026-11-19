@@ -3,6 +3,7 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun, tradingCalendar } from "../../db/schema";
 import { createLogger } from "../../lib/logger";
+import { reconcileAdminAudits } from "../../lib/admin-audit";
 import { CRON_JOBS, type CronJobConfig } from "./cron-config";
 import { isTradeDay, isAfterMarketClose, localDateStr } from "./calendar";
 import { calendarPipeRun } from "./pipes/calendar";
@@ -20,6 +21,7 @@ async function cleanupInterruptedJobs(): Promise<void> {
       .update(jobRun)
       .set({ status: "failed", error: "interrupted (worker restart)", finishedAt: new Date() })
       .where(and(eq(jobRun.status, "running"), isNull(jobRun.finishedAt), ne(jobRun.jobType, "sync-manual")));
+    await reconcileAdminAudits();
   } catch (error) {
     log.error({ err: error }, "cleanup interrupted jobs failed");
   }

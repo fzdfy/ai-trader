@@ -188,3 +188,26 @@ sequenceDiagram
   - 其他缺口：停牌标记、涨跌停成交判定。
   - 另注意 baostock 不支持北交所。
 - **来源**：AGENTS.md「A 股回测可信度缺口（回测或换源前必查）」、`apps/quant/data_loader.py`、`apps/quant/main.py`。
+
+## 10. 数据管理入口（超级管理员）
+
+- **定义**：数据工程观察与受控操作统一收口到工作台内的 `/home/data-management`。
+- **位置**：页面 `apps/web/src/routes/home/data-management/`；API `apps/server/src/api/data-management.ts`；权限 `apps/server/src/lib/admin-access.ts`；审计 `apps/server/src/lib/admin-audit.ts`。
+- **关键事实**：
+  - `user` 只能看到主题设置；`super_admin` 看到“数据管理”和“主题设置”。角色由数据库 `user.role` 决定，`SUPER_ADMIN_EMAILS` 只对已通过邮箱验证的会话执行首次超级管理员引导；邮箱移出白名单不会静默降级已有数据库角色。
+  - `/api/v1/data-management/*` 全部经过服务端 `super_admin` 校验；无会话返回 401，普通用户返回 403。旧 `/api/v1/sync/*`、`/api/v1/data-center/*` 不再挂载。
+  - 普通用户只调用 `/api/v1/system/data-status`，响应仅含 `updatedAt`、`availability`、`running`，不含来源、表、任务名或错误。
+  - 数据源、表、同步、质量和审计页面复用代码注册表及现有同步引擎。数据源和限流配置不能在线修改；页面不提供原始数据行或任意 SQL。
+  - 一期写操作仅限手动同步与失败模块重试。操作前填写原因，服务端复用防重入/依赖检查，并通过 PostgreSQL advisory lock 串行化“检查 + 预留任务”窗口。审计记录从 accepted 进入 running/终态；进程中断后由启动清理和审计查询收敛为 `interrupted`。
+- **来源**：`openspec/changes/add-super-admin-data-management/`、`docs/superpowers/specs/2026-11-19-super-admin-data-management-design.md`。
+
+## 11. 研究数据质量门禁
+
+- **定义**：新回测、选股和个股分析在取数前检查所需 Tier 0 资产的最新质量证据与未解决事故。
+- **位置**：`apps/server/src/lib/data-governance/quality-gate.ts`；入口为 `backtest-service.ts`、`screening-service.ts`、`api/stock-analysis.ts`。
+- **关键事实**：
+  - 回测与选股依赖 `trading_calendar`、`instrument`、`bar1d_raw`、`adj_factor`；个股分析另加 `quote_latest`。
+  - Tier 0 的 `critical` 失败、未解决严重事故、缺失证据或超过证据 SLA 均产生阻断；`enforce` 返回 HTTP 409，`warn` 保留阻断原因但允许任务继续，`off` 跳过查询。
+  - 警告存在时，回测、选股和个股分析响应会附带 `governance.mode` 与 `governance.warnings`；`off` 不产生该附加字段。
+  - 迁移期默认 `warn`。通过 `DATA_GOVERNANCE_GATE_MODE=off|warn|enforce` 切换，只有完成假阳性复核后才允许生产设为 `enforce`。
+  - 门禁不改变 Provider 选择、PIT 复权或 `load_kline` 输出契约；已有历史结果仍可读取。

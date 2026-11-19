@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useNewsInfinite, SOURCE_LABELS } from "../hooks/useNews";
 import { useRef, useEffect, useCallback } from "react";
+import { PageNavigation } from "../components/PageNavigation";
 
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -23,7 +24,8 @@ export const Route = createFileRoute("/news")({
 
 function NewsPage() {
   const { symbol } = Route.useSearch();
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useNewsInfinite(symbol);
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useNewsInfinite(symbol);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const allArticles = data?.pages.flatMap((p) => p.data) ?? [];
@@ -47,141 +49,193 @@ function NewsPage() {
   }, [handleObserver]);
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "var(--spacing-6) var(--spacing-4)", height: "100%", overflowY: "auto" }}>
-      <div style={{ marginBottom: "var(--spacing-6)" }}>
-        <h2 style={{ fontSize: "var(--font-size-xl)", fontWeight: 600, margin: 0, marginBottom: "var(--spacing-1)" }}>
-          {symbol ? `${symbol} 新闻` : "财经资讯"}
-        </h2>
-        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-supporting)", margin: 0 }}>
-          {symbol ? `关联 ${symbol} 的新闻` : "财联社 · 东财全球 · 个股新闻 三源聚合"}
-        </p>
-      </div>
-
-      {isError && (
+    <div className="flex h-full min-h-0 flex-col">
+      <PageNavigation />
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div
-          style={{
-            padding: "var(--spacing-4)",
-            background: "var(--color-background-red)",
-            color: "var(--color-text-on-color)",
-            borderRadius: "var(--radius-md)",
-            marginBottom: "var(--spacing-4)",
-          }}
+          style={{ maxWidth: 800, margin: "0 auto", padding: "var(--spacing-6) var(--spacing-4)" }}
         >
-          加载失败: {error?.message ?? "未知错误"}
-        </div>
-      )}
-
-      {isLoading && (
-        <div style={{ textAlign: "center", padding: "var(--spacing-10)", color: "var(--color-text-supporting)" }}>
-          加载中...
-        </div>
-      )}
-
-      {!isLoading && allArticles.length === 0 && (
-        <div style={{ textAlign: "center", padding: "var(--spacing-10)", color: "var(--color-text-supporting)" }}>
-          暂无新闻数据（sync-worker 运行后拉取）
-        </div>
-      )}
-
-      {allArticles.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-2)" }}>
-          {allArticles.map((article) => {
-            const sourceStyle =
-              SOURCE_COLORS[article.source] ??
-              SOURCE_COLORS.eastmoney_global ?? {
-                bg: "var(--color-background-neutral)",
-                text: "var(--color-text-primary)",
-              };
-
-            return (
-              <a
-              key={article.id}
-              href={article.url || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
+          <div style={{ marginBottom: "var(--spacing-6)" }}>
+            <h2
               style={{
-                display: "block",
-                textDecoration: "none",
-                color: "inherit",
-                padding: "var(--spacing-3) var(--spacing-4)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-sm)",
-                transition: "border-color 0.15s, box-shadow 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-border-strong)";
-                e.currentTarget.style.boxShadow = "var(--elevation-1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-border)";
-                e.currentTarget.style.boxShadow = "none";
+                fontSize: "var(--font-size-xl)",
+                fontWeight: 600,
+                margin: 0,
+                marginBottom: "var(--spacing-1)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--spacing-2)" }}>
-                <span
-                  style={{
-                    flexShrink: 0,
-                    marginTop: 1,
-                    padding: "1px 6px",
-                    borderRadius: "var(--radius-xs)",
-                    fontSize: "var(--font-size-xs)",
-                    fontWeight: 500,
-                    background: sourceStyle.bg,
-                    color: sourceStyle.text,
-                  }}
-                >
-                  {SOURCE_LABELS[article.source] ?? article.source}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
+              {symbol ? `${symbol} 新闻` : "财经资讯"}
+            </h2>
+            <p
+              style={{
+                fontSize: "var(--font-size-sm)",
+                color: "var(--color-text-supporting)",
+                margin: 0,
+              }}
+            >
+              {symbol ? `关联 ${symbol} 的新闻` : "财联社 · 东财全球 · 个股新闻 三源聚合"}
+            </p>
+          </div>
+
+          {isError && (
+            <div
+              style={{
+                padding: "var(--spacing-4)",
+                background: "var(--color-background-red)",
+                color: "var(--color-text-on-color)",
+                borderRadius: "var(--radius-md)",
+                marginBottom: "var(--spacing-4)",
+              }}
+            >
+              加载失败: {error?.message ?? "未知错误"}
+            </div>
+          )}
+
+          {isLoading && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "var(--spacing-10)",
+                color: "var(--color-text-supporting)",
+              }}
+            >
+              加载中...
+            </div>
+          )}
+
+          {!isLoading && allArticles.length === 0 && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "var(--spacing-10)",
+                color: "var(--color-text-supporting)",
+              }}
+            >
+              暂无新闻数据（sync-worker 运行后拉取）
+            </div>
+          )}
+
+          {allArticles.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-2)" }}>
+              {allArticles.map((article) => {
+                const sourceStyle = SOURCE_COLORS[article.source] ??
+                  SOURCE_COLORS.eastmoney_global ?? {
+                    bg: "var(--color-background-neutral)",
+                    text: "var(--color-text-primary)",
+                  };
+
+                return (
+                  <a
+                    key={article.id}
+                    href={article.url || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     style={{
-                      fontSize: "var(--font-size-md)",
-                      fontWeight: 500,
-                      lineHeight: 1.4,
-                      marginBottom: "var(--spacing-0-5)",
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                      padding: "var(--spacing-3) var(--spacing-4)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-sm)",
+                      transition: "border-color 0.15s, box-shadow 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--color-border-strong)";
+                      e.currentTarget.style.boxShadow = "var(--elevation-1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--color-border)";
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   >
-                    {article.title}
-                  </div>
-                  {article.summary && (
                     <div
-                      style={{
-                        fontSize: "var(--font-size-sm)",
-                        color: "var(--color-text-supporting)",
-                        lineHeight: 1.5,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        marginBottom: "var(--spacing-1)",
-                      }}
+                      style={{ display: "flex", alignItems: "flex-start", gap: "var(--spacing-2)" }}
                     >
-                      {article.summary}
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          marginTop: 1,
+                          padding: "1px 6px",
+                          borderRadius: "var(--radius-xs)",
+                          fontSize: "var(--font-size-xs)",
+                          fontWeight: 500,
+                          background: sourceStyle.bg,
+                          color: sourceStyle.text,
+                        }}
+                      >
+                        {SOURCE_LABELS[article.source] ?? article.source}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: "var(--font-size-md)",
+                            fontWeight: 500,
+                            lineHeight: 1.4,
+                            marginBottom: "var(--spacing-0-5)",
+                          }}
+                        >
+                          {article.title}
+                        </div>
+                        {article.summary && (
+                          <div
+                            style={{
+                              fontSize: "var(--font-size-sm)",
+                              color: "var(--color-text-supporting)",
+                              lineHeight: 1.5,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              marginBottom: "var(--spacing-1)",
+                            }}
+                          >
+                            {article.summary}
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            fontSize: "var(--font-size-xs)",
+                            color: "var(--color-text-supporting)",
+                          }}
+                        >
+                          {formatTime(article.publishedAt)}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-supporting)" }}>
-                    {formatTime(article.publishedAt)}
-                  </div>
-                </div>
-              </div>
-              </a>
-            );
-          })}
-        </div>
-      )}
+                  </a>
+                );
+              })}
+            </div>
+          )}
 
-      {/* 无限滚动哨兵 + 加载指示器 */}
-      <div ref={sentinelRef} style={{ height: 1, marginTop: "var(--spacing-4)" }} />
-      {isFetchingNextPage && (
-        <div style={{ textAlign: "center", padding: "var(--spacing-4)", color: "var(--color-text-supporting)", fontSize: "var(--font-size-sm)" }}>
-          加载更多...
+          {/* 无限滚动哨兵 + 加载指示器 */}
+          <div ref={sentinelRef} style={{ height: 1, marginTop: "var(--spacing-4)" }} />
+          {isFetchingNextPage && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "var(--spacing-4)",
+                color: "var(--color-text-supporting)",
+                fontSize: "var(--font-size-sm)",
+              }}
+            >
+              加载更多...
+            </div>
+          )}
+          {!hasNextPage && allArticles.length > 0 && !isFetchingNextPage && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "var(--spacing-6)",
+                color: "var(--color-text-supporting)",
+                fontSize: "var(--font-size-sm)",
+              }}
+            >
+              已加载全部新闻
+            </div>
+          )}
         </div>
-      )}
-      {!hasNextPage && allArticles.length > 0 && !isFetchingNextPage && (
-        <div style={{ textAlign: "center", padding: "var(--spacing-6)", color: "var(--color-text-supporting)", fontSize: "var(--font-size-sm)" }}>
-          已加载全部新闻
-        </div>
-      )}
+      </div>
     </div>
   );
 }

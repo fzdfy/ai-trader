@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VStack, HStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
@@ -195,10 +195,6 @@ function FactorIteratePage() {
 
   return (
     <VStack gap={4}>
-      <Link to="/home/factors" style={{ textDecoration: "none" }}>
-        <Button label="← 返回" variant="ghost" size="sm" />
-      </Link>
-
       <VStack gap={1}>
         <Heading level={2}>AI 因子迭代</Heading>
         <Text type="supporting">

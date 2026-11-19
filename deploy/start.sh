@@ -7,6 +7,7 @@
 #    ./deploy/start-db.sh     数据库
 #    ./deploy/start-server.sh API 服务
 #    ./deploy/start-worker.sh 同步 Worker
+#    ./deploy/start-workflow-worker.sh 工作流 Worker
 #    ./deploy/start-quant.sh  回测服务
 #    ./deploy/start-web.sh    前端
 # ============================================================
@@ -18,7 +19,7 @@ usage() {
   cat <<'EOF'
 用法: ./deploy/start.sh [选项]
 
-启动全部服务（postgres / server / worker / quant / nginx）。
+启动全部服务（postgres / server / worker / workflow-worker / quant / nginx）。
 
 选项:
   --build        启动前重新构建所有镜像
@@ -29,6 +30,7 @@ usage() {
   ./deploy/start-db.sh     数据库
   ./deploy/start-server.sh API 服务
   ./deploy/start-worker.sh 同步 Worker
+  ./deploy/start-workflow-worker.sh 工作流 Worker
   ./deploy/start-quant.sh  回测服务
   ./deploy/start-web.sh    前端
 EOF

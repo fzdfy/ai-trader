@@ -3,11 +3,10 @@
  *
  * 模块结构固定（代码写死），直接渲染该条记录中快照的 sections（可追溯、可复现）。
  */
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { VStack, HStack } from "@preline-ui/Stack";
+import { createFileRoute, useParams } from "@tanstack/react-router";
+import { VStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
-import { Button } from "@preline-ui/Button";
 import { Spinner } from "@preline-ui/Spinner";
 import { useReviewQuery } from "../../../../hooks/useReviews";
 import { ReviewContent } from "../-private/ReviewContent";
@@ -32,12 +31,6 @@ function ReviewHistoryDetailPage() {
 
   return (
     <VStack gap={4}>
-      <HStack gap={2} align="center">
-        <Link to="/home/reviews/history" style={{ textDecoration: "none" }}>
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
-      </HStack>
-
       <VStack gap={1}>
         <Heading level={2}>{date} 复盘</Heading>
         <Text type="supporting" size="sm">

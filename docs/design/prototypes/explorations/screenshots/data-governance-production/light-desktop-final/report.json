@@ -1,0 +1,21 @@
+[
+  {
+    "file": "page-light-desktop.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "light-desktop",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「V Visual Governance 量化研究」（首屏 8 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

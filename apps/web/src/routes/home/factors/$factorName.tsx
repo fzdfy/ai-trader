@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { createFileRoute, useParams, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
 import { VStack, HStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
@@ -268,10 +268,7 @@ function FactorDetailPage() {
 
   return (
     <VStack gap={4}>
-      <HStack gap={2} align="center" style={{ justifyContent: "space-between" }}>
-        <Link to="/home/factors" style={{ textDecoration: "none" }}>
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
+      <HStack gap={2} align="center" style={{ justifyContent: "flex-end" }}>
         {canEdit ? (
           <DropdownMenu
             button={{

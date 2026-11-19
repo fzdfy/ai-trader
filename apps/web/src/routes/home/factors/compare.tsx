@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { VStack, HStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
@@ -444,9 +444,6 @@ function FactorComparePage() {
             对比多个因子在不同持有期的预测能力衰减：曲线越高越平、半衰期与保留率越高，信号越耐用。
           </Text>
         </VStack>
-        <Link to="/home/factors" style={{ textDecoration: "none" }}>
-          <Button label="← 返回因子列表" variant="ghost" size="sm" />
-        </Link>
       </HStack>
 
       {content}

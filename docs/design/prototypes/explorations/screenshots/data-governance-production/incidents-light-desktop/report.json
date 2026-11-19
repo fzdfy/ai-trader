@@ -1,0 +1,22 @@
+[
+  {
+    "file": "page-incidents.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "incidents",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「V Visual Governance 量化研究」（首屏 4 块各自加框）",
+          "div.overflow-hidden.rounded-xl「事故 资产 严重度 状态 开始时间 tradin」（框里又有 5 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

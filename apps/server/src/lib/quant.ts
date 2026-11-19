@@ -440,6 +440,43 @@ export interface DataSourcesHealth {
   capabilities: CapabilityHealth[];
 }
 
+export interface ResearchReportProviderItem {
+  source: string;
+  source_id: string;
+  symbol: string;
+  title: string;
+  institution: string | null;
+  analysts: string[];
+  rating: string | null;
+  industry: string | null;
+  publish_date: string;
+  pdf_url: string | null;
+  forecasts: Array<{
+    horizon: "current" | "next" | "next_two";
+    eps: number | null;
+    raw_value: string | number | null;
+  }>;
+  raw: Record<string, unknown>;
+}
+
+export interface ResearchReportExtraction {
+  storage_key: string;
+  sha256: string;
+  file_size: number;
+  extractor_version: string;
+  embedding_model: string | null;
+  page_count: number;
+  full_text: string;
+  pages: Array<{ page: number; text: string }>;
+  chunks: Array<{
+    chunk_index: number;
+    page_from: number;
+    page_to: number;
+    text: string;
+    embedding: number[] | null;
+  }>;
+}
+
 /** quant 请求超时（毫秒）。上游（东财/腾讯等）网络抖动可能 hang，必须限时避免卡死同步管道 */
 const QUANT_TIMEOUT_MS = 20_000;
 
@@ -509,6 +546,37 @@ async function postJson<T>(path: string, body: unknown, timeoutMs = QUANT_TIMEOU
 }
 
 export const quant = {
+  researchReports: (symbol: string, page = 1, pageSize = 100) =>
+    getJson<{
+      symbol: string;
+      page: number;
+      page_size: number;
+      total: number;
+      items: ResearchReportProviderItem[];
+    }>(
+      `/api/v1/research/reports?symbol=${encodeURIComponent(symbol)}&page=${page}&page_size=${pageSize}`,
+      120_000,
+    ),
+
+  extractResearchReport: (params: {
+    pdf_url: string;
+    source_id: string;
+    publish_date: string;
+    embed?: boolean;
+  }) =>
+    postJson<ResearchReportExtraction>(
+      "/api/v1/research/extract",
+      { ...params, embed: params.embed ?? true },
+      15 * 60_000,
+    ),
+
+  embedResearchTexts: (texts: string[]) =>
+    postJson<{ model: string; vectors: number[][] }>(
+      "/api/v1/research/embed",
+      { texts },
+      120_000,
+    ),
+
   /** 个股资金流（日级，最近 120 个交易日） */
   fundFlow120d: (symbol: string) =>
     getJson<FundFlowDay[]>(`/api/v1/data/fund-flow-120d?symbol=${encodeURIComponent(symbol)}`),

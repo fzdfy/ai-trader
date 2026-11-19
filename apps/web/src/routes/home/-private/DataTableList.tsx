@@ -2,7 +2,7 @@
  * 数据中心 — 数据表卡片列表。
  *
  * 每张卡片展示「中文名 + 实际表名 + 描述 + 更新时间」，点击进入表详情。
- * 数据源：GET /api/v1/data-center/tables
+ * 数据源：GET /api/v1/data-management/tables
  */
 import { Link } from "@tanstack/react-router";
 import { VStack } from "@preline-ui/Stack";
@@ -26,7 +26,7 @@ function formatDateTime(iso: string | null | undefined): string {
 function DataTableCard({ item }: { item: DataTableSummary }) {
   return (
     <Link
-      to="/home/data-center/$table"
+      to="/home/data-management/tables/$table"
       params={{ table: item.table }}
       style={{ textDecoration: "none", color: "inherit", display: "block", height: "100%" }}
     >

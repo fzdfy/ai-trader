@@ -43,12 +43,15 @@ services:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=server
       - BETTER_AUTH_URL=http://localhost:9080
       - QUANT_URL=http://quant:3002
+      - REPORTS_DATA_DIR=/data/reports
       # 日志
       - SERVICE_NAME=server
       - LOG_FORMAT=json
       - TZ=Asia/Shanghai
     depends_on:
       - postgres
+    volumes:
+      - reports-data:/data/reports
     restart: unless-stopped
     logging: *logging
 
@@ -69,8 +72,35 @@ services:
       - SERVICE_NAME=worker
       - LOG_FORMAT=json
       - TZ=Asia/Shanghai
+      - REPORTS_DATA_DIR=/data/reports
+      - HF_HOME=/data/reports/.models
+      - SENTENCE_TRANSFORMERS_HOME=/data/reports/.models
     depends_on:
       - postgres
+    volumes:
+      - reports-data:/data/reports
+    restart: unless-stopped
+    logging: *logging
+
+  # ---- 工作流执行 Worker ----
+  workflow-worker:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    container_name: aitrader-workflow-worker
+    command: pnpm --prefix apps/server worker:workflow
+    env_file:
+      - .env.local
+    environment:
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=workflow-worker
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
+      - QUANT_URL=http://quant:3002
+      - SERVICE_NAME=workflow-worker
+      - LOG_FORMAT=json
+      - TZ=Asia/Shanghai
+    depends_on:
+      - postgres
+      - quant
     restart: unless-stopped
     logging: *logging
 
@@ -88,8 +118,13 @@ services:
       - SERVICE_NAME=quant
       - LOG_FORMAT=json
       - TZ=Asia/Shanghai
+      - REPORTS_DATA_DIR=/data/reports
+      - HF_HOME=/data/reports/.models
+      - SENTENCE_TRANSFORMERS_HOME=/data/reports/.models
     depends_on:
       - postgres
+    volumes:
+      - reports-data:/data/reports
     restart: unless-stopped
     logging: *logging
 
@@ -178,3 +213,4 @@ volumes:
   loki-data:
   alloy-data:
   grafana-data:
+  reports-data:

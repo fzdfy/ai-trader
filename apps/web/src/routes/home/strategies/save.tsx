@@ -1,7 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VStack } from "@preline-ui/Stack";
 import { Text } from "@preline-ui/Text";
-import { Button } from "@preline-ui/Button";
 import { Spinner } from "@preline-ui/Spinner";
 import { StrategyForm } from "../../../components/StrategyForm";
 import {
@@ -103,19 +102,6 @@ function StrategySavePage() {
 
   return (
     <VStack gap={4}>
-      {isEdit ? (
-        <Link
-          to="/home/strategies/$strategyId"
-          params={{ strategyId: String(strategyId) }}
-          style={{ textDecoration: "none" }}
-        >
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
-      ) : (
-        <Link to="/home/strategies" style={{ textDecoration: "none" }}>
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
-      )}
       <StrategyForm
         title={isEdit ? "编辑策略" : "创建策略"}
         subtitle={

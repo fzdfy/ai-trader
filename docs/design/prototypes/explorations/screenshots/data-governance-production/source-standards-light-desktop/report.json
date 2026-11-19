@@ -1,0 +1,23 @@
+[
+  {
+    "file": "page-source-standards.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "source-standards",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 4,
+        "examples": [
+          "span.font-mono.text-[11px]「01」（4.42:1）",
+          "span.font-mono.text-[11px]「02」（4.42:1）",
+          "span.font-mono.text-[11px]「03」（4.42:1）"
+        ]
+      }
+    ]
+  }
+]

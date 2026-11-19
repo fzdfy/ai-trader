@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir uv
 
 # 交易日历/时段判断依赖本地时区，统一用上海时区
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata \
+    && apt-get install -y --no-install-recommends tzdata tesseract-ocr tesseract-ocr-chi-sim \
     && rm -rf /var/lib/apt/lists/*
 ENV TZ=Asia/Shanghai
 

@@ -17,6 +17,7 @@ usage() {
   db       数据库        → postgres
   server   API 服务      → server
   worker   同步 Worker   → worker
+  workflow-worker 工作流 Worker → workflow-worker
   quant    回测服务      → quant
   web      前端          → nginx
 
@@ -31,7 +32,7 @@ EOF
 
 case "${1:-all}" in
   -h|--help) usage; exit 0 ;;
-  all|db|server|worker|quant|web) TARGET="${1:-all}" ;;
+  all|db|server|worker|workflow-worker|quant|web) TARGET="${1:-all}" ;;
   *) fail "未知模块：${1}（使用 --help 查看用法）" ;;
 esac
 

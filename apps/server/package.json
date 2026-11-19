@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node --import @oxc-node/core/register --watch ./src/main.ts",
     "start": "node --import @oxc-node/core/register ./src/main.ts",
+    "test": "node --import @oxc-node/core/register --test \"src/**/*.test.ts\"",
+    "test:db": "node --import @oxc-node/core/register --test --test-concurrency=1 src/db/workflow-schema.test.ts src/services/workflow-service.integration.ts src/workers/workflow-worker.integration.ts",
     "check-types": "tsgo -b --noEmit",
     "lint": "oxlint .",
     "format": "oxfmt",
@@ -25,8 +27,10 @@
     "backfill:kline1d": "node --import @oxc-node/core/register scripts/backfill-kline1d.ts",
     "backfill:constituent-symbol": "node --import @oxc-node/core/register scripts/backfill-constituent-symbol.ts",
     "verify:route-a": "node --import @oxc-node/core/register scripts/verify-route-a.ts",
+    "governance:check": "node --env-file-if-exists=../../.env.local --import @oxc-node/core/register scripts/check-governance.ts",
     "sync:kline": "node --import @oxc-node/core/register scripts/sync-kline.ts",
     "worker:sync": "node --import @oxc-node/core/register src/workers/sync-worker/index.ts",
+    "worker:workflow": "node --import @oxc-node/core/register src/workers/workflow-worker/index.ts",
     "worker:feature": "node --import @oxc-node/core/register src/workers/feature-worker/index.ts",
     "worker:kline": "node --import @oxc-node/core/register src/workers/kline-worker/index.ts"
   },

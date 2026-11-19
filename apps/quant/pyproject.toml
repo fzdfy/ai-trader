@@ -11,4 +11,8 @@ dependencies = [
     "numpy>=1.24.0",
     "structlog>=26.1.0",
     "mootdx>=0.10",
+    "pymupdf>=1.25.0",
+    "pytesseract>=0.3.13",
+    "pillow>=11.0.0",
+    "fastembed>=0.7.0",
 ]

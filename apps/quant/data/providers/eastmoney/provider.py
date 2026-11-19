@@ -214,6 +214,42 @@ def _em_get(
     raise RuntimeError(f"eastmoney request failed: {url}")
 
 
+def _em_get_bytes(
+    url: str,
+    params: dict | None = None,
+    headers: dict | None = None,
+    timeout: int = 30,
+    attempts: int = _EM_MAX_ATTEMPTS,
+) -> bytes:
+    """东财统一二进制请求入口：与 `_em_get` 共用限流、重试和熔断边界。"""
+    global _em_last_call
+    req_url = f"{url}?{urllib.parse.urlencode(params)}" if params else url
+    if _em_breaker_tripped():
+        raise RuntimeError(f"eastmoney circuit breaker open (cooling down): {url}")
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with _em_lock:
+                wait = _EM_MIN_INTERVAL - (time.time() - _em_last_call)
+                if wait > 0:
+                    time.sleep(wait + random.uniform(0.1, 0.5))
+                _em_last_call = time.time()
+                req = urllib.request.Request(req_url, headers={"User-Agent": UA, **(headers or {})})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = resp.read()
+        except Exception as e:  # noqa: BLE001
+            last_error = e
+            _em_breaker_on_failure()
+            if attempt < attempts:
+                time.sleep(1.0 * attempt + random.uniform(0.2, 0.8))
+            continue
+        _em_breaker_on_success()
+        return data
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"eastmoney binary request failed: {url}")
+
+
 # 行情 clist 主机：统一走 push2delay（延迟行情，较实时 push2 更稳、不易 RemoteDisconnected）。
 # push2delay / push2 / push2his 同属一个 WAF，且该 WAF 是「按路径」而非「按出口 IP」拦截：
 # 同一出口 IP 下根路径 / 返回 404、ulist/stock/slist 等接口 200，而 `clist/get`、`kline/get`

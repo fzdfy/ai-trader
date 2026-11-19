@@ -13,7 +13,7 @@
 | 模块 | 路径 | 技术 | 本地端口 |
 |---|---|---|---|
 | 前端 | `apps/web` | React + Vite；nginx 代理 | 9080（容器内 80） |
-| API | `apps/server` | Hono；含 sync-worker / feature-worker 定时任务 | 3001 |
+| API | `apps/server` | Hono；含 sync / feature / workflow worker | 3001 |
 | 回测 | `apps/quant` | Python FastAPI + akquant | 3002 |
 | 数据库 | — | PostgreSQL + pgvector | 5432 |
 | 日志栈 | `docker/` | Grafana Alloy → Loki → Grafana | Loki 3100 / Alloy 12345 / Grafana 3010 |
@@ -22,7 +22,7 @@
 
 ## 2. 容器拓扑
 
-- **定义**：`docker-compose.yml` 定义 8 个服务（nginx / server / worker / quant / postgres / loki / alloy / grafana）。
+- **定义**：`docker-compose.yml` 定义 9 个服务（nginx / server / worker / workflow-worker / quant / postgres / loki / alloy / grafana）。
 - **位置**：`/docker-compose.yml`；各服务镜像由 `docker/web.Dockerfile`、`docker/server.Dockerfile`、`docker/quant.Dockerfile`、`docker/postgres.Dockerfile` 构建。
 - **关键事实**：
 
@@ -36,11 +36,13 @@ flowchart LR
   Q --> PG
   W["worker（aitrader-worker）<br/>无对外端口"] --> PG
   W --> Q
+  WW["workflow-worker（aitrader-workflow-worker）<br/>无对外端口"] --> PG
+  WW --> Q
   S -. "QUANT_URL=http://quant:3002" .-> Q
 ```
 
-- 服务依赖：`nginx → server → postgres`；`worker → postgres`；`quant → postgres`。
-- `server` 的 `QUANT_URL=http://quant:3002`，`worker` 同样经 `quant` 取数/落库（容器网络用服务名互访，替换 localhost）。
+- 服务依赖：`nginx → server → postgres`；`worker → postgres`；`workflow-worker → postgres + quant`；`quant → postgres`。
+- `server` 的 `QUANT_URL=http://quant:3002`，`worker` 与 `workflow-worker` 同样经容器服务名访问 quant。
 - **来源**：`docker-compose.yml`、README.md「架构」。
 
 ## 3. 端口与容器清单
@@ -54,6 +56,7 @@ flowchart LR
 | nginx | `aitrader-nginx` | `9080:80` | server | 前端静态 + /api 反代 |
 | server | `aitrader-server` | `3001:3001` | postgres | Hono API |
 | worker | `aitrader-worker` | 无 | postgres | `command: pnpm --prefix apps/server worker:sync` |
+| workflow-worker | `aitrader-workflow-worker` | 无 | postgres / quant | `command: pnpm --prefix apps/server worker:workflow` |
 | quant | `aitrader-quant` | `3002:3002` | postgres | FastAPI + akquant |
 | postgres | `aitrader-postgres` | `5432:5432` | — | 卷 `pgdata` |
 | loki | `aitrader-loki` | `3100:3100` | — | `grafana/loki:3.3.2` |
@@ -89,6 +92,7 @@ flowchart LR
     | `./deploy/start-db.sh` | 数据库 | `aitrader-postgres` | 5432 | — |
     | `./deploy/start-server.sh` | API 服务 | `aitrader-server` | 3001 | postgres |
     | `./deploy/start-worker.sh` | 数据同步 Worker | `aitrader-worker` | — | postgres |
+    | `./deploy/start-workflow-worker.sh` | 工作流 Worker | `aitrader-workflow-worker` | — | postgres / quant |
     | `./deploy/start-quant.sh` | 回测微服务 | `aitrader-quant` | 3002 | postgres |
     | `./deploy/start-web.sh` | 前端（nginx） | `aitrader-nginx` | 9080 | server |
 

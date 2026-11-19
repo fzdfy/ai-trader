@@ -161,14 +161,14 @@ export function buttonClassNames({
 
 const BADGE_VARIANTS: Record<string, string> = {
   neutral: "bg-app-surface text-app-muted",
-  default: "bg-primary/10 text-primary",
+  default: "bg-primary/10 text-app-ink",
   success: "bg-app-success-soft text-app-success",
-  warning: "bg-app-warning-soft text-app-warning",
+  warning: "bg-app-warning-soft text-app-ink",
   error: "bg-destructive/10 text-destructive",
   destructive: "bg-destructive/10 text-destructive",
-  info: "bg-primary/10 text-primary",
-  blue: "bg-primary/10 text-primary",
-  accent: "bg-primary/10 text-primary",
+  info: "bg-primary/10 text-app-ink",
+  blue: "bg-primary/10 text-app-ink",
+  accent: "bg-primary/10 text-app-ink",
 };
 
 export function badgeClassNames(variant = "neutral"): string {

@@ -10,6 +10,8 @@ import { ensureFactorsSeeded } from "./db/seed";
 import { jobRun } from "./db/schema";
 import { requestId } from "./middleware/request-id";
 import { createLogger } from "./lib/logger";
+import { handleHttpError } from "./lib/http-error";
+import { reconcileAdminAudits } from "./lib/admin-audit";
 
 const log = createLogger("server");
 const app = new Hono();
@@ -31,6 +33,7 @@ async function cleanupInterruptedSyncs(): Promise<void> {
           isNull(jobRun.finishedAt),
         ),
       );
+    await reconcileAdminAudits();
   } catch (error) {
     log.error({ err: error }, "cleanup interrupted syncs failed");
   }
@@ -65,10 +68,10 @@ app.notFound((c) => c.json({ error: "not_found", path: c.req.path }, 404));
 // 统一错误出口：未捕获异常返回 JSON，并把 error_type 留给访问日志中间件记录
 app.onError((err, c) => {
   log.error({ err, error_type: err.name, path: c.req.path }, "unhandled error");
-  return c.json({ error: "internal_error", message: "服务器内部错误" }, 500);
+  return handleHttpError(err, c);
 });
 
-const port = 3001;
+const port = Number(process.env.PORT) || 3001;
 
 serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, async () => {
   // 启动时清理进程重启遗留的 running 手动同步（async，不阻塞监听）

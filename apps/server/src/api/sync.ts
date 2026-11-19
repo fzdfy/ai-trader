@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
 import { db } from "../db";
 import { sql, and, eq, isNull, isNotNull, desc, count, gte, inArray, max } from "drizzle-orm";
 import { ok, badRequest } from "../lib/response";
@@ -6,11 +8,33 @@ import { jobRun } from "../db/schema";
 import { createLogger } from "../lib/logger";
 import { getLogContext, runWithLogContext } from "../lib/request-context";
 import { localDateStr, getSyncTradeDate } from "../workers/sync-worker/calendar";
-import { runManualSync, cleanupStaleRuns } from "../workers/sync-worker/runner";
+import {
+  runManualSync,
+  cleanupStaleRuns,
+  RUNNERS,
+  wrapJob,
+  MANUAL_SYNC_JOBS,
+  type PipeName,
+} from "../workers/sync-worker/runner";
+import type { AdminEnv } from "../lib/admin-access";
+import { finishAdminAudit, insertAdminAudit } from "../lib/admin-audit";
+import { getSyncDependency, validateRetryCandidate } from "../lib/sync-retry";
+import { withAdminSyncLock } from "../lib/admin-sync-lock";
 
-const syncRoute = new Hono();
+const syncRoute = new Hono<AdminEnv>();
 
 const log = createLogger("sync");
+
+async function finishAuditSafely(
+  auditId: number,
+  result: Parameters<typeof finishAdminAudit>[1],
+): Promise<void> {
+  try {
+    await finishAdminAudit(auditId, result);
+  } catch (error) {
+    log.error({ err: error, audit_id: auditId }, "finish admin audit failed");
+  }
+}
 
 /** 已知同步模块元信息（与 sync-worker cron-config 对齐） */
 export const SYNC_MODULES: { jobType: string; name: string }[] = [
@@ -206,6 +230,7 @@ syncRoute.get("/modules", async (c) => {
     return {
       jobType: m.jobType,
       name: m.name,
+      dependsOn: getSyncDependency(m.jobType),
       status: latest?.status ?? "never",
       total: latest?.total ?? null,
       processed: latest?.processed ?? null,
@@ -231,6 +256,7 @@ syncRoute.get("/modules", async (c) => {
     modules.push({
       jobType,
       name: jobType,
+      dependsOn: getSyncDependency(jobType),
       status: latest.status,
       total: latest.total ?? null,
       processed: latest.processed ?? null,
@@ -251,49 +277,223 @@ syncRoute.get("/modules", async (c) => {
   return ok(c, { modules, lastSuccessAt });
 });
 
+syncRoute.post("/modules/:jobType/retry", async (c) => {
+  const currentUser = c.get("currentUser");
+  if (!currentUser) {
+    throw new HTTPException(401, { message: "请先登录" });
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = z
+    .object({
+      reason: z.string().trim().min(1).max(500),
+    })
+    .safeParse(body);
+  if (!parsed.success) {
+    return badRequest(c, "请填写重试原因");
+  }
+
+  await cleanupStaleRuns();
+  const jobType = c.req.param("jobType");
+  const reservation = await withAdminSyncLock(async (tx) => {
+    const [latest] = await tx
+      .select({ status: jobRun.status })
+      .from(jobRun)
+      .where(eq(jobRun.jobType, jobType))
+      .orderBy(desc(jobRun.id))
+      .limit(1);
+    const activeJobs = await tx
+      .select({ jobType: jobRun.jobType })
+      .from(jobRun)
+      .where(and(eq(jobRun.status, "running"), isNull(jobRun.finishedAt)));
+
+    const definition = MANUAL_SYNC_JOBS.find((job) => job.name === jobType);
+    const [upstream] = definition?.dependsOn
+      ? await tx
+          .select({ status: jobRun.status })
+          .from(jobRun)
+          .where(eq(jobRun.jobType, definition.dependsOn))
+          .orderBy(desc(jobRun.id))
+          .limit(1)
+      : [];
+    const validation = validateRetryCandidate(
+      jobType,
+      latest ?? null,
+      activeJobs.map((job) => job.jobType),
+      upstream?.status ?? null,
+    );
+    if (!validation.allowed) {
+      return { ok: false as const, ...validation };
+    }
+
+    const auditId = await insertAdminAudit({
+      actorUserId: currentUser.id,
+      action: "sync_retry",
+      targetJobType: jobType,
+      reason: parsed.data.reason,
+      requestId: getLogContext()?.requestId ?? crypto.randomUUID(),
+      inputJson: { jobType },
+    });
+    try {
+      const [reserved] = await tx
+        .insert(jobRun)
+        .values({
+          jobType,
+          status: "running",
+          startedAt: new Date(),
+          tradeDate: await getSyncTradeDate(),
+        })
+        .returning({ id: jobRun.id });
+      const runId = reserved?.id;
+      if (runId == null) throw new Error("创建重试任务失败");
+      await finishAuditSafely(auditId, {
+        status: "running",
+        jobRunId: runId,
+      });
+      return { ok: true as const, auditId, runId };
+    } catch (error) {
+      await finishAuditSafely(auditId, {
+        status: "failed",
+        error: (error as Error)?.message ?? "创建重试任务失败",
+      });
+      throw error;
+    }
+  });
+  if (!reservation.ok) {
+    return c.json(
+      { success: false, error: reservation.reason },
+      reservation.status,
+    );
+  }
+
+  const parentRequestId = getLogContext()?.requestId;
+  void runWithLogContext(
+    {
+      requestId: crypto.randomUUID(),
+      ...(parentRequestId ? { parentRequestId } : {}),
+      source: "manual",
+      jobName: jobType,
+    },
+    async () => {
+      const ok = await wrapJob(
+        jobType,
+        RUNNERS[jobType as PipeName],
+        {
+          source: "manual",
+          reservedRunId: reservation.runId,
+        },
+      )();
+      const [finished] = await db
+        .select({ error: jobRun.error })
+        .from(jobRun)
+        .where(eq(jobRun.id, reservation.runId))
+        .limit(1);
+      await finishAuditSafely(reservation.auditId, {
+        status: ok ? "success" : "failed",
+        jobRunId: reservation.runId,
+        ...(ok ? {} : { error: finished?.error ?? "重试未执行" }),
+      });
+    },
+  );
+
+  return ok(c, { accepted: true });
+});
+
 // POST /api/v1/sync/run — 手动触发全量数据同步（板块 + 板块K线 + 成分股 + 日线 + 周期线 + 特征 + 资金流 + 涨停池）
 // 异步触发：请求立即返回，任务在后台执行（避免长任务悬挂 HTTP 连接），
 // 前端通过 /sync/modules 轮询看到进度与最终状态。
 syncRoute.post("/run", async (c) => {
-  await cleanupStaleRuns();
-
-  // 防重入：存在未结束的 sync-manual 任务则拒绝（基于 job_run 状态，跨请求/进程一致）
-  const active = await db
-    .select({ id: jobRun.id })
-    .from(jobRun)
-    .where(and(eq(jobRun.jobType, "sync-manual"), eq(jobRun.status, "running"), isNull(jobRun.finishedAt)))
-    .limit(1);
-  if (active.length > 0) {
-    return badRequest(c, "已有同步任务进行中，请稍候");
+  const currentUser = c.get("currentUser");
+  if (!currentUser) {
+    throw new HTTPException(401, { message: "请先登录" });
   }
+
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = z
+    .object({
+      reason: z.string().trim().min(1).max(500).optional(),
+    })
+    .safeParse(body);
+  if (!parsed.success) {
+    return badRequest(c, "操作原因格式不正确");
+  }
+
+  await cleanupStaleRuns();
 
   // 幂等：今日已成功过则默认拒绝，避免重复全市场拉取；?force=true 可强制重跑
   const force = c.req.query("force") === "true";
-  if (!force && (await hasManualSuccessToday())) {
-    return badRequest(c, "今日已手动同步成功，如需重跑请加 ?force=true");
-  }
+  const reservation = await withAdminSyncLock(async (tx) => {
+    const active = await tx
+      .select({ id: jobRun.id })
+      .from(jobRun)
+      .where(
+        and(
+          eq(jobRun.jobType, "sync-manual"),
+          eq(jobRun.status, "running"),
+          isNull(jobRun.finishedAt),
+        ),
+      )
+      .limit(1);
+    if (active.length > 0) {
+      return { ok: false as const, message: "已有同步任务进行中，请稍候" };
+    }
+    if (!force && (await hasManualSuccessToday())) {
+      return {
+        ok: false as const,
+        message: "今日已手动同步成功，如需重跑请加 ?force=true",
+      };
+    }
+    const workerActive = await tx
+      .select({ jobType: jobRun.jobType })
+      .from(jobRun)
+      .where(
+        and(
+          inArray(jobRun.jobType, WORKER_MARKET_JOBS),
+          eq(jobRun.status, "running"),
+          isNull(jobRun.finishedAt),
+        ),
+      )
+      .limit(1);
+    if (workerActive.length > 0) {
+      return {
+        ok: false as const,
+        message: `行情同步进行中（${workerActive[0]!.jobType}），请稍候`,
+      };
+    }
 
-  // 与 worker 定时任务互斥：worker 正在跑同一批行情管道时拒绝，避免跨进程并发写
-  const workerActive = await db
-    .select({ jobType: jobRun.jobType })
-    .from(jobRun)
-    .where(and(inArray(jobRun.jobType, WORKER_MARKET_JOBS), eq(jobRun.status, "running"), isNull(jobRun.finishedAt)))
-    .limit(1);
-  if (workerActive.length > 0) {
-    return badRequest(c, `行情同步进行中（${workerActive[0]!.jobType}），请稍候`);
+    const auditId = await insertAdminAudit({
+      actorUserId: currentUser.id,
+      action: "sync_run",
+      reason: parsed.data.reason ?? "手动同步",
+      requestId: getLogContext()?.requestId ?? crypto.randomUUID(),
+      inputJson: { force, scope: "manual-sync" },
+    });
+    try {
+      const inserted = await tx
+        .insert(jobRun)
+        .values({
+          jobType: "sync-manual",
+          status: "running",
+          startedAt: new Date(),
+          tradeDate: await getSyncTradeDate(),
+        })
+        .returning({ id: jobRun.id });
+      const runId = inserted[0]?.id;
+      if (runId == null) throw new Error("创建同步任务失败");
+      await finishAuditSafely(auditId, { status: "running", jobRunId: runId });
+      return { ok: true as const, auditId, runId };
+    } catch (error) {
+      await finishAuditSafely(auditId, {
+        status: "failed",
+        error: (error as Error)?.message ?? "创建同步任务失败",
+      });
+      throw error;
+    }
+  });
+  if (!reservation.ok) {
+    return badRequest(c, reservation.message);
   }
-
-  const inserted = await db
-    .insert(jobRun)
-    .values({
-      jobType: "sync-manual",
-      status: "running",
-      startedAt: new Date(),
-      // 落库 tradeDate：与管道级 hasSuccessToday / hasManualSuccessToday 的幂等口径一致
-      tradeDate: await getSyncTradeDate(),
-    })
-    .returning({ id: jobRun.id });
-  const runId = inserted[0]?.id ?? null;
+  const { auditId, runId } = reservation;
 
   // 后台执行，不阻塞请求；结束后落终态（success / failed）
   // 建立独立日志链路（source=manual），并以触发本次同步的 HTTP 请求为父链路，
@@ -323,6 +523,11 @@ syncRoute.post("/run", async (c) => {
             })
             .where(eq(jobRun.id, runId));
         }
+        await finishAuditSafely(auditId, {
+          status: "success",
+          jobRunId: runId,
+          resultJson: { executed, skipped },
+        });
         log.info({ job_run_id: runId, executed: executed.length, skipped: skipped.length }, "manual sync done");
       } catch (error) {
         log.error({ err: error, error_type: (error as Error)?.name ?? "Error" }, "manual sync failed");
@@ -336,6 +541,11 @@ syncRoute.post("/run", async (c) => {
             })
             .where(eq(jobRun.id, runId));
         }
+        await finishAuditSafely(auditId, {
+          status: "failed",
+          jobRunId: runId,
+          error: (error as Error)?.message ?? "同步失败",
+        });
       }
     },
   );

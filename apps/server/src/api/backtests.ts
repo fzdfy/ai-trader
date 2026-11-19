@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import { ok, badRequest } from "../lib/response";
+import { ok } from "../lib/response";
+import { runBacktest } from "../services/backtest-service.ts";
+import { WorkflowActionError } from "../services/workflow-action-utils.ts";
+import { DataGovernanceGateError } from "../lib/data-governance/quality-gate.ts";
 
 const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
 
@@ -21,8 +24,7 @@ backtestsRoute.get("/factors", async (c) => {
 
 // POST /api/v1/backtests/run
 backtestsRoute.post("/run", async (c) => {
-  const body = await c.req.json();
-  const { symbol, strategy, params, config, startDate, endDate, asOf } = body as {
+  const body = (await c.req.json()) as {
     symbol?: string;
     strategy?: string;
     params?: Record<string, number>;
@@ -32,32 +34,29 @@ backtestsRoute.post("/run", async (c) => {
     asOf?: string;
   };
 
-  if (!symbol) return badRequest(c, "symbol is required");
-  if (!strategy) return badRequest(c, "strategy is required");
-
-  const res = await fetch(`${QUANT_URL}/api/v1/backtests/run`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      symbol,
-      strategy,
-      params: params ?? {},
-      config,
-      startDate,
-      endDate,
-      asOf,
-    }),
-  });
-  const json = (await res.json()) as { detail?: string } & Record<string, unknown>;
-
-  if (!res.ok) {
-    return c.json(
-      { success: false, error: json.detail ?? "Backtest failed" },
-      res.status as 400 | 404 | 500,
-    );
+  try {
+    const result = await runBacktest({
+      symbol: body.symbol ?? "",
+      strategy: body.strategy ?? "",
+      params: body.params,
+      config: body.config,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      asOf: body.asOf,
+    });
+    return ok(c, result);
+  } catch (error) {
+    if (error instanceof DataGovernanceGateError) {
+      return c.json(
+        { success: false, error: error.message, data: error.decision },
+        409,
+      );
+    }
+    if (error instanceof WorkflowActionError) {
+      return c.json({ success: false, error: error.message }, error.status);
+    }
+    throw error;
   }
-
-  return ok(c, json);
 });
 
 export { backtestsRoute };

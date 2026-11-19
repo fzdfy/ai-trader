@@ -1,88 +1,243 @@
-# 术语表（glossary）
+# AI Trader 业务与设计术语
 
-> ai-trader 中高频出现的领域词、架构词与平台专有词，按主题分组。
-> 每组骨架：**术语 / 英文或缩写 / 释义 / 位置**。
-> 内容全部取自仓库既有事实（[AGENTS.md](../AGENTS.md)、[docs/](./README.md)、`apps/quant/`、`apps/server/`），不含推测。
-> 返回导航：[docs/README.md](./README.md)。
+项目内共享的业务与设计语言。此处只定义项目特有概念，不收录通用编程术语。
 
-## 1. 架构与模块
+架构、平台和实现细节见 [technical-glossary.md](./technical-glossary.md)；返回 [docs 导航](./README.md)。
 
-| 术语 | 英文 / 缩写 | 释义 | 位置 |
-|---|---|---|---|
-| monorepo | — | pnpm 工作区单仓多包，四个应用模块 + 一个数据库 + 一套日志栈 | `apps/`、`packages/`（[architecture.md:7-21](file:///Users/wukailin/Documents/study/ai-trader/docs/architecture.md#L7-L21)） |
-| 前端 | web | React + Vite + TanStack Router + Preline + Tailwind CSS，经 nginx 托管 | `apps/web`（[README.md:11](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L11)） |
-| API | server | Hono + Drizzle，含 sync-worker / feature-worker 定时任务 | `apps/server`（[AGENTS.md](../AGENTS.md)） |
-| 回测服务 | quant | Python FastAPI + akquant | `apps/quant`（[AGENTS.md](../AGENTS.md)） |
-| 数据同步 Worker | worker / sync-worker | 定时（cron）拉取数据写入 PostgreSQL | `apps/server/src/workers/`（[architecture.md:56](file:///Users/wukailin/Documents/study/ai-trader/docs/architecture.md#L56)） |
-| 日志栈 | Alloy → Loki → Grafana | 采集栈，统一收集容器日志与 nginx 访问日志 | `docker/`（[architecture.md:99-116](file:///Users/wukailin/Documents/study/ai-trader/docs/architecture.md#L99-L116)） |
+## Language
 
-## 2. 三条数据链路
+**Standard**:
+长期维护、可审查的工程事实，保存在 `docs/standards/`。
+_Avoid_: Convention document, wiki note
 
-| 术语 | 英文 / 缩写 | 释义 | 位置 |
-|---|---|---|---|
-| A 取数层 | — | 实时抓取，不落库，供前端与 agent 使用 | `apps/quant/data/`（[AGENTS.md](../AGENTS.md)） |
-| B 入库层 | — | cron 拉取后写入 PostgreSQL 的管道 | `apps/server/src/workers/sync-worker/pipes/`（[AGENTS.md](../AGENTS.md)） |
-| C 回测读取层 | — | 只读库内复权视图/表函数，回测引擎唯一数据入口 | `apps/quant/data_loader.load_kline`（[AGENTS.md](../AGENTS.md)） |
-| 完整链路 | — | `sync-worker → quant /api/v1/data/kline → PostgreSQL → load_kline → 回测引擎` | （[AGENTS.md](../AGENTS.md)） |
+**Agent Skill**:
+供 Agent 在特定阶段加载的可执行工作方法，保存在 `.agents/skills/`。
+_Avoid_: Prompt, rule file
 
-## 3. 复权与 PIT 模型
+**OpenSpec Change**:
+单次系统行为变更的提案、规格、设计、任务与验证记录。
+_Avoid_: Feature folder, ticket
 
-| 术语 | 英文 / 缩写 | 释义 | 位置 |
-|---|---|---|---|
-| PIT | Point-In-Time | 时点一致：只用该历史时刻**已知**的信息，消除前视偏差 | （[README.md:77](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L77)） |
-| as_of | — | 回测读取指定的「站在该历史时刻」的时间轴；`None` 时取最新快照 | [data_loader.py:36-40](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data_loader.py#L36-L40) |
-| known_at | — | `adj_factor` 快照的已知时刻，append-only；PIT 按 `known_at <= as_of` 取快照 | （[README.md:69](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L69)） |
-| 前复权 | qfq | 锚定最新交易日，历史段会被新分红反复重锚；仅供展示，禁止用于回测 | （[invariants.md:81-87](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L81-L87)） |
-| 后复权 | hfq | 锚定上市首日、不改写历史价位，历史序列不随未来事件变化；回测默认口径 | （[invariants.md:81-87](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L81-L87)） |
-| 分段仿射模型 | — | `adj_factor` 的复权算法：qfq 用 `qfq_ratio·raw + qfq_offset`，hfq 用 `scale·qfq + hfq_base` | （[README.md:66-74](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L66-L74)） |
-| 原始价基表 | `bar1d_raw` | 存储原始价（`adjust=none`）的基表 | （[data-pipeline.md:90-98](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L90-L98)） |
-| 前复权视图 | `bar1d_qfq` | 由 `bar1d_raw` + `adj_factor` 派生的前复权视图 | （[data-pipeline.md:90-98](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L90-L98)） |
-| 后复权视图 | `bar1d_hfq` | 由 `bar1d_raw` + `adj_factor` 派生的后复权视图 | （[data-pipeline.md:90-98](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L90-L98)） |
-| as-of 表函数 | `bar1d_qfq_at` / `bar1d_hfq_at` | 传 `as_of` 时改走的历史复权快照表函数 | （[data-pipeline.md:96-100](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L96-L100)） |
-| 复权因子表 | `adj_factor` | append-only、带 `known_at` 的复权因子快照表 | （[README.md:69](file:///Users/wukailin/Documents/study/ai-trader/docs/README.md#L69)） |
-| 前视偏差 | look-ahead bias | 回测用到「当时尚未发生」的信息（如未来复权因子、未来价） | （[invariants.md:104-106](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L104-L106)） |
-| 数据读取入口 | `load_kline` | C 回测读取层核心函数，输出契约固定 | [data_loader.py:20-29](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data_loader.py#L20-L29) |
-| 原始价前收 | `load_raw_close` | 用于涨跌停判定的原始价收盘序列（不能用后复权价近似） | （[invariants.md:146](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L146)） |
+**PRD-lite**:
+写在变更 proposal 中的精简产品需求，明确目标用户、场景、成功指标、非目标和验收标准。
+_Avoid_: Technical design, Implementation plan
 
-## 4. 取数层（A 层）
+**Product Requirements Document**:
+面向跨团队或多阶段产品需求的完整需求文档，是目标、范围、用户价值和验收口径的产品事实源。
+_Avoid_: PRD-lite, Technical design
 
-| 术语 | 英文 / 缩写 | 释义 | 位置 |
-|---|---|---|---|
-| 取数协议 | `MarketProvider` | 各数据源统一实现的协议；调用方只面向该协议编程 | `apps/quant/data/base.py`（[data-pipeline.md:42](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L42)） |
-| 能力常量 | capability | 端点的能力标识，如 `CAPABILITY_KLINE` / `CAPABILITY_QUOTE` / `CAPABILITY_TRANSACTION` / `CAPABILITY_ADJUST_FACTOR` 及信号/资金/筹码层各项 | `apps/quant/data/base.py`（[data-pipeline.md:58](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L58)） |
-| 注册表 | registry | 取数层的路由 / 降级唯一配置入口 | `apps/quant/data/registry.py`（[invariants.md:122-128](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L122-L128)） |
-| 降级链 | fallback chain | 同一能力的多源有序列表，按顺序依次调用，全失败才抛最后一个异常 | `registry.call_with_fallback`（[data-pipeline.md:152-164](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L152-L164)） |
-| 独有单源 | — | 仅一个源提供的能力（无备胎），如东财/同花顺的信号/资金/筹码层 | （[data/README.md:275-280](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data/README.md#L275-L280)） |
-| 东财串行限流 | `em_get` / `_em_get` | 东财唯一请求入口：统一 UA + 串行限流 + 内建重试 | `apps/quant/data/providers/eastmoney/provider.py`（[data/README.md:284-287](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data/README.md#L284-L287)） |
-| 熔断 | circuit breaker | 连续失败达阈值（5）即跳闸，冷却期内东财请求快速失败上抛 | （[data/README.md:287](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data/README.md#L287)） |
-| 锁外退避 | — | 重试退避睡眠放在串行锁之外，避免 head-of-line blocking 雪崩 | （[data/README.md:286](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data/README.md#L286)） |
-| 延迟行情主机 | `push2delay` | 东财行情类端点统一走的主机（约 15 分钟延迟，更稳） | （[invariants.md:40-46](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L40-L46)） |
-| 历史行情主机 | `push2his` | 东财历史 K 线 / 日线资金流专用主机 | （[data/README.md:289](file:///Users/wukailin/Documents/study/ai-trader/apps/quant/data/README.md#L289)） |
-| 实时行情主机 | `push2` | 东财实时行情主机（并发下易 `RemoteDisconnected`，行情类不用） | （[invariants.md:40-46](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L40-L46)） |
+**Technical Design Review**:
+对技术方案的接口、数据、安全、性能、可测试性、回滚和替代方案进行批准或退回的评审门禁。
+_Avoid_: Visual review, Code review
 
-## 5. 回测与策略
+**Test Plan**:
+编码前定义的测试范围、失败测试、验证命令和预期结果。
+_Avoid_: Test report, Manual checklist
 
-| 术语 | 英文 / 缩写 | 释义 | 位置 |
-|---|---|---|---|
-| 回测框架 | akquant | 回测引擎依赖，`pyproject.toml` 依赖 `akquant>=0.3.22` | `apps/quant/`（[AGENTS.md](../AGENTS.md)） |
-| 策略注册表 | — | 内置策略集合：`ma_cross` / `rsi` / `macd` / `bollinger` | `apps/quant/strategies/__init__.py`（[AGENTS.md](../AGENTS.md)） |
-| python_plain loader | — | akquant 的纯 Python 策略加载器，**只接受文件路径**（传 bytes 会 TypeError），动态模块名带 uuid 后缀 | `apps/quant/`（[AGENTS.md](../AGENTS.md)） |
-| 目标权重契约 | `target_weights` | 研究侧产出、执行侧消费的数据契约（date / symbol / target_weight） | （[AGENTS.md](../AGENTS.md)） |
-| 大 QMT / MiniQMT | QMT | 券商交易终端：大 QMT 为 Python 3.6.8 + GBK + `ContextInfo` 封闭沙箱，MiniQMT 无回测引擎 | （[AGENTS.md](../AGENTS.md)） |
-| PTrade | — | 券商交易平台，各券商版本 API 不一致 | （[AGENTS.md](../AGENTS.md)） |
+**Test Report**:
+实施完成后记录通过、失败、跳过、未覆盖项和环境阻塞的验证证据。
+_Avoid_: Test plan, Completion claim
 
-## 6. 定时任务与可观测性
+**Prototype Baseline**:
+经确认后可复用的原型版本，保存在原型目录的 `initial/`。
+_Avoid_: Final mockup, screenshot
 
-| 术语 | 英文 / 缩写 | 释义 | 位置 |
-|---|---|---|---|
-| 任务记录表 | `job_run` | 任务执行记录表，**单数**；写成 `job_runs` 会报 `relation does not exist` | `apps/server/src/db/schema/ops.ts`（[AGENTS.md](../AGENTS.md)） |
-| 僵尸任务 | stale run | 超过 `STALE_RUN_MS` 仍「在跑」的记录，被清理标记 | （[AGENTS.md](../AGENTS.md)） |
-| 僵尸阈值 | `STALE_RUN_MS = 3h` | 僵尸判定窗口，且以 `startedAt` 判活 | （[AGENTS.md](../AGENTS.md)） |
-| 非正常结束标记 | interrupted (stale / worker restart / server restart) | 三种来源不同的中断标记，排查前先分清来源 | （[AGENTS.md](../AGENTS.md)） |
-| 定时任务上下文 | `wrapJob` | 为定时任务建追踪上下文（`source=scheduled|manual`） | `apps/server/src/lib/`（[AGENTS.md](../AGENTS.md)） |
-| 全链路追踪 | AsyncLocalStorage | 贯穿 HTTP 入口与定时任务的上下文传播机制 | `apps/server/src/lib/request-context.ts`（[AGENTS.md](../AGENTS.md)） |
-| 追踪标识 | `request_id` / `job_run_id` | 透传到 quant 的请求头（`X-Request-Id` / `X-Job-Run-Id`），归集接口与任务日志 | （[AGENTS.md](../AGENTS.md)） |
-| 结构化元数据 | structured metadata | Loki 存储高基数字段的方式（不做 label，防索引爆炸） | （[AGENTS.md](../AGENTS.md)） |
-| 日志库 | pino | 日志库，生产 JSON、开发 pino-pretty | `apps/server/src/lib/logger.ts`（[AGENTS.md](../AGENTS.md)） |
-| 服务器推送事件 | SSE | AI Chat 流式响应，nginx 需 `proxy_buffering off` | `docker/nginx.conf`（[architecture.md:73](file:///Users/wukailin/Documents/study/ai-trader/docs/architecture.md#L73)） |
-| 分区维护 | `partition-maint` | 巡检 `bar1d_raw` 年度分区的定时任务 | （[data-pipeline.md:79](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L79)） |
+**Prototype Exploration**:
+从基准或参考稿复制出的独立设计尝试，不覆盖原稿。
+_Avoid_: Draft, overwrite copy
+
+**Preline Theme**:
+通过语义 CSS 变量表达颜色、表面、边框和组件状态的统一视觉层。
+_Avoid_: Color palette, CSS theme file
+
+**Oil UI**:
+项目统一使用的 UI/UX 设计方法与视觉评审流程，负责确定视觉方向、检查设计冲突并依据真实浏览器截图打磨界面。
+_Avoid_: generic UI prompt
+
+**Super Administrator**:
+拥有数据基础设施查看和受控同步操作权限的最高应用角色；普通用户不具备数据管理权限。
+_Avoid_: Data Owner, System User
+
+**Data Management**:
+工作台内的超级管理员区域，统一组织数据源、数据表、数据同步、数据质量和操作审计。
+_Avoid_: Data Admin App, Sync Menu
+
+**Data Source Registry**:
+以代码和环境变量维护的 Provider、能力、接口、限流和降级配置，是数据源配置的事实源。
+_Avoid_: Editable Provider Table, Discovery Cache
+
+**Data Quality**:
+数据完整性、新鲜度、覆盖率、缺口和同步失败状态的集合，用于判断数据是否可信。
+_Avoid_: Sync Status, Market Sentiment
+
+**Data Governance**:
+围绕数据责任、关键等级、契约、质量、血缘、安全和生命周期的持续治理机制。
+_Avoid_: Data Management, Data Cleanup
+
+**Data Domain**:
+由共同业务语义和责任边界组织的一组数据资产，例如参考数据、市场原始数据或研究派生数据。
+_Avoid_: Table Group, Database Schema
+
+**Data Owner**:
+对某个数据域的最终可信度和使用边界负责的逻辑角色。
+_Avoid_: Super Administrator, Application Owner
+
+**Data Steward**:
+维护数据定义、契约、质量规则和变更影响的逻辑角色。
+_Avoid_: Data Operator, Developer
+
+**Data Operator**:
+执行同步、重试、事故处置等运行操作的逻辑角色。
+_Avoid_: Data Owner, Data Steward
+
+**Data Tier**:
+表达数据资产故障对业务影响程度的分级；Tier 0 是不可信时阻断研究运行的关键数据。
+_Avoid_: Priority, Importance
+
+**Data Contract**:
+数据资产对来源、粒度、主键、时间口径、字段、质量、SLA 和消费边界的稳定约定。
+_Avoid_: Schema, Description
+
+**Data Quality Rule**:
+对完整性、唯一性、有效性、一致性、新鲜度、覆盖率或时点正确性的可执行检查。
+_Avoid_: Quality Dashboard, Manual Check
+
+**Data Quality Result**:
+一次数据质量规则执行产生的通过、失败、指标值和上下文证据。
+_Avoid_: Data Quality, Job Status
+
+**Data Incident**:
+数据不可用、失真、断档、口径变化或质量门禁失败所形成的受追踪事件。
+_Avoid_: Application Error, Work Task
+
+**Data Lineage**:
+数据从来源经过同步和派生过程流向表、字段及消费方的可追溯关系。
+_Avoid_: Source List, Sync Dependency
+
+**Source Standard**:
+规定外部数据入口、字段、风险控制和降级规则的版本文档，例如 `a-stock-data`。
+_Avoid_: Runtime Provider, API Client
+
+**Source Standard Version**:
+被仓库固定并审计的外部来源标准版本、校验标识和兼容范围。
+_Avoid_: Latest Skill, Floating Version
+
+**Source Standard Watch**:
+由系统定时检查来源标准新版本并生成人工审阅任务的治理机制。
+_Avoid_: Workflow, Data Sync Job
+
+**Administrative Action Audit**:
+对超级管理员触发的同步、重试等受控操作记录操作者、范围、参数、任务和结果。
+_Avoid_: Application Log, Job Run
+
+**Workbench**:
+登录后的量化 AI 工作台外壳，承载侧栏、页面级导航、业务页面和助手入口。
+_Avoid_: Dashboard, homepage
+
+**Dashboard**:
+工作台默认页面 `/home`，用户界面名称为“每日看板”，集中展示数据可信度、市场变化、今日工作流和研究动作。
+_Avoid_: Workbench, homepage
+
+**Data Freshness**:
+某个数据域最近一次可信快照的日期与同步状态；不得用当前日历日期替代实际行情日期。
+_Avoid_: 今日数据, 实时行情
+
+**Market Temperature**:
+由涨停数量、最高连板、封单和换手等现有涨停池指标表达的市场投机强弱，不代表指数涨跌预测。
+_Avoid_: 市场情绪结论, 买卖信号
+
+**Market Mainline**:
+当前资金净流入、板块涨幅和代表个股共同指向的交易方向。
+_Avoid_: 热门推荐, 必涨方向
+
+**Stock Analysis Workbench**:
+面向单只股票的研究页面，把行情、技术、研报、机构预测、财务、资金、新闻公告和风险证据组织为可追溯的分析链路。
+_Avoid_: 个股详情, 买卖建议页
+
+**Research Report**:
+券商或研究机构发布的个股或行业研究报告，具有机构、分析师、评级、发布日期和原文来源。
+_Avoid_: 新闻, 快讯, AI 观点
+
+**Forecast Scenario**:
+在明确时间窗口、历史样本和模型版本下给出的概率化价格情景，不是确定性目标价。
+_Avoid_: 股价保证, 单一预测价
+
+**Risk Reference Range**:
+由技术支撑、历史估值分位和历史情景分布组合得到的风险位置区间，不承诺本金安全。
+_Avoid_: 安全价格, 保本价格
+
+**Research Report Chunk**:
+从研报原文按章节或页拆分出的可引用文本块，用于全文检索和语义检索。
+_Avoid_: 新闻片段, 模型摘要
+
+**Workbench Sidebar**:
+承载品牌、业务导航、数据状态和账户入口的常驻侧栏。
+_Avoid_: 顶部导航, 菜单栏
+
+**Page Header**:
+页面内容区内的标题和主要操作区域，不属于应用外壳。
+_Avoid_: 全局顶栏, 工作区顶栏
+
+**Page Navigation**:
+主内容区顶部持续显示可点击面包屑、数据状态和搜索入口的页面级导航条，不替代工作台侧栏或 Page Header。
+_Avoid_: 同级标签页, 全局品牌顶栏
+
+**Page Back Target**:
+构造子页面面包屑父级时使用的确定性上级页面，不作为独立返回按钮。
+_Avoid_: 浏览器上一页, 默认工作台
+
+**Assistant FAB**:
+打开 AI 助手的右下角悬浮按钮；没有真实未读状态时不显示通知点。
+_Avoid_: 问股菜单, 顶部入口
+
+**Assistant Drawer**:
+覆盖在当前页面右侧、带当前页面上下文条并可收起返回原页面的 AI 助手会话区域。
+_Avoid_: 助手页面, 新标签页
+
+**Assistant Workspace**:
+提供完整会话历史和管理能力的独立 AI 会话页面。
+_Avoid_: 助手抽屉, 悬浮助手
+
+**Workflow**:
+可复用的预设或自定义流程，定义触发器以及股票池、选股、回测、复盘或 AI 因子迭代步骤。
+_Avoid_: Work Task, Workflow Run, 今日工作流
+
+**Preset Workflow**:
+由系统提供的可复用 Workflow 模板，用户可直接运行或复制后定制。
+_Avoid_: 系统任务, 固定任务
+
+**Custom Workflow**:
+用户创建并维护的 Workflow，可自由组合受支持的触发器和动作节点。
+_Avoid_: Work Task, 每日任务
+
+**Work Task**:
+用户在某个交易日需要完成的人工作业或待办事项，不是自动执行的 Workflow。
+_Avoid_: Workflow, 自动任务
+
+**Workflow Version**:
+一次发布生成的不可变工作流图快照；修改草稿不会改变当前版本。
+_Avoid_: 草稿, 当前工作流
+
+**Workflow Trigger**:
+启动 Workflow Run 的事件，只能是手动、交易日定时或指定同步模块成功完成。
+_Avoid_: 条件节点, 任意事件
+
+**Workflow Run**:
+某个 Workflow Version 的一次执行记录，包含触发来源、整体状态、当前步骤和耗时。
+_Avoid_: Workflow, 工作流配置
+
+**Node Run**:
+Workflow Run 中单个节点的执行记录，保存状态、摘要、业务引用、错误和耗时。
+_Avoid_: 节点配置, Workflow Run
+
+**Daily Review**:
+研究成果复盘的统一入口，界面名称为“每日复盘”，默认展示最近交易日复盘，并通过页面按钮进入历史归档。
+_Avoid_: Review Attribution, Review Center, 今日复盘菜单, 历史复盘菜单
+
+**Development Placeholder**:
+确认导航中尚无业务实现的页面，使用真实路由展示标题、“正在开发中”和说明，不填充伪造业务数据。
+_Avoid_: Fake dashboard, empty route
+
+**System Navigation**:
+固定在工作台侧栏底部、以图标按钮形式提供同步中心、数据中心和主题设置的系统入口。
+_Avoid_: 系统弹层, 底部齿轮

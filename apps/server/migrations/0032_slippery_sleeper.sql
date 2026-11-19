@@ -1,0 +1,2 @@
+ALTER TABLE "workflow_definition" ADD COLUMN "last_scheduled_key" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "workflow_run_trigger_ref_unq" ON "workflow_run" USING btree ("workflow_id","trigger_type","trigger_ref") WHERE "workflow_run"."trigger_ref" is not null;

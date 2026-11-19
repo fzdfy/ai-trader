@@ -1,21 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { VStack } from "@preline-ui/Stack";
-import { Heading } from "@preline-ui/Heading";
-import { Text } from "@preline-ui/Text";
-import { DataTableList } from "../-private/DataTableList";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/home/data-center/")({
-  component: DataCenterPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/home/data-management/tables" });
+  },
 });
-
-function DataCenterPage() {
-  return (
-    <VStack gap={4}>
-      <VStack gap={1}>
-        <Heading level={2}>数据中心</Heading>
-        <Text type="supporting">股票数据相关表总览，点击卡片查看表结构与更新记录</Text>
-      </VStack>
-      <DataTableList />
-    </VStack>
-  );
-}

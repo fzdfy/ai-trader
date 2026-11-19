@@ -45,8 +45,9 @@ const MACD_FIGURES: IndicatorFigure[] = [
     type: "bar",
     baseValue: 0,
     styles: ({ data }) => {
-      const currentMacd = (data.current as MacdResult | null | undefined)?.macd ?? Number.MIN_SAFE_INTEGER;
-      const color = currentMacd > 0 ? chartUp() : (currentMacd < 0 ? chartDown() : chartFlat());
+      const currentMacd =
+        (data.current as MacdResult | null | undefined)?.macd ?? Number.MIN_SAFE_INTEGER;
+      const color = currentMacd > 0 ? chartUp() : currentMacd < 0 ? chartDown() : chartFlat();
       return { style: "fill", color, borderColor: color } as unknown as IndicatorFigureStyle;
     },
   },
@@ -70,9 +71,8 @@ function periodForTf(tf: KlineTf): Period {
 /** klinecharts period → tf 反查：数据加载回调里据此决定请求哪个周期 */
 function tfForPeriod(period: Period): KlineTf {
   return (
-    PERIOD_OPTIONS.find(
-      (p) => p.period.type === period.type && p.period.span === period.span,
-    )?.value ?? "1d"
+    PERIOD_OPTIONS.find((p) => p.period.type === period.type && p.period.span === period.span)
+      ?.value ?? "1d"
   );
 }
 
@@ -251,9 +251,7 @@ function StockDetailPage() {
         }
         let bars: KLineData[] = [];
         try {
-          bars = await queryClient.fetchQuery(
-            klineBarsQueryOptions(s.ticker, tfForPeriod(period)),
-          );
+          bars = await queryClient.fetchQuery(klineBarsQueryOptions(s.ticker, tfForPeriod(period)));
         } catch {
           bars = [];
         }
@@ -356,14 +354,13 @@ function StockDetailPage() {
         {from === "screens" ? (
           // 回到选股页：走浏览器历史回退，保留选股页原先的 URL search（策略/范围/返回数量等），
           // 否则直接 Link 到 /home/screens 会丢失这些条件、页面回到默认状态
-          <Button
-            label="← 返回"
-            variant="ghost"
-            size="sm"
-            onClick={() => router.history.back()}
-          />
+          <Button label="← 返回" variant="ghost" size="sm" onClick={() => router.history.back()} />
         ) : (
-          <Link to="/home/market/stock" search={{ tab: "stock" }} style={{ textDecoration: "none" }}>
+          <Link
+            to="/home/market/stock"
+            search={{ tab: "stock" }}
+            style={{ textDecoration: "none" }}
+          >
             <Button label="← 返回" variant="ghost" size="sm" />
           </Link>
         )}
@@ -412,6 +409,13 @@ function StockDetailPage() {
             <Tab key={p.value} value={p.value} label={p.label} />
           ))}
         </TabList>
+        <Link
+          to="/home/market/analysis/$symbol"
+          params={{ symbol: currentSymbol }}
+          style={{ marginLeft: "auto", textDecoration: "none" }}
+        >
+          <Button label="深度分析" variant="secondary" size="sm" />
+        </Link>
       </HStack>
       <div ref={chartRef} style={{ flex: 1, minHeight: 0 }} />
     </VStack>

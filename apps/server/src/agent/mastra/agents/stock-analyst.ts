@@ -5,7 +5,14 @@
  * 回答用户的股票分析、趋势判断、市场热点问题。
  */
 import { Agent } from "@mastra/core/agent";
-import { instrumentTool, quoteTool, klineTool, boardTool } from "../tools";
+import {
+  instrumentTool,
+  quoteTool,
+  klineTool,
+  boardTool,
+  stockAnalysisTool,
+  researchReportTool,
+} from "../tools";
 import { memory } from "../memory";
 
 export const stockAnalyst = new Agent({
@@ -31,6 +38,9 @@ export const stockAnalyst = new Agent({
 - 分析个股行情时，同时看 quote 快照 + 最近 60 根日 K 线
 - 分析市场热点时，查看行业板块排行（industry）和概念板块排行（concept）
 - K 线数据过多时，归纳趋势而非逐条罗列
+- 涉及个股预测时调用 getStockAnalysis，数值只能引用工具结果
+- 涉及研报观点时调用 searchResearchReports，并保留标题、机构、日期和页码
+- 不得自行生成目标价、保证收益或“安全价格”
 
 ## 免责声明
 每次回复末尾必须包含：
@@ -41,5 +51,7 @@ export const stockAnalyst = new Agent({
     quoteTool,
     klineTool,
     boardTool,
+    stockAnalysisTool,
+    researchReportTool,
   },
 });

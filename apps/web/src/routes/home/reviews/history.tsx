@@ -2,7 +2,7 @@
  * 历史复盘列表页 — 展示所有已生成的复盘日期，点击进入详情。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { VStack } from "@preline-ui/Stack";
+import { HStack, VStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { Spinner } from "@preline-ui/Spinner";
@@ -54,10 +54,12 @@ function ReviewHistoryPage() {
 
   return (
     <VStack gap={4}>
-      <VStack gap={1}>
-        <Heading level={2}>历史复盘</Heading>
-        <Text type="supporting">已生成的复盘按日期归档，点击日期查看详情。</Text>
-      </VStack>
+      <HStack gap={3} align="center" style={{ justifyContent: "space-between" }}>
+        <VStack gap={1}>
+          <Heading level={2}>历史复盘</Heading>
+          <Text type="supporting">已生成的复盘按日期归档，点击日期查看详情。</Text>
+        </VStack>
+      </HStack>
 
       {isLoading ? (
         <Spinner size="sm" label="加载中..." />

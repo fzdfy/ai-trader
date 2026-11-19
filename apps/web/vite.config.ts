@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
+const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:3001";
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -19,11 +21,11 @@ export default defineConfig({
     allowedHosts: ["ai.taiyangshen.xyz"],
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: apiTarget,
         changeOrigin: true,
       },
       "/uploads": {
-        target: "http://localhost:3001",
+        target: apiTarget,
         changeOrigin: true,
       },
     },

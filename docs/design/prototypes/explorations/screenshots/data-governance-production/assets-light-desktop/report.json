@@ -1,0 +1,23 @@
+[
+  {
+    "file": "page-assets.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "assets",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 95,
+        "examples": [
+          "span.mt-0.5.block「instrument」（10px）",
+          "span.mt-0.5.block「trading_calendar」（10px）",
+          "span.mt-0.5.block「bar1d_raw」（10px）"
+        ]
+      }
+    ]
+  }
+]

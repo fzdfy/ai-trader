@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/simonlin1212/a-stock-data",
+  "commitSha": "f90d67853b8108f13d286e1df20b357e2c5198a9",
+  "versionLabel": "3.7.1",
+  "reviewedAt": "2026-08-20T05:05:28Z",
+  "skillFileSha256": "5c4572af0d4483560b7c78b5f53c34019ff6f5cf839275a2d149b37c3bdc1973",
+  "changelogSha256": "07bf38802fe5e8ec97f408434383f012dc4e14de80789f5e0d2071a1a9d057f5",
+  "skillGitBlobSha": "fe197ed61f62923f7f2e180ec8db7a5bb961c228",
+  "changelogGitBlobSha": "2a3a3231e92241bf9215be9d0be0b8c15401a20c",
+  "files": [
+    "SKILL.md",
+    "CHANGELOG.md"
+  ]
+}

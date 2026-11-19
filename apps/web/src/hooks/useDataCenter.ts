@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-/** 数据表清单条目（GET /api/v1/data-center/tables） */
+/** 数据表清单条目（GET /api/v1/data-management/tables） */
 export interface DataTableSummary {
   /** 实际表名 */
   table: string;
@@ -100,7 +100,7 @@ export interface DataTableDetail {
   records: DataTableRecord[];
 }
 
-/** 单个数据源的熔断 / 限流运行时快照（GET /api/v1/data-center/sources/health；当前仅东财有） */
+/** 单个数据源的熔断 / 限流运行时快照（GET /api/v1/data-management/sources/health；当前仅东财有） */
 export interface ProviderBreakerStatus {
   /** 是否处于熔断（冷却期内该源请求直接失败，交由降级链兜底） */
   tripped: boolean;
@@ -118,14 +118,14 @@ export interface ProviderBreakerStatus {
   bypass_url_count: number;
 }
 
-/** 单个数据源运行态（GET /api/v1/data-center/sources/health） */
+/** 单个数据源运行态（GET /api/v1/data-management/sources/health） */
 export interface ProviderHealth {
   name: string;
   /** 熔断快照；为 null 表示该源无健康遥测（当前仅东财实现熔断） */
   breaker: ProviderBreakerStatus | null;
 }
 
-/** 单个能力降级链运行态（GET /api/v1/data-center/sources/health） */
+/** 单个能力降级链运行态（GET /api/v1/data-management/sources/health） */
 export interface CapabilityHealth {
   /** 能力名（如 kline / board_kline） */
   capability: string;
@@ -141,18 +141,18 @@ export interface CapabilityHealth {
   available: boolean;
 }
 
-/** 数据源健康 / 降级链运行态快照（GET /api/v1/data-center/sources/health） */
+/** 数据源健康 / 降级链运行态快照（GET /api/v1/data-management/sources/health） */
 export interface DataSourcesHealth {
   providers: ProviderHealth[];
   capabilities: CapabilityHealth[];
 }
 
-/** 数据中心表清单（GET /api/v1/data-center/tables） */
+/** 数据管理表清单（GET /api/v1/data-management/tables） */
 export function useDataCenterTables() {
   return useQuery({
     queryKey: ["data-center", "tables"],
     queryFn: async () => {
-      const res = await fetch("/api/v1/data-center/tables");
+      const res = await fetch("/api/v1/data-management/tables");
       const json = await res.json();
       return (json.success ? json.data : { tables: [] }) as { tables: DataTableSummary[] };
     },
@@ -161,26 +161,26 @@ export function useDataCenterTables() {
   });
 }
 
-/** 单表详情（GET /api/v1/data-center/tables/:table） */
+/** 单表详情（GET /api/v1/data-management/tables/:table） */
 export function useDataCenterTable(table: string) {
   return useQuery({
     queryKey: ["data-center", "tables", table],
     enabled: Boolean(table),
     queryFn: async () => {
-      const res = await fetch(`/api/v1/data-center/tables/${encodeURIComponent(table)}`);
+      const res = await fetch(`/api/v1/data-management/tables/${encodeURIComponent(table)}`);
       const json = await res.json();
       return (json.success ? json.data : null) as DataTableDetail | null;
     },
   });
 }
 
-/** 数据源健康 / 降级链运行态（GET /api/v1/data-center/sources/health；运行时观测，定时刷新） */
+/** 数据源健康 / 降级链运行态（GET /api/v1/data-management/sources/health；运行时观测，定时刷新） */
 export function useDataSourcesHealth(enabled = true) {
   return useQuery({
     queryKey: ["data-center", "sources-health"],
     enabled,
     queryFn: async () => {
-      const res = await fetch("/api/v1/data-center/sources/health");
+      const res = await fetch("/api/v1/data-management/sources/health");
       const json = await res.json();
       return (json.success ? json.data : null) as DataSourcesHealth | null;
     },

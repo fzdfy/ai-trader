@@ -23,6 +23,25 @@
 - 历史回补与当日同步分离并错峰。
 - `job_run` 是单数表名。
 
+## 角色与数据管理审计
+
+- `user.role` 仅允许 `user | super_admin`，默认 `user`；客户端不能提交或修改角色。
+- `SUPER_ADMIN_EMAILS` 只在服务端读取，仅用于把已通过邮箱验证的白名单账号提升为 `super_admin`；邮箱移出白名单不会静默降级已有数据库角色。
+- 数据管理 API 必须同时校验 Better Auth Session 和数据库角色；菜单隐藏不能替代服务端授权。
+- `admin_operation_audit` 只追加操作记录并收敛状态。手动同步与失败重试必须记录操作者、动作、目标模块、原因、`request_id`、`job_run_id`、参数、结果、错误和时间；服务器启动、worker 启动和审计查询需把遗留 accepted/running 记录按关联任务终态收敛，无法关联则标记 `interrupted`。
+- 手动同步、模块重试和任务预留必须使用 PostgreSQL advisory lock 串行化检查与插入，不能只依赖进程内状态。
+- 一期不提供凭据编辑、历史回补、派生重建、暂停调度、删除任务、原始数据行或任意 SQL 接口。
+
+## 数据治理证据
+
+- 静态治理元数据保存在代码注册表；数据库只保存质量执行结果、数据事故、治理 Work Task 和相关事件。
+- `data_quality_result` 保存资产、规则版本、状态、严重度、任务标识、请求标识、指标和证据 JSON。
+- `data_incident` 保存当前事故状态，`data_incident_event` 追加确认、处理和解决事件。
+- `work_task` 保存治理审阅任务当前状态，`work_task_event` 追加状态事件；首期不实现完整任务中心。
+- 质量结果、事故和任务事件不提供管理 API 删除入口；保留策略由后续生命周期治理统一执行。
+- 治理证据与原始行情分开备份恢复：恢复质量结果、事故和任务时不得重建、改写或回滚 `bar1d_raw`、`adj_factor` 及 `load_kline` 输出契约。
+- 回退门禁只切换 `DATA_GOVERNANCE_GATE_MODE=warn|off`，不得删除已产生的质量结果、事故或 Work Task；恢复演练后需校验事件链完整且新增证据仍可追加。
+
 ## 价格与 PIT
 
 - 入库只写原始价 `adjust=none`。
@@ -37,3 +56,11 @@
 - 停牌和长期无行情不误判为失败。
 - 部分写入后任务失败，依赖幂等重跑补齐。
 - `request_id`、`job_run_id` 和交易日全链路可追踪。
+
+## 研报与个股分析
+
+- 研报元数据、PDF 文档、分块、预测、财务、估值和公告使用独立表，不复用新闻向量表。
+- PDF 二进制保存到共享 `reports-data:/data/reports`；PostgreSQL 保存 `storage_key`、SHA-256、页数和全文。
+- 研报分块使用 `vector(512)`，由本地 `BAAI/bge-small-zh-v1.5` 生成；HNSW 用于语义检索，`pg_trgm` 作为关键词降级。
+- 研报检索只返回发布日期不晚于分析快照的原文，并保留标题、机构、日期、页码和片段。
+- 个股分析数值由确定性代码计算；LLM 只归纳结构化指标和研报证据，不生成目标价。

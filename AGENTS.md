@@ -14,14 +14,16 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 |---|---|
 | 搞懂系统长什么样（模块 / 端口 / 容器 / 部署） | [docs/architecture.md](./docs/architecture.md) |
 | 查看长期工程标准 | [总览](./docs/standards/README.md) · [架构](./docs/standards/architecture.md) · [前端](./docs/standards/frontend.md) · [后端](./docs/standards/backend.md) · [数据](./docs/standards/database.md) · [Agent](./docs/standards/agent.md) · [UI](./docs/standards/design.md) |
+| 查看 AI 开发流程与文档职责 | [开发工作流](./docs/standards/development-workflow.md) |
 | 改数据源 / 排查数据问题（A/B/C 三条链路） | [docs/data-pipeline.md](./docs/data-pipeline.md) |
 | **动手改任何核心代码前**先看约束 | [docs/invariants.md](./docs/invariants.md) |
 | 线上出问题（僵尸任务 / 东财熔断 / 回测超时） | [docs/runbooks.md](./docs/runbooks.md) |
 | 想重复论证某个已定结论前 | [docs/decisions.md](./docs/decisions.md) |
 | 遇到怪现象 / 想认领技术债 | [docs/issues.md](./docs/issues.md) |
-| 看不懂某个术语 | [docs/glossary.md](./docs/glossary.md) |
+| 查看业务术语 / 工程技术术语 | [业务术语](./docs/glossary.md) · [工程技术术语](./docs/technical-glossary.md) |
 | 想知道下一步做什么 | [docs/roadmap.md](./docs/roadmap.md) |
 | 查看视觉原型与探索稿 | [docs/design/prototypes/](./docs/design/prototypes/) |
+| 查看已确认或进行中的技术方案 | [docs/superpowers/specs/](./docs/superpowers/specs/) |
 | 查看当前变更规格与任务 | [openspec/changes/](./openspec/changes/) |
 
 ## 铁律索引（每条详情与证据见 [docs/invariants.md](./docs/invariants.md)）
@@ -64,28 +66,21 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 - 颜色、边框、表面、间距和状态使用 Preline/Tailwind 语义 token，不在业务组件散落 raw hex。
 - 密集数据使用行式 Table/List；Card 只用于独立指标、设置分组或内容块。
 - 新 UI 必须支持浅色、深色、移动端、键盘焦点和 reduced motion。
-- 每次编写/修改前端界面时调用 `frontend-design` skill；编写/修改 React 时调用 `react-best-practices` skill。
+- 每次编写/修改前端界面时使用 `oil-ui` 确定视觉方向并完成视觉评审；编写/修改 React 时调用 `react-best-practices` skill。
 
 ## 规范驱动 AI Coding
 
-非平凡开发按以下阶段执行：
-
-| 阶段 | Skill / 工具 | 产物 |
-|---|---|---|
-| 需求澄清 | `grill-with-docs` + `grilling` + `domain-modeling` | 术语、ADR、边界和异常场景 |
-| 需求分析 | `openspec-propose` / `openspec-continue-change` | proposal、capability specs |
-| 技术方案 | `brainstorming` | design、替代方案与取舍 |
-| 实施计划 | OpenSpec | `tasks.md` |
-| 编码前简化 | `ponytail` | 最小完整方案 |
-| 编码实施 | `test-driven-development` | RED → GREEN 证据 |
-| 编码后精简 | `code-simplifier` | 行为不变的可读性改进 |
-| 最终检查 | `requesting-code-review` + `ponytail-review` | 质量、安全、复杂度结论 |
-| 归档 | `openspec-verify-change` + `openspec-archive-change` | 验证结果与同步规格 |
+完整流程、阶段产物位置和任务状态语义见 [docs/standards/development-workflow.md](./docs/standards/development-workflow.md)。
 
 规则：
 
+- 非平凡开发必须依次完成澄清、PRD、OpenSpec 规格、技术设计、方案评审、用户确认、测试计划、实施、测试报告、审查和归档。
 - 需求不确定时先使用 Grill-with-docs，不把猜测写成规格。
+- 新用户功能和多页面流程必须完成 PRD-lite；大型需求再生成完整 PRD。
+- 技术方案未经评审批准，不得进入生产代码实施。
 - 只有 `tasks.md` 是实施任务清单；对话中的临时清单不替代它。
+- 编码前必须使用 `writing-plans` 形成任务级失败测试和验证命令；归档前必须形成测试报告。
+- `[x]` 只表示任务级实现与对应测试完成；整个 change 仍以验证章节和归档结果为准。
 - 没有失败测试证据，不得声称新行为通过。
 - 完成声明前使用 `verification-before-completion` 并运行最新完整验证命令。
 - 用户明确要求一次性执行完整流程时，可按顺序执行规划和实施，但仍保留各阶段产物。
@@ -94,9 +89,13 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 
 - `AGENTS.md`：工作入口、常驻约束、工具路由。
 - `docs/standards/`：长期技术标准。
+- `docs/standards/development-workflow.md`：AI 开发流程、产物位置和完成条件。
+- `docs/glossary.md`：业务与设计术语；根 `GLOSSARY.md` 只作为 skill 入口转发。
+- `docs/technical-glossary.md`：架构、平台和实现术语索引。
 - `.agents/skills/`：可执行专业方法。
 - `openspec/specs/`：长期系统行为规格。
 - `openspec/changes/`：单次变更记录。
+- `docs/superpowers/specs/`：单次变更的完整技术方案设计稿。
 - `docs/design/prototypes/initial/`：确认过的视觉基准。
 - `docs/design/prototypes/explorations/`：不覆盖原稿的探索版本。
 - `docs/adr/`：难回滚、非显然、存在真实取舍的决策。

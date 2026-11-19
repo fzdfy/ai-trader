@@ -18,7 +18,7 @@ import {
   ChatToolCalls,
 } from "@preline-ui/Chat";
 import { Timestamp } from "@preline-ui/Timestamp";
-import { Icon } from "@preline-ui/Icon";
+import { Sparkles } from "lucide-react";
 
 // ---- 类型 ----
 
@@ -290,16 +290,25 @@ export function ChatPanel({
 function WelcomeEmptyState({ onSelect }: { onSelect: (q: string) => void }) {
   return (
     <VStack gap={4} align="center" style={{ padding: "var(--spacing-10) var(--spacing-4)" }}>
-      <Icon icon="info" size="lg" style={{ color: "var(--color-text-secondary)" }} />
+      <span className="grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+        <Sparkles className="size-5" />
+      </span>
       <VStack gap={1} align="center">
-        <Text weight="semibold">开始问股</Text>
+        <Text weight="semibold">从哪里开始？</Text>
         <Text type="supporting" size="sm">
-          试试下面这些问题，开启你的智能分析之旅
+          选择一个问题，或直接输入你的研究目标
         </Text>
       </VStack>
       <HStack gap={2} wrap="wrap" justify="center">
         {SUGGESTIONS.map((q) => (
-          <Button key={q} label={q} variant="ghost" size="sm" onClick={() => onSelect(q)} />
+          <Button
+            key={q}
+            label={q}
+            variant="secondary"
+            size="sm"
+            className="rounded-full bg-app-panel px-3 text-[11px]"
+            onClick={() => onSelect(q)}
+          />
         ))}
       </HStack>
     </VStack>

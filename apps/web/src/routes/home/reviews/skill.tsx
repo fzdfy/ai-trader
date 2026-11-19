@@ -3,11 +3,10 @@
  *
  * 复盘方法论（「复盘模块」结构 + 「总结输出要求」）内容固定，仅作展示，不可修改。
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { VStack, HStack } from "@preline-ui/Stack";
+import { createFileRoute } from "@tanstack/react-router";
+import { VStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
-import { Button } from "@preline-ui/Button";
 import { ReviewSkillViewer } from "./-private/ReviewSkillViewer";
 
 export const Route = createFileRoute("/home/reviews/skill")({
@@ -17,12 +16,6 @@ export const Route = createFileRoute("/home/reviews/skill")({
 function ReviewSkillPage() {
   return (
     <VStack gap={4}>
-      <HStack gap={2} align="center">
-        <Link to="/home/reviews/today" style={{ textDecoration: "none" }}>
-          <Button label="← 返回" variant="ghost" size="sm" />
-        </Link>
-      </HStack>
-
       <VStack gap={1}>
         <Heading level={2}>复盘方法论</Heading>
         <Text type="supporting">

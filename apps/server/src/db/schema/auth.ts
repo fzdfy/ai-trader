@@ -3,8 +3,9 @@ import {
   text,
   timestamp,
   boolean,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /**
  * 用户表 (better-auth)
@@ -15,9 +16,12 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull(),
   image: text("image"),
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
-});
+}, (table) => [
+  check("user_role_check", sql`${table.role} IN ('user', 'super_admin')`),
+]);
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),

@@ -15,7 +15,13 @@ import { and, eq, gte, isNull, lt } from "drizzle-orm";
 import { db } from "../../db";
 import { jobRun } from "../../db/schema";
 import { createLogger } from "../../lib/logger";
-import { runWithLogContext, getLogContext, type LogContext, type LogSource } from "../../lib/request-context";
+import { withAdminSyncLock } from "../../lib/admin-sync-lock";
+import {
+  runWithLogContext,
+  getLogContext,
+  type LogContext,
+  type LogSource,
+} from "../../lib/request-context";
 import { getSyncTradeDate } from "./calendar";
 import { runWithProgress } from "./progress";
 import { kline1mPipe } from "./pipes/kline-1m";
@@ -35,6 +41,11 @@ import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
 import { adjFactorPipeRun } from "./pipes/adj-factor";
 import { partitionMaintPipeRun } from "./pipes/partition-maint";
+import { triggerSyncCompleteWorkflows } from "../../services/workflow-service";
+import {
+  runGovernanceQualityScan,
+  runSourceStandardWatchJob,
+} from "./governance-jobs";
 
 export type PipeName =
   | "kline-1m"
@@ -53,6 +64,8 @@ export type PipeName =
   | "kline-period"
   | "calendar"
   | "adj-factor"
+  | "governance-quality-scan"
+  | "source-standard-watch"
   | "partition-maint"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
@@ -77,6 +90,8 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "kline-period": () => klinePeriodPipeRun(),
   calendar: () => calendarPipeRun(),
   "adj-factor": () => adjFactorPipeRun(),
+  "governance-quality-scan": () => runGovernanceQualityScan(),
+  "source-standard-watch": () => runSourceStandardWatchJob(),
   "partition-maint": () => partitionMaintPipeRun(),
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
@@ -119,6 +134,10 @@ type WrapOpts = {
   waitManualSync?: boolean;
   /** 触发来源，默认 scheduled（cron）；手动同步传 manual，用于日志区分 */
   source?: LogSource;
+  /** 新建 job_run 后立即回调任务 ID，供审计记录关联 */
+  onStart?: (runId: number | null) => void | Promise<void>;
+  /** 调用方已在数据库中预留 running 任务行时，复用该 ID 而不重复插入 */
+  reservedRunId?: number;
 };
 
 /**
@@ -180,11 +199,27 @@ async function executeWithRetry(
  * 包装管道执行：创建 job_run（jobType=name）→ 执行 → 标记终态。
  * 返回 Promise<boolean>：true=成功，false=失败或进程内重入跳过。
  */
-export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts): () => Promise<boolean> {
+export function wrapJob(
+  name: string,
+  fn: () => Promise<void>,
+  opts?: WrapOpts,
+): () => Promise<boolean> {
   return async () => {
-    if (running.has(name)) return false;
+    if (running.has(name)) {
+      if (opts?.reservedRunId != null) {
+        await db
+          .update(jobRun)
+          .set({
+            status: "failed",
+            error: "reentrant (process already running)",
+            finishedAt: new Date(),
+          })
+          .where(eq(jobRun.id, opts.reservedRunId));
+      }
+      return false;
+    }
     running.add(name);
-    let runId: number | null = null;
+    let runId: number | null = opts?.reservedRunId ?? null;
     // 一次任务 = 一条调用链：任务日志与发往 quant 的请求共用同一 requestId，
     // 在 Loki 里按 request_id / job_run_id 即可把「任务 ↔ quant 接口日志」串起来
     const requestId = crypto.randomUUID();
@@ -197,16 +232,21 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
     };
     try {
       const tradeDate = await getSyncTradeDate();
-      const inserted = await db
-        .insert(jobRun)
-        .values({ jobType: name, status: "running", startedAt: new Date(), tradeDate })
-        .returning({ id: jobRun.id });
-      runId = inserted[0]?.id ?? null;
+      if (runId == null) {
+        runId = await withAdminSyncLock(async (tx) => {
+          const [inserted] = await tx
+            .insert(jobRun)
+            .values({ jobType: name, status: "running", startedAt: new Date(), tradeDate })
+            .returning({ id: jobRun.id });
+          return inserted?.id ?? null;
+        });
+      }
       ctx = {
         ...ctx,
         ...(runId != null ? { jobRunId: String(runId) } : {}),
         ...(tradeDate ? { tradeDate } : {}),
       };
+      await opts?.onStart?.(runId);
 
       await runWithLogContext(ctx, async () => {
         log.info({ job_name: name, job_run_id: runId }, "job start");
@@ -219,6 +259,9 @@ export function wrapJob(name: string, fn: () => Promise<void>, opts?: WrapOpts):
             .set({ status: "success", finishedAt: new Date() })
             .where(eq(jobRun.id, runId));
         }
+        await triggerSyncCompleteWorkflows(name).catch((error) => {
+          log.error({ err: error, job_name: name }, "trigger workflows after sync failed");
+        });
         log.info({ job_name: name, job_run_id: runId }, "job success");
       });
       return true;
@@ -277,7 +320,9 @@ export async function cleanupStaleRuns(): Promise<number> {
   const res = await db
     .update(jobRun)
     .set({ status: "failed", error: "interrupted (stale)", finishedAt: new Date() })
-    .where(and(eq(jobRun.status, "running"), isNull(jobRun.finishedAt), lt(jobRun.startedAt, cutoff)));
+    .where(
+      and(eq(jobRun.status, "running"), isNull(jobRun.finishedAt), lt(jobRun.startedAt, cutoff)),
+    );
   return res.rowCount ?? 0;
 }
 
@@ -303,7 +348,7 @@ export async function isManualSyncRunning(): Promise<boolean> {
 }
 
 /** 手动同步的管道顺序与依赖关系（与 cron-config 对齐） */
-const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
+export const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "boards" },
   { name: "board-kline", dependsOn: "boards" },
   { name: "constituents", dependsOn: "boards" },
@@ -383,6 +428,10 @@ export async function runManualSync(
   if (failed.length > 0) {
     throw new Error(`部分管道失败或跳过: ${failed.join("、")}`);
   }
+
+  await wrapJob("governance-quality-scan", runGovernanceQualityScan, {
+    source: "manual",
+  })();
 
   return { executed, skipped };
 }

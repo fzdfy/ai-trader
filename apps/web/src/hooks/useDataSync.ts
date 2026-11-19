@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-/** 最近数据更新时间（GET /api/v1/sync/last-updated） */
+/** 普通用户可见的聚合数据状态（GET /api/v1/system/data-status） */
 export function useLastUpdated() {
   return useQuery({
-    queryKey: ["sync", "last-updated"],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/sync/last-updated");
+    queryKey: ["system", "data-status"],
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/v1/system/data-status", { signal });
       const json = await res.json();
       return (json.success ? json.data : null) as { updatedAt: string | null } | null;
     },
@@ -13,35 +13,39 @@ export function useLastUpdated() {
 }
 
 /**
- * 手动触发核心行情同步（POST /api/v1/sync/run）。
+ * 手动触发核心行情同步（POST /api/v1/data-management/sync/run）。
  * 接口异步触发：请求立即返回，任务后台执行；触发后刷新模块进度（由轮询展示进度与最终状态）。
  */
 export function useRunSync() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/v1/sync/run", { method: "POST" });
+    mutationFn: async (reason: string) => {
+      const res = await fetch("/api/v1/data-management/sync/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       const json = await res.json();
-      if (!json.success) throw new Error(json.message ?? "同步失败");
+      if (!json.success) throw new Error(json.error ?? json.message ?? "同步失败");
       return json.data as { accepted: boolean; runId: number | null };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sync", "modules"] });
-      queryClient.invalidateQueries({ queryKey: ["sync", "status"] });
-      queryClient.invalidateQueries({ queryKey: ["sync", "last-updated"] });
+      queryClient.invalidateQueries({ queryKey: ["system", "data-status"] });
+      queryClient.invalidateQueries({ queryKey: ["data-management", "audit"] });
     },
   });
 }
 
-/** 轮询同步状态（GET /api/v1/sync/status），用于展示定时/手动任务的「自动更新中」 */
+/** 轮询聚合同步状态（GET /api/v1/system/data-status）。 */
 export function useSyncStatus() {
   return useQuery({
-    queryKey: ["sync", "status"],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/sync/status");
+    queryKey: ["system", "data-status"],
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/v1/system/data-status", { signal });
       const json = await res.json();
-      return (json.success ? json.data : { runningJobs: [] }) as {
-        runningJobs: string[];
+      return (json.success ? json.data : { running: false }) as {
+        running: boolean;
       };
     },
     refetchInterval: 3000,
@@ -79,6 +83,7 @@ export function moduleName(jobType: string): string {
 export interface SyncModuleStatus {
   jobType: string;
   name: string;
+  dependsOn: string | null;
   status: "running" | "success" | "failed" | "never";
   total: number | null;
   processed: number | null;
@@ -93,14 +98,14 @@ export interface SyncModuleStatus {
 }
 
 /**
- * 各模块同步状态汇总（GET /api/v1/sync/modules）。
+ * 各模块同步状态汇总（GET /api/v1/data-management/sync/modules）。
  * 运行中进度会变化，3s 轮询。
  */
 export function useSyncModules() {
   return useQuery({
     queryKey: ["sync", "modules"],
     queryFn: async () => {
-      const res = await fetch("/api/v1/sync/modules");
+      const res = await fetch("/api/v1/data-management/sync/modules");
       const json = await res.json();
       return (json.success ? json.data : { modules: [], lastSuccessAt: null }) as {
         modules: SyncModuleStatus[];
@@ -126,7 +131,7 @@ export interface SyncRecord {
 }
 
 /**
- * 同步记录分页查询（GET /api/v1/sync/records）。
+ * 同步记录分页查询（GET /api/v1/data-management/sync/records）。
  */
 export function useSyncRecords(
   page: number,
@@ -140,7 +145,7 @@ export function useSyncRecords(
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (jobType) params.set("jobType", jobType);
       if (status) params.set("status", status);
-      const res = await fetch(`/api/v1/sync/records?${params.toString()}`);
+      const res = await fetch(`/api/v1/data-management/sync/records?${params.toString()}`);
       const json = await res.json();
       return (json.success ? json.data : { total: 0, items: [] }) as {
         total: number;

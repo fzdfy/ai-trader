@@ -1,11 +1,10 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
-import { DataTableDetailView } from "../-private/DataTableDetail";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/home/data-center/$table")({
-  component: DataCenterDetailPage,
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/home/data-management/tables/$table",
+      params: { table: params.table },
+    });
+  },
 });
-
-function DataCenterDetailPage() {
-  const { table } = useParams({ from: "/home/data-center/$table" });
-  return <DataTableDetailView table={table} />;
-}

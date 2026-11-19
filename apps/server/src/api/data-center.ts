@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { sql, desc, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { ok, notFound, serverError } from "../lib/response";
-import { jobRun } from "../db/schema";
+import { dataGap, jobRun } from "../db/schema";
 import { createLogger } from "../lib/logger";
 import { SYNC_MODULES } from "./sync";
 import { quant } from "../lib/quant";
+import { buildQualitySummary } from "../lib/data-quality";
+import { getSourceProviderName } from "../lib/data-sources";
 
 const dataCenterRoute = new Hono();
 
@@ -934,6 +936,25 @@ export const DATA_CENTER_TABLES: DataTableDef[] = [
   },
 ];
 
+/** 显式新鲜度 SLA；未登记的表不推断陈旧，避免把低频快照误报为异常。 */
+const DATA_TABLE_SLA_HOURS: Record<string, number> = {
+  board: 96,
+  board_history: 96,
+  board_constituent: 96,
+  board_kline: 96,
+  board_fund_flow_period: 96,
+  fund_flow_rank: 96,
+  hot_reason: 96,
+  limit_up_pool: 96,
+  quote_latest: 96,
+  bar1d_raw: 96,
+  bar1d_adj_legacy: 96,
+  adj_factor: 96,
+  news_article: 24,
+  research_report: 24 * 14,
+  company_announcement: 24 * 7,
+};
+
 /** jobType → 中文名（与同步中心共用一份映射，未知 jobType 回退原始值） */
 const JOB_TYPE_NAMES = new Map(SYNC_MODULES.map((m) => [m.jobType, m.name]));
 
@@ -1015,6 +1036,110 @@ dataCenterRoute.get("/tables", async (c) => {
   } catch (error) {
     log.error({ err: error }, "query data-center tables failed");
     return serverError(c, "查询数据表清单失败");
+  }
+});
+
+/**
+ * GET /api/v1/data-management/sources
+ *
+ * Provider、能力、上游接口、降级链和运行时熔断快照。
+ */
+dataCenterRoute.get("/sources", async (c) => {
+  let health: Awaited<ReturnType<typeof quant.dataSourcesHealth>> | null = null;
+  let healthError: string | null = null;
+  try {
+    health = await quant.dataSourcesHealth();
+  } catch (error) {
+    log.error({ err: error }, "query data source registry health failed");
+    healthError = "运行态暂不可用";
+  }
+
+  return ok(c, {
+    observedAt: new Date().toISOString(),
+    healthError,
+    sources: DATA_CENTER_TABLES.flatMap((definition) =>
+      definition.sources.map((source) => {
+        const providerName = getSourceProviderName(source.platform);
+        return {
+          id: `${definition.table}:${source.platform}:${source.endpoint}`,
+          ...source,
+          table: definition.table,
+          tableName: definition.name,
+          capability: definition.fallback.capability,
+          fallbackChain: definition.fallback.chain,
+          degrade: definition.fallback.degrade,
+          riskControl: definition.riskControl,
+          provider: health?.providers.find(
+            (provider) => provider.name === providerName,
+          ) ?? null,
+        };
+      }),
+    ),
+    capabilities: health?.capabilities ?? [],
+  });
+});
+
+/**
+ * GET /api/v1/data-management/quality
+ *
+ * 显式 SLA 的表新鲜度、未解决断档、失败任务和 Provider 熔断聚合。
+ */
+dataCenterRoute.get("/quality", async (c) => {
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [updatedAtMap, gaps, unresolvedGapCount, failedJobs, health] =
+      await Promise.all([
+      queryAllUpdatedAt(),
+      db
+        .select()
+        .from(dataGap)
+        .where(isNull(dataGap.resolvedAt))
+        .orderBy(desc(dataGap.detectedAt))
+        .limit(50),
+      db
+        .select({ value: count() })
+        .from(dataGap)
+        .where(isNull(dataGap.resolvedAt)),
+      db
+        .select({ value: count() })
+        .from(jobRun)
+        .where(and(eq(jobRun.status, "failed"), gte(jobRun.startedAt, since))),
+      quant.dataSourcesHealth().catch((error) => {
+        log.error({ err: error }, "query data source health for quality failed");
+        return null;
+      }),
+    ]);
+
+    return ok(
+      c,
+      buildQualitySummary({
+        now: new Date().toISOString(),
+        tables: DATA_CENTER_TABLES.map((definition) => ({
+          table: definition.table,
+          name: definition.name,
+          updatedAt: updatedAtMap.get(definition.table) ?? null,
+          staleAfterHours: DATA_TABLE_SLA_HOURS[definition.table] ?? null,
+        })),
+        gaps: gaps.map((gap) => ({
+          id: gap.id,
+          symbol: gap.symbol,
+          timeframe: gap.timeframe,
+          missingStart: toIso(gap.missingStart)!,
+          missingEnd: toIso(gap.missingEnd)!,
+          detectedAt: toIso(gap.detectedAt)!,
+        })),
+        providers:
+          health?.providers.map((provider) => ({
+            name: provider.name,
+            tripped: provider.breaker?.tripped ?? false,
+          })) ?? [],
+        unresolvedGapCount: Number(unresolvedGapCount[0]?.value ?? 0),
+        failedJobs: Number(failedJobs[0]?.value ?? 0),
+      }),
+    );
+  } catch (error) {
+    log.error({ err: error }, "query data quality failed");
+    return serverError(c, "查询数据质量失败");
   }
 });
 

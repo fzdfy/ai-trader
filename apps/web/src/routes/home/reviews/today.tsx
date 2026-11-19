@@ -14,6 +14,7 @@ import { Text } from "@preline-ui/Text";
 import { Button } from "@preline-ui/Button";
 import { Spinner } from "@preline-ui/Spinner";
 import { Section } from "@preline-ui/Section";
+import { History } from "lucide-react";
 import {
   useGenerateReviewStream,
   useReviewQuery,
@@ -26,6 +27,19 @@ import { formatDateTime } from "./-private/utils";
 export const Route = createFileRoute("/home/reviews/today")({
   component: TodayReviewPage,
 });
+
+function ReviewPageActions() {
+  return (
+    <HStack gap={2} align="center" style={{ flexWrap: "wrap" }}>
+      <Link to="/home/reviews/history" style={{ textDecoration: "none" }}>
+        <Button label="历史复盘" variant="secondary" icon={<History className="size-4" />} />
+      </Link>
+      <Link to="/home/reviews/skill" style={{ textDecoration: "none" }}>
+        <Button label="查看复盘 Skill" variant="secondary" />
+      </Link>
+    </HStack>
+  );
+}
 
 function TodayReviewPage() {
   // 复盘日期取「最近一个已收盘交易日」（服务端按交易日历计算），而非浏览器自然日
@@ -43,10 +57,15 @@ function TodayReviewPage() {
   if (!date) {
     return (
       <VStack gap={6}>
-        <VStack gap={1}>
-          <Heading level={2}>今日复盘</Heading>
-          <Text type="supporting">生成最近一个交易日的复盘，覆盖行业资金流向、主线、选股池与总结。</Text>
-        </VStack>
+        <HStack gap={3} align="center" style={{ justifyContent: "space-between" }}>
+          <VStack gap={1}>
+            <Heading level={2}>每日复盘</Heading>
+            <Text type="supporting">
+              生成最近一个交易日的复盘，覆盖行业资金流向、主线、选股池与总结。
+            </Text>
+          </VStack>
+          <ReviewPageActions />
+        </HStack>
         <Spinner size="sm" label="正在获取最近交易日..." />
       </VStack>
     );
@@ -56,14 +75,12 @@ function TodayReviewPage() {
     <VStack gap={6}>
       <HStack gap={3} align="center" style={{ justifyContent: "space-between" }}>
         <VStack gap={1}>
-          <Heading level={2}>今日复盘</Heading>
+          <Heading level={2}>每日复盘</Heading>
           <Text type="supporting">
             {date} · 生成当日复盘，覆盖行业资金流向、主线、选股池与总结。
           </Text>
         </VStack>
-        <Link to="/home/reviews/skill" style={{ textDecoration: "none" }}>
-          <Button label="查看复盘 Skill" variant="secondary" />
-        </Link>
+        <ReviewPageActions />
       </HStack>
 
       {/* 生成 / 重新生成 */}

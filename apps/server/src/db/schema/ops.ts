@@ -7,6 +7,8 @@ import {
   unique,
   boolean,
   date,
+  jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -76,6 +78,38 @@ export const dataGap = pgTable("data_gap", {
   resolvedAt: timestamp("resolved_at"),
   reason: text("reason"),
 });
+
+/**
+ * 数据管理写操作审计。
+ *
+ * 行创建后只更新状态、结果和完成时间，不提供应用层删除入口。
+ */
+export const adminOperationAudit = pgTable(
+  "admin_operation_audit",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    actorUserId: text("actor_user_id").notNull(),
+    action: text("action").notNull(),
+    targetJobType: text("target_job_type"),
+    reason: text("reason"),
+    requestId: text("request_id").notNull(),
+    jobRunId: integer("job_run_id"),
+    status: text("status").notNull().default("accepted"),
+    inputJson: jsonb("input_json").notNull(),
+    resultJson: jsonb("result_json"),
+    error: text("error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
+  },
+  (table) => [
+    index("admin_operation_audit_created_idx").on(table.createdAt.desc()),
+    index("admin_operation_audit_actor_created_idx").on(
+      table.actorUserId,
+      table.createdAt.desc(),
+    ),
+    index("admin_operation_audit_status_idx").on(table.status),
+  ],
+);
 
 /**
  * 标的订阅管理表

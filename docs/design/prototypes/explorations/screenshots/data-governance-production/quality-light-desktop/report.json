@@ -1,0 +1,12 @@
+[
+  {
+    "file": "page-quality.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "quality",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

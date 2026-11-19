@@ -48,7 +48,7 @@ test("stack maps compatibility alignment props to CSS flex values", () => {
 
 test("badge variants keep semantic color mapping", () => {
   assert.match(badgeClassNames("success"), /text-app-success/);
-  assert.match(badgeClassNames("warning"), /text-app-warning/);
+  assert.match(badgeClassNames("warning"), /text-app-ink/);
   assert.match(badgeClassNames("error"), /text-destructive/);
 });
 

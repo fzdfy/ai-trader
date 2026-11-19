@@ -1,0 +1,30 @@
+[
+  {
+    "file": "page-light-desktop.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "light-desktop",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 2,
+        "examples": [
+          "span.inline-flex.items-center「存在阻断」（3.22:1）",
+          "span.inline-flex.items-center「基线固定」（3.27:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「V Visual Governance 量化研究」（首屏 8 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

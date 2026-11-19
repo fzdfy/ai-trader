@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="apollo">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Apollo Quant · 数据管理</title>
+    <style>
+      :root {
+        --canvas: #f6f5f1;
+        --sidebar: #eef1f7;
+        --panel: #fff;
+        --ink: #202a42;
+        --muted: #5f6c82;
+        --faint: #78869c;
+        --line: #e3e7ee;
+        --primary: #3157e8;
+        --warning: #ffd951;
+        --danger: #d94a4a;
+        --success: #25a36f;
+        --radius: 14px;
+        font-family: "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--canvas);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 320px; background: var(--canvas); }
+      button, a { font: inherit; }
+      .shell { display: flex; min-height: 100vh; }
+      .sidebar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        width: 238px;
+        height: 100vh;
+        flex: 0 0 238px;
+        flex-direction: column;
+        padding: 17px 14px 13px;
+        border-right: 1px solid #d9deea;
+        background: linear-gradient(180deg, #f1f4fa 0%, var(--sidebar) 100%);
+      }
+      .brand { display: flex; align-items: center; gap: 10px; padding: 2px 4px 18px; }
+      .brand-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 11px;
+        background: var(--primary);
+        color: white;
+        font-weight: 800;
+      }
+      .brand strong { display: block; font-size: 13px; }
+      .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+      .nav { flex: 1; }
+      .nav-label {
+        margin: 14px 10px 7px;
+        color: var(--faint);
+        font: 600 11px/1.2 ui-monospace, monospace;
+        letter-spacing: .12em;
+      }
+      .nav a {
+        display: flex;
+        min-height: 39px;
+        align-items: center;
+        gap: 10px;
+        margin: 3px 0;
+        padding: 0 10px;
+        border-radius: 11px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 12px;
+      }
+      .nav a.active { background: var(--primary); color: white; }
+      .nav i { width: 15px; height: 15px; border: 1.5px solid currentColor; border-radius: 4px; }
+      .sidebar-foot { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid #dce1eb; }
+      .status {
+        display: flex;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1px solid #dce1eb;
+        border-radius: 999px;
+        background: #f8f9fc;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .status::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--warning);
+        box-shadow: 0 0 0 4px rgb(255 217 81 / 18%);
+      }
+      .tool-row { display: flex; gap: 6px; }
+      .icon-button {
+        display: grid;
+        width: 33px;
+        height: 33px;
+        place-items: center;
+        border: 1px solid #dce1eb;
+        border-radius: 9px;
+        background: #f8f9fc;
+        color: var(--muted);
+      }
+      .icon-button.active { border-color: rgb(49 87 232 / 20%); background: rgb(49 87 232 / 10%); color: var(--primary); }
+      .user {
+        display: flex;
+        min-height: 45px;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        border: 0;
+        border-radius: 12px;
+        background: #f8f9fc;
+      }
+      .avatar { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--primary); color: white; font-size: 10px; font-weight: 700; }
+      .user strong { display: block; font-size: 11px; }
+      .user small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+      .main { min-width: 0; flex: 1; }
+      .page-nav {
+        display: flex;
+        min-height: 58px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 28px;
+        border-bottom: 1px solid var(--line);
+        background: rgb(255 255 255 / 92%);
+        backdrop-filter: blur(12px);
+      }
+      .crumb { font-size: 12px; }
+      .crumb a { color: var(--ink); text-decoration: none; font-weight: 650; }
+      .crumb span { margin: 0 7px; color: var(--faint); }
+      .page-nav .meta { margin-left: auto; color: var(--muted); font-size: 11px; }
+      .content { max-width: 1320px; margin: 0 auto; padding: 20px 24px 36px; }
+      .management-head, .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+      .management-head { padding: 15px 18px 0; }
+      .management-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+      .management-title h1 { margin: 0; font-size: 18px; }
+      .management-title p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+      .role { padding: 5px 9px; border-radius: 99px; background: rgb(255 217 81 / 24%); font-size: 11px; }
+      .tabs { display: flex; gap: 4px; margin-top: 14px; padding-top: 12px; overflow-x: auto; border-top: 1px solid var(--line); }
+      .tabs a { flex: 0 0 auto; padding: 8px 11px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 11px; }
+      .tabs a.active { background: var(--primary); color: white; }
+      .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .metric { padding: 17px; border: 0; border-radius: var(--radius); background: var(--panel); }
+      .metric small { color: var(--muted); font-size: 11px; }
+      .metric strong { display: block; margin-top: 8px; font-size: 23px; font-variant-numeric: tabular-nums; }
+      .metric span { margin-left: 4px; color: var(--muted); font-size: 11px; font-weight: 400; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .module { min-height: 142px; padding: 16px; border: 0; border-radius: var(--radius); background: var(--panel); }
+      .module-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #f2f4fa; color: var(--primary); }
+      .module h2 { margin: 24px 0 5px; font-size: 12px; }
+      .module p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+      .module-meta { float: right; color: var(--muted); font-size: 11px; }
+      .assistant {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        display: grid;
+        width: 46px;
+        height: 46px;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        background: var(--primary);
+        color: white;
+        box-shadow: 0 12px 30px rgb(32 42 66 / 24%);
+      }
+      .health-panel { margin-top: 14px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+      .health-panel header { display: flex; align-items: center; justify-content: space-between; }
+      .health-panel h2 { margin: 0; font-size: 12px; }
+      .pill { padding: 4px 8px; border-radius: 99px; background: rgb(37 163 111 / 12%); color: #146143; font-size: 11px; }
+      table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 11px; }
+      th { padding: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 500; text-align: left; }
+      td { padding: 10px 8px; border-bottom: 1px solid #edf0f5; }
+      tr:last-child td { border-bottom: 0; }
+      .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--success); }
+      @media (max-width: 900px) {
+        .sidebar { display: none; }
+        .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .grid { grid-template-columns: 1fr; }
+        .page-nav { padding: 0 16px; }
+        .content { padding: 14px 16px 90px; }
+      }
+      @media (max-width: 540px) {
+        .summary { grid-template-columns: 1fr 1fr; }
+        .metric { padding: 13px; }
+        .metric strong { font-size: 19px; }
+        .table-wrap { overflow-x: auto; }
+        table { min-width: 620px; }
+      }
+      html[data-mode="dark"] {
+        --canvas: #111726;
+        --sidebar: #151d2e;
+        --panel: #192236;
+        --ink: #eef2fb;
+        --muted: #b8c1d3;
+        --faint: #8794aa;
+        --line: #2a354b;
+        --sidebar-line: #2a354b;
+        .sidebar { background: linear-gradient(180deg, #182136 0%, var(--sidebar) 100%); }
+        .page-nav { background: rgb(25 34 54 / 92%); }
+        .metric, .module, .management-head, .health-panel { background: var(--panel); }
+        .module-icon, .icon-button, .status, .user { background: #1e2940; }
+        .pill { color: #bdf1d8; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand">
+          <span class="brand-mark">A</span>
+          <span><strong>Apollo Quant</strong><small>量化 AI 工作台</small></span>
+        </div>
+        <nav class="nav">
+          <p class="nav-label">工作空间</p>
+          <a class="active" href="#"><i></i>每日看板</a>
+          <a href="#"><i></i>工作任务</a>
+          <a href="#"><i></i>每日复盘</a>
+          <a href="#"><i></i>每日选股</a>
+          <p class="nav-label">市场情报</p>
+          <a href="#"><i></i>行情中心</a>
+          <a href="#"><i></i>个股分析</a>
+          <a href="#"><i></i>研报洞察</a>
+          <p class="nav-label">量化研究</p>
+          <a href="#"><i></i>策略</a>
+          <a href="#"><i></i>因子</a>
+          <a href="#"><i></i>回测</a>
+          <a href="#"><i></i>衰退对比</a>
+          <a href="#"><i></i>因子迭代</a>
+          <p class="nav-label">流程自动化</p>
+          <a href="#"><i></i>工作流</a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="status">数据在线</div>
+          <div class="tool-row">
+            <button class="icon-button active" aria-label="数据管理">⌘</button>
+            <button class="icon-button" aria-label="主题设置">◐</button>
+          </div>
+          <div class="user"><span class="avatar">林</span><span><strong>林策</strong><small>量化研究 · 超级管理员</small></span></div>
+        </div>
+      </aside>
+      <main class="main">
+        <nav class="page-nav" aria-label="页面导航">
+          <div class="crumb"><a href="#">Apollo Quant</a><span>/</span>数据管理</div>
+          <div class="meta">11-19 14:42 · 数据在线</div>
+        </nav>
+        <div class="content">
+          <header class="management-head">
+            <div class="management-title">
+              <div><h1>数据管理</h1><p>观察数据链路、同步状态和质量风险，所有写操作进入审计。</p></div>
+              <span class="role">仅超级管理员</span>
+            </div>
+            <div class="tabs">
+              <a class="active" href="#">总览</a><a href="#">数据源</a><a href="#">数据表</a><a href="#">数据同步</a><a href="#">数据质量</a><a href="#">操作审计</a>
+            </div>
+          </header>
+          <section class="summary">
+            <article class="metric"><small>数据质量</small><strong>28<span>/ 31 健康</span></strong></article>
+            <article class="metric"><small>同步运行</small><strong>1<span>运行中</span></strong></article>
+            <article class="metric"><small>数据断档</small><strong>2</strong></article>
+            <article class="metric"><small>数据源</small><strong>6<span>能力域</span></strong></article>
+          </section>
+          <section class="grid">
+            <article class="module"><span class="module-meta">42 条来源映射</span><span class="module-icon">◫</span><h2>数据源</h2><p>Provider、降级链与熔断状态</p></article>
+            <article class="module"><span class="module-meta">31 张表</span><span class="module-icon">▦</span><h2>数据表</h2><p>Schema、来源、同步策略与运行记录</p></article>
+            <article class="module"><span class="module-meta">1 运行 · 0 失败</span><span class="module-icon">↻</span><h2>数据同步</h2><p>模块进度、失败重试与同步记录</p></article>
+            <article class="module"><span class="module-meta">2 个未解决断档</span><span class="module-icon">⌁</span><h2>数据质量</h2><p>新鲜度、断档与 Provider 可用性</p></article>
+            <article class="module"><span class="module-meta">只读</span><span class="module-icon">◷</span><h2>操作审计</h2><p>手动同步和失败重试的完整记录</p></article>
+          </section>
+          <section class="health-panel">
+            <header><h2>最近同步状态</h2><span class="pill">运行正常</span></header>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>模块</th><th>状态</th><th>进度</th><th>最近更新</th></tr></thead>
+                <tbody>
+                  <tr><td>日 K 线</td><td><i class="dot"></i>成功</td><td>5,552 / 5,552</td><td>14:31</td></tr>
+                  <tr><td>复权因子</td><td><i class="dot"></i>成功</td><td>5,552 / 5,552</td><td>14:36</td></tr>
+                  <tr><td>周期 K 线</td><td><i class="dot" style="background:#3157e8"></i>运行中</td><td>3,120 / 5,552</td><td>14:42</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <button class="assistant" aria-label="打开量化助手">✦</button>
+    <script>
+      if (new URLSearchParams(location.search).get("mode") === "dark") {
+        document.documentElement.dataset.mode = "dark";
+      }
+    </script>
+  </body>
+</html>

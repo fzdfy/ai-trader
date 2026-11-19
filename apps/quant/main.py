@@ -1,8 +1,9 @@
 """AI Trader Quant Service — FastAPI + AKQuant 回测微服务。"""
+import os
 from typing import Any
 
 from akquant import AssetType
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -22,6 +23,15 @@ from factors import get_factor_list
 from feature_store import compute_features
 from logger import get_logger
 from middleware.request_id import RequestIdMiddleware
+from research_reports import fetch_report_pdf, fetch_reports
+from report_documents import (
+    EMBEDDING_MODEL,
+    EXTRACTOR_VERSION,
+    chunk_pages,
+    embed_texts,
+    extract_pdf_pages,
+    persist_report_pdf,
+)
 from screener import screen
 from strategies import STRATEGIES
 from strategies.composite import build_composite_strategy
@@ -80,6 +90,20 @@ class FactorEvalRequest(BaseModel):
     asOf: str | None = None
 
 
+class ReportExtractRequest(BaseModel):
+    pdf_url: str
+    source_id: str
+    publish_date: str
+    ocr_language: str = "chi_sim+eng"
+    max_chars: int = 4000
+    overlap_chars: int = 500
+    embed: bool = False
+
+
+class ReportEmbedRequest(BaseModel):
+    texts: list[str]
+
+
 app = FastAPI(title="AI Trader Quant", version="0.1.0")
 
 # Request ID 中间件（必须在 CORS 之前）
@@ -113,6 +137,93 @@ def list_strategies():
 @app.get("/api/v1/factors")
 def list_factors():
     return {"factors": get_factor_list()}
+
+
+@app.get("/api/v1/research/reports")
+def list_research_reports(
+    symbol: str,
+    page: int = 1,
+    page_size: int = 50,
+    begin_time: str = "2020-01-01",
+    end_time: str | None = None,
+):
+    """按标的获取东财研报元数据；所有请求走统一东财限流。"""
+    try:
+        return fetch_reports(
+            symbol=symbol,
+            page=max(1, page),
+            page_size=min(max(page_size, 1), 100),
+            begin_time=begin_time,
+            end_time=end_time,
+        )
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+    except Exception as error:
+        log.error("研报元数据获取失败", error=str(error), symbol=symbol)
+        raise HTTPException(502, "research report upstream failed") from error
+
+
+@app.get("/api/v1/research/report-pdf")
+def download_research_report_pdf(url: str):
+    """受控代理研报 PDF；仅允许东财 PDF 域名。"""
+    try:
+        data = fetch_report_pdf(url)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+    except Exception as error:
+        log.error("研报 PDF 下载失败", error=str(error))
+        raise HTTPException(502, "research report PDF upstream failed") from error
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="research-report.pdf"'},
+    )
+
+
+@app.post("/api/v1/research/extract")
+def extract_research_report(req: ReportExtractRequest):
+    """下载、提取、OCR、分块；可选生成本地 BGE 向量。"""
+    try:
+        pdf = fetch_report_pdf(req.pdf_url)
+        stored = persist_report_pdf(
+            pdf,
+            req.source_id,
+            req.publish_date,
+            os.environ.get("REPORTS_DATA_DIR", "/data/reports"),
+        )
+        pages = extract_pdf_pages(pdf, language=req.ocr_language)
+        chunks = chunk_pages(pages, max_chars=req.max_chars, overlap_chars=req.overlap_chars)
+        embeddings = embed_texts([chunk["text"] for chunk in chunks]) if req.embed and chunks else []
+        return {
+            "extractor_version": EXTRACTOR_VERSION,
+            "embedding_model": EMBEDDING_MODEL if req.embed else None,
+            **stored,
+            "page_count": len(pages),
+            "full_text": "\n\n".join(page["text"] for page in pages),
+            "pages": pages,
+            "chunks": [
+                {
+                    **chunk,
+                    "embedding": embeddings[index] if index < len(embeddings) else None,
+                }
+                for index, chunk in enumerate(chunks)
+            ],
+        }
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+    except Exception as error:
+        log.error("研报全文提取失败", error=str(error))
+        raise HTTPException(500, f"research report extraction failed: {error}") from error
+
+
+@app.post("/api/v1/research/embed")
+def embed_research_texts(req: ReportEmbedRequest):
+    try:
+        vectors = embed_texts(req.texts)
+        return {"model": EMBEDDING_MODEL, "vectors": vectors}
+    except Exception as error:
+        log.error("研报向量生成失败", error=str(error))
+        raise HTTPException(500, f"embedding failed: {error}") from error
 
 
 @app.post("/api/v1/backtests/run")

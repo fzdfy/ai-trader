@@ -1,7 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VStack } from "@preline-ui/Stack";
 import { Text } from "@preline-ui/Text";
-import { Button } from "@preline-ui/Button";
 import { Spinner } from "@preline-ui/Spinner";
 import { FactorForm } from "../../../components/FactorForm";
 import { authClient } from "../../../lib/auth-client";
@@ -46,10 +45,6 @@ function FactorSavePage() {
 
   return (
     <VStack gap={4}>
-      <Link {...detailLink} style={{ textDecoration: "none" }}>
-        <Button label="← 返回" variant="ghost" size="sm" />
-      </Link>
-
       <FactorForm
         key={factor.name}
         title="编辑因子"

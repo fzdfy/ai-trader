@@ -1,80 +1,72 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, createFileRoute, useLocation } from "@tanstack/react-router";
 import {
-  ArrowLeftRight,
-  BarChart3,
-  BookOpen,
-  ClipboardList,
+  BookOpenText,
+  ChartNoAxesCombined,
   Database,
-  FileText,
-  Gauge,
-  Grid2x2,
+  FlaskConical,
   History,
-  LayoutGrid,
+  LayoutDashboard,
   ListChecks,
-  Menu,
+  LogOut,
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Palette,
-  RefreshCw,
   Search,
+  Settings,
   SlidersHorizontal,
   Sparkles,
-  Table2,
   Target,
   TrendingDown,
+  TrendingUp,
   Workflow,
   X,
+  type LucideIcon,
 } from "lucide-react";
-import { useLastUpdated, useRunSync, useSyncStatus } from "../../hooks/useDataSync";
-import { isDrawerDismissKey } from "../../lib/workbench-navigation";
+import { BrandLogo } from "../../components/BrandLogo";
+import { PageNavigation } from "../../components/PageNavigation";
+import { ProfileDialog } from "../../components/ProfileDialog";
+import { useAppTheme } from "../../components/AppThemeProvider";
+import { useLastUpdated, useSyncStatus } from "../../hooks/useDataSync";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { authClient } from "../../lib/auth-client";
+import {
+  getSyncAvailability,
+  getSystemLinksForRole,
+  isWorkbenchNavSelected,
+  isDrawerDismissKey,
+  parseSidebarCollapsed,
+  WORKBENCH_NAV_GROUPS,
+  type WorkbenchNavIcon,
+} from "../../lib/workbench-navigation";
 
 export const Route = createFileRoute("/home")({
   component: HomeLayout,
 });
 
-const NAV_GROUPS = [
-  {
-    label: "行情",
-    items: [
-      { label: "板块", href: "/home/market/boards", icon: LayoutGrid },
-      { label: "个股", href: "/home/market/stock", icon: Search },
-    ],
-  },
-  {
-    label: "信号",
-    items: [
-      { label: "筹码分布", href: "/home/signals/chips", icon: BarChart3 },
-      { label: "资金流向", href: "/home/signals/fundflow", icon: ArrowLeftRight },
-      { label: "热力图", href: "/home/signals/heatmap", icon: Grid2x2 },
-    ],
-  },
-  {
-    label: "复盘",
-    items: [
-      { label: "今日复盘", href: "/home/reviews/today", icon: FileText },
-      { label: "历史复盘", href: "/home/reviews/history", icon: ListChecks },
-    ],
-  },
-  {
-    label: "量化",
-    items: [
-      { label: "回测", href: "/home/backtest", icon: History },
-      { label: "选股", href: "/home/screens", icon: Target },
-      { label: "策略", href: "/home/strategies", icon: Workflow },
-      { label: "因子", href: "/home/factors", icon: SlidersHorizontal },
-      { label: "衰退对比", href: "/home/factors/compare", icon: TrendingDown },
-      { label: "AI 迭代", href: "/home/factors/iterate", icon: Sparkles },
-    ],
-  },
-  {
-    label: "系统",
-    items: [
-      { label: "同步中心", href: "/home/sync", icon: RefreshCw },
-      { label: "数据中心", href: "/home/data-center", icon: Table2 },
-      { label: "主题设置", href: "/home/settings", icon: Palette },
-      { label: "知识库", href: "/home/knowledge", icon: BookOpen },
-    ],
-  },
-] as const;
+const NAV_ICONS: Record<WorkbenchNavIcon, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  tasks: ListChecks,
+  history: History,
+  target: Target,
+  market: ChartNoAxesCombined,
+  analysis: Search,
+  research: BookOpenText,
+  strategy: FlaskConical,
+  factor: SlidersHorizontal,
+  backtest: TrendingUp,
+  decay: TrendingDown,
+  iteration: Sparkles,
+  workflow: Workflow,
+};
+
+const SYSTEM_ICONS = {
+  database: Database,
+  palette: Palette,
+} as const;
+
+const SIDEBAR_COLLAPSED_KEY = "apollo-workbench-sidebar-collapsed";
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "暂无数据";
@@ -88,39 +80,53 @@ function formatDateTime(iso: string | null | undefined): string {
   }).format(date);
 }
 
-function isSelected(pathname: string, href: string): boolean {
-  if (href === "/home/factors") {
-    return (
-      pathname.startsWith(href) &&
-      !pathname.startsWith("/home/factors/compare") &&
-      !pathname.startsWith("/home/factors/iterate")
-    );
+function readSidebarCollapsed(): boolean {
+  try {
+    return parseSidebarCollapsed(globalThis.localStorage?.getItem(SIDEBAR_COLLAPSED_KEY) ?? null);
+  } catch {
+    return false;
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function syncButtonLabel(
-  pending: boolean,
-  autoSyncing: boolean,
-  manualSyncing: boolean,
-): string {
-  if (pending) return "启动中";
-  if (manualSyncing) return "同步中";
-  if (autoSyncing) return "自动更新中";
-  return "手动更新";
 }
 
 function HomeLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+  const [profileOpen, setProfileOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const { data: syncInfo } = useLastUpdated();
-  const runSync = useRunSync();
+  const sidebarRef = useRef<HTMLElement>(null);
+  const { data: session } = authClient.useSession();
+  const { data: currentUser } = useCurrentUser();
+  const { preset } = useAppTheme();
+  const { data: syncInfo, isError: syncError, isLoading: syncLoading } = useLastUpdated();
   const syncStatus = useSyncStatus();
-  const runningJobs = syncStatus.data?.runningJobs ?? [];
-  const manualSyncing = runningJobs.includes("sync-manual");
-  const autoSyncing = runningJobs.some((name) => name !== "sync-manual");
+  const autoSyncing = syncStatus.data?.running ?? false;
+  const syncAvailability = getSyncAvailability({
+    isLoading: syncLoading,
+    isError: syncError,
+    updatedAt: syncInfo?.updatedAt,
+  });
+  const syncStatusLabel = autoSyncing
+    ? "同步进行中"
+    : syncAvailability === "loading"
+      ? "读取同步状态"
+      : syncAvailability === "online"
+        ? "数据在线"
+        : "同步状态不可用";
+  const systemLinks = getSystemLinksForRole(currentUser?.role ?? null);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      try {
+        globalThis.localStorage?.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Local persistence is optional; the layout still works without storage.
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -130,6 +136,23 @@ function HomeLayout() {
       if (isDrawerDismissKey(event.key)) {
         event.preventDefault();
         setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !sidebarRef.current) return;
+      const focusable = Array.from(
+        sidebarRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      const first = focusable.at(0);
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
@@ -156,62 +179,101 @@ function HomeLayout() {
       ) : null}
 
       <aside
+        ref={sidebarRef}
         id="business-navigation"
+        data-collapsed={sidebarCollapsed}
         role={mobileOpen ? "dialog" : undefined}
         aria-label="业务导航"
         aria-modal={mobileOpen ? true : undefined}
-        className={`workbench-sidebar fixed inset-y-15 left-0 z-50 flex w-58 shrink-0 flex-col border-r border-app-line p-3 transition-transform lg:static lg:z-auto lg:translate-x-0 ${
+        className={`workbench-sidebar fixed inset-y-0 left-0 z-50 flex w-[238px] shrink-0 flex-col px-3.5 pb-[13px] pt-[17px] transition-[width,transform] lg:static lg:z-auto lg:translate-x-0 ${
+          sidebarCollapsed ? "lg:w-[68px] lg:px-0" : "lg:w-[238px]"
+        } ${
           mobileOpen
             ? "translate-x-0 max-lg:visible max-lg:pointer-events-auto"
             : "-translate-x-full max-lg:invisible max-lg:pointer-events-none"
         }`}
       >
-        <div className="mb-3 flex items-center justify-between px-2 lg:hidden">
-          <span className="text-sm font-semibold text-app-ink">业务导航</span>
+        <div
+          className={`mb-3.5 flex items-center justify-between ${
+            sidebarCollapsed ? "lg:flex-col lg:gap-2" : ""
+          }`}
+        >
+          <Link
+            to="/home"
+            onClick={() => setMobileOpen(false)}
+            className={`focus-ring flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 ${
+              sidebarCollapsed ? "lg:justify-center" : ""
+            }`}
+            aria-label="Apollo Quant 工作台"
+            data-tooltip="Apollo Quant"
+          >
+            <BrandLogo color={preset.accent} size={34} />
+            <span className={`min-w-0 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+              <span className="block truncate text-sm font-semibold tracking-tight text-app-ink">
+                Apollo Quant
+              </span>
+              <span className="mt-0.5 block truncate text-[11px] text-app-muted">
+                量化 AI 工作台
+              </span>
+            </span>
+          </Link>
           <button
             ref={closeButtonRef}
             type="button"
-            className="grid size-8 place-items-center rounded-lg text-app-muted hover:bg-app-panel hover:text-app-ink"
+            className="grid size-8 place-items-center rounded-lg text-app-muted hover:bg-app-panel hover:text-app-ink lg:hidden"
             aria-label="关闭导航"
             onClick={() => setMobileOpen(false)}
           >
             <X className="size-4" />
           </button>
+          <button
+            type="button"
+            className="focus-ring hidden size-8 place-items-center rounded-lg text-app-muted hover:bg-app-panel hover:text-app-ink lg:grid"
+            aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+            title={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+            aria-pressed={sidebarCollapsed}
+            onClick={toggleSidebar}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
+          </button>
         </div>
 
-        <Link
-          to="/home"
-          onClick={() => setMobileOpen(false)}
-          className={`focus-ring mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition ${
-            location.pathname === "/home"
-              ? "bg-app-panel font-medium text-app-ink shadow-sm"
-              : "text-app-muted hover:bg-app-panel hover:text-app-ink"
-          }`}
-        >
-          <Gauge className="size-4 text-primary" />
-          今日工作台
-        </Link>
-
-        <nav className="min-h-0 flex-1 overflow-y-auto px-1" aria-label="业务导航">
-          {NAV_GROUPS.map((group) => (
-            <section key={group.label} className="mb-4">
-              <p className="mb-1.5 px-2 text-[10px] font-medium text-app-faint">{group.label}</p>
-              <div className="space-y-0.5">
-                {group.items.map(({ label, href, icon: Icon }) => {
-                  const selected = isSelected(location.pathname, href);
+        <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="业务导航">
+          {WORKBENCH_NAV_GROUPS.map((group) => (
+            <section key={group.label} className={sidebarCollapsed ? "mb-4 lg:mb-1" : "mb-4"}>
+              <p
+                className={`mb-[7px] px-2.5 font-mono text-[11px] font-semibold tracking-[0.12em] ${
+                  sidebarCollapsed ? "lg:hidden" : ""
+                }`}
+                style={{ color: "var(--workbench-sidebar-label)" }}
+              >
+                {group.label}
+              </p>
+              <div className="space-y-[3px]">
+                {group.items.map(({ label, href, icon }) => {
+                  const Icon = NAV_ICONS[icon];
+                  const selected = isWorkbenchNavSelected(location.pathname, href);
                   return (
                     <Link
                       key={href}
                       to={href}
                       onClick={() => setMobileOpen(false)}
-                      className={`focus-ring flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition ${
+                      data-tooltip={label}
+                      className={`workbench-nav-item focus-ring flex min-h-[39px] w-full items-center gap-2.5 rounded-[11px] px-2.5 text-xs transition ${
+                        sidebarCollapsed ? "lg:mx-auto lg:w-[42px] lg:justify-center lg:px-0" : ""
+                      } ${
                         selected
-                          ? "bg-primary font-medium text-primary-foreground shadow-[0_7px_18px_rgba(49,87,232,0.16)]"
-                          : "text-app-muted hover:bg-app-panel hover:text-app-ink"
+                          ? "workbench-nav-active bg-primary font-medium text-primary-foreground"
+                          : "text-app-muted hover:bg-app-panel/70 hover:text-app-ink"
                       }`}
+                      aria-label={label}
                     >
-                      <Icon className="size-3.5" />
-                      {label}
+                      <Icon className={`size-3.5 ${selected ? "" : "text-app-faint"}`} />
+                      <span className={sidebarCollapsed ? "lg:hidden" : ""}>{label}</span>
                     </Link>
                   );
                 })}
@@ -220,51 +282,148 @@ function HomeLayout() {
           ))}
         </nav>
 
-        <div className="mt-2 border-t border-app-line pt-3">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span className="text-[10px] text-app-faint">数据状态</span>
-            <span className="flex items-center gap-1 text-[10px] text-app-success">
-              <span className="size-1.5 rounded-full bg-app-success" />
-              在线
-            </span>
-          </div>
-          <p className="px-1 text-xs text-app-muted">{formatDateTime(syncInfo?.updatedAt)}</p>
-          <button
-            type="button"
-            className="focus-ring mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-app-line bg-app-panel px-2 py-2 text-xs text-app-muted transition hover:border-app-line-strong hover:text-app-ink disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={runSync.isPending || autoSyncing || manualSyncing}
-            onClick={() => runSync.mutate()}
+        <div className="mt-2 space-y-2 border-t border-app-line pt-3">
+          <div
+            role="status"
+            aria-label={`${syncStatusLabel}，最近同步 ${formatDateTime(syncInfo?.updatedAt)}`}
+            title={`${formatDateTime(syncInfo?.updatedAt)} · ${syncStatusLabel}`}
+            className={`flex h-[34px] items-center justify-center gap-2 rounded-full border px-3 text-[11px] text-app-muted ${
+              sidebarCollapsed ? "lg:mx-auto lg:w-[42px] lg:px-0" : ""
+            }`}
+            style={{
+              background: "var(--workbench-sidebar-card)",
+              borderColor: "var(--workbench-sidebar-card-border)",
+            }}
           >
-            <RefreshCw
-              className={`size-3.5 ${runSync.isPending || autoSyncing || manualSyncing ? "animate-spin" : ""}`}
+            <span
+              className={`size-2 rounded-full ring-4 ${
+                syncAvailability === "unavailable"
+                  ? "bg-destructive ring-destructive/10"
+                  : "bg-app-warning ring-app-warning/10"
+              }`}
             />
-            {syncButtonLabel(runSync.isPending, autoSyncing, manualSyncing)}
-          </button>
+            <span className={sidebarCollapsed ? "lg:hidden" : ""}>{syncStatusLabel}</span>
+          </div>
+
+          <div
+            className={`flex gap-1.5 ${
+              sidebarCollapsed ? "lg:flex-col lg:items-center lg:gap-[5px]" : ""
+            }`}
+          >
+            {systemLinks.map(({ label, href, icon }) => {
+              const Icon = SYSTEM_ICONS[icon];
+              const selected = isWorkbenchNavSelected(location.pathname, href);
+              return (
+                <Link
+                  key={href}
+                  to={href}
+                  onClick={() => setMobileOpen(false)}
+                  data-tooltip={label}
+                  className={`focus-ring grid size-[33px] place-items-center rounded-lg border transition ${
+                    selected
+                      ? "border-primary/20 bg-primary/10 text-primary"
+                      : "text-app-muted hover:border-app-line-strong hover:text-primary"
+                  }`}
+                  style={{
+                    background: selected ? undefined : "var(--workbench-sidebar-card)",
+                    borderColor: selected ? undefined : "var(--workbench-sidebar-card-border)",
+                  }}
+                  aria-label={label}
+                >
+                  <Icon className="size-3.5" />
+                </Link>
+              );
+            })}
+          </div>
+
+          {session ? (
+            <div className={sidebarCollapsed ? "lg:flex lg:justify-center" : ""}>
+              <div className={`hs-dropdown relative ${sidebarCollapsed ? "lg:w-10" : "w-full"}`}>
+                <button
+                  type="button"
+                  className={`hs-dropdown-toggle focus-ring flex min-h-[45px] w-full items-center gap-2 rounded-xl border p-1.5 text-left transition hover:border-app-line-strong ${
+                    sidebarCollapsed ? "lg:size-10 lg:justify-center lg:p-0" : ""
+                  }`}
+                  style={{
+                    background: "var(--workbench-sidebar-card)",
+                    borderColor: "var(--workbench-sidebar-card-border)",
+                  }}
+                  aria-label="账户菜单"
+                  title={sidebarCollapsed ? session.user.name : undefined}
+                >
+                  {session.user.image ? (
+                    <img
+                      src={session.user.image}
+                      alt=""
+                      className="size-[30px] shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {session.user.name.slice(0, 1)}
+                    </span>
+                  )}
+                  <span className={`min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+                    <span className="block truncate text-[11px] font-semibold text-app-ink">
+                      {session.user.name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-app-muted">
+                      量化研究 · Pro
+                    </span>
+                  </span>
+                  <MoreHorizontal
+                    className={`size-4 shrink-0 text-app-faint ${
+                      sidebarCollapsed ? "lg:hidden" : ""
+                    }`}
+                  />
+                </button>
+                <div className="hs-dropdown-menu invisible absolute bottom-full left-0 z-50 mb-2 w-52 translate-y-1 rounded-xl border border-app-line bg-app-panel p-1.5 opacity-0 shadow-xl transition-[opacity,transform] duration-150 hs-dropdown-open:visible hs-dropdown-open:translate-y-0 hs-dropdown-open:opacity-100">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-muted hover:bg-app-surface hover:text-app-ink"
+                    onClick={() => setProfileOpen(true)}
+                  >
+                    <Settings className="size-4" />
+                    编辑资料
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-muted hover:bg-app-surface hover:text-app-ink"
+                    onClick={() => {
+                      void authClient.signOut().then(() => {
+                        globalThis.location.href = "/login";
+                      });
+                    }}
+                  >
+                    <LogOut className="size-4" />
+                    退出登录
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </aside>
 
       <main className="min-w-0 flex-1 overflow-hidden">
-        <div className="flex h-full flex-col">
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-app-line bg-app-panel/90 px-4 backdrop-blur lg:hidden">
-            <button
-              ref={menuButtonRef}
-              type="button"
-              className="grid size-8 place-items-center rounded-lg border border-app-line text-app-muted"
-              aria-label="打开导航"
-              aria-controls="business-navigation"
-              aria-expanded={mobileOpen}
-              aria-haspopup="dialog"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu className="size-4" />
-            </button>
-            <span className="text-sm font-medium text-app-ink">业务导航</span>
-          </div>
+        <div className="flex h-full min-h-0 flex-col">
+          <PageNavigation
+            mobileMenuButtonRef={menuButtonRef}
+            onOpenMobileMenu={() => setMobileOpen(true)}
+          />
           <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
             <Outlet />
           </div>
         </div>
       </main>
+
+      {session ? (
+        <ProfileDialog
+          isOpen={profileOpen}
+          onOpenChange={setProfileOpen}
+          name={session.user.name}
+          image={session.user.image}
+        />
+      ) : null}
     </div>
   );
 }

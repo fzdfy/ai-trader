@@ -1,0 +1,29 @@
+[
+  {
+    "file": "page-light-mobile.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "light-mobile",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "tightLeading",
+        "label": "多行正文行高过紧",
+        "count": 1,
+        "examples": [
+          "p.mt-1.text-xs「把资产责任、契约、质量证据、来源版本和事故收敛到」（1.33）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 1,
+        "examples": [
+          "span.inline-flex.items-center「存在阻断」（3.22:1）"
+        ]
+      }
+    ]
+  }
+]

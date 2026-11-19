@@ -37,3 +37,9 @@
 - Worker 独立进程运行，防重入，有 deadline 和持久化状态。
 - 全链路透传 `request_id`；Worker 额外带 `job_run_id`。
 - 不记录密码、Cookie、Session Token、OAuth Token 或 API Key。
+
+## 验证
+
+- Server 纯逻辑与契约测试：`npm test`（在 `apps/server`）。
+- 工作流数据库与服务集成测试：`WORKFLOW_DB_TESTS=1 npm run test:db`（使用专用 `*workflow_check` 数据库）。
+- Web 测试：`npm test`（在 `apps/web`）。
