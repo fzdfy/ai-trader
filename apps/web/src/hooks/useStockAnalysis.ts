@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { normalizeCompareSymbols } from "../lib/stock-analysis";
+import {
+  normalizeCompareSymbols,
+  type ContentRefreshResponse,
+} from "../lib/stock-analysis";
 
 export type AnalysisQuality = "available" | "low" | "missing";
 
@@ -83,6 +86,7 @@ export interface StockAnalysisResponse {
   reports: StockAnalysisModule<
     Array<{
       id: number;
+      source: string;
       title: string;
       institution: string | null;
       rating: string | null;
@@ -94,6 +98,7 @@ export interface StockAnalysisResponse {
     }>
   >;
   reportCount: number;
+  reportPdfPending: number;
   fundamentals: StockAnalysisModule<{
     reportPeriod: string;
     metrics: Record<string, number | string | null>;
@@ -140,6 +145,7 @@ export interface StockAnalysisResponse {
   announcements: StockAnalysisModule<
     Array<{
       id: number;
+      source: string;
       title: string;
       announcementType: string | null;
       publishAt: string;
@@ -258,11 +264,11 @@ export function useRefreshStockAnalysis(symbol: string) {
       });
       const payload = (await response.json()) as {
         success?: boolean;
-        data?: { count: number; total: number };
+        data?: ContentRefreshResponse;
         error?: string;
       };
       if (!response.ok || !payload.success || !payload.data) {
-        throw new Error(payload.error ?? "研报同步失败");
+        throw new Error(payload.error ?? "内容同步失败");
       }
       return payload.data;
     },

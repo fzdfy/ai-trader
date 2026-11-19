@@ -28,18 +28,26 @@ OHLC（mootdx）+ 流通市值（腾讯，用于估算换手率），因此是�
 from __future__ import annotations
 
 import json
+import html
 import random
+import re
 import threading
 import time
 import urllib.parse
 import urllib.request
 from datetime import date as _date
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 
-from ...base import MarketProvider
+from ...base import (
+    CAPABILITY_ANNOUNCEMENT,
+    CAPABILITY_MARKET_NEWS,
+    CAPABILITY_STOCK_NEWS,
+    MarketProvider,
+)
 from ...common import UA, drop_unsettled_today_bar, get_prefix, norm_date, norm_ticker, tdx_client
 from ...schemas import (
     BlockTradeItem,
@@ -70,9 +78,124 @@ from ...schemas import (
     LockupExpiry,
     LockupExpiryItem,
     MarginTradingItem,
+    AnnouncementItem,
+    NewsItem,
 )
 
 DATACENTER_URL = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+MARKET_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def _clean_text(value) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", "", str(value or ""))).strip()
+
+
+def _iso_time(value) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=MARKET_TZ)
+    return parsed.astimezone(MARKET_TZ).isoformat()
+
+
+def _canonical_symbol(symbol: str) -> str:
+    digits = norm_ticker(symbol)
+    return f"{digits}.{get_prefix(symbol).upper()}"
+
+
+def parse_eastmoney_stock_news(payload: bytes | str, symbol: str) -> list[NewsItem]:
+    text = payload.decode("utf-8", errors="replace") if isinstance(payload, bytes) else payload
+    start = text.find("(")
+    end = text.rfind(")")
+    if start < 0 or end <= start:
+        raise ValueError("eastmoney stock news JSONP is malformed")
+    data = json.loads(text[start + 1 : end])
+    rows = (data.get("result") or {}).get("cmsArticleWebOld") or []
+    related = _canonical_symbol(symbol)
+    return [
+        NewsItem(
+            source="eastmoney",
+            title=_clean_text(row.get("title")),
+            content=_clean_text(row.get("content")) or None,
+            url=str(row.get("url") or ""),
+            published_at=_iso_time(row.get("date")),
+            related_symbols=[related],
+        )
+        for row in rows
+        if _clean_text(row.get("title"))
+    ]
+
+
+def parse_eastmoney_market_news(payload: dict) -> list[NewsItem]:
+    rows = (payload.get("data") or {}).get("fastNewsList") or []
+    items: list[NewsItem] = []
+    for row in rows:
+        title = _clean_text(row.get("title"))
+        if not title:
+            continue
+        code = str(row.get("code") or "").strip()
+        related_symbols = []
+        for raw_symbol in row.get("stockList") or []:
+            bare = str(raw_symbol).split(".", 1)[-1].strip()
+            if bare.isdigit() and len(bare) == 6:
+                related_symbols.append(f"{bare}.{get_prefix(bare).upper()}")
+        items.append(
+            NewsItem(
+                source="eastmoney_global",
+                title=title,
+                content=(
+                    _clean_text(
+                        row.get("digest")
+                        or row.get("summary")
+                        or row.get("content")
+                    )
+                    or None
+                ),
+                url=str(row.get("url") or "").strip()
+                or (
+                    f"https://finance.eastmoney.com/a/{code}.html"
+                    if code
+                    else ""
+                ),
+                published_at=_iso_time(
+                    row.get("showTime")
+                    or row.get("showtime")
+                    or row.get("ctime")
+                ),
+                related_symbols=related_symbols,
+            )
+        )
+    return items
+
+
+def parse_eastmoney_announcements(payload: dict, symbol: str) -> list[AnnouncementItem]:
+    canonical = _canonical_symbol(symbol)
+    digits = canonical.split(".")[0]
+    rows = (payload.get("data") or {}).get("list") or []
+    result: list[AnnouncementItem] = []
+    for row in rows:
+        art_code = str(row.get("art_code") or "").strip()
+        title = _clean_text(row.get("title"))
+        if not art_code or not title:
+            continue
+        published_at = str(row.get("notice_date") or "")[:10]
+        result.append(
+            AnnouncementItem(
+                source="eastmoney",
+                source_id=art_code,
+                title=title,
+                announcement_type=row.get("ann_type"),
+                published_at=published_at,
+                url=f"https://data.eastmoney.com/notices/detail/{digits}/{art_code}.html",
+                pdf_url=f"https://pdf.dfcfw.com/pdf/H2_{art_code}_1.pdf",
+            )
+        )
+    return result
 
 # 东财涨停池接口固定参数（getTopicZTPool 的 ut / dpt）
 ZTB_UT = "7eea3edcaed734bea9cbfc24409ed989"
@@ -449,6 +572,9 @@ def _chip_distribution(df: pd.DataFrame, grid_size: int = 300, decay: float = 1.
 class EastmoneyProvider(MarketProvider):
     name = "eastmoney"
     capabilities = frozenset({
+        CAPABILITY_STOCK_NEWS,
+        CAPABILITY_MARKET_NEWS,
+        CAPABILITY_ANNOUNCEMENT,
         "concept_blocks",
         "fund_flow_minute",
         "dragon_tiger",
@@ -473,6 +599,71 @@ class EastmoneyProvider(MarketProvider):
     def health(self) -> dict:
         """东财熔断 / 限流运行时快照（委托模块级 em_breaker_status）。"""
         return em_breaker_status()
+
+    def stock_news(self, symbol: str, page_size: int = 20) -> list[NewsItem]:
+        digits = norm_ticker(symbol)
+        inner = {
+            "uid": "",
+            "keyword": digits,
+            "type": ["cmsArticleWebOld"],
+            "client": "web",
+            "clientType": "web",
+            "clientVersion": "curr",
+            "param": {
+                "cmsArticleWebOld": {
+                    "searchScope": "default",
+                    "sort": "default",
+                    "pageIndex": 1,
+                    "pageSize": max(1, min(page_size, 100)),
+                    "preTag": "",
+                    "postTag": "",
+                }
+            },
+        }
+        payload = _em_get_bytes(
+            "https://search-api-web.eastmoney.com/search/jsonp",
+            params={"cb": "jQuery_news", "param": json.dumps(inner, separators=(",", ":"))},
+            headers={"Referer": "https://so.eastmoney.com/"},
+        )
+        return parse_eastmoney_stock_news(payload, symbol)
+
+    def market_news(self, limit: int = 50) -> list[NewsItem]:
+        payload = _em_get(
+            "https://np-weblist.eastmoney.com/comm/web/getFastNewsList",
+            params={
+                "client": "web",
+                "biz": "web_724",
+                "fastColumn": "102",
+                "sortEnd": "",
+                "pageSize": str(max(1, min(limit, 100))),
+                "req_trace": str(int(time.time() * 1000)),
+            },
+            headers={"Referer": "https://kuaixun.eastmoney.com/"},
+        )
+        return parse_eastmoney_market_news(payload)
+
+    def announcements(
+        self, symbol: str, since_days: int = 30, page_size: int = 30
+    ) -> list[AnnouncementItem]:
+        digits = norm_ticker(symbol)
+        payload = _em_get(
+            "https://np-anotice-stock.eastmoney.com/api/security/ann",
+            params={
+                "sr": "-1",
+                "page_size": str(max(1, min(page_size, 100))),
+                "page_index": "1",
+                "ann_type": "A",
+                "client_source": "web",
+                "stock_list": digits,
+                "f_node": "0",
+                "s_node": "0",
+            },
+        )
+        items = parse_eastmoney_announcements(payload, symbol)
+        cutoff = _date.today() - timedelta(days=max(1, since_days))
+        return [
+            item for item in items if item.published_at >= cutoff.isoformat()
+        ][: max(1, min(page_size, 100))]
 
     # ── 3.3 概念板块归属 ────────────────────────────────────────────
 

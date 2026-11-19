@@ -42,6 +42,8 @@ from .schemas import (
     LimitUpPoolItem,
     LockupExpiry,
     MarginTradingItem,
+    AnnouncementItem,
+    NewsItem,
     NorthboundPoint,
     Quote,
     TradeTick,
@@ -76,6 +78,11 @@ CAPABILITY_HOLDER_NUM = "holder_num"
 CAPABILITY_DIVIDEND_HISTORY = "dividend_history"
 CAPABILITY_FUND_FLOW_120D = "fund_flow_120d"
 CAPABILITY_CHIP_DISTRIBUTION = "chip_distribution"
+
+# 内容层（新闻 / 公告）
+CAPABILITY_STOCK_NEWS = "stock_news"
+CAPABILITY_MARKET_NEWS = "market_news"
+CAPABILITY_ANNOUNCEMENT = "announcement"
 
 
 class MarketProvider(ABC):
@@ -223,3 +230,17 @@ class MarketProvider(ABC):
     ) -> ChipDistribution:
         """筹码分布（本地推演）。"""
         raise NotImplementedError(f"{self.name} 不支持 chip_distribution")
+
+    def stock_news(self, symbol: str, page_size: int = 20) -> list[NewsItem]:
+        """个股新闻。"""
+        raise NotImplementedError(f"{self.name} 不支持 stock_news")
+
+    def market_news(self, limit: int = 50) -> list[NewsItem]:
+        """全市场财经新闻。"""
+        raise NotImplementedError(f"{self.name} 不支持 market_news")
+
+    def announcements(
+        self, symbol: str, since_days: int = 30, page_size: int = 30
+    ) -> list[AnnouncementItem]:
+        """上市公司公告。"""
+        raise NotImplementedError(f"{self.name} 不支持 announcement")

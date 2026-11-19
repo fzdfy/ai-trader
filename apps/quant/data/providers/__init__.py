@@ -7,6 +7,7 @@
 再在 `registry.py` 登记即可。
 """
 from .baidu import BaiduProvider
+from .cninfo import CninfoProvider
 from .eastmoney import EastmoneyProvider
 from .mootdx import MootdxProvider
 from .sina import SinaProvider
@@ -17,6 +18,7 @@ __all__ = [
     "MootdxProvider",
     "TencentProvider",
     "BaiduProvider",
+    "CninfoProvider",
     "SinaProvider",
     "ThsProvider",
     "EastmoneyProvider",

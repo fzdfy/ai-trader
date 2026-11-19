@@ -934,6 +934,404 @@ export const DATA_CENTER_TABLES: DataTableDef[] = [
       "当日同步空数据抛错重试；回补遇缺失历史日跳过并自愈。",
     ],
   },
+  {
+    table: "news_article",
+    name: "新闻文章",
+    description:
+      "市场快讯和个股新闻的统一正文与元数据；按来源 URL 幂等写入，并关联本次查询标的。",
+    timeColumn: "published_at",
+    jobTypes: ["news"],
+    sources: [
+      {
+        platform: "东方财富",
+        endpoint: "quant.stockNews / quant.marketNews",
+        upstream: [
+          {
+            method: "GET",
+            url: "https://search-api-web.eastmoney.com/search/jsonp",
+            target: "个股新闻",
+          },
+          {
+            method: "GET",
+            url: "https://np-weblist.eastmoney.com/comm/web/getFastNewsList",
+            target: "全市场快讯",
+          },
+        ],
+        note: "个股新闻主源；全市场快讯单源。所有东财请求统一走 _em_get 限流。",
+      },
+      {
+        platform: "新浪",
+        endpoint: "quant.stockNews",
+        upstream: [
+          {
+            method: "GET",
+            url: "https://zhibo.sina.com.cn/api/zhibo/feed",
+            target: "个股新闻降级",
+          },
+        ],
+        note: "个股新闻备源，按 ext.stocks 过滤目标标的。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "交易日 07:00–23:00 每 2 分钟",
+      cron: "*/2 * * * *",
+      dependsOn: null,
+      deadline: null,
+      note: "全市场新闻与自选股新闻独立降级；单源失败不清空既有数据。",
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "自选股首次回填最近 20 条；任意个股按需刷新最近 20 条。",
+    },
+    fallback: {
+      capability: "stock_news",
+      chain: ["eastmoney", "sina"],
+      degrade: true,
+      note: "个股新闻东财主源、Sina 备源；市场快讯仅东财。",
+    },
+    riskControl: [
+      "东财个股新闻与市场快讯统一走 _em_get，禁止 server 直连。",
+      "新闻按 (source, url) 幂等写入，查询标的始终写入关联表。",
+    ],
+  },
+  {
+    table: "news_article_symbol",
+    name: "新闻个股关联",
+    description:
+      "新闻与 A 股标的的多对多关系；覆盖显式查询标的和 Provider 识别出的关联标的。",
+    timeColumn: "published_at",
+    maxTable: "news_article",
+    jobTypes: ["news"],
+    sources: [
+      {
+        platform: "本地派生",
+        endpoint: "ingestNewsItems",
+        note: "按查询标的与 Provider related_symbols 合并生成。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "随新闻写入",
+      cron: null,
+      dependsOn: "news",
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "历史文章重新刷新时补齐缺失关联，不重复建行。",
+    },
+    fallback: {
+      capability: "stock_news",
+      chain: ["eastmoney", "sina"],
+      degrade: true,
+    },
+    riskControl: [
+      "主键为 (article_id, symbol)，重复同步不重复关联。",
+      "正文无股票代码时仍强制关联本次查询标的。",
+    ],
+  },
+  {
+    table: "news_embedding",
+    name: "新闻向量",
+    description: "新闻语义检索向量与分块文本，供研究检索和证据召回使用。",
+    timeColumn: "created_at",
+    jobTypes: [],
+    sources: [
+      {
+        platform: "本地派生",
+        endpoint: "新闻向量化",
+        note: "由新闻正文生成，当前不进入定时同步。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "按需生成",
+      cron: null,
+      dependsOn: null,
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "按需回填，不阻塞新闻主链路。",
+    },
+    fallback: {
+      capability: "news_embedding",
+      chain: [],
+      degrade: false,
+    },
+    riskControl: ["向量生成失败不得影响新闻正文落库。"],
+  },
+  {
+    table: "news_event",
+    name: "新闻事件",
+    description: "从新闻聚合得到的结构化事件，保留事件时间和影响信息。",
+    timeColumn: "created_at",
+    jobTypes: [],
+    sources: [
+      {
+        platform: "本地派生",
+        endpoint: "新闻事件聚合",
+        note: "由新闻正文派生。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "按需派生",
+      cron: null,
+      dependsOn: null,
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "无独立回补任务。",
+    },
+    fallback: {
+      capability: "news_event",
+      chain: [],
+      degrade: false,
+    },
+    riskControl: ["事件派生失败不回滚原始新闻。"],
+  },
+  {
+    table: "news_event_symbol",
+    name: "事件个股关联",
+    description: "结构化新闻事件与标的的多对多关系。",
+    timeColumn: "created_at",
+    maxTable: "news_event",
+    jobTypes: [],
+    sources: [
+      {
+        platform: "本地派生",
+        endpoint: "新闻事件聚合",
+        note: "由事件与标的识别生成。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "随事件生成",
+      cron: null,
+      dependsOn: null,
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "无独立回补任务。",
+    },
+    fallback: {
+      capability: "news_event",
+      chain: [],
+      degrade: false,
+    },
+    riskControl: ["事件关系按 (event_id, symbol) 去重。"],
+  },
+  {
+    table: "research_report",
+    name: "研究报告",
+    description:
+      "券商研报元数据、机构、评级、预测和 PDF 地址；自选股每日同步最近 12 个月。",
+    timeColumn: "publish_date",
+    jobTypes: ["stock-research-reports"],
+    sources: [
+      {
+        platform: "东方财富",
+        endpoint: "quant.researchReports",
+        upstream: [
+          {
+            method: "GET",
+            url: "https://reportapi.eastmoney.com/report/list",
+            target: "个股研报元数据",
+          },
+        ],
+        note: "研报元数据沿用现有东财 Provider，并走统一限流。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "交易日收盘后 18:10",
+      cron: "10 18 * * 1-5",
+      dependsOn: null,
+      deadline: null,
+      note: "仅同步自选股最近 12 个月；任意个股通过分析页按需刷新。",
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "首次窗口固定最近 12 个月，不抓完整历史。",
+    },
+    fallback: {
+      capability: "research_report",
+      chain: ["eastmoney"],
+      degrade: false,
+      note: "研报元数据为东财独有单源。",
+    },
+    riskControl: [
+      "按 (source, source_id) 幂等 upsert。",
+      "Provider 失败只标记研报模块失败，不取消新闻与公告刷新。",
+    ],
+  },
+  {
+    table: "research_report_document",
+    name: "研报 PDF 文档",
+    description: "研报 PDF 存储、全文提取状态、页数和证据文件元数据。",
+    timeColumn: "created_at",
+    jobTypes: [],
+    sources: [
+      {
+        platform: "本地派生",
+        endpoint: "quant.extractResearchReport",
+        note: "用户对单篇研报触发 PDF 下载、全文提取和存储。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "单篇按需提取",
+      cron: null,
+      dependsOn: "stock-research-reports",
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "不自动提取全部研报；用户按需触发。",
+    },
+    fallback: {
+      capability: "research_report_document",
+      chain: [],
+      degrade: false,
+    },
+    riskControl: [
+      "全文提取失败保留元数据并记录 pending/error 状态。",
+      "PDF 路径只允许研报存储目录内文件。",
+    ],
+  },
+  {
+    table: "research_report_chunk",
+    name: "研报分块",
+    description: "研报全文分页分块、页码范围和向量，用于语义检索与证据引用。",
+    timeColumn: "created_at",
+    jobTypes: [],
+    sources: [
+      {
+        platform: "本地派生",
+        endpoint: "研报分块与向量",
+        note: "由已提取 PDF 全文生成。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "随单篇 PDF 提取",
+      cron: null,
+      dependsOn: null,
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "重新提取时按报告重建。",
+    },
+    fallback: {
+      capability: "research_report_chunk",
+      chain: [],
+      degrade: false,
+    },
+    riskControl: ["按 (report_id, chunk_version, chunk_index) 唯一。"],
+  },
+  {
+    table: "research_report_forecast",
+    name: "研报预测",
+    description: "研报中的当前、下一期和未来两期 EPS 等预测指标。",
+    timeColumn: "publish_date",
+    maxTable: "research_report",
+    jobTypes: ["stock-research-reports"],
+    sources: [
+      {
+        platform: "东方财富",
+        endpoint: "quant.researchReports",
+        note: "随研报元数据解析预测字段。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "随自选股研报同步",
+      cron: "10 18 * * 1-5",
+      dependsOn: "stock-research-reports",
+      deadline: null,
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "与研报元数据同窗口同步。",
+    },
+    fallback: {
+      capability: "research_report",
+      chain: ["eastmoney"],
+      degrade: false,
+    },
+    riskControl: ["按 (report_id, horizon) 幂等 upsert。"],
+  },
+  {
+    table: "company_announcement",
+    name: "公司公告",
+    description:
+      "上市公司公告标题、类型、发布时间、原文和 PDF 链接；按来源 URL 幂等写入。",
+    timeColumn: "publish_at",
+    jobTypes: ["stock-announcements"],
+    sources: [
+      {
+        platform: "巨潮资讯",
+        endpoint: "quant.announcements",
+        upstream: [
+          {
+            method: "POST",
+            url: "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+            target: "上市公司公告",
+          },
+        ],
+        note: "公告主源，动态解析 orgId 并缓存。",
+      },
+      {
+        platform: "东方财富",
+        endpoint: "quant.announcements",
+        upstream: [
+          {
+            method: "GET",
+            url: "https://np-anotice-stock.eastmoney.com/api/security/ann",
+            target: "上市公司公告降级",
+          },
+        ],
+        note: "公告备源，统一走 _em_get 限流。",
+      },
+    ],
+    syncPolicy: {
+      trigger: "交易日收盘后 18:05",
+      cron: "5 18 * * 1-5",
+      dependsOn: null,
+      deadline: null,
+      note: "仅同步自选股最近 30 天；任意个股通过分析页按需刷新。",
+    },
+    backfill: {
+      separate: false,
+      trigger: null,
+      cron: null,
+      note: "首次窗口固定最近 30 天，不抓完整历史。",
+    },
+    fallback: {
+      capability: "announcement",
+      chain: ["cninfo", "eastmoney"],
+      degrade: true,
+      note: "巨潮主源，东财备源。",
+    },
+    riskControl: [
+      "按 (source, source_url) 唯一，迁移前保留最大 id 的历史重复行。",
+      "单股失败继续处理下一只自选股，最终汇总标记任务失败。",
+    ],
+  },
 ];
 
 /** 显式新鲜度 SLA；未登记的表不推断陈旧，避免把低频快照误报为异常。 */
@@ -951,7 +1349,11 @@ const DATA_TABLE_SLA_HOURS: Record<string, number> = {
   bar1d_adj_legacy: 96,
   adj_factor: 96,
   news_article: 24,
+  news_article_symbol: 24,
   research_report: 24 * 14,
+  research_report_document: 24 * 14,
+  research_report_chunk: 24 * 14,
+  research_report_forecast: 24 * 14,
   company_announcement: 24 * 7,
 };
 

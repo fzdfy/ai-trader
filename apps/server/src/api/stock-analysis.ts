@@ -12,7 +12,6 @@ import {
   newsArticleSymbol,
   quoteLatest,
   researchReport,
-  researchReportForecast,
   researchReportDocument,
   stockFinancialSnapshot,
   stockAnalysisSnapshot,
@@ -27,8 +26,8 @@ import {
   normalizeStockSymbol,
   type AnalysisBar,
 } from "../lib/stock-analysis-data";
-import { quant } from "../lib/quant";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
+import { syncStockContent } from "../services/stock-content-service";
 import {
   assertResearchDataReady,
   DataGovernanceGateError,
@@ -175,76 +174,8 @@ stockAnalysisRoute.post("/:symbol/refresh", async (c) => {
   if (!symbol) return badRequest(c, "Unsupported A-share symbol");
   try {
     const gate = await assertResearchDataReady("stock_analysis");
-    const reports = await quant.researchReports(symbol);
-    if (reports.items.length === 0) {
-      return ok(c, { symbol, count: 0, ...governanceNotice(gate) });
-    }
-    const saved = await db
-      .insert(researchReport)
-      .values(
-        reports.items.map((item) => ({
-          source: item.source,
-          sourceId: item.source_id,
-          symbol: item.symbol,
-          title: item.title,
-          institution: item.institution,
-          analysts: item.analysts,
-          rating: item.rating,
-          industry: item.industry,
-          publishDate: item.publish_date,
-          pdfUrl: item.pdf_url,
-          rawJson: item.raw,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [researchReport.source, researchReport.sourceId],
-        set: {
-          title: sql`excluded.title`,
-          institution: sql`excluded.institution`,
-          analysts: sql`excluded.analysts`,
-          rating: sql`excluded.rating`,
-          industry: sql`excluded.industry`,
-          publishDate: sql`excluded.publish_date`,
-          pdfUrl: sql`excluded.pdf_url`,
-          rawJson: sql`excluded.raw_json`,
-          fetchedAt: sql`now()`,
-        },
-      })
-      .returning({ id: researchReport.id, sourceId: researchReport.sourceId });
-    const ids = new Map(saved.map((row) => [row.sourceId, row.id]));
-    const forecasts = reports.items.flatMap((item) =>
-      item.forecasts.flatMap((forecast) => {
-        const reportId = ids.get(item.source_id);
-        return reportId
-          ? [
-              {
-                reportId,
-                horizon: forecast.horizon,
-                eps: forecast.eps == null ? null : String(forecast.eps),
-                rawValue: forecast.raw_value == null ? null : String(forecast.raw_value),
-              },
-            ]
-          : [];
-      }),
-    );
-    if (forecasts.length > 0) {
-      await db
-        .insert(researchReportForecast)
-        .values(forecasts)
-        .onConflictDoUpdate({
-          target: [researchReportForecast.reportId, researchReportForecast.horizon],
-          set: {
-            eps: sql`excluded.eps`,
-            rawValue: sql`excluded.raw_value`,
-          },
-        });
-    }
-    return ok(c, {
-      symbol,
-      count: reports.items.length,
-      total: reports.total,
-      ...governanceNotice(gate),
-    });
+    const content = await syncStockContent(symbol);
+    return ok(c, { ...content, ...governanceNotice(gate) });
   } catch (error) {
     if (error instanceof DataGovernanceGateError) {
       return c.json(
@@ -253,7 +184,7 @@ stockAnalysisRoute.post("/:symbol/refresh", async (c) => {
       );
     }
     console.error(`[stock-analysis] refresh ${symbol} failed:`, error);
-    return serverError(c, "研报同步失败，请稍后重试。");
+    return serverError(c, "内容同步失败，请稍后重试。");
   }
 });
 
@@ -284,10 +215,21 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
         .where(eq(bar1dQfq.symbol, symbol))
         .orderBy(desc(bar1dQfq.time))
         .limit(320),
-      db.select({ total: count() }).from(researchReport).where(eq(researchReport.symbol, symbol)),
+      db
+        .select({
+          total: count(),
+          pdfPending: sql<number>`count(*) filter (where ${researchReportDocument.extractStatus} is distinct from 'extracted')::int`,
+        })
+        .from(researchReport)
+        .leftJoin(
+          researchReportDocument,
+          eq(researchReportDocument.reportId, researchReport.id),
+        )
+        .where(eq(researchReport.symbol, symbol)),
       db
         .select({
           id: researchReport.id,
+          source: researchReport.source,
           title: researchReport.title,
           institution: researchReport.institution,
           rating: researchReport.rating,
@@ -367,6 +309,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       numberOrNull(extra.total_market_cap) ??
       numberOrNull(extra.marketCap);
     const reportCount = reportCountRows[0]?.total ?? 0;
+    const reportPdfPending = Number(reportCountRows[0]?.pdfPending ?? 0);
     const flow = fundFlowRow[0];
     const fundRows = flow
       ? [
@@ -512,6 +455,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
         reportCount > 0 ? "available" : "missing",
       ),
       reportCount,
+      reportPdfPending,
       fundamentals: moduleData(
         financial
           ? {

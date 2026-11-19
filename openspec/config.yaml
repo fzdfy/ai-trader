@@ -4,25 +4,30 @@ context: |
   Language: zh-CN
   All artifacts must be written in zh-CN.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Visual design gate:
+  - Any change that adds or modifies a page, component, visible state, interaction, information hierarchy, loading/empty/error/partial-success behavior, data presentation, copy that changes an action, or responsive/light/dark behavior MUST require visual design.
+  - Reusing an existing visual direction does NOT exempt a change from visual design.
+  - A change may mark visual design not applicable only when it has no externally visible UI behavior; the proposal MUST state `Visual design: not applicable` with a concrete reason.
+  - For required visual design, the approved prototype MUST live under docs/design/prototypes/explorations/, screenshots MUST cover desktop/mobile and light/dark, and the user MUST confirm the design before production code.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - "Always include a `## Visual Design Impact` section."
+    - "The section MUST declare `Visual design: required` or `Visual design: not applicable`; not-applicable MUST include a concrete no-visible-UI reason."
+    - "State the affected screen, interaction, states, reference prototype and required review targets when visual design is required."
+  design:
+    - "When visual design is required, include a Visual Design section linking the exploration prototype and screenshot directory."
+    - "Describe loading, empty, error, partial-success and success states plus desktop/mobile and light/dark coverage."
+  tasks:
+    - "When visual design is required, create `## 0. Visual Design Gate` before every implementation group."
+    - "Before user approval, tasks.md may contain only the visual design gate; do not add implementation tasks until the approved exploration and screenshots exist."
+    - "The gate MUST require an exploration prototype, desktop/mobile light/dark screenshots, tool checks, and explicit user confirmation."
+    - "For not-applicable changes, record the concrete no-visible-UI reason instead of creating an empty gate."
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - "Before changing production code, verify the visual design gate is confirmed whenever UI behavior is in scope."
+  archive:
+    guidance:
+      - "Verify verification.md records the approved visual design and screenshot evidence when visual design was required."

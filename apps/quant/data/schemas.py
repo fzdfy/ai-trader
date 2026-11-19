@@ -123,6 +123,29 @@ class AdjustParams(BaseModel):
     points: list[AdjustParamPoint]
 
 
+class NewsItem(BaseModel):
+    """个股或全市场新闻。"""
+
+    source: str
+    title: str
+    content: str | None = None
+    url: str
+    published_at: str | None = None
+    related_symbols: list[str] = Field(default_factory=list)
+
+
+class AnnouncementItem(BaseModel):
+    """上市公司公告。"""
+
+    source: str
+    source_id: str
+    title: str
+    announcement_type: str | None = None
+    published_at: str
+    url: str
+    pdf_url: str | None = None
+
+
 # ============================================================================
 # 信号层（Layer 3）模型 — 同花顺热点 / 北向 / 概念归属 / 资金流 / 龙虎榜 / 解禁 / 板块
 # ============================================================================

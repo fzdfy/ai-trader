@@ -191,7 +191,10 @@ export const companyAnnouncement = pgTable(
     rawJson: jsonb("raw_json"),
     fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
   },
-  (table) => [index("company_announcement_symbol_date_idx").on(table.symbol, table.publishAt)],
+  (table) => [
+    uniqueIndex("company_announcement_source_url_unq").on(table.source, table.sourceUrl),
+    index("company_announcement_symbol_date_idx").on(table.symbol, table.publishAt),
+  ],
 );
 
 export const stockAnalysisSnapshot = pgTable(

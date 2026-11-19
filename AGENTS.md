@@ -53,6 +53,8 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 - 非平凡开发必须先澄清与规格，再使用 `tasks.md` 实施；禁止无计划直接改业务代码。
 - 前端统一使用 Preline UI + Tailwind CSS；新增和重写 UI 必须复用 `apps/web/src/components/preline-ui/` 语义组件。
 - 量化工作台原稿 `quant-workbench-assistant.html` 不得覆盖；新视觉探索必须复制到 `docs/design/prototypes/explorations/`。
+- 视觉门禁不可跳过：只要需求新增或修改页面、组件、可见状态、交互、信息层级、加载/空/错误/部分成功、响应式或深浅模式，就必须先完成视觉探索、截图和用户确认；“沿用现有视觉方向”不构成豁免。
+- 纯后端、数据、文档变更也必须明确写出 `Visual design: not applicable` 及无可见 UI 影响的原因；不确定是否影响 UI 时，默认需要视觉设计。
 
 ## 工具链注意
 
@@ -67,6 +69,7 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 - 密集数据使用行式 Table/List；Card 只用于独立指标、设置分组或内容块。
 - 新 UI 必须支持浅色、深色、移动端、键盘焦点和 reduced motion。
 - 每次编写/修改前端界面时使用 `oil-ui` 确定视觉方向并完成视觉评审；编写/修改 React 时调用 `react-best-practices` skill。
+- UI 影响的判断发生在编码前，不等到修改前端文件时才判断；若仍需新增视觉状态或交互，必须先走视觉门禁。
 
 ## 规范驱动 AI Coding
 
@@ -75,6 +78,7 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 规则：
 
 - 非平凡开发必须依次完成澄清、PRD、OpenSpec 规格、技术设计、方案评审、用户确认、测试计划、实施、测试报告、审查和归档。
+- 有 UI 影响的需求，技术设计之后必须先做视觉设计并取得用户确认，再创建实施计划和实现任务；确认前 `tasks.md` 只能包含视觉设计门禁。
 - 需求不确定时先使用 Grill-with-docs，不把猜测写成规格。
 - 新用户功能和多页面流程必须完成 PRD-lite；大型需求再生成完整 PRD。
 - 技术方案未经评审批准，不得进入生产代码实施。

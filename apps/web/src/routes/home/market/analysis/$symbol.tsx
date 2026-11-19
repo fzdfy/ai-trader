@@ -8,5 +8,6 @@ export const Route = createFileRoute("/home/market/analysis/$symbol")({
 
 function StockAnalysisRoute() {
   const { symbol } = useParams({ from: "/home/market/analysis/$symbol" });
-  return <StockAnalysisDetail symbol={normalizeStockSymbol(symbol) ?? symbol} />;
+  const normalized = normalizeStockSymbol(symbol) ?? symbol;
+  return <StockAnalysisDetail key={normalized} symbol={normalized} />;
 }

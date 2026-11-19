@@ -15,6 +15,7 @@ docs/design/prototypes/
 │   ├── quant-workbench-assistant-v2.html # V2 确认过程稿
 │   ├── quant-workbench-daily-dashboard-v3.html # 基于真实数据模块的每日看板设计稿
 │   ├── quant-workbench-stock-analysis-v5.html # 个股分析工作台设计稿
+│   ├── quant-workbench-stock-content-v1.html # 个股新闻、公告、研报刷新状态设计稿
 │   ├── quant-workbench-data-governance-v1.html # 已确认的数据治理探索稿
 │   └── screenshots/data-governance-production/ # 生产页面真实浏览器验收截图
 └── assets/                         # 预览所需的静态资源
@@ -51,6 +52,7 @@ python3 -m http.server 9090
 - `http://localhost:9090/explorations/quant-workbench-preline.html`
 - `http://localhost:9090/explorations/quant-workbench-daily-dashboard-v3.html`（每日看板设计稿）
 - `http://localhost:9090/explorations/quant-workbench-stock-analysis-v5.html`（个股分析设计稿）
+- `http://localhost:9090/explorations/quant-workbench-stock-content-v1.html?view=detail&content=partial`（个股内容刷新设计稿）
 - `http://localhost:9090/explorations/quant-workbench-data-governance-v1.html`（数据治理确认稿）
 
 探索稿使用 Tailwind CSS 与 Preline CDN。正式应用使用 npm 包和 Vite 构建。
@@ -62,5 +64,7 @@ V3 每日看板设计稿按当前数据库中的真实数据组织市场广度�
 V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比三种状态；单股详情包含实时行情、价格趋势、研究摘要、情景预测、风险参考区间、研报检索、财务估值、资金筹码和新闻事件，并明确区分事实、推断、情景与缺失状态。确认基准已保存为 `initial/quant-workbench-stock-analysis-v1.html`。
 
 数据治理确认稿以研究门禁、来源标准漂移和未解决事故为首屏主角；生产实现保留该方向，并补充资产与契约、质量证据、来源标准、治理任务和数据事故五个子页面。桌面/移动端与浅色/深色真实截图保存在 `explorations/screenshots/data-governance-production/`。
+
+个股内容刷新设计稿沿用已确认的个股分析基准，将“重新分析”定义为新闻、公告和研报的统一下拉动作。状态条分别显示三类来源、数量、时间和降级情况；新闻与事件卡按时间倒序合并新闻、公告和研报。设计覆盖全部成功、部分源降级和单一模块失败，截图保存在 `explorations/screenshots/stock-content-v1/`。
 
 主题必须沿用默认参考稿的暖白画布、蓝灰导航、白色内容面板、原始蓝主操作、黄色状态强调与 A 股红涨绿跌语义。

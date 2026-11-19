@@ -440,6 +440,25 @@ export interface DataSourcesHealth {
   capabilities: CapabilityHealth[];
 }
 
+export interface NewsItem {
+  source: string;
+  title: string;
+  content: string | null;
+  url: string;
+  published_at: string | null;
+  related_symbols: string[];
+}
+
+export interface AnnouncementItem {
+  source: string;
+  source_id: string;
+  title: string;
+  announcement_type: string | null;
+  published_at: string;
+  url: string;
+  pdf_url: string | null;
+}
+
 export interface ResearchReportProviderItem {
   source: string;
   source_id: string;
@@ -546,17 +565,30 @@ async function postJson<T>(path: string, body: unknown, timeoutMs = QUANT_TIMEOU
 }
 
 export const quant = {
-  researchReports: (symbol: string, page = 1, pageSize = 100) =>
-    getJson<{
+  stockNews: (symbol: string, pageSize = 20) =>
+    getJson<NewsItem[]>(
+      `/api/v1/data/stock-news?symbol=${encodeURIComponent(symbol)}&page_size=${pageSize}`,
+    ),
+
+  marketNews: (limit = 50) =>
+    getJson<NewsItem[]>(`/api/v1/data/market-news?limit=${limit}`),
+
+  announcements: (symbol: string, sinceDays = 30, pageSize = 30) =>
+    getJson<AnnouncementItem[]>(
+      `/api/v1/data/announcements?symbol=${encodeURIComponent(symbol)}&since_days=${sinceDays}&page_size=${pageSize}`,
+    ),
+
+  researchReports: (symbol: string, page = 1, pageSize = 100, beginTime?: string) => {
+    let path = `/api/v1/research/reports?symbol=${encodeURIComponent(symbol)}&page=${page}&page_size=${pageSize}`;
+    if (beginTime) path += `&begin_time=${encodeURIComponent(beginTime)}`;
+    return getJson<{
       symbol: string;
       page: number;
       page_size: number;
       total: number;
       items: ResearchReportProviderItem[];
-    }>(
-      `/api/v1/research/reports?symbol=${encodeURIComponent(symbol)}&page=${page}&page_size=${pageSize}`,
-      120_000,
-    ),
+    }>(path, 120_000);
+  },
 
   extractResearchReport: (params: {
     pdf_url: string;

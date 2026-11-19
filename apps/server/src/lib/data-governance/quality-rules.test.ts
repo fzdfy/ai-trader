@@ -39,3 +39,29 @@ test("rule identifiers are unique and versions are immutable integers", () => {
     ),
   );
 });
+
+test("content quality rules are warning-only and cover links and documents", () => {
+  const contentAssets = [
+    "news_article",
+    "news_article_symbol",
+    "news_embedding",
+    "news_event",
+    "news_event_symbol",
+    "research_report",
+    "research_report_document",
+    "research_report_chunk",
+    "research_report_forecast",
+    "company_announcement",
+  ];
+  for (const assetKey of contentAssets) {
+    const rules = getQualityRulesForAssets([assetKey]);
+    assert.ok(rules.length > 0, `${assetKey} has no quality rules`);
+    assert.ok(rules.every((rule) => rule.severity === "warning"));
+  }
+  assert.ok(
+    QUALITY_RULES.some((rule) => rule.checkKey === "coverage.symbol_links"),
+  );
+  assert.ok(
+    QUALITY_RULES.some((rule) => rule.checkKey === "validity.research_documents"),
+  );
+});

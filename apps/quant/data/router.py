@@ -19,6 +19,7 @@ from . import registry
 from .adjust import align_series, solve_adjust_params
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
+    CAPABILITY_ANNOUNCEMENT,
     CAPABILITY_BLOCK_TRADE,
     CAPABILITY_BOARD_CONSTITUENTS,
     CAPABILITY_BOARD_FUND_FLOW,
@@ -38,14 +39,17 @@ from .base import (
     CAPABILITY_KLINE,
     CAPABILITY_LIMIT_UP_POOL,
     CAPABILITY_LOCKUP_EXPIRY,
+    CAPABILITY_MARKET_NEWS,
     CAPABILITY_MARGIN_TRADING,
     CAPABILITY_NORTHBOUND,
     CAPABILITY_QUOTE,
+    CAPABILITY_STOCK_NEWS,
     CAPABILITY_TRANSACTION,
 )
 from .schemas import (
     AdjustFactor,
     AdjustParams,
+    AnnouncementItem,
     BlockTradeItem,
     BoardConstituentItem,
     BoardFundFlow,
@@ -65,6 +69,7 @@ from .schemas import (
     LimitUpPoolItem,
     LockupExpiry,
     MarginTradingItem,
+    NewsItem,
     NorthboundPoint,
     Quote,
     TradeTick,
@@ -233,6 +238,65 @@ def get_adjust_params(
     }
     dates, raw_close, qfq_close, hfq_close = align_series(bars_by_adjust)
     return solve_adjust_params(symbol, dates, raw_close, qfq_close, hfq_close, source=src)
+
+
+@router.get("/stock-news", response_model=list[NewsItem])
+def get_stock_news(
+    symbol: Annotated[str, Query(description="标的代码，如 002594.SZ")],
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    source: Annotated[str | None, Query()] = None,
+) -> list[NewsItem]:
+    """个股新闻。东财主源，新浪 7×24 备源。"""
+    provider = _pick(CAPABILITY_STOCK_NEWS, source)
+    if provider is not None:
+        return provider.stock_news(symbol, page_size=page_size)
+    return registry.call_with_fallback(
+        CAPABILITY_STOCK_NEWS,
+        "stock_news",
+        symbol,
+        retry_on_empty=True,
+        page_size=page_size,
+    )
+
+
+@router.get("/market-news", response_model=list[NewsItem])
+def get_market_news(
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    source: Annotated[str | None, Query()] = None,
+) -> list[NewsItem]:
+    """全市场财经新闻。"""
+    provider = _pick(CAPABILITY_MARKET_NEWS, source)
+    if provider is not None:
+        return provider.market_news(limit=limit)
+    return registry.call_with_fallback(
+        CAPABILITY_MARKET_NEWS,
+        "market_news",
+        limit=limit,
+    )
+
+
+@router.get("/announcements", response_model=list[AnnouncementItem])
+def get_announcements(
+    symbol: Annotated[str, Query(description="标的代码，如 002594.SZ")],
+    since_days: Annotated[int, Query(ge=1, le=365)] = 30,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 30,
+    source: Annotated[str | None, Query()] = None,
+) -> list[AnnouncementItem]:
+    """上市公司公告。巨潮主源，东财备源。"""
+    provider = _pick(CAPABILITY_ANNOUNCEMENT, source)
+    if provider is not None:
+        return provider.announcements(
+            symbol,
+            since_days=since_days,
+            page_size=page_size,
+        )
+    return registry.call_with_fallback(
+        CAPABILITY_ANNOUNCEMENT,
+        "announcements",
+        symbol,
+        since_days=since_days,
+        page_size=page_size,
+    )
 
 
 # ============================================================================

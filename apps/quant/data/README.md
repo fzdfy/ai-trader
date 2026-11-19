@@ -5,16 +5,17 @@
 架构：`router`（端点）→ `registry`（能力注册 + 降级链）→ `providers`（各数据源实现）。
 调用方只面向 `MarketProvider` 协议编程，切换 / 增删数据源无需改动上层。
 
-## 数据源总览（6 个 Provider）
+## 数据源总览（7 个 Provider）
 
 | Provider | 能力（capabilities） | 接口域名 | 风控特征 |
 |---|---|---|---|
 | `tencent` 腾讯 | quote、kline、transaction | `qt.gtimg.cn`、`proxy.finance.qq.com`、`stock.gtimg.cn` | 不封 IP，连续 5000+ 次才限流返回空 |
 | `mootdx` 通达信 | kline、quote、transaction | 本地 TDX 行情库（非 HTTP） | 本地接口，无网络风控 |
 | `baidu` 百度 | kline | `finance.pae.baidu.com` | 需 Origin/Referer，低频不封 |
-| `sina` 新浪 | adjust_factor | `finance.sina.com.cn` | 带 UA/Referer，低频不封 |
+| `sina` 新浪 | adjust_factor、stock_news | `finance.sina.com.cn` | 带 UA/Referer，低频不封 |
 | `ths` 同花顺 | hot_reason、northbound | `zx.10jqka.com.cn`、`data.hexin.cn` | 需 UA/Referer，低频不封 |
-| `eastmoney` 东财 | 22 项（信号/资金/筹码层） | `push2` / `push2delay` / `push2his` / `datacenter-web` | 有风控：>5次/秒、并发≥10、1分钟≥200 会临时封 IP，统一走 `_em_get` 串行限流 |
+| `eastmoney` 东财 | 25 项（信号/资金/筹码/内容层） | `push2` / `push2delay` / `push2his` / `datacenter-web` / `search-api-web` | 有风控：>5次/秒、并发≥10、1分钟≥200 会临时封 IP，统一走 `_em_get` 串行限流 |
+| `cninfo` 巨潮 | announcement | `www.cninfo.com.cn` | 带 UA/Referer，公告主源 |
 
 ## 通用参数
 
@@ -74,6 +75,40 @@
 | `source` | str | null | — |
 
 来源：新浪（仅此源）。
+
+---
+
+## 内容层
+
+### `/stock-news` — 个股新闻
+
+| 参数 | 类型 | 默认 | 约束 | 说明 |
+|---|---|---|---|---|
+| `symbol` | str | 必填 | — | 标的代码，如 `002594.SZ` |
+| `page_size` | int | `20` | 1~100 | 返回条数 |
+| `source` | str | null | — | 强制指定源 |
+
+来源：东财 `cmsArticleWebOld`（主）→ 新浪 7×24（备）。
+
+### `/market-news` — 全市场财经新闻
+
+| 参数 | 类型 | 默认 | 约束 | 说明 |
+|---|---|---|---|---|
+| `limit` | int | `50` | 1~100 | 返回条数 |
+| `source` | str | null | — | 强制指定源 |
+
+来源：东财全球快讯（仅此源）。
+
+### `/announcements` — 上市公司公告
+
+| 参数 | 类型 | 默认 | 约束 | 说明 |
+|---|---|---|---|---|
+| `symbol` | str | 必填 | — | 标的代码，如 `002594.SZ` |
+| `since_days` | int | `30` | 1~365 | 回看天数 |
+| `page_size` | int | `30` | 1~100 | 返回条数 |
+| `source` | str | null | — | 强制指定源 |
+
+来源：巨潮资讯（主）→ 东财公告（备）。
 
 ---
 
@@ -274,7 +309,7 @@
 
 ## 降级机制
 
-- **多源降级链**：仅 4 个行情层能力有真降级链（`kline`/`quote`/`transaction`/`adjust_factor`），由 `registry.call_with_fallback` 按 `_CAPABILITY_PRIORITY` 顺序依次调用，任一源失败捕获异常落到下一源，全部失败才抛最后一个异常。
+- **多源降级链**：行情与内容层按 `_CAPABILITY_PRIORITY` 顺序调用，任一源失败自动落到下一源，全部失败才抛最后一个异常。当前包含 `kline`、`quote`、`transaction`、`stock_news` 和 `announcement`；`adjust_factor` 与 `market_news` 为单源。
 - **独有单源**：信号/资金/筹码层共 20 项为东财或同花顺「独有、别处拿不到」，降级链只有 1 个源，无备胎。真正的兜底在 server 端：
   - sync 脚本对每类数据 `try/catch` 失败即 `skip`，不中断整轮；
   - 热力图等实时页面在 DB 兜底模式跳过成分股、15s 总时限。

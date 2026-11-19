@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatAnalysisMoney,
+  formatContentRefreshSummary,
+  buildStockContentTimeline,
+  selectStockContentPreview,
   mergeRecentAnalyses,
   normalizeCompareSymbols,
   stockAnalysisPath,
@@ -14,6 +17,117 @@ test("builds encoded analysis and compare routes", () => {
     stockComparePath(["002594.SZ", "601633.SH", "601127.SH"]),
     "/home/market/analysis/compare?symbols=002594.SZ%2C601633.SH%2C601127.SH",
   );
+});
+
+test("unifies news, announcements, and reports newest first", () => {
+  const timeline = buildStockContentTimeline({
+    news: [
+      {
+        id: 1,
+        source: "eastmoney",
+        title: "新闻事件",
+        url: "https://example.com/news",
+        publishedAt: "2026-11-19T10:38:00.000Z",
+      },
+    ],
+    announcements: [
+      {
+        id: 2,
+        title: "季度报告",
+        announcementType: "季度报告",
+        publishAt: "2026-11-19T02:20:00.000Z",
+        sourceUrl: "https://example.com/announcement",
+      },
+    ],
+    reports: [
+      {
+        id: 3,
+        title: "盈利预测更新",
+        institution: "中航证券",
+        rating: "买入",
+        publishDate: "2026-11-13",
+        pdfUrl: "https://example.com/report.pdf",
+        extractStatus: "pending",
+        storageKey: null,
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    timeline.map((item) => [item.type, item.title, item.source]),
+    [
+      ["news", "新闻事件", "东方财富"],
+      ["announcement", "季度报告", "巨潮资讯"],
+      ["report", "盈利预测更新", "中航证券"],
+    ],
+  );
+  assert.equal(timeline[1]?.meta, "季度报告");
+  assert.equal(timeline[2]?.meta, "买入 · PDF 待提取");
+});
+
+test("content preview keeps every event type when news dominates", () => {
+  const timeline = [
+    ...Array.from({ length: 10 }, (_, index) => ({
+      id: `news-${index}`,
+      type: "news" as const,
+      title: `新闻 ${index}`,
+      source: "东方财富",
+      publishedAt: `2026-11-19T${String(20 - index).padStart(2, "0")}:00:00.000Z`,
+      href: null,
+      meta: "个股新闻",
+    })),
+    {
+      id: "announcement-1",
+      type: "announcement" as const,
+      title: "公告",
+      source: "巨潮资讯",
+      publishedAt: "2026-11-12T08:00:00.000Z",
+      href: null,
+      meta: "公司公告",
+    },
+    {
+      id: "report-1",
+      type: "report" as const,
+      title: "研报",
+      source: "中航证券",
+      publishedAt: "2026-11-13T08:00:00.000Z",
+      href: null,
+      meta: "买入",
+    },
+  ].sort(
+    (left, right) =>
+      Date.parse(right.publishedAt) - Date.parse(left.publishedAt),
+  );
+
+  const preview = selectStockContentPreview(timeline, 8);
+  assert.equal(preview.length, 8);
+  assert.deepEqual(
+    new Set(preview.map((item) => item.type)),
+    new Set(["news", "announcement", "report"]),
+  );
+  assert.deepEqual(
+    preview.map((item) => item.publishedAt),
+    [...preview]
+      .map((item) => item.publishedAt)
+      .sort((left, right) => Date.parse(right!) - Date.parse(left!)),
+  );
+});
+
+test("fallback news URLs do not render as external links", () => {
+  const timeline = buildStockContentTimeline({
+    news: [
+      {
+        id: 9,
+        source: "eastmoney_global",
+        title: "无原文链接快讯",
+        url: "fallback:eastmoney_global:abc123",
+        publishedAt: "2026-11-19T10:00:00.000Z",
+      },
+    ],
+    announcements: [],
+    reports: [],
+  });
+  assert.equal(timeline[0]?.href, null);
 });
 
 test("normalizes and deduplicates compare symbols", () => {
@@ -44,4 +158,82 @@ test("recent analyses keep the latest visit per symbol", () => {
       { symbol: "600519.SH", name: "贵州茅台", viewedAt: "2026-11-18T08:00:00.000Z" },
     ],
   );
+});
+
+test("content refresh summary never claims success when a module fails", () => {
+  const base = {
+    symbol: "002594.SZ",
+    modules: {
+      news: {
+        ok: true,
+        inserted: 2,
+        total: 8,
+        observedAt: "2026-11-19T10:42:00.000Z",
+        error: null,
+      },
+      announcements: {
+        ok: true,
+        inserted: 1,
+        total: 3,
+        observedAt: "2026-11-19T10:42:00.000Z",
+        error: null,
+      },
+      reports: {
+        ok: true,
+        inserted: 0,
+        total: 12,
+        observedAt: "2026-11-19T10:42:00.000Z",
+        error: null,
+      },
+    },
+  } as const;
+
+  assert.deepEqual(formatContentRefreshSummary(base), {
+    tone: "success",
+    label: "新闻、公告和研报已更新",
+    detail: "新闻 8 条 · 公告 3 条 · 研报 12 篇",
+    failedModules: [],
+  });
+
+  const partial = {
+    ...base,
+    modules: {
+      ...base.modules,
+      announcements: {
+        ok: false,
+        inserted: 0,
+        total: 0,
+        observedAt: "2026-11-19T10:42:00.000Z",
+        error: "公告上游不可用",
+      },
+    },
+  };
+  assert.deepEqual(formatContentRefreshSummary(partial), {
+    tone: "warning",
+    label: "部分内容更新失败",
+    detail: "公告：公告上游不可用",
+    failedModules: ["公告"],
+  });
+
+  const allFailed = {
+    ...base,
+    modules: {
+      news: { ...base.modules.news, ok: false, total: 0, error: "新闻失败" },
+      announcements: { ...base.modules.announcements, ok: false, total: 0, error: "公告失败" },
+      reports: { ...base.modules.reports, ok: false, total: 0, error: "研报失败" },
+    },
+  };
+  assert.deepEqual(formatContentRefreshSummary(allFailed), {
+    tone: "error",
+    label: "内容更新失败",
+    detail: "新闻：新闻失败；公告：公告失败；研报：研报失败",
+    failedModules: ["新闻", "公告", "研报"],
+  });
+
+  assert.deepEqual(formatContentRefreshSummary(null), {
+    tone: "warning",
+    label: "刷新结果不完整",
+    detail: "未收到完整模块状态，请重新分析。",
+    failedModules: ["新闻", "公告", "研报"],
+  });
 });

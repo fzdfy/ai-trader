@@ -41,6 +41,10 @@ import { klinePeriodPipeRun } from "./pipes/kline-period";
 import { calendarPipeRun } from "./pipes/calendar";
 import { adjFactorPipeRun } from "./pipes/adj-factor";
 import { partitionMaintPipeRun } from "./pipes/partition-maint";
+import {
+  runStockAnnouncementSync,
+  runStockResearchReportSync,
+} from "./stock-content-jobs";
 import { triggerSyncCompleteWorkflows } from "../../services/workflow-service";
 import {
   runGovernanceQualityScan,
@@ -67,6 +71,8 @@ export type PipeName =
   | "governance-quality-scan"
   | "source-standard-watch"
   | "partition-maint"
+  | "stock-announcements"
+  | "stock-research-reports"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -93,6 +99,8 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "governance-quality-scan": () => runGovernanceQualityScan(),
   "source-standard-watch": () => runSourceStandardWatchJob(),
   "partition-maint": () => partitionMaintPipeRun(),
+  "stock-announcements": () => runStockAnnouncementSync(),
+  "stock-research-reports": () => runStockResearchReportSync(),
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),
@@ -361,10 +369,12 @@ export const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "board-fund-flow" },
   { name: "dragon-tiger" },
   { name: "hot-reason" },
+  { name: "stock-announcements" },
+  { name: "stock-research-reports" },
 ];
 
 /**
- * 手动同步：并发编排执行 8 个行情/板块/资金/特征管道（与定时任务一致的并发模型），
+ * 手动同步：并发编排执行已登记的行情、板块、资金、特征与自选股内容管道，
  * 每个管道用 wrapJob 写独立 jobType 记录（与定时任务公用 job_run 幂等状态）。
  *
  * 并发语义：

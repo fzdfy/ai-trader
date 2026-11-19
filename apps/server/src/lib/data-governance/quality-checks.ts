@@ -39,6 +39,16 @@ function table(asset: GovernanceAsset) {
     bar1d_hfq: sql.identifier("bar1d_hfq"),
     adj_factor: sql.identifier("adj_factor"),
     adj_factor_latest: sql.identifier("adj_factor_latest"),
+    news_article: sql.identifier("news_article"),
+    news_article_symbol: sql.identifier("news_article_symbol"),
+    news_embedding: sql.identifier("news_embedding"),
+    news_event: sql.identifier("news_event"),
+    news_event_symbol: sql.identifier("news_event_symbol"),
+    research_report: sql.identifier("research_report"),
+    research_report_document: sql.identifier("research_report_document"),
+    research_report_chunk: sql.identifier("research_report_chunk"),
+    research_report_forecast: sql.identifier("research_report_forecast"),
+    company_announcement: sql.identifier("company_announcement"),
   };
   const value = tables[asset.key];
   if (!value) throw new Error(`quality checks are not configured for ${asset.key}`);
@@ -259,6 +269,71 @@ async function coverage(
   );
 }
 
+async function symbolLinks(
+  rule: QualityRuleDefinition,
+  _context: QualityExecutionContext,
+) {
+  const response = await db.execute(sql`
+    SELECT
+      (SELECT count(*) FROM news_article) AS total_articles,
+      count(*) AS unlinked_articles
+    FROM news_article AS article
+    LEFT JOIN news_article_symbol AS link ON link.article_id = article.id
+    WHERE link.article_id IS NULL
+  `);
+  const row = response.rows[0] as
+    | { total_articles: string | number; unlinked_articles: string | number }
+    | undefined;
+  const totalArticles = asNumber(row?.total_articles) ?? 0;
+  const unlinkedArticles = asNumber(row?.unlinked_articles) ?? 0;
+  if (totalArticles === 0) {
+    return result(rule, failureStatus(rule), null, {
+      totalArticles,
+      unlinkedArticles,
+      reason: "no_articles",
+    });
+  }
+  const linkedRatio = (totalArticles - unlinkedArticles) / totalArticles;
+  return result(
+    rule,
+    unlinkedArticles === 0 ? "passed" : failureStatus(rule),
+    linkedRatio,
+    { totalArticles, unlinkedArticles },
+  );
+}
+
+async function researchDocuments(
+  rule: QualityRuleDefinition,
+  _context: QualityExecutionContext,
+) {
+  const response = await db.execute(sql`
+    SELECT
+      count(*) AS total_documents,
+      count(*) FILTER (
+        WHERE extract_status <> 'extracted'
+          OR storage_key IS NULL
+          OR full_text IS NULL
+          OR extracted_at IS NULL
+      ) AS incomplete_documents
+    FROM research_report_document
+  `);
+  const row = response.rows[0] as
+    | { total_documents: string | number; incomplete_documents: string | number }
+    | undefined;
+  const totalDocuments = asNumber(row?.total_documents) ?? 0;
+  const incompleteDocuments = asNumber(row?.incomplete_documents) ?? 0;
+  return result(
+    rule,
+    totalDocuments > 0 && incompleteDocuments === 0 ? "passed" : failureStatus(rule),
+    incompleteDocuments,
+    {
+      totalDocuments,
+      incompleteDocuments,
+      ...(totalDocuments === 0 ? { reason: "no_documents" } : {}),
+    },
+  );
+}
+
 async function calendarAlignment(
   rule: QualityRuleDefinition,
   _context: QualityExecutionContext,
@@ -340,7 +415,9 @@ const CHECKS = {
   "completeness.required_columns": requiredColumns,
   "uniqueness.primary_key": primaryKey,
   "validity.ohlcv": ohlcv,
+  "validity.research_documents": researchDocuments,
   "coverage.active_symbols": coverage,
+  "coverage.symbol_links": symbolLinks,
   "consistency.calendar_alignment": calendarAlignment,
   "pit.as_of_known_at": pit,
 } satisfies Record<

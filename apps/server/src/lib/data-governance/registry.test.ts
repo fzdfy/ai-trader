@@ -33,3 +33,38 @@ test("generated catalog is deterministic and exposes tier zero lineage", () => {
   assert.match(first, /a-stock-data/);
   assert.match(first, /Data Steward/);
 });
+
+test("content tables expose sources, jobs, and stable business keys", () => {
+  const contentTables = [
+    "news_article",
+    "news_article_symbol",
+    "news_embedding",
+    "news_event",
+    "news_event_symbol",
+    "research_report",
+    "research_report_document",
+    "research_report_chunk",
+    "research_report_forecast",
+    "company_announcement",
+  ];
+  for (const tableName of contentTables) {
+    const definition = DATA_CENTER_TABLES.find(
+      (candidate) => candidate.table === tableName,
+    );
+    assert.ok(definition, `${tableName} missing from data center`);
+    const governed = getGovernanceAsset(tableName);
+    assert.ok(governed, `${tableName} missing governance contract`);
+    assert.ok(governed.contract.primaryKey.length > 0);
+  }
+
+  assert.deepEqual(
+    DATA_CENTER_TABLES.find((item) => item.table === "news_article")
+      ?.fallback.chain,
+    ["eastmoney", "sina"],
+  );
+  assert.deepEqual(
+    DATA_CENTER_TABLES.find((item) => item.table === "company_announcement")
+      ?.fallback.chain,
+    ["cninfo", "eastmoney"],
+  );
+});

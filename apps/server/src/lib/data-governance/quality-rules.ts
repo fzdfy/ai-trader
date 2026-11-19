@@ -19,7 +19,9 @@ export type QualityRuleDefinition = {
     | "completeness.required_columns"
     | "uniqueness.primary_key"
     | "validity.ohlcv"
+    | "validity.research_documents"
     | "coverage.active_symbols"
+    | "coverage.symbol_links"
     | "consistency.calendar_alignment"
     | "pit.as_of_known_at";
   params: Record<string, unknown>;
@@ -72,6 +74,29 @@ export const QUALITY_RULES: readonly QualityRuleDefinition[] = [
     staleAfterHours: 24 * 14,
   }),
   rule("trading_calendar", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", ["calendar"], "critical"),
+  rule("news_article", "freshness.business_time", "freshness", "freshness.business_time", ["news"], "warning", {
+    staleAfterHours: 72,
+  }),
+  rule("news_article", "completeness.required_columns", "completeness", "completeness.required_columns", ["news"], "warning"),
+  rule("news_article", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", ["news"], "warning"),
+  rule("news_article_symbol", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", ["news"], "warning"),
+  rule("news_article_symbol", "coverage.symbol_links", "coverage", "coverage.symbol_links", ["news"], "warning"),
+  rule("news_embedding", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", [], "warning"),
+  rule("news_event", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", [], "warning"),
+  rule("news_event_symbol", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", [], "warning"),
+  rule("research_report", "freshness.business_time", "freshness", "freshness.business_time", ["stock-research-reports"], "warning", {
+    staleAfterHours: 24 * 30,
+  }),
+  rule("research_report", "completeness.required_columns", "completeness", "completeness.required_columns", ["stock-research-reports"], "warning"),
+  rule("research_report", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", ["stock-research-reports"], "warning"),
+  rule("research_report_document", "validity.research_documents", "validity", "validity.research_documents", ["stock-research-reports"], "warning"),
+  rule("research_report_chunk", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", [], "warning"),
+  rule("research_report_forecast", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", ["stock-research-reports"], "warning"),
+  rule("company_announcement", "freshness.business_time", "freshness", "freshness.business_time", ["stock-announcements"], "warning", {
+    staleAfterHours: 24 * 14,
+  }),
+  rule("company_announcement", "completeness.required_columns", "completeness", "completeness.required_columns", ["stock-announcements"], "warning"),
+  rule("company_announcement", "uniqueness.primary_key", "uniqueness", "uniqueness.primary_key", ["stock-announcements"], "warning"),
 ] as const;
 
 export function getQualityRulesForAssets(

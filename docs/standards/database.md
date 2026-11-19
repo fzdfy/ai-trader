@@ -22,6 +22,9 @@
 - 区分 `executed`、`skipped`、`failed`。
 - 历史回补与当日同步分离并错峰。
 - `job_run` 是单数表名。
+- 自选股内容任务只读取 `watchlist`，不得退化为全市场抓取；新闻 20 条、公告 30 天、研报 12 个月为固定首次窗口。
+- `company_announcement` 以 `(source, source_url)` 唯一；迁移清理重复行时保留最大 `id`，其他历史行按 `id` 确定性删除。
+- 新闻按 `(source, url)` 唯一，空 Provider URL 必须生成稳定 `fallback:` 键；新闻关联以 `(article_id, symbol)` 唯一，查询标的必须显式关联。
 
 ## 角色与数据管理审计
 
@@ -56,6 +59,7 @@
 - 停牌和长期无行情不误判为失败。
 - 部分写入后任务失败，依赖幂等重跑补齐。
 - `request_id`、`job_run_id` 和交易日全链路可追踪。
+- 新闻、公告、研报内容规则统一为 Tier 1 `warning`，不阻断研究门禁；至少覆盖新闻关联覆盖和研报 PDF 提取状态。
 
 ## 研报与个股分析
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
+    CAPABILITY_ANNOUNCEMENT,
     CAPABILITY_BLOCK_TRADE,
     CAPABILITY_BOARD_CONSTITUENTS,
     CAPABILITY_BOARD_FUND_FLOW,
@@ -34,14 +35,17 @@ from .base import (
     CAPABILITY_KLINE,
     CAPABILITY_LIMIT_UP_POOL,
     CAPABILITY_LOCKUP_EXPIRY,
+    CAPABILITY_MARKET_NEWS,
     CAPABILITY_MARGIN_TRADING,
     CAPABILITY_NORTHBOUND,
     CAPABILITY_QUOTE,
+    CAPABILITY_STOCK_NEWS,
     CAPABILITY_TRANSACTION,
     MarketProvider,
 )
 from .providers import (
     BaiduProvider,
+    CninfoProvider,
     EastmoneyProvider,
     MootdxProvider,
     SinaProvider,
@@ -57,6 +61,7 @@ _PROVIDER_CLASSES: dict[str, type[MarketProvider]] = {
     "sina": SinaProvider,
     "ths": ThsProvider,
     "eastmoney": EastmoneyProvider,
+    "cninfo": CninfoProvider,
 }
 
 _instances: dict[str, MarketProvider] = {}
@@ -94,6 +99,10 @@ _CAPABILITY_PRIORITY: dict[str, list[str]] = {
     CAPABILITY_DIVIDEND_HISTORY: ["eastmoney"],
     CAPABILITY_FUND_FLOW_120D: ["eastmoney"],
     CAPABILITY_CHIP_DISTRIBUTION: ["eastmoney"],
+    # 内容层
+    CAPABILITY_STOCK_NEWS: ["eastmoney", "sina"],
+    CAPABILITY_MARKET_NEWS: ["eastmoney"],
+    CAPABILITY_ANNOUNCEMENT: ["cninfo", "eastmoney"],
 }
 
 
@@ -133,15 +142,28 @@ def provider_health() -> dict[str, dict | None]:
     return {name: get_provider(name).health() for name in all_provider_names()}
 
 
-def call_with_fallback(capability: str, method: str, *args, **kwargs):
+def call_with_fallback(
+    capability: str,
+    method: str,
+    *args,
+    retry_on_empty: bool = False,
+    **kwargs,
+):
     """按降级链依次调用 provider 方法，全部失败抛最后一个异常。"""
     providers = providers_for(capability)
     if not providers:
         raise RuntimeError(f"没有数据源支持能力 {capability}")
     last_error: Exception | None = None
+    empty_result = None
     for provider in providers:
         try:
-            return getattr(provider, method)(*args, **kwargs)
+            result = getattr(provider, method)(*args, **kwargs)
+            if retry_on_empty and not result:
+                empty_result = result
+                continue
+            return result
         except Exception as exc:  # noqa: BLE001 — 任一源失败都尝试下一个源
             last_error = exc
-    raise last_error  # type: ignore[misc]
+    if last_error is not None:
+        raise last_error
+    return empty_result if empty_result is not None else []

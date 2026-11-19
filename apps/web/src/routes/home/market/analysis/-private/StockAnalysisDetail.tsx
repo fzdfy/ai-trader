@@ -30,9 +30,14 @@ import {
   type StockAnalysisResponse,
 } from "../../../../../hooks/useStockAnalysis";
 import {
+  buildStockContentTimeline,
   formatAnalysisMoney,
+  formatContentRefreshSummary,
   mergeRecentAnalyses,
+  selectStockContentPreview,
   stockComparePath,
+  type ContentRefreshSummary,
+  type StockContentTimelineItem,
 } from "../../../../../lib/stock-analysis";
 import { RECENT_ANALYSES_KEY } from "./StockAnalysisLanding";
 
@@ -65,6 +70,19 @@ function sourceLabel(source: string): string {
   return source;
 }
 
+function compactSourceLabel(source: string): string {
+  if (source === "eastmoney" || source === "eastmoney_stock" || source === "eastmoney_global") {
+    return "东财";
+  }
+  if (source === "cninfo") return "巨潮";
+  if (source === "sina") return "新浪";
+  if (source === "cls") return "财联社";
+  if (source === "news_article") return "新闻库";
+  if (source === "company_announcement") return "公告库";
+  if (source === "research_report") return "研报库";
+  return source;
+}
+
 function qualityMeta(quality: string): { label: string; variant: string } {
   if (quality === "available") return { label: "可用", variant: "success" };
   if (quality === "low") return { label: "低置信", variant: "warning" };
@@ -78,6 +96,53 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
       <strong className="mt-1 block font-mono text-sm text-app-ink">{value}</strong>
       {note ? <span className="mt-1 block text-[9px] text-app-faint">{note}</span> : null}
     </div>
+  );
+}
+
+function statusDotClass(tone: "success" | "warning" | "error" | "neutral"): string {
+  if (tone === "success") return "bg-app-success";
+  if (tone === "warning") return "bg-app-warning";
+  if (tone === "error") return "bg-destructive";
+  return "bg-app-muted";
+}
+
+function TimelineRow({ item }: { item: StockContentTimelineItem }) {
+  const tone =
+    item.type === "announcement"
+      ? "text-app-warning bg-app-warning/10"
+      : item.type === "report"
+        ? "text-app-success bg-app-success/10"
+        : "text-primary bg-primary/10";
+  const content = (
+    <>
+      <span className={`inline-flex w-fit rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${tone}`}>
+        {item.type === "news" ? "新闻" : item.type === "announcement" ? "公告" : "研报"}
+      </span>
+      <span className="min-w-0">
+        <strong className="block truncate text-[11px] leading-relaxed">{item.title}</strong>
+        <span className="mt-0.5 block truncate text-[9px] text-app-muted">
+          {item.source} · {item.meta}
+        </span>
+      </span>
+      <span className="flex items-center gap-1 font-mono text-[9px] text-app-faint">
+        {formatDate(item.publishedAt, item.type === "news")}
+        {item.href ? <ExternalLink className="size-3" /> : null}
+      </span>
+    </>
+  );
+  const className =
+    "grid grid-cols-[48px_minmax(0,1fr)_auto] items-start gap-2.5 py-3 transition-colors";
+  return item.href ? (
+    <a
+      href={item.href}
+      target="_blank"
+      rel="noreferrer"
+      className={`${className} hover:text-primary`}
+    >
+      {content}
+    </a>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }
 
@@ -223,6 +288,34 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
     () => [symbol, ...(watchlistQuery.data ?? []).filter((item) => item !== symbol).slice(0, 2)],
     [symbol, watchlistQuery.data],
   );
+  const timeline = useMemo(
+    () =>
+      data
+        ? buildStockContentTimeline({
+            news: data.news.data,
+            announcements: data.announcements.data,
+            reports: data.reports.data,
+          })
+        : [],
+    [data],
+  );
+  const timelinePreview = useMemo(
+    () => selectStockContentPreview(timeline),
+    [timeline],
+  );
+  const refreshSummary: ContentRefreshSummary | null = refreshAnalysis.isError
+    ? {
+        tone: "error",
+        label: "内容刷新请求失败",
+        detail:
+          refreshAnalysis.error instanceof Error
+            ? refreshAnalysis.error.message
+            : "请稍后重试。",
+        failedModules: ["新闻", "公告", "研报"],
+      }
+    : refreshAnalysis.data
+      ? formatContentRefreshSummary(refreshAnalysis.data)
+      : null;
 
   useEffect(() => {
     if (!data?.name) return;
@@ -282,6 +375,81 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   const fundQuality = qualityMeta(data.funds.quality);
   const forecast20 = data.forecasts.data.find((item) => item.horizon === "20D");
   const risk = data.riskReferenceRange.data;
+  const refreshModules = refreshAnalysis.data?.modules;
+  const newsSource = compactSourceLabel(data.news.data[0]?.source ?? "");
+  const announcementSource = compactSourceLabel(data.announcements.data[0]?.source ?? "");
+  const reportSource = compactSourceLabel(data.reports.data[0]?.source ?? "");
+  const pendingPdfCount = data.reportPdfPending;
+  const statusItems: Array<{
+    label: string;
+    value: string;
+    tone: "success" | "warning" | "error" | "neutral";
+  }> = [
+    {
+      label: "实时行情",
+      value:
+        data.quote.quality === "available"
+          ? `${formatDate(data.quote.asOf, true)} · 可用`
+          : "行情陈旧",
+      tone: data.quote.quality === "available" ? "success" : "warning",
+    },
+    {
+      label: "个股新闻",
+      value: refreshModules
+        ? refreshModules.news.ok
+          ? `${refreshModules.news.total} 条 · ${newsSource || "新闻库"} · ${formatDate(refreshModules.news.observedAt, true)}`
+          : "刷新失败 · 保留旧数据"
+        : `${data.news.data.length} 条 · ${newsSource || "待接入"} · ${formatDate(data.news.asOf, true)}`,
+      tone: refreshModules
+        ? refreshModules.news.ok
+          ? "success"
+          : "error"
+        : data.news.quality === "available"
+          ? "success"
+          : "neutral",
+    },
+    {
+      label: "公司公告",
+      value: refreshModules
+        ? refreshModules.announcements.ok
+          ? `${refreshModules.announcements.total} 条 · ${announcementSource || "公告库"} · ${formatDate(refreshModules.announcements.observedAt, true)}`
+          : "刷新失败 · 保留旧数据"
+        : `${data.announcements.data.length} 条 · ${announcementSource || "待接入"} · ${formatDate(data.announcements.asOf, true)}`,
+      tone: refreshModules
+        ? refreshModules.announcements.ok
+          ? "success"
+          : "error"
+        : data.announcements.quality === "available"
+          ? "success"
+          : "warning",
+    },
+    {
+      label: "研报元数据",
+      value: refreshModules
+        ? refreshModules.reports.ok
+          ? `${refreshModules.reports.total} 篇 · ${reportSource || "研报库"} · ${formatDate(refreshModules.reports.observedAt, true)}`
+          : "刷新失败 · 保留旧数据"
+        : `${data.reportCount} 篇 · ${reportSource || "待接入"} · ${formatDate(data.reports.asOf, true)}`,
+      tone: refreshModules
+        ? refreshModules.reports.ok
+          ? "success"
+          : "error"
+        : data.reportCount > 0
+          ? "success"
+          : "neutral",
+    },
+    {
+      label: "研报全文",
+      value:
+        pendingPdfCount > 0
+          ? `${pendingPdfCount} 篇待提取`
+          : data.reports.data.length > 0
+            ? "已就绪"
+            : "暂无",
+      tone:
+        pendingPdfCount > 0 ? "warning" : data.reports.data.length > 0 ? "success" : "neutral",
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-4">
@@ -347,42 +515,46 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
         </div>
       </header>
 
-      <Card
-        variant="detached"
-        className="grid gap-2 bg-app-surface/55 p-2 sm:grid-cols-2 xl:grid-cols-5"
+      <div
+        className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5"
+        aria-label="内容刷新与数据完整度"
       >
-        {[
-          [
-            "实时行情",
-            data.quote.quality === "available"
-              ? `${formatDate(data.quote.asOf, true)} · 可用`
-              : "行情陈旧",
-          ],
-          [
-            "历史 K 线",
-            data.prices.quality === "available" ? `${data.prices.data.length} 根 · 可用` : "待同步",
-          ],
-          ["研报元数据", `${data.reportCount} 篇 · ${reportQuality.label}`],
-          ["财务与估值", data.fundamentals.quality === "available" ? "可用" : "待接入"],
-          [
-            "向量索引",
-            data.reports.data.some((item) => item.extractStatus === "extracted")
-              ? "可用"
-              : "待构建",
-          ],
-        ].map(([label, value]) => (
+        {statusItems.map((item, index) => (
           <div
-            key={label}
-            className="flex items-center gap-2 rounded-lg border border-app-line bg-app-panel px-3 py-2"
+            key={item.label}
+            className={`min-w-0 rounded-lg border border-app-line bg-app-panel/75 px-2.5 py-2 ${
+              index === statusItems.length - 1 ? "col-span-2 md:col-span-1" : ""
+            }`}
           >
-            <span
-              className={`size-1.5 rounded-full ${String(value).includes("待") ? "bg-app-warning" : "bg-app-success"}`}
-            />
-            <span className="text-[10px] text-app-muted">{label}</span>
-            <strong className="ml-auto text-[10px] font-medium text-app-ink">{value}</strong>
+            <span className="block text-[11px] text-app-muted">{item.label}</span>
+            <strong className="mt-1 flex items-center gap-1.5 truncate text-[11px] font-medium text-app-ink">
+              <span className={`size-1.5 shrink-0 rounded-full ${statusDotClass(item.tone)}`} />
+              {item.value}
+            </strong>
           </div>
         ))}
-      </Card>
+      </div>
+
+      {refreshSummary && refreshSummary.tone !== "success" ? (
+        <div
+          role="status"
+          className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[11px] leading-relaxed ${
+            refreshSummary.tone === "error"
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : "border-app-warning/30 bg-app-warning/5 text-app-ink"
+          }`}
+        >
+          <CircleAlert
+            className={`mt-0.5 size-4 shrink-0 ${
+              refreshSummary.tone === "error" ? "text-destructive" : "text-app-warning"
+            }`}
+          />
+          <span>
+            <strong className="mr-1">{refreshSummary.label}</strong>
+            {refreshSummary.detail}
+          </span>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
         <Card variant="detached" className="overflow-hidden">
@@ -765,40 +937,27 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
           </div>
         </Card>
 
-        <Card variant="detached" className="overflow-hidden">
+        <Card variant="detached" className="overflow-hidden" data-stock-events>
           <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
             <div>
               <Heading level={2}>新闻与事件</Heading>
               <Text as="p" type="supporting">
-                新闻、公告、研报统一时间线
+                新闻、公告、研报统一时间线 · 各来源独立更新
               </Text>
             </div>
-            <Badge variant={qualityMeta(data.news.quality).variant}>
-              关联 {data.news.data.length}
-            </Badge>
+            <Badge variant="neutral">{timeline.length} 条</Badge>
           </div>
-          {data.news.data.length > 0 || data.announcements.data.length > 0 ? (
+          {timeline.length > 0 ? (
             <div className="divide-y divide-app-line/60 px-4">
-              {data.news.data.slice(0, 5).map((item) => (
-                <a
-                  key={item.id}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 py-3 hover:text-primary"
-                >
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-[11px]">{item.title}</strong>
-                    <span className="mt-0.5 block text-[9px] text-app-muted">
-                      {item.source} · {formatDate(item.publishedAt, true)}
-                    </span>
-                  </span>
-                  <ExternalLink className="size-3.5 text-app-faint" />
-                </a>
+              {timelinePreview.map((item) => (
+                <TimelineRow key={item.id} item={item} />
               ))}
             </div>
           ) : (
-            <EmptyState title="暂无关联事件" description="当前没有可追溯的个股新闻或公告关联。" />
+            <EmptyState
+              title="暂无关联事件"
+              description="重新分析后，新闻、公告和研报会按时间进入统一事件流。"
+            />
           )}
         </Card>
       </div>

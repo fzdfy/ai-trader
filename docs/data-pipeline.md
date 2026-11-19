@@ -68,7 +68,9 @@ flowchart LR
 ```mermaid
 flowchart LR
   CRON["cron-config.ts<br/>CRON_JOBS"] --> RUN["runner.ts<br/>交易日守卫 + 重试到 deadline"]
-  RUN --> P["pipes/*<br/>kline-1d / adj-factor / boards / news …"]
+  RUN --> P["pipes/* + stock-content-jobs<br/>kline-1d / adj-factor / boards / news …"]
+  P --> CS["stock-content-service<br/>新闻/公告/研报幂等入库"]
+  CS --> PG
   P --> PG[("PostgreSQL")]
   RUN --> JR[("job_run 表<br/>任务记录，单数）")]
 ```
@@ -76,7 +78,9 @@ flowchart LR
   - 交易日收盘后统一 `10 15 * * 1-5` 触发（腾讯日线收盘后即定稿），管道内部循环重试到 `deadline`（18:00），`hasSuccessToday` 保证每天只成功一次。
   - 依赖关系（下游内部等待上游成功）：`boards → board-kline / constituents`；`kline-1d → adj-factor → kline-period / features`（`adj-factor` 反解腾讯仿射复权参数，是 qfq/hfq 视图的数据来源，须先于读视图的下游）。
   - 历史回补为独立任务：`limit-up-pool-backfill`（19:00）、`dragon-tiger-backfill`（19:05）、`hot-reason-backfill`（19:10）、`kline-1d-backfill`（19:30），deadline 22:00；显式排除当日，`kline-1d-backfill` 完成后内联重收敛 `adj-factor` 与 `kline-period`。
-  - 其他计划：`news`（`*/2 * * * *`，仅交易日 07:00–23:00）、`calendar`（`0 2 * * 1`）、`partition-maint`（`20 2 * * 1`，巡检 `bar1d_raw` 年度分区）；`kline-1m` / `gap-detect` 为未实现空壳，`enabled: false`。
+  - 其他计划：`news`（`*/2 * * * *`，仅交易日 07:00–23:00）、`stock-announcements`（`5 18 * * 1-5`）、`stock-research-reports`（`10 18 * * 1-5`）、`calendar`（`0 2 * * 1`）、`partition-maint`（`20 2 * * 1`，巡检 `bar1d_raw` 年度分区）；`kline-1m` / `gap-detect` 为未实现空壳，`enabled: false`。
+  - 自选股内容只遍历 `watchlist`，新闻回填 20 条、公告回填 30 天、研报回填 12 个月；单股失败继续下一只，结束后汇总抛出使 `job_run` 反映部分失败。
+  - `news` 与任意个股“重新分析”都调用 `stock-content-service`：新闻始终关联查询标的，公告按 `(source, source_url)`、研报按 `(source, source_id)` 幂等写入；单模块失败不清空其他模块。
   - 任务记录表名是 `job_run`（**单数**，`apps/server/src/db/schema/ops.ts`）；手工查询写成 `job_runs` 会报 `relation does not exist`。
   - kline-1d 全市场（约 5552 只，源固定腾讯）正常约 46 分钟跑完。
 - **来源**：AGENTS.md「数据链路」「定时任务与任务记录（job_run）」、`apps/server/src/workers/sync-worker/cron-config.ts`。
@@ -138,16 +142,17 @@ sequenceDiagram
 - **定义**：A 取数层已登记的数据源及其能力/风控特征，以及各能力的降级链顺序。
 - **位置**：`apps/quant/data/registry.py`（`_PROVIDER_CLASSES` / `_CAPABILITY_PRIORITY`）、`apps/quant/data/README.md`（数据源总览）。
 - **关键事实**：
-  - **6 个 Provider 总览**（来源 `apps/quant/data/README.md`）：
+  - **7 个 Provider 总览**（来源 `apps/quant/data/README.md`）：
 
     | Provider | 能力（capabilities） | 接口域名 | 风控特征 |
     |---|---|---|---|
     | `tencent` 腾讯 | quote、kline、transaction | `qt.gtimg.cn`、`proxy.finance.qq.com`、`stock.gtimg.cn` | 不封 IP，连续 5000+ 次才限流返回空 |
     | `mootdx` 通达信 | kline、quote、transaction | 本地 TDX 行情库（非 HTTP） | 本地接口，无网络风控 |
     | `baidu` 百度 | kline | `finance.pae.baidu.com` | 需 Origin/Referer，低频不封 |
-    | `sina` 新浪 | adjust_factor | `finance.sina.com.cn` | 带 UA/Referer，低频不封 |
+    | `sina` 新浪 | adjust_factor、stock_news | `finance.sina.com.cn` | 带 UA/Referer，低频不封 |
     | `ths` 同花顺 | hot_reason、northbound | `zx.10jqka.com.cn`、`data.hexin.cn` | 需 UA/Referer，低频不封 |
-    | `eastmoney` 东财 | 信号/资金/筹码层多项 | `push2` / `push2delay` / `push2his` / `datacenter-web` | 有风控：>5次/秒、并发≥10、1分钟≥200 会临时封 IP，统一走 `_em_get` 串行限流 |
+    | `eastmoney` 东财 | 信号/资金/筹码/内容层多项 | `push2` / `push2delay` / `push2his` / `datacenter-web` / `search-api-web` | 有风控：>5次/秒、并发≥10、1分钟≥200 会临时封 IP，统一走 `_em_get` 串行限流 |
+    | `cninfo` 巨潮 | announcement | `www.cninfo.com.cn` | 带 UA/Referer，公告主源 |
 
   - **降级链（`registry._CAPABILITY_PRIORITY`，源名有序、主源在前）**：
 
@@ -160,9 +165,12 @@ sequenceDiagram
     | `hot_reason` / `northbound` | ths |
     | `concept_blocks` / `fund_flow_minute` / `dragon_tiger` / `lockup_expiry` / `industry_comparison` / `board_fund_flow` / `daily_dragon_tiger` / `board_list` / `board_constituents` / `board_kline` / `fund_flow_rank` / `limit_up_pool` | eastmoney |
     | `margin_trading` / `block_trade` / `holder_num` / `dividend_history` / `fund_flow_120d` / `chip_distribution` | eastmoney |
+    | `stock_news` | eastmoney → sina |
+    | `market_news` | eastmoney |
+    | `announcement` | cninfo → eastmoney |
 
   - 补充：`eastmoney` 也声明了 `kline` 能力，但**不在** `kline` 降级链内——仅当显式传 `source=eastmoney` 时使用（供北交所经 `push2his` 的 `fqt=0/1/2` 三口径取原始价 / 复权参数，见 `pipes/kline-1d.ts`、`pipes/adj-factor.ts`）。
-  - 降级机制：仅 4 个行情层能力（`kline`/`quote`/`transaction`/`adjust_factor`）有真降级链，由 `registry.call_with_fallback` 按 `_CAPABILITY_PRIORITY` 顺序依次调用，任一源失败落到下一源，全部失败才抛最后一个异常。
+  - 降级机制：行情与内容层按 `_CAPABILITY_PRIORITY` 顺序调用，任一源失败落到下一源，全部失败才抛最后一个异常；`stock_news` 和 `announcement` 为真实多源链路，`adjust_factor` 与 `market_news` 为单源。
   - 独有单源：信号/资金/筹码层多为东财或同花顺「独有、别处拿不到」，降级链只有 1 个源、无备胎；真正兜底在 server 端——sync 脚本对每类数据 `try/catch` 失败即 `skip` 不中断整轮；热力图等实时页面在 DB 兜底模式跳过成分股、15s 总时限。
 - **来源**：AGENTS.md「数据源铁律」、`apps/quant/data/registry.py`、`apps/quant/data/README.md`「数据源总览」「降级机制」。
 
@@ -175,7 +183,9 @@ sequenceDiagram
   - 东财必须走统一的 `em_get()` 串行限流，禁止直接 `requests.get`。
   - `em_get` 防雪崩加固：串行锁只覆盖「等待最小间隔 + 发起单次请求」，重试退避睡眠放在锁外；连续失败达阈值（5）即熔断跳闸，冷却 `300s`（5 分钟，`_EM_BREAKER_COOLDOWN = 300.0`）内东财请求快速失败上抛，交给上层降级链；`_em_get_kline` 遇熔断直接上抛，不再做 `/..` 二次重试。（注：AGENTS.md 载「冷却 30s」为过时值，以代码为准。）
   - 行情类端点统一走 `push2delay`（延迟行情），不用实时 `push2`——后者并发下易 `RemoteDisconnected`；`push2his` 用于历史 K 线/日线资金流。
-  - 东财个股新闻（`search-api-web.eastmoney.com/search/jsonp`）必须用 `type:["cmsArticleWebOld"]` + `param.cmsArticleWebOld` 子对象（旧值 `type:["819"]` 已废弃，会返回 `包含未知的type：819`）；响应是 JSONP，取首个 `(` 与末个 `)` 之间再 `JSON.parse`（勿用贪婪正则），列表在 `result.cmsArticleWebOld`。
+  - 东财个股新闻（`search-api-web.eastmoney.com/search/jsonp`）必须用 `type:["cmsArticleWebOld"]` + `param.cmsArticleWebOld` 子对象；响应是 JSONP，取首个 `(` 与末个 `)` 之间再解析，列表在 `result.cmsArticleWebOld`。该请求只允许存在于 quant Provider，server 新闻管道不得直连。
+  - 东财全市场快讯当前字段为 `showTime`、`code`、`stockList`；Provider 必须补全详情 URL、发布时间和关联标的，禁止把空 URL 直接入库。
+  - 公告主源巨潮使用动态 `orgId` 和 POST 表单；备源东财使用 `np-anotice-stock.eastmoney.com`。两者统一在 quant 内容端点返回。
   - **同一条降级链内不得混用不同复权口径**。
 - **来源**：AGENTS.md「数据源铁律」、`apps/quant/data/README.md`「风控方案」。
 

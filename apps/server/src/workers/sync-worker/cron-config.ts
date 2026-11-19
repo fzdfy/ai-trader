@@ -41,6 +41,9 @@ export const CRON_JOBS: CronJobConfig[] = [
   { name: "kline-period",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "adj-factor", deadline: "18:00" },
   { name: "features",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "adj-factor", deadline: "18:00" },
   { name: "governance-quality-scan", cron: "30 18 * * 1-5", enabled: true, marketCloseOnly: true },
+  // 自选股内容：收盘后按 watchlist 串行刷新，禁止退化为全市场抓取
+  { name: "stock-announcements", cron: "5 18 * * 1-5", enabled: true, marketCloseOnly: true },
+  { name: "stock-research-reports", cron: "10 18 * * 1-5", enabled: true, marketCloseOnly: true },
   // ======================= 历史回补（独立任务） =======================
   // 与当日同步彻底分离：回补只补「窗口内缺失的历史交易日」（显式排除当日），
   // 各自拥有独立 jobType / 幂等状态 / 重试窗口，互不连累。

@@ -51,6 +51,8 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "board-fund-flow", name: "板块资金流" },
   { jobType: "dragon-tiger", name: "龙虎榜" },
   { jobType: "hot-reason", name: "题材归因" },
+  { jobType: "stock-announcements", name: "自选股公告" },
+  { jobType: "stock-research-reports", name: "自选股研报" },
   { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
   // 历史回补：与当日同步分离的独立任务（收盘后错峰运行，只补窗口内缺失的历史交易日）
