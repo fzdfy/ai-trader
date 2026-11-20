@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   normalizeCompareSymbols,
+  shouldPollResearchIndex,
   type ContentRefreshResponse,
+  type ResearchIndexStatus,
 } from "../lib/stock-analysis";
 
 export type AnalysisQuality = "available" | "low" | "missing";
@@ -99,6 +101,7 @@ export interface StockAnalysisResponse {
   >;
   reportCount: number;
   reportPdfPending: number;
+  reportIndex: ResearchIndexStatus;
   fundamentals: StockAnalysisModule<{
     reportPeriod: string;
     metrics: Record<string, number | string | null>;
@@ -221,6 +224,8 @@ export function useStockAnalysisQuery(symbol: string) {
     queryFn: () =>
       fetchJson<StockAnalysisResponse>(`/api/v1/stock-analysis/${encodeURIComponent(symbol)}`),
     staleTime: 60_000,
+    refetchInterval: (query) =>
+      shouldPollResearchIndex(query.state.data?.reportIndex) ? 3_000 : false,
     enabled: Boolean(symbol),
   });
 }
@@ -279,6 +284,33 @@ export function useRefreshStockAnalysis(symbol: string) {
   });
 }
 
+export function useStartResearchIndexWindow(symbol: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/v1/research-reports/index-window", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, days: 30 }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        data?: { queued: number; skipped: number; failed: number };
+        error?: string;
+      };
+      if (!response.ok || !payload.success || !payload.data) {
+        throw new Error(payload.error ?? "研报索引任务提交失败");
+      }
+      return payload.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["stock-analysis", symbol],
+      });
+    },
+  });
+}
+
 export function useResearchEvidenceQuery(symbol: string, query: string) {
   return useQuery({
     queryKey: ["research-reports", "search", symbol, query],
@@ -312,7 +344,11 @@ export function useIngestResearchReport(symbol: string) {
       });
       const payload = (await response.json()) as {
         success?: boolean;
-        data?: { chunkCount: number };
+        data?: {
+          reportId: number;
+          status: "queued" | "already_indexed";
+          jobId: string | null;
+        };
         error?: string;
       };
       if (!response.ok || !payload.success || !payload.data) {
@@ -322,6 +358,9 @@ export function useIngestResearchReport(symbol: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["stock-analysis", symbol] });
+      void queryClient.invalidateQueries({
+        queryKey: ["research-reports", "search", symbol],
+      });
     },
   });
 }

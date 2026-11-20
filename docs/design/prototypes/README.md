@@ -16,8 +16,10 @@ docs/design/prototypes/
 │   ├── quant-workbench-daily-dashboard-v3.html # 基于真实数据模块的每日看板设计稿
 │   ├── quant-workbench-stock-analysis-v5.html # 个股分析工作台设计稿
 │   ├── quant-workbench-stock-content-v1.html # 个股新闻、公告、研报刷新状态设计稿
+│   ├── quant-workbench-research-rag-v1.html # 研报全文索引与证据检索状态探索稿
 │   ├── quant-workbench-data-governance-v1.html # 已确认的数据治理探索稿
-│   └── screenshots/data-governance-production/ # 生产页面真实浏览器验收截图
+│   ├── screenshots/data-governance-production/ # 数据治理生产页面验收截图
+│   └── screenshots/research-rag-production/ # 研报索引生产页面验收截图
 └── assets/                         # 预览所需的静态资源
 ```
 
@@ -53,6 +55,8 @@ python3 -m http.server 9090
 - `http://localhost:9090/explorations/quant-workbench-daily-dashboard-v3.html`（每日看板设计稿）
 - `http://localhost:9090/explorations/quant-workbench-stock-analysis-v5.html`（个股分析设计稿）
 - `http://localhost:9090/explorations/quant-workbench-stock-content-v1.html?view=detail&content=partial`（个股内容刷新设计稿）
+- `http://localhost:9090/explorations/quant-workbench-research-rag-v1.html?view=detail&content=success&state=running`（研报全文索引中状态）
+- `http://localhost:9090/explorations/quant-workbench-research-rag-v1.html?view=detail&content=success&state=partial`（研报全文部分失败状态）
 - `http://localhost:9090/explorations/quant-workbench-data-governance-v1.html`（数据治理确认稿）
 
 探索稿使用 Tailwind CSS 与 Preline CDN。正式应用使用 npm 包和 Vite 构建。
@@ -66,5 +70,9 @@ V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比�
 数据治理确认稿以研究门禁、来源标准漂移和未解决事故为首屏主角；生产实现保留该方向，并补充资产与契约、质量证据、来源标准、治理任务和数据事故五个子页面。桌面/移动端与浅色/深色真实截图保存在 `explorations/screenshots/data-governance-production/`。
 
 个股内容刷新设计稿沿用已确认的个股分析基准，将“重新分析”定义为新闻、公告和研报的统一下拉动作。状态条分别显示三类来源、数量、时间和降级情况；新闻与事件卡按时间倒序合并新闻、公告和研报。设计覆盖全部成功、部分源降级和单一模块失败，截图保存在 `explorations/screenshots/stock-content-v1/`。
+
+研报 RAG 探索稿沿用个股分析基准，只扩展“研报全文”状态格和研报检索空态。覆盖暂无全文、待索引、索引中、全部成功、部分失败与证据不足；桌面、手机、浅色和深色截图保存在 `explorations/screenshots/research-rag-v1/`。
+
+研报索引生产页面验收覆盖比亚迪真实待索引状态、证据检索空态、移动端和深色模式，截图与浏览器检查报告保存在 `explorations/screenshots/research-rag-production/`。
 
 主题必须沿用默认参考稿的暖白画布、蓝灰导航、白色内容面板、原始蓝主操作、黄色状态强调与 A 股红涨绿跌语义。

@@ -3,13 +3,26 @@ import test from "node:test";
 import {
   formatAnalysisMoney,
   formatContentRefreshSummary,
+  formatResearchIndexStatus,
   buildStockContentTimeline,
   selectStockContentPreview,
   mergeRecentAnalyses,
   normalizeCompareSymbols,
+  shouldPollResearchIndex,
   stockAnalysisPath,
   stockComparePath,
 } from "./stock-analysis.ts";
+
+const indexStatus = {
+  symbol: "002594.SZ",
+  windowDays: 30,
+  total: 7,
+  pending: 0,
+  extracted: 0,
+  failed: 0,
+  action: "none" as const,
+  observedAt: "2026-11-20T10:52:00.000Z",
+};
 
 test("builds encoded analysis and compare routes", () => {
   assert.equal(stockAnalysisPath("002594.SZ"), "/home/market/analysis/002594.SZ");
@@ -94,10 +107,7 @@ test("content preview keeps every event type when news dominates", () => {
       href: null,
       meta: "买入",
     },
-  ].sort(
-    (left, right) =>
-      Date.parse(right.publishedAt) - Date.parse(left.publishedAt),
-  );
+  ].sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt));
 
   const preview = selectStockContentPreview(timeline, 8);
   assert.equal(preview.length, 8);
@@ -236,4 +246,101 @@ test("content refresh summary never claims success when a module fails", () => {
     detail: "未收到完整模块状态，请重新分析。",
     failedModules: ["新闻", "公告", "研报"],
   });
+});
+
+test("research index status distinguishes pending, active, partial, complete and failed", () => {
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      pending: 7,
+      action: "index_reports",
+    }),
+    {
+      label: "7 篇待索引",
+      tone: "warning",
+      detail: "全文索引任务已进入队列，完成后可按主题检索页码和原文片段。",
+      isActive: true,
+    },
+  );
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      pending: 4,
+      extracted: 3,
+      action: "index_reports",
+    }),
+    {
+      label: "索引中 3/7",
+      tone: "warning",
+      detail: "已完成 3 篇，剩余 4 篇正在排队或提取。",
+      isActive: true,
+    },
+  );
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      extracted: 5,
+      failed: 2,
+    }),
+    {
+      label: "已索引 5 篇 · 2 失败",
+      tone: "warning",
+      detail: "2 篇研报全文提取失败，已索引内容仍可检索；可单独重试失败研报。",
+      isActive: false,
+    },
+  );
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      extracted: 7,
+    }),
+    {
+      label: "已索引 7 篇",
+      tone: "success",
+      detail: "最近 30 天研报全文已可检索。",
+      isActive: false,
+    },
+  );
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      failed: 7,
+    }),
+    {
+      label: "7 篇提取失败",
+      tone: "error",
+      detail: "全文提取全部失败；可单独重试失败研报。",
+      isActive: false,
+    },
+  );
+});
+
+test("empty and stale research index states do not invent indexed content", () => {
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      total: 0,
+    }),
+    {
+      label: "暂无全文",
+      tone: "neutral",
+      detail: "当前没有可引用全文，研报元数据同步后会自动触发索引。",
+      isActive: false,
+    },
+  );
+  assert.deepEqual(
+    formatResearchIndexStatus({
+      ...indexStatus,
+      total: 0,
+      action: "sync_metadata",
+    }),
+    {
+      label: "等待元数据",
+      tone: "warning",
+      detail: "正在同步最近 12 个月研报元数据。",
+      isActive: true,
+    },
+  );
+  assert.equal(shouldPollResearchIndex({ ...indexStatus, action: "index_reports" }), true);
+  assert.equal(shouldPollResearchIndex(indexStatus), false);
 });

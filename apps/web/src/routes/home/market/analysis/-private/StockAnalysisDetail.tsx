@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpenText,
   CircleAlert,
@@ -26,6 +26,7 @@ import {
   useRefreshStockAnalysis,
   useIngestResearchReport,
   useResearchEvidenceQuery,
+  useStartResearchIndexWindow,
   type ScenarioForecast,
   type StockAnalysisResponse,
 } from "../../../../../hooks/useStockAnalysis";
@@ -33,6 +34,7 @@ import {
   buildStockContentTimeline,
   formatAnalysisMoney,
   formatContentRefreshSummary,
+  formatResearchIndexStatus,
   mergeRecentAnalyses,
   selectStockContentPreview,
   stockComparePath,
@@ -115,7 +117,9 @@ function TimelineRow({ item }: { item: StockContentTimelineItem }) {
         : "text-primary bg-primary/10";
   const content = (
     <>
-      <span className={`inline-flex w-fit rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${tone}`}>
+      <span
+        className={`inline-flex w-fit rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${tone}`}
+      >
         {item.type === "news" ? "新闻" : item.type === "announcement" ? "公告" : "研报"}
       </span>
       <span className="min-w-0">
@@ -278,11 +282,14 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   const addWatchlist = useAddWatchlist();
   const removeWatchlist = useRemoveWatchlist();
   const refreshAnalysis = useRefreshStockAnalysis(symbol);
+  const { mutate: startResearchIndexWindow } = useStartResearchIndexWindow(symbol);
   const ingestReport = useIngestResearchReport(symbol);
+  const startedIndexAction = useRef<string | null>(null);
   const [reportQuery, setReportQuery] = useState("");
   const deferredReportQuery = useDeferredValue(reportQuery.trim());
   const evidenceQuery = useResearchEvidenceQuery(symbol, deferredReportQuery);
   const data = analysisQuery.data;
+  const reportIndexAction = data?.reportIndex.action;
   const watched = watchlistQuery.data?.includes(symbol) ?? false;
   const compareSymbols = useMemo(
     () => [symbol, ...(watchlistQuery.data ?? []).filter((item) => item !== symbol).slice(0, 2)],
@@ -299,23 +306,29 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
         : [],
     [data],
   );
-  const timelinePreview = useMemo(
-    () => selectStockContentPreview(timeline),
-    [timeline],
-  );
+  const timelinePreview = useMemo(() => selectStockContentPreview(timeline), [timeline]);
   const refreshSummary: ContentRefreshSummary | null = refreshAnalysis.isError
     ? {
         tone: "error",
         label: "内容刷新请求失败",
         detail:
-          refreshAnalysis.error instanceof Error
-            ? refreshAnalysis.error.message
-            : "请稍后重试。",
+          refreshAnalysis.error instanceof Error ? refreshAnalysis.error.message : "请稍后重试。",
         failedModules: ["新闻", "公告", "研报"],
       }
     : refreshAnalysis.data
       ? formatContentRefreshSummary(refreshAnalysis.data)
       : null;
+
+  useEffect(() => {
+    if (!reportIndexAction) return;
+    if (reportIndexAction === "none") {
+      startedIndexAction.current = null;
+      return;
+    }
+    if (startedIndexAction.current === reportIndexAction) return;
+    startedIndexAction.current = reportIndexAction;
+    startResearchIndexWindow();
+  }, [reportIndexAction, startResearchIndexWindow]);
 
   useEffect(() => {
     if (!data?.name) return;
@@ -379,11 +392,13 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   const newsSource = compactSourceLabel(data.news.data[0]?.source ?? "");
   const announcementSource = compactSourceLabel(data.announcements.data[0]?.source ?? "");
   const reportSource = compactSourceLabel(data.reports.data[0]?.source ?? "");
-  const pendingPdfCount = data.reportPdfPending;
+  const reportIndexView = formatResearchIndexStatus(data.reportIndex);
   const statusItems: Array<{
     label: string;
     value: string;
     tone: "success" | "warning" | "error" | "neutral";
+    detail?: string;
+    isActive?: boolean;
   }> = [
     {
       label: "实时行情",
@@ -440,14 +455,10 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
     },
     {
       label: "研报全文",
-      value:
-        pendingPdfCount > 0
-          ? `${pendingPdfCount} 篇待提取`
-          : data.reports.data.length > 0
-            ? "已就绪"
-            : "暂无",
-      tone:
-        pendingPdfCount > 0 ? "warning" : data.reports.data.length > 0 ? "success" : "neutral",
+      value: reportIndexView.label,
+      tone: reportIndexView.tone,
+      detail: reportIndexView.detail,
+      isActive: reportIndexView.isActive,
     },
   ];
 
@@ -522,13 +533,18 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
         {statusItems.map((item, index) => (
           <div
             key={item.label}
+            title={item.detail}
             className={`min-w-0 rounded-lg border border-app-line bg-app-panel/75 px-2.5 py-2 ${
               index === statusItems.length - 1 ? "col-span-2 md:col-span-1" : ""
             }`}
           >
             <span className="block text-[11px] text-app-muted">{item.label}</span>
             <strong className="mt-1 flex items-center gap-1.5 truncate text-[11px] font-medium text-app-ink">
-              <span className={`size-1.5 shrink-0 rounded-full ${statusDotClass(item.tone)}`} />
+              <span
+                className={`size-1.5 shrink-0 rounded-full ${statusDotClass(item.tone)} ${
+                  item.isActive ? "animate-pulse" : ""
+                }`}
+              />
               {item.value}
             </strong>
           </div>
@@ -552,6 +568,29 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
           <span>
             <strong className="mr-1">{refreshSummary.label}</strong>
             {refreshSummary.detail}
+          </span>
+        </div>
+      ) : null}
+
+      {data.reportIndex.failed > 0 ? (
+        <div
+          role="status"
+          className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[11px] leading-relaxed ${
+            data.reportIndex.extracted > 0
+              ? "border-app-warning/30 bg-app-warning/5 text-app-ink"
+              : "border-destructive/30 bg-destructive/5 text-destructive"
+          }`}
+        >
+          <CircleAlert
+            className={`mt-0.5 size-4 shrink-0 ${
+              data.reportIndex.extracted > 0 ? "text-app-warning" : "text-destructive"
+            }`}
+          />
+          <span>
+            <strong className="mr-1">
+              {data.reportIndex.extracted > 0 ? "研报全文部分失败" : "研报全文提取失败"}
+            </strong>
+            {reportIndexView.detail}
           </span>
         </div>
       ) : null}
@@ -816,8 +855,14 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                   ))
                 ) : (
                   <EmptyState
-                    title="没有匹配的研报证据"
-                    description="换用更短的主题词，或先完成 PDF 全文提取。"
+                    title={reportIndexView.isActive ? "全文索引尚未完成" : "没有匹配的研报证据"}
+                    description={
+                      reportIndexView.isActive
+                        ? "全文索引正在后台处理，完成后可按页码检索原文片段。"
+                        : reportIndexView.tone === "neutral"
+                          ? reportIndexView.detail
+                          : "换用更短的主题词，或检查是否有可检索的研报全文。"
+                    }
                   />
                 )}
               </div>
@@ -866,8 +911,10 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                           onClick={() => ingestReport.mutate(report.id)}
                         >
                           {ingestReport.isPending && ingestReport.variables === report.id
-                            ? "提取中"
-                            : "提取全文"}
+                            ? "提交中"
+                            : report.extractStatus === "failed"
+                              ? "重试全文"
+                              : "提取全文"}
                         </button>
                       ) : null}
                     </span>

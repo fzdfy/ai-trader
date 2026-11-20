@@ -67,6 +67,89 @@ export interface ContentRefreshSummary {
   failedModules: string[];
 }
 
+export interface ResearchIndexStatus {
+  symbol: string;
+  windowDays: number;
+  total: number;
+  pending: number;
+  extracted: number;
+  failed: number;
+  action: "sync_metadata" | "index_reports" | "none";
+  observedAt: string;
+}
+
+export interface ResearchIndexStatusView {
+  label: string;
+  tone: "success" | "warning" | "error" | "neutral";
+  detail: string;
+  isActive: boolean;
+}
+
+export function formatResearchIndexStatus(status: ResearchIndexStatus): ResearchIndexStatusView {
+  if (status.total === 0) {
+    return status.action === "sync_metadata"
+      ? {
+          label: "等待元数据",
+          tone: "warning",
+          detail: "正在同步最近 12 个月研报元数据。",
+          isActive: true,
+        }
+      : {
+          label: "暂无全文",
+          tone: "neutral",
+          detail: "当前没有可引用全文，研报元数据同步后会自动触发索引。",
+          isActive: false,
+        };
+  }
+
+  if (status.pending > 0) {
+    const label =
+      status.extracted > 0
+        ? `索引中 ${status.extracted}/${status.total}`
+        : `${status.pending} 篇待索引`;
+    return {
+      label,
+      tone: "warning",
+      detail: [
+        status.extracted > 0
+          ? `已完成 ${status.extracted} 篇，剩余 ${status.pending} 篇正在排队或提取。`
+          : "全文索引任务已进入队列，完成后可按主题检索页码和原文片段。",
+        status.failed > 0 ? `${status.failed} 篇失败。` : "",
+      ].join(""),
+      isActive: true,
+    };
+  }
+
+  if (status.failed > 0 && status.extracted > 0) {
+    return {
+      label: `已索引 ${status.extracted} 篇 · ${status.failed} 失败`,
+      tone: "warning",
+      detail: `${status.failed} 篇研报全文提取失败，已索引内容仍可检索；可单独重试失败研报。`,
+      isActive: false,
+    };
+  }
+
+  if (status.failed > 0) {
+    return {
+      label: `${status.failed} 篇提取失败`,
+      tone: "error",
+      detail: "全文提取全部失败；可单独重试失败研报。",
+      isActive: false,
+    };
+  }
+
+  return {
+    label: `已索引 ${status.extracted} 篇`,
+    tone: "success",
+    detail: `最近 ${status.windowDays} 天研报全文已可检索。`,
+    isActive: false,
+  };
+}
+
+export function shouldPollResearchIndex(status: ResearchIndexStatus | null | undefined): boolean {
+  return status?.action !== "none";
+}
+
 const CONTENT_MODULES = [
   { key: "news", label: "新闻", unit: "条" },
   { key: "announcements", label: "公告", unit: "条" },
@@ -194,20 +277,14 @@ export function buildStockContentTimeline(
       title: item.title,
       source: item.institution ?? "机构未知",
       publishedAt: item.publishDate,
-      href: item.storageKey
-        ? `/api/v1/research-reports/${item.id}/pdf`
-        : item.pdfUrl,
-      meta: [
-        item.rating,
-        item.extractStatus === "extracted" ? "PDF 已提取" : "PDF 待提取",
-      ]
+      href: item.storageKey ? `/api/v1/research-reports/${item.id}/pdf` : item.pdfUrl,
+      meta: [item.rating, item.extractStatus === "extracted" ? "PDF 已提取" : "PDF 待提取"]
         .filter(Boolean)
         .join(" · "),
     })),
   ].sort(
     (left, right) =>
-      (Date.parse(right.publishedAt ?? "") || 0) -
-      (Date.parse(left.publishedAt ?? "") || 0),
+      (Date.parse(right.publishedAt ?? "") || 0) - (Date.parse(left.publishedAt ?? "") || 0),
   );
 }
 
@@ -240,8 +317,7 @@ export function selectStockContentPreview(
   }
   return selected.sort(
     (left, right) =>
-      (Date.parse(right.publishedAt ?? "") || 0) -
-      (Date.parse(left.publishedAt ?? "") || 0),
+      (Date.parse(right.publishedAt ?? "") || 0) - (Date.parse(left.publishedAt ?? "") || 0),
   );
 }
 

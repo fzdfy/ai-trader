@@ -1,0 +1,10 @@
+{
+  "screenshots": [
+    "pending-light-desktop.png",
+    "evidence-empty-light-desktop.png",
+    "pending-light-mobile.png",
+    "pending-dark-desktop.png"
+  ],
+  "ignoredNetworkAborts": 6,
+  "errors": []
+}
