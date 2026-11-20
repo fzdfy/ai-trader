@@ -17,6 +17,7 @@ async function startedBoss(): Promise<PgBoss> {
   startPromise ??= boss.start().then(async (instance) => {
     if (!(await instance.getQueue(RESEARCH_INDEX_QUEUE))) {
       await instance.createQueue(RESEARCH_INDEX_QUEUE, {
+        name: RESEARCH_INDEX_QUEUE,
         retryLimit: 3,
         retryDelay: 60,
         retryBackoff: true,
