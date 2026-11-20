@@ -1,5 +1,6 @@
 """AI Trader Quant Service — FastAPI + AKQuant 回测微服务。"""
 import os
+from pathlib import Path
 from typing import Any
 
 from akquant import AssetType
@@ -33,6 +34,8 @@ from report_documents import (
     persist_report_pdf,
 )
 from screener import screen
+
+_DEFAULT_REPORTS_DATA_DIR = Path(__file__).resolve().parents[2] / ".local" / "reports"
 from strategies import STRATEGIES
 from strategies.composite import build_composite_strategy
 from strategies.limit_matcher import LimitMatcher, compute_limit_sets
@@ -189,7 +192,7 @@ def extract_research_report(req: ReportExtractRequest):
             pdf,
             req.source_id,
             req.publish_date,
-            os.environ.get("REPORTS_DATA_DIR", "/data/reports"),
+            os.environ.get("REPORTS_DATA_DIR", str(_DEFAULT_REPORTS_DATA_DIR)),
         )
         pages = extract_pdf_pages(pdf, language=req.ocr_language)
         chunks = chunk_pages(pages, max_chars=req.max_chars, overlap_chars=req.overlap_chars)

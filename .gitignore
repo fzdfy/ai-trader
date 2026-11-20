@@ -13,6 +13,7 @@ routeTree.gen.ts
 pgdata/
 .tanstack
 .pnpm-store/
+.local/
 **/.venv/
 draft_*_folder/
 

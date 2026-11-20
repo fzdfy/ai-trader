@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { and, count, desc, eq, ilike, isNotNull, or } from "drizzle-orm";
@@ -21,7 +23,9 @@ import { prepareResearchIndexWindow } from "../services/research-index-service";
 import { enqueueResearchIndexJob } from "../services/research-queue";
 
 const researchReportsRoute = new Hono();
-const REPORTS_DATA_DIR = process.env.REPORTS_DATA_DIR ?? "/data/reports";
+const REPORTS_DATA_DIR =
+  process.env.REPORTS_DATA_DIR ??
+  resolve(dirname(fileURLToPath(import.meta.url)), "../../../../.local/reports");
 
 researchReportsRoute.use("*", async (c, next) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
