@@ -9,9 +9,15 @@ import {
   newsArticleSymbol,
   researchReport,
   researchReportForecast,
+  syncCursor,
 } from "../db/schema";
 import { quant, type AnnouncementItem, type NewsItem } from "../lib/quant";
 import { normalizeStockSymbol } from "../lib/stock-analysis-data";
+import {
+  RESEARCH_METADATA_SYNC_ENDPOINT,
+  RESEARCH_METADATA_SYNC_SOURCE,
+  RESEARCH_METADATA_SYNC_TIMEFRAME,
+} from "./research-index-contracts";
 
 export interface ContentModuleResult {
   ok: boolean;
@@ -62,8 +68,7 @@ async function bodySymbols(items: NewsItem[]): Promise<Map<string, string[]>> {
   const byUrl = new Map<string, string[]>();
   const candidates = new Set<string>();
   for (const item of items) {
-    const matches =
-      `${item.title} ${item.content ?? ""}`.match(/\b\d{6}\b/g) ?? [];
+    const matches = `${item.title} ${item.content ?? ""}`.match(/\b\d{6}\b/g) ?? [];
     const symbols = matches
       .filter((code) => LEGAL_STOCK_CODE.test(code))
       .map(normalizeStockSymbol)
@@ -95,12 +100,7 @@ async function saveNews(symbol: string | null, items: NewsItem[]): Promise<numbe
           ...item,
           url: `fallback:${item.source}:${createHash("md5")
             .update(
-              [
-                item.source,
-                item.title,
-                item.published_at ?? "",
-                item.content ?? "",
-              ].join("|"),
+              [item.source, item.title, item.published_at ?? "", item.content ?? ""].join("|"),
             )
             .digest("hex")}`,
         },
@@ -130,15 +130,14 @@ async function saveNews(symbol: string | null, items: NewsItem[]): Promise<numbe
   const links = normalized.flatMap((item) => {
     const articleId = ids.get(`${item.source}\0${item.url}`);
     if (!articleId) return [];
-    return linkSymbols(symbol, [
-      ...item.related_symbols,
-      ...(recognized.get(item.url) ?? []),
-    ]).map((relatedSymbol) => ({
-      articleId,
-      symbol: relatedSymbol,
-      relationType:
-        symbol != null && relatedSymbol === symbol ? "query_symbol" : "recognized_symbol",
-    }));
+    return linkSymbols(symbol, [...item.related_symbols, ...(recognized.get(item.url) ?? [])]).map(
+      (relatedSymbol) => ({
+        articleId,
+        symbol: relatedSymbol,
+        relationType:
+          symbol != null && relatedSymbol === symbol ? "query_symbol" : "recognized_symbol",
+      }),
+    );
   });
   if (links.length > 0) {
     await db.insert(newsArticleSymbol).values(links).onConflictDoNothing();
@@ -302,25 +301,38 @@ export async function syncStockResearchReports(symbol: string): Promise<ContentM
     for (;;) {
       const response = await quant.researchReports(symbol, page, 100, cutoff);
       collected.push(...response.items);
-      if (
-        response.items.length < 100 ||
-        collected.length >= response.total
-      ) {
+      if (response.items.length < 100 || collected.length >= response.total) {
         break;
       }
       page++;
     }
     const recent = collected.filter((item) => item.publish_date >= cutoff);
     const inserted = await saveReports(symbol, recent);
-    return result(true, inserted, recent.length, new Date().toISOString());
+    const observedAt = new Date();
+    await db
+      .insert(syncCursor)
+      .values({
+        source: RESEARCH_METADATA_SYNC_SOURCE,
+        endpoint: RESEARCH_METADATA_SYNC_ENDPOINT,
+        symbol,
+        timeframe: RESEARCH_METADATA_SYNC_TIMEFRAME,
+        cursorTime: observedAt,
+        updatedAt: observedAt,
+      })
+      .onConflictDoUpdate({
+        target: [syncCursor.source, syncCursor.endpoint, syncCursor.symbol, syncCursor.timeframe],
+        set: {
+          cursorTime: observedAt,
+          updatedAt: observedAt,
+        },
+      });
+    return result(true, inserted, recent.length, observedAt.toISOString());
   } catch (error) {
     return result(false, 0, 0, new Date().toISOString(), error);
   }
 }
 
-function settledResult(
-  settled: PromiseSettledResult<ContentModuleResult>,
-): ContentModuleResult {
+function settledResult(settled: PromiseSettledResult<ContentModuleResult>): ContentModuleResult {
   return settled.status === "fulfilled"
     ? settled.value
     : result(false, 0, 0, new Date().toISOString(), settled.reason);

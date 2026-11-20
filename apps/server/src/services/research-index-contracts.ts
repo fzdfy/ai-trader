@@ -2,6 +2,9 @@ export const RESEARCH_EXTRACTOR_VERSION = "pymupdf+ocr-v1";
 export const RESEARCH_CHUNK_VERSION = "v1";
 export const RESEARCH_EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5";
 export const RESEARCH_INDEX_WINDOW_DAYS = 30;
+export const RESEARCH_METADATA_SYNC_SOURCE = "eastmoney";
+export const RESEARCH_METADATA_SYNC_ENDPOINT = "research-reports-metadata";
+export const RESEARCH_METADATA_SYNC_TIMEFRAME = "12m";
 
 export type ResearchIndexJob =
   | {

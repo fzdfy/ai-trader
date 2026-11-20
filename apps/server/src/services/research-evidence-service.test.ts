@@ -120,3 +120,32 @@ test("keyword fallback requires every whitespace-delimited query token", async (
   assert.equal(containsParam(queries[0]!, "%海外销量%"), true);
   assert.equal(containsParam(queries[0]!, "%盈利韧性%"), true);
 });
+
+test("metadata-only keyword matches are not returned as citable evidence", async () => {
+  const result = await searchResearchEvidence(
+    {
+      symbol: "002594.SZ",
+      query: "海外",
+      limit: 8,
+    },
+    {
+      embed: async () => {
+        throw new Error("embedding unavailable");
+      },
+      execute: async () => ({
+        rows: [
+          {
+            ...keywordRow,
+            page_from: null,
+            page_to: null,
+            section_title: null,
+            chunk_text: null,
+          },
+        ],
+      }),
+    },
+  );
+
+  assert.equal(result.mode, "keyword");
+  assert.deepEqual(result.items, []);
+});

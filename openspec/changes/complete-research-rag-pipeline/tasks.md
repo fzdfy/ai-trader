@@ -15,7 +15,7 @@
 
 - [x] 2.1 实现当前标的索引状态聚合及 `sync_metadata/index_reports/none` 判定；验证空、pending、failed、complete 和版本不匹配状态
 - [x] 2.2 新增 `POST /research-reports/index-window` 和只读状态字段；验证任意个股、24 小时 metadata 去重、认证和非法参数
-- [ ] 2.3 将非自选股首次分析接到 metadata 后台任务；验证页面首屏不等待上游、重复进入不重复请求
+- [x] 2.3 将非自选股首次分析接到 metadata 后台任务；验证页面首屏不等待上游、重复进入不重复请求
 
 ## 3. Full-Text Indexing
 
@@ -37,16 +37,16 @@
 
 ## 6. Quality and Golden Set
 
-- [ ] 6.1 为 pending/orphaned/failed 文档和队列任务增加可观察日志与状态；验证重启、重试和部分失败证据
+- [x] 6.1 为 pending/orphaned/failed 文档和队列任务增加可观察日志与状态；验证重启、重试和部分失败证据
 - [x] 6.2 建立比亚迪与非自选股不少于 20 条查询-证据 fixture；验证正样本召回、负样本、历史 `asOf` 和引用正确性
 - [x] 6.3 记录 Golden Set 结果并版本化检索参数；验证设置阈值前后行为可追溯
 
 ## 7. Integration Verification
 
-- [ ] 7.1 运行 server/web/quant 测试、类型检查、lint、生产构建和 OpenSpec 严格校验；记录通过数、跳过项和既有 warning
-- [ ] 7.2 使用真实比亚迪和贵州茅台完成元数据、最近 30 天全文、向量、Evidence Search 和 Agent 引用验证
-- [ ] 7.3 验证 worker 重启恢复、并发 1、部分失败不阻塞页面以及关键词降级
-- [ ] 7.4 生成测试报告和截图证据，更新 RAG 标准、数据链路与运行手册
+- [x] 7.1 运行 server/web/quant 测试、类型检查、lint、生产构建和 OpenSpec 严格校验；记录通过数、跳过项和既有 warning
+- [x] 7.2 使用真实比亚迪和贵州茅台完成元数据、最近 30 天全文、向量、Evidence Search 和 Agent 引用验证
+- [x] 7.3 验证 worker 重启恢复、并发 1、部分失败不阻塞页面以及关键词降级
+- [x] 7.4 生成测试报告和截图证据，更新 RAG 标准、数据链路与运行手册
 
 ## Workflow follow-up
 

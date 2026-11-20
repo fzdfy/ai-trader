@@ -9,6 +9,7 @@
 | 后端 | [backend.md](./backend.md) | [后端工程规范](https://my.feishu.cn/wiki/VGpDw2xHJiyh5wkX81fcD1nanFf) |
 | 数据 | [database.md](./database.md) | [数据工程规范](https://my.feishu.cn/wiki/KdOSwEq5gi7X48kOBDUcA7vznXc) |
 | Agent | [agent.md](./agent.md) | [Agent 工程规范](https://my.feishu.cn/wiki/PiLYwVocViMFwTkJwMlcnlWonLc) |
+| RAG | [rag.md](./rag.md) | — |
 | UI 设计 | [design.md](./design.md) | [UI 设计规范](https://my.feishu.cn/wiki/Y2UtwvOAjiO0r6kZ0ULcFqsnnOf) |
 | 产品工作流 | [workflow.md](./workflow.md) | — |
 | AI 开发工作流 | [development-workflow.md](./development-workflow.md) | — |

@@ -71,6 +71,9 @@ flowchart LR
   RUN --> P["pipes/* + stock-content-jobs<br/>kline-1d / adj-factor / boards / news …"]
   P --> CS["stock-content-service<br/>新闻/公告/研报幂等入库"]
   CS --> PG
+  CS --> RQ["pg-boss research-report-index"]
+  RQ --> RW["research-worker<br/>PDF / OCR / 分块 / BGE，并发 1"]
+  RW --> PG
   P --> PG[("PostgreSQL")]
   RUN --> JR[("job_run 表<br/>任务记录，单数）")]
 ```
@@ -81,6 +84,9 @@ flowchart LR
   - 其他计划：`news`（`*/2 * * * *`，仅交易日 07:00–23:00）、`stock-announcements`（`5 18 * * 1-5`）、`stock-research-reports`（`10 18 * * 1-5`）、`calendar`（`0 2 * * 1`）、`partition-maint`（`20 2 * * 1`，巡检 `bar1d_raw` 年度分区）；`kline-1m` / `gap-detect` 为未实现空壳，`enabled: false`。
   - 自选股内容只遍历 `watchlist`，新闻回填 20 条、公告回填 30 天、研报回填 12 个月；单股失败继续下一只，结束后汇总抛出使 `job_run` 反映部分失败。
   - `news` 与任意个股“重新分析”都调用 `stock-content-service`：新闻始终关联查询标的，公告按 `(source, source_url)`、研报按 `(source, source_id)` 幂等写入；单模块失败不清空其他模块。
+  - 研报元数据同步不等于全文入库。元数据落库后，分析页通过独立 `POST /research-reports/index-window` 入队；独立 `research-worker` 串行执行 PDF 下载、文本/OCR、分块和本地 BGE 向量化。`pending` 超过 10 分钟会由 worker 启动或周期巡检重新入队；新闻不生成向量。两类内容的检索边界见 [RAG 标准](./standards/rag.md)。
+  - `research-report-index` 中单篇任务使用提取器、分块版本和 embedding 模型组成 singleton key；失败最多重试 3 次并指数退避，页面 GET 不执行 OCR 或入库。
+  - 首批真实验证以 `002594.SZ` 和 `600519.SH` 完成 18 篇、75 页、48 个分块和 48 个向量；Golden Set 与已知召回差距见 [RAG 验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md)。
   - 任务记录表名是 `job_run`（**单数**，`apps/server/src/db/schema/ops.ts`）；手工查询写成 `job_runs` 会报 `relation does not exist`。
   - kline-1d 全市场（约 5552 只，源固定腾讯）正常约 46 分钟跑完。
 - **来源**：AGENTS.md「数据链路」「定时任务与任务记录（job_run）」、`apps/server/src/workers/sync-worker/cron-config.ts`。

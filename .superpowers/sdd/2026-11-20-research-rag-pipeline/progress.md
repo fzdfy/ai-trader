@@ -12,3 +12,6 @@ Task 4: complete (API tests: research-index.test.ts + index.test.ts → 13 passe
 Task 5: complete (retrieval/API tests: research-evidence-service.test.ts + research-index.test.ts + index.test.ts → 17 passed; server type check and scoped lint passed)
 Task 6: complete (web tests → 43 passed; type check/lint passed; production screenshots: pending desktop/mobile, dark desktop, active evidence empty state)
 Task 7: complete (21-case Golden Set → 21 passed, recall 1.0, keyword mode 21/21; retrievalVersion hybrid-keyword-v1)
+Task 8: complete (18 real PDFs → 75 pages, 48 chunks/vectors; semantic Golden Set 19/21 vs forced keyword 21/21)
+Review fixes: zero-report terminal cursor, trigger retry UI, active-job recovery guard, citable-only evidence, complete chunk coverage, reduced motion, final semantic Golden Set 19/21 and keyword 21/21
+Final verification: server 154 pass/1 skip (155 total), workflow schema 1 pass, web 43 pass, quant 18 pass, types/build/lint/OpenSpec passed

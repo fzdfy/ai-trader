@@ -7,11 +7,15 @@ import {
   researchReport,
   researchReportChunk,
   researchReportDocument,
+  syncCursor,
 } from "../db/schema";
 import {
   RESEARCH_CHUNK_VERSION,
   RESEARCH_EMBEDDING_MODEL,
   RESEARCH_EXTRACTOR_VERSION,
+  RESEARCH_METADATA_SYNC_ENDPOINT,
+  RESEARCH_METADATA_SYNC_SOURCE,
+  RESEARCH_METADATA_SYNC_TIMEFRAME,
 } from "./research-index-contracts";
 import {
   getResearchIndexStatus,
@@ -107,6 +111,36 @@ test(
 );
 
 test(
+  "fresh metadata for a zero-report symbol is a terminal state",
+  { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async (t) => {
+    const symbol = `TEST${crypto.randomUUID().slice(0, 2).toUpperCase()}.SZ`;
+    t.after(async () => {
+      await db.delete(syncCursor).where(eq(syncCursor.symbol, symbol));
+    });
+    await db.insert(syncCursor).values({
+      source: RESEARCH_METADATA_SYNC_SOURCE,
+      endpoint: RESEARCH_METADATA_SYNC_ENDPOINT,
+      symbol,
+      timeframe: RESEARCH_METADATA_SYNC_TIMEFRAME,
+      cursorTime: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const status = await getResearchIndexStatus(symbol);
+
+    assert.deepEqual(
+      {
+        total: status.total,
+        pending: status.pending,
+        action: status.action,
+      },
+      { total: 0, pending: 0, action: "none" },
+    );
+  },
+);
+
+test(
   "current extracted report is complete while stale versions require reindex",
   { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
   async (t) => {
@@ -157,6 +191,39 @@ test(
 );
 
 test(
+  "partially embedded report requires reindex",
+  { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async (t) => {
+    const source = `research-partial-${crypto.randomUUID()}`;
+    const symbol = `TEST${crypto.randomUUID().slice(0, 2).toUpperCase()}.SZ`;
+    const reportId = await seedReport(source, symbol, 1);
+    t.after(async () => {
+      await db.delete(researchReport).where(eq(researchReport.source, source));
+    });
+    await db.insert(researchReportDocument).values({
+      reportId,
+      extractStatus: "extracted",
+      extractorVersion: RESEARCH_EXTRACTOR_VERSION,
+    });
+    await db.insert(researchReportChunk).values({
+      reportId,
+      chunkIndex: 0,
+      pageFrom: 1,
+      pageTo: 1,
+      chunkText: "缺少向量的分块",
+      embedding: null,
+      embeddingModel: RESEARCH_EMBEDDING_MODEL,
+      chunkVersion: RESEARCH_CHUNK_VERSION,
+    });
+
+    const status = await getResearchIndexStatus(symbol);
+
+    assert.equal(status.pending, 1);
+    assert.equal(status.extracted, 0);
+  },
+);
+
+test(
   "prepare creates pending placeholders and skips current or failed reports",
   { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
   async (t) => {
@@ -190,7 +257,10 @@ test(
           eq(researchReportDocument.extractStatus, "pending"),
         ),
       );
-    assert.deepEqual(pending.map((row) => row.reportId), [missingId]);
+    assert.deepEqual(
+      pending.map((row) => row.reportId),
+      [missingId],
+    );
   },
 );
 

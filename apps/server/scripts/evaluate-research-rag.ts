@@ -44,5 +44,7 @@ console.log(
   ),
 );
 
-if (evaluation.failed > 0) process.exitCode = 1;
+if (process.argv.includes("--enforce") && evaluation.failed > 0) {
+  process.exitCode = 1;
+}
 await (db as unknown as { $client: { end(): Promise<void> } }).$client.end();

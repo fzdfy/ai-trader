@@ -91,3 +91,40 @@
   2. 若为「今日已同步跳过」：属预期幂等行为；确需重跑用 `force`。
 - **预防 / 已知误区**：worker 启动清理会把 server 手动同步正在跑的子任务一并标 failed（跨进程误杀，DB 记录与真实运行状态不一致，见 RB-1）。
 - **证据来源**：[sync.ts:101-108](file:///Users/wukailin/Documents/study/ai-trader/apps/server/src/api/sync.ts#L101-L108)、[sync.ts:254-262](file:///Users/wukailin/Documents/study/ai-trader/apps/server/src/api/sync.ts#L254-L262)、[runner.ts:144-176](file:///Users/wukailin/Documents/study/ai-trader/apps/server/src/workers/sync-worker/runner.ts#L144-L176)、[runner.ts:288-303](file:///Users/wukailin/Documents/study/ai-trader/apps/server/src/workers/sync-worker/runner.ts#L288-L303)、[runner.ts:335-388](file:///Users/wukailin/Documents/study/ai-trader/apps/server/src/workers/sync-worker/runner.ts#L335-L388)、[AGENTS.md](../AGENTS.md)
+
+---
+
+## RB-5 研报全文长期 pending / 全部 failed
+
+- **现象**：个股分析页“研报全文”显示多篇待索引或提取失败；`research_report_document` 长期停在 `pending` / `failed`。
+- **根因**：
+  - `research-worker` 未运行，或无法访问 PostgreSQL / quant。
+  - quant 的 `REPORTS_DATA_DIR` 不可写、PDF 上游不可下载、OCR 或 embedding 失败。
+  - 单篇任务已耗尽 3 次递增重试；失败-only 研报按设计不会自动再次触发。
+- **快速判定**：
+
+  ```sql
+  SELECT extract_status, count(*)
+    FROM research_report_document
+   GROUP BY extract_status;
+
+  SELECT id, report_id, extract_status, last_error, created_at
+    FROM research_report_document
+   WHERE extract_status IN ('pending', 'failed')
+   ORDER BY created_at DESC
+   LIMIT 20;
+
+  SELECT state, count(*)
+    FROM pgboss.job
+   WHERE name = 'research-report-index'
+   GROUP BY state;
+  ```
+
+- **处置**：
+  1. 确认 `research-worker` 日志为 `ready`，并检查 `DATABASE_URL`、`QUANT_URL` 和 `REPORTS_DATA_DIR`。
+  2. `pending` 超过 10 分钟且没有 `created/retry/active` job 时，会在 worker 启动或周期巡检时重新入队；确认 worker 已重启后再观察一个巡检周期。
+  3. `failed` 不会被自动批量重试；在个股分析页对失败研报点击“重试全文”，或重新提交该标的的 `POST /research-reports/index-window`。
+  4. 若 `last_error` 含 `Read-only file system`，修正 quant 报表目录权限后重试；本地非容器运行必须把 `REPORTS_DATA_DIR` 指向可写目录，容器内保持 `/data/reports` 共享卷。
+  5. 页面 GET 保持只读，不会因为反复打开页面触发 OCR。
+- **预防**：部署时同时启动 server、quant 和 research-worker；保持 `reports-data` 卷挂载；监控 queue `failed/retry` 数量、文档 `failed` 数和 `last_error`。
+- **证据来源**：[research-worker](file:///Users/fengyunpeng/Documents/study/ai-trader/apps/server/src/workers/research-worker/index.ts)、[processor.ts](file:///Users/fengyunpeng/Documents/study/ai-trader/apps/server/src/workers/research-worker/processor.ts)、[research-index-service.ts](file:///Users/fengyunpeng/Documents/study/ai-trader/apps/server/src/services/research-index-service.ts)、[RAG 标准](./standards/rag.md)、[验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md)

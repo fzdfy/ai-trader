@@ -97,3 +97,14 @@ test("golden case can require keyword fallback and valid citations", async () =>
   assert.equal(invalid.failed, 1);
   assert.match(invalid.results[0]?.failures.join(";") ?? "", /invalid citation/);
 });
+
+test("expected pages must come from an expected source", async () => {
+  const result = await evaluateResearchEvidence([{ ...fixture, expectedPages: [5] }], async () => ({
+    mode: "semantic",
+    model: "test-model",
+    items: [item("AP202611021831322093"), { ...item("AP-other"), pageFrom: 5, pageTo: 6 }],
+  }));
+
+  assert.equal(result.failed, 1);
+  assert.match(result.results[0]?.failures.join(";") ?? "", /missing expected page/);
+});

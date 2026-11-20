@@ -92,6 +92,7 @@ flowchart LR
 | [decisions.md](./decisions.md) | 决策记录（已决·勿翻案） | 想重复论证某个结论前 |
 | [issues.md](./issues.md) | 已知缺陷 & 技术债 | 遇到怪现象时先查这里 |
 | [standards/development-workflow.md](./standards/development-workflow.md) | AI 开发流程、文档职责和完成条件 | 开始需求、规划、实施或归档时 |
+| [standards/rag.md](./standards/rag.md) | 研报、新闻和 Agent 的 Evidence Search / RAG 边界 | 设计内容检索、向量或 Agent 引用时 |
 | [glossary.md](./glossary.md) | 业务、设计与领域术语 | 需要确认产品语言时 |
 | [technical-glossary.md](./technical-glossary.md) | 架构、平台和实现术语索引 | 需要定位代码概念时 |
 | [superpowers/specs/](./superpowers/specs/) | 已确认或进行中的技术方案设计 | 查看需求背后的完整方案时 |

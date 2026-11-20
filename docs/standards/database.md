@@ -63,6 +63,7 @@
 
 ## 研报与个股分析
 
+- 检索、分块、向量和 Agent 引用边界以 [RAG 标准](./rag.md) 为准。
 - 研报元数据、PDF 文档、分块、预测、财务、估值和公告使用独立表，不复用新闻向量表。
 - PDF 二进制保存到共享 `reports-data:/data/reports`；PostgreSQL 保存 `storage_key`、SHA-256、页数和全文。
 - 研报分块使用 `vector(512)`，由本地 `BAAI/bge-small-zh-v1.5` 生成；HNSW 用于语义检索，`pg_trgm` 作为关键词降级。

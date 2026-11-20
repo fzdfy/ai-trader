@@ -23,6 +23,7 @@ accepted
 - 研报按章节和页切块，使用本地 `BAAI/bge-small-zh-v1.5` 生成 512 维向量，存入独立 `research_report_chunk`。
 - 检索必须按标的和研报发布日期过滤，回答必须包含研报标题、机构、发布日期、页码和原文片段。
 - 现有按新闻设计的 embedding 表不复用于研报，也不沿用当前无有效中文 tsvector 配置的查询路径。
+- 新闻 RAG 在完成独立设计前不启用；研报 RAG 的长期契约见 [RAG 标准](../standards/rag.md)。
 
 数据获取按 `a-stock-data` 规范实现：行情优先 mootdx/腾讯；研报、资金流和独有数据走东财统一限流；一致预期走同花顺；财务快照/三表走 mootdx/新浪；估值历史走 Baostock；公告走巨潮。生产环境只依赖仓库代码，不依赖 skill 文件。
 

@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpenText,
   CircleAlert,
@@ -282,9 +282,10 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   const addWatchlist = useAddWatchlist();
   const removeWatchlist = useRemoveWatchlist();
   const refreshAnalysis = useRefreshStockAnalysis(symbol);
-  const { mutate: startResearchIndexWindow } = useStartResearchIndexWindow(symbol);
+  const researchIndexTrigger = useStartResearchIndexWindow(symbol);
   const ingestReport = useIngestResearchReport(symbol);
   const startedIndexAction = useRef<string | null>(null);
+  const [indexTriggerError, setIndexTriggerError] = useState<string | null>(null);
   const [reportQuery, setReportQuery] = useState("");
   const deferredReportQuery = useDeferredValue(reportQuery.trim());
   const evidenceQuery = useResearchEvidenceQuery(symbol, deferredReportQuery);
@@ -319,16 +320,27 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
       ? formatContentRefreshSummary(refreshAnalysis.data)
       : null;
 
+  const queueResearchIndex = useCallback(async () => {
+    setIndexTriggerError(null);
+    try {
+      await researchIndexTrigger.mutateAsync();
+    } catch (error) {
+      startedIndexAction.current = null;
+      setIndexTriggerError(error instanceof Error ? error.message : "研报索引任务提交失败");
+    }
+  }, [researchIndexTrigger.mutateAsync]);
+
   useEffect(() => {
     if (!reportIndexAction) return;
     if (reportIndexAction === "none") {
       startedIndexAction.current = null;
+      setIndexTriggerError(null);
       return;
     }
     if (startedIndexAction.current === reportIndexAction) return;
     startedIndexAction.current = reportIndexAction;
-    startResearchIndexWindow();
-  }, [reportIndexAction, startResearchIndexWindow]);
+    void queueResearchIndex();
+  }, [queueResearchIndex, reportIndexAction]);
 
   useEffect(() => {
     if (!data?.name) return;
@@ -542,7 +554,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             <strong className="mt-1 flex items-center gap-1.5 truncate text-[11px] font-medium text-app-ink">
               <span
                 className={`size-1.5 shrink-0 rounded-full ${statusDotClass(item.tone)} ${
-                  item.isActive ? "animate-pulse" : ""
+                  item.isActive ? "animate-pulse motion-reduce:animate-none" : ""
                 }`}
               />
               {item.value}
@@ -569,6 +581,22 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             <strong className="mr-1">{refreshSummary.label}</strong>
             {refreshSummary.detail}
           </span>
+        </div>
+      ) : null}
+
+      {indexTriggerError ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-3 text-[11px] leading-relaxed text-destructive"
+        >
+          <CircleAlert className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1">研报索引任务提交失败：{indexTriggerError}</span>
+          <Button
+            label="重试提交"
+            variant="secondary"
+            isLoading={researchIndexTrigger.isPending}
+            onClick={() => void queueResearchIndex()}
+          />
         </div>
       ) : null}
 

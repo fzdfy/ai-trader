@@ -22,7 +22,7 @@
 
 ## 2. 容器拓扑
 
-- **定义**：`docker-compose.yml` 定义 9 个服务（nginx / server / worker / workflow-worker / quant / postgres / loki / alloy / grafana）。
+- **定义**：`docker-compose.yml` 定义 10 个服务（nginx / server / worker / workflow-worker / research-worker / quant / postgres / loki / alloy / grafana）。
 - **位置**：`/docker-compose.yml`；各服务镜像由 `docker/web.Dockerfile`、`docker/server.Dockerfile`、`docker/quant.Dockerfile`、`docker/postgres.Dockerfile` 构建。
 - **关键事实**：
 
@@ -57,6 +57,7 @@ flowchart LR
 | server | `aitrader-server` | `3001:3001` | postgres | Hono API |
 | worker | `aitrader-worker` | 无 | postgres | `command: pnpm --prefix apps/server worker:sync` |
 | workflow-worker | `aitrader-workflow-worker` | 无 | postgres / quant | `command: pnpm --prefix apps/server worker:workflow` |
+| research-worker | `aitrader-research-worker` | 无 | postgres / quant | `command: pnpm --prefix apps/server worker:research`；研报全文索引并发 1 |
 | quant | `aitrader-quant` | `3002:3002` | postgres | FastAPI + akquant |
 | postgres | `aitrader-postgres` | `5432:5432` | — | 卷 `pgdata` |
 | loki | `aitrader-loki` | `3100:3100` | — | `grafana/loki:3.3.2` |

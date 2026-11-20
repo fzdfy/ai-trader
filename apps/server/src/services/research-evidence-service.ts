@@ -32,6 +32,7 @@ interface SearchEvidenceInput {
   query?: string;
   asOf?: string;
   limit?: number;
+  includeMetadataOnly?: boolean;
 }
 
 interface EvidenceDependencies {
@@ -75,6 +76,12 @@ export async function searchResearchEvidence(
   const term = input.query?.trim();
   const asOfFilter = input.asOf ? sql`AND rr.publish_date <= ${input.asOf}::date` : sql``;
   const limit = Math.min(Math.max(input.limit ?? RESEARCH_EVIDENCE_LIMIT, 1), 50);
+  const citeableItems = (items: ResearchEvidenceItem[]) =>
+    input.includeMetadataOnly
+      ? items
+      : items.filter(
+          (item) => item.excerpt != null && item.pageFrom != null && item.pageTo != null,
+        );
 
   if (term) {
     try {
@@ -106,7 +113,7 @@ export async function searchResearchEvidence(
           return {
             mode: "semantic",
             model: embedded.model,
-            items: mapRows(result.rows, 800),
+            items: citeableItems(mapRows(result.rows, 800)),
           };
         }
       }
@@ -148,6 +155,6 @@ export async function searchResearchEvidence(
   return {
     mode: "keyword",
     model: null,
-    items: mapRows(result.rows, 800),
+    items: citeableItems(mapRows(result.rows, 800)),
   };
 }

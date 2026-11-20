@@ -228,6 +228,21 @@ test(
         rawJson: {},
       })
       .returning({ id: researchReport.id });
+    await db.insert(researchReportDocument).values({
+      reportId: report!.id,
+      extractStatus: "extracted",
+      extractorVersion: RESEARCH_EXTRACTOR_VERSION,
+    });
+    await db.insert(researchReportChunk).values({
+      reportId: report!.id,
+      chunkIndex: 0,
+      pageFrom: 1,
+      pageTo: 2,
+      chunkText: "海外销量与盈利韧性持续改善。",
+      embedding: Array.from({ length: 512 }, (_, index) => (index === 0 ? 1 : 0)),
+      embeddingModel: RESEARCH_EMBEDDING_MODEL,
+      chunkVersion: RESEARCH_CHUNK_VERSION,
+    });
 
     const response = await api.request("/research-reports/search", {
       method: "POST",

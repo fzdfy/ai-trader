@@ -325,6 +325,8 @@ risk_reference_range =
 
 ## AI And RAG
 
+长期定义、降级规则和权限边界以 [RAG 标准](../../standards/rag.md) 为准。
+
 新增 Agent 工具：
 
 ```text

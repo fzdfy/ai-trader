@@ -24,6 +24,7 @@
 | [ISS-13](#iss-13-信号资金筹码层东财单源无备胎) | 技术债/风险 | 信号/资金/筹码层东财单源、无备胎 |
 | [ISS-14](#iss-14-job_run-表名单数易误写) | 易错点 | 任务记录表名是单数 `job_run` |
 | [ISS-15](#iss-15-文档与代码事实漂移) | 技术债 | 文档记载与代码实现存在漂移 |
+| [ISS-16](#iss-16-研报-rag-已有首批数据但语义召回仍需优化) | 质量/技术债 | 研报 RAG 已有首批全文向量，语义 Top 8 召回仍需优化 |
 
 ---
 
@@ -191,3 +192,23 @@
 - **影响**：以文档为准会误判行为；排查时以代码为准。
 - **规避或处置**：涉及上述两处时以代码为准，详见 [invariants.md:36](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L36)、[invariants.md:77](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L77)。
 - **证据来源**：[invariants.md:36](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L36)、[invariants.md:69-77](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L69-L77)。
+
+---
+
+## ISS-16 研报 RAG 已有首批数据但语义召回仍需优化
+
+- **类别**：检索质量 / 技术债。
+- **现象**：2026-11-20 首批真实链路已为比亚迪和贵州茅台完成 18 篇 PDF、75 页、48 个分块和 48 个向量；语义检索 Golden Set 为 19/21 进入 Top 8，强制关键词降级为 21/21。
+- **位置**：
+  - `apps/server/src/services/research-evidence-service.ts`：共享语义 + 关键词检索。
+  - `apps/server/src/agent/mastra/tools/research-report-tool.ts`：Agent 研报工具。
+  - `apps/server/src/agent/mastra/rag/index.ts`：未被调用的新闻 RAG 残留代码，且查询了不存在的 `news.embedding`。
+- **影响**：
+  - 研报 Evidence Search 和 Agent 已能返回真实页码与原文，但部分自然语义查询的目标研报未进入 Top 8。
+  - 同一研报的多个分块可能占满 Top 8，降低报告级多样性。
+  - 新闻尚未生成或使用向量，不属于 RAG 链路。
+- **规避或处置**：
+  - 运行 `pnpm --filter @ai-trader/server eval:research-rag` 观察语义和关键词基线。
+  - 在扩大 Golden Set、复核标签后，再决定每篇研报 chunk 上限、相似度阈值和 rerank 策略。
+  - 新闻 RAG 暂不启用；长期边界见 [RAG 标准](./standards/rag.md)。
+- **证据来源**：[研报 RAG 验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md)、`research-report` Golden Set fixture、检索服务与 Agent 工具。

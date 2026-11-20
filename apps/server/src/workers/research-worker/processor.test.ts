@@ -144,3 +144,45 @@ test(
     assert.ok(jobs.every((job) => job.kind !== "report" || job.reportId !== freshId!.id));
   },
 );
+
+test(
+  "recovery skips a pending document with an in-flight job",
+  { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async (t) => {
+    const source = `research-active-${crypto.randomUUID()}`;
+    const symbol = `TEST${crypto.randomUUID().slice(0, 2).toUpperCase()}.SZ`;
+    const [report] = await db
+      .insert(researchReport)
+      .values({
+        source,
+        sourceId: source,
+        symbol,
+        title: "活跃索引测试",
+        analysts: [],
+        publishDate: new Date().toISOString().slice(0, 10),
+        pdfUrl: "https://example.com/active.pdf",
+        rawJson: {},
+      })
+      .returning({ id: researchReport.id });
+    t.after(async () => {
+      await db.delete(researchReport).where(eq(researchReport.source, source));
+    });
+    await db.insert(researchReportDocument).values({
+      reportId: report!.id,
+      extractStatus: "pending",
+      createdAt: new Date(Date.now() - 11 * 60_000),
+    });
+    const jobs: ResearchIndexJob[] = [];
+
+    await requeuePendingResearchDocuments({
+      now: new Date(),
+      activeReportIds: async () => new Set([report!.id]),
+      enqueue: async (job) => {
+        jobs.push(job);
+        return "job-id";
+      },
+    });
+
+    assert.ok(jobs.every((job) => job.kind !== "report" || job.reportId !== report!.id));
+  },
+);

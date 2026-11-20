@@ -50,31 +50,31 @@
     "forbiddenSourceIds": ["AP202611031831375931"]
   },
   {
-    "id": "byd-overseas-growth",
+    "id": "byd-overseas-highlight",
     "symbol": "002594.SZ",
-    "query": "海外市场跨越式增长 新技术",
-    "expectedSourceIds": ["AP202609111829250298"],
+    "query": "海外持续表现亮眼",
+    "expectedSourceIds": ["AP202611021831303195"],
     "forbiddenSourceIds": ["AP202611021831334793"]
   },
   {
-    "id": "byd-ev-export",
+    "id": "byd-export-highlight",
     "symbol": "002594.SZ",
-    "query": "盈利能力回升 电车出口",
-    "expectedSourceIds": ["AP202609091829165837"],
+    "query": "出口核心驱动力 稳步上行",
+    "expectedSourceIds": ["AP202611131831683141"],
     "forbiddenSourceIds": ["AP202611021831307711"]
   },
   {
-    "id": "byd-interim-export",
+    "id": "byd-q3-export-robust",
     "symbol": "002594.SZ",
-    "query": "中报 Q2业绩 出口高增",
-    "expectedSourceIds": ["AP202608301828732959"],
+    "query": "出口持续高增 盈利稳健",
+    "expectedSourceIds": ["AP202610301831235832"],
     "forbiddenSourceIds": ["AP202611021831304660"]
   },
   {
-    "id": "byd-may-overseas-sales",
+    "id": "byd-sales-export-high",
     "symbol": "002594.SZ",
-    "query": "5月 海外销量 16万辆",
-    "expectedSourceIds": ["AP202606031823206367"],
+    "query": "销量 环比改善 出口 维持高位",
+    "expectedSourceIds": ["AP202611021831308055"],
     "forbiddenSourceIds": ["AP202611011831287508"]
   },
   {

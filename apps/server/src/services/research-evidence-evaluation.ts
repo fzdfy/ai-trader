@@ -105,6 +105,7 @@ export async function evaluateResearchEvidence(
         (page) =>
           !items.some(
             (item) =>
+              fixture.expectedSourceIds.includes(item.sourceId) &&
               item.pageFrom != null &&
               item.pageTo != null &&
               item.pageFrom <= page &&
