@@ -87,7 +87,7 @@ const PAGE_TITLES = [
   ["/home/data-management/governance/assets", "资产与契约"],
   ["/home/data-management/governance/quality", "质量规则与结果"],
   ["/home/data-management/governance/source-standards", "来源标准"],
-  ["/home/data-management/governance/work-tasks", "治理任务"],
+  ["/home/data-management/governance/review-tasks", "治理任务"],
   ["/home/data-management/governance/incidents", "数据事故"],
   ["/home/data-management/governance", "数据治理"],
   ["/home/data-management/audit", "操作审计"],

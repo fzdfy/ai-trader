@@ -234,7 +234,7 @@ export function useGovernanceTasks(filter: { status?: string } = {}) {
     queryFn: async ({ signal }) => {
       const data = await readData<{ items: GovernanceTask[] }>(
         await fetch(
-          `/api/v1/data-management/governance/work-tasks?${search}`,
+          `/api/v1/data-management/governance/review-tasks?${search}`,
           { signal },
         ),
       );
@@ -249,7 +249,7 @@ export function useGovernanceTask(id: number | null) {
     queryFn: async ({ signal }) =>
       readData<GovernanceTask & { events: Array<Record<string, unknown>> }>(
         await fetch(
-          `/api/v1/data-management/governance/work-tasks/${id}`,
+          `/api/v1/data-management/governance/review-tasks/${id}`,
           { signal },
         ),
       ),
@@ -312,7 +312,7 @@ async function mutateGovernance(
 }
 
 function useGovernanceMutation(
-  resource: "work-tasks" | "incidents",
+  resource: "review-tasks" | "incidents",
 ) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -335,7 +335,7 @@ function useGovernanceMutation(
 }
 
 export function useTransitionGovernanceTask() {
-  return useGovernanceMutation("work-tasks");
+  return useGovernanceMutation("review-tasks");
 }
 
 export function useTransitionIncident() {

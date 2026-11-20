@@ -245,7 +245,7 @@ function GovernanceOverviewPage() {
             </GovernanceLinkButton>
             {latestTaskActive ? (
               <GovernanceLinkButton
-                href="/home/data-management/governance/work-tasks"
+                href="/home/data-management/governance/review-tasks"
                 variant="ghost"
               >
                 打开审阅任务
@@ -282,7 +282,7 @@ function GovernanceOverviewPage() {
           {
             label: "治理任务",
             note: `${pendingTasks} 条待处理`,
-            href: "/home/data-management/governance/work-tasks",
+            href: "/home/data-management/governance/review-tasks",
             icon: ListChecks,
           },
           {

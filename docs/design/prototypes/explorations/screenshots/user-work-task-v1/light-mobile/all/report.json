@@ -1,0 +1,31 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 44,
+        "examples": [
+          "p.nav-group-label「工作空间」（9px）",
+          "small「01」（9px）",
+          "p.nav-group-label「市场情报」（9px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "article.metric「今日完成 2 / 6 完成率 33%」（首屏 5 块各自加框）",
+          "section.task-list「核验比亚迪海外销量与出口结构 研究 · stoc」（框里又有 7 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

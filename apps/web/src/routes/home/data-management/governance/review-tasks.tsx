@@ -22,9 +22,9 @@ import { GovernanceStatusBadge } from "./-private/GovernanceStatusBadge";
 import { formatGovernanceDate, taskStatusMeta } from "./-private/governance-ui";
 
 export const Route = createFileRoute(
-  "/home/data-management/governance/work-tasks",
+  "/home/data-management/governance/review-tasks",
 )({
-  component: GovernanceWorkTasksPage,
+  component: GovernanceReviewTasksPage,
 });
 
 type TaskRow = GovernanceTask & Record<string, unknown>;
@@ -88,7 +88,7 @@ const TASK_COLUMNS = [
   },
 ];
 
-function GovernanceWorkTasksPage() {
+function GovernanceReviewTasksPage() {
   const [status, setStatus] = useState("");
   const tasks = useGovernanceTasks({ status });
   const [selectedId, setSelectedId] = useState<number | null>(null);

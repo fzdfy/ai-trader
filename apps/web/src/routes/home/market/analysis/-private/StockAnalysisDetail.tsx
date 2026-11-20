@@ -16,6 +16,7 @@ import { EmptyState } from "@preline-ui/EmptyState";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { TextInput } from "@preline-ui/TextInput";
+import { AddWorkTaskButton } from "../../../../../components/AddWorkTaskButton";
 import {
   useAddWatchlist,
   useRemoveWatchlist,
@@ -527,6 +528,11 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             icon={<GitCompareArrows className="size-3.5" />}
             variant="secondary"
             href={stockComparePath(compareSymbols)}
+          />
+          <AddWorkTaskButton
+            sourceType="stock"
+            sourceId={symbol}
+            label="加入工作任务"
           />
           <Button
             label="重新分析"

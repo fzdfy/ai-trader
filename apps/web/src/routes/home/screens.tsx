@@ -35,6 +35,7 @@ import {
 import { useAddStockPool } from "../../hooks/useStockPool";
 import { chartUp, chartDown } from "../../lib/theme";
 import { summarizeDecay, formatHalfLife } from "../../lib/factorDecay";
+import { AddWorkTaskButton } from "../../components/AddWorkTaskButton";
 
 // 选股结果行：原始结果 + 排名
 type ScreenRow = Record<string, unknown> & ScreenItem & { rank: number };
@@ -529,6 +530,10 @@ function ScreensPage() {
     () => rows.reduce((n, r) => n + (selectedSymbols.has(r.symbol) ? 1 : 0), 0),
     [rows, selectedSymbols],
   );
+  const singleSelected =
+    selectedCount === 1
+      ? rows.find((row) => selectedSymbols.has(row.symbol))
+      : undefined;
 
   const handleRun = () => {
     const input: RunScreenInput = {
@@ -763,6 +768,13 @@ function ScreensPage() {
                   isDisabled={selectedCount === 0 || addStockPool.isPending}
                   onClick={handleAddToStockPool}
                 />
+                {singleSelected ? (
+                  <AddWorkTaskButton
+                    sourceType="screen"
+                    sourceId={singleSelected.symbol}
+                    label="为选中候选建任务"
+                  />
+                ) : null}
                 {addStockPool.isSuccess && (
                   <Text size="sm" style={{ color: "var(--color-text-positive)" }}>
                     已加入 {addStockPool.data?.count ?? selectedCount} 只到选股池

@@ -29,11 +29,11 @@ test("theme mode persists independently from design tokens", () => {
   assert.equal(readThemeMode(storage), "dark");
 });
 
-test("invalid stored mode falls back to system", () => {
+test("invalid stored mode falls back to the prototype light theme", () => {
   const storage: ThemeStorage = {
     getItem: () => "unsupported",
     setItem: () => undefined,
   };
 
-  assert.equal(readThemeMode(storage), "system");
+  assert.equal(readThemeMode(storage), "light");
 });

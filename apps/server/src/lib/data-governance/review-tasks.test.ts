@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { like } from "drizzle-orm";
 import { db } from "../../db/index.ts";
-import { workTask } from "../../db/schema";
+import { governanceReviewTask } from "../../db/schema";
 import {
   countPendingSourceReviewTasks,
-  createWorkTask,
+  createGovernanceReviewTask,
   ensureSourceStandardReviewTask,
-  getWorkTask,
-  transitionWorkTask,
-} from "./work-tasks.ts";
+  getGovernanceReviewTask,
+  transitionGovernanceReviewTask,
+} from "./review-tasks.ts";
 
 const runDatabaseTests = process.env.ADMIN_DB_TESTS === "1";
 
@@ -19,7 +19,7 @@ test(
   async () => {
     const suffix = crypto.randomUUID();
     try {
-      const id = await createWorkTask({
+      const id = await createGovernanceReviewTask({
         taskType: "source_standard_review",
         title: "破坏性来源变更",
         priority: "critical",
@@ -28,24 +28,26 @@ test(
         relatedId: suffix,
         payloadJson: { commitSha: suffix },
       });
-      await transitionWorkTask(id, { action: "start" });
+      await transitionGovernanceReviewTask(id, { action: "start" });
       await assert.rejects(
-        transitionWorkTask(id, {
+        transitionGovernanceReviewTask(id, {
           action: "complete",
           resultJson: { breaking: true },
         }),
         /OpenSpec/,
       );
-      await transitionWorkTask(id, {
+      await transitionGovernanceReviewTask(id, {
         action: "complete",
         resultJson: {
           breaking: true,
           openspecChange: "upgrade-a-stock-data-source",
         },
       });
-      assert.equal((await getWorkTask(id))?.status, "completed");
+      assert.equal((await getGovernanceReviewTask(id))?.status, "completed");
     } finally {
-      await db.delete(workTask).where(like(workTask.relatedId, suffix));
+      await db
+        .delete(governanceReviewTask)
+        .where(like(governanceReviewTask.relatedId, suffix));
     }
   },
 );
@@ -75,7 +77,9 @@ test(
       assert.equal(first, second);
       assert.equal(await countPendingSourceReviewTasks(commitSha), 1);
     } finally {
-      await db.delete(workTask).where(like(workTask.relatedId, commitSha));
+      await db
+        .delete(governanceReviewTask)
+        .where(like(governanceReviewTask.relatedId, commitSha));
     }
   },
 );
@@ -87,7 +91,7 @@ test(
     const suffix = crypto.randomUUID();
     const actorUserId = `task-actor-${suffix}`;
     try {
-      const id = await createWorkTask({
+      const id = await createGovernanceReviewTask({
         taskType: "source_standard_review",
         title: "审阅来源标准",
         priority: "high",
@@ -96,17 +100,17 @@ test(
         relatedId: suffix,
         payloadJson: { commitSha: suffix },
       });
-      await transitionWorkTask(id, {
+      await transitionGovernanceReviewTask(id, {
         action: "start",
         actorUserId,
       });
-      await transitionWorkTask(id, {
+      await transitionGovernanceReviewTask(id, {
         action: "complete",
         actorUserId,
         resultJson: { approved: false },
       });
 
-      const task = await getWorkTask(id);
+      const task = await getGovernanceReviewTask(id);
       assert.deepEqual(task?.payloadJson, { commitSha: suffix });
       assert.deepEqual(task?.resultJson, { approved: false });
       assert.equal(task?.status, "completed");
@@ -115,7 +119,9 @@ test(
         ["created", "started", "completed"],
       );
     } finally {
-      await db.delete(workTask).where(like(workTask.relatedId, suffix));
+      await db
+        .delete(governanceReviewTask)
+        .where(like(governanceReviewTask.relatedId, suffix));
     }
   },
 );

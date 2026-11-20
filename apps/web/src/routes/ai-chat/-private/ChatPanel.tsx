@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
@@ -19,6 +20,7 @@ import {
 } from "@preline-ui/Chat";
 import { Timestamp } from "@preline-ui/Timestamp";
 import { Sparkles } from "lucide-react";
+import type { CreateWorkTaskInput } from "../../../hooks/useWorkTasks";
 
 // ---- 类型 ----
 
@@ -30,6 +32,29 @@ export type Message = {
   steps?: ToolStep[];
   error?: boolean;
 };
+
+type AiWorkTaskDraft = {
+  draftType: "work-task";
+  title: string;
+  description: string;
+  category: NonNullable<CreateWorkTaskInput["category"]>;
+  priority: NonNullable<CreateWorkTaskInput["priority"]>;
+  scheduledDate: string | null;
+  dueTime: string | null;
+  sourceType: CreateWorkTaskInput["sourceType"] | null;
+  sourceId: string | null;
+};
+
+function isAiWorkTaskDraft(value: unknown): value is AiWorkTaskDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Record<string, unknown>;
+  return (
+    draft.draftType === "work-task" &&
+    typeof draft.title === "string" &&
+    typeof draft.category === "string" &&
+    typeof draft.priority === "string"
+  );
+}
 
 // ---- API ----
 
@@ -124,6 +149,7 @@ export function ChatPanel({
   initialQuestion?: string;
   onFirstSend?: (question: string) => void;
 }) {
+  const navigate = useNavigate();
   // 历史消息（从 Mastra Memory GET 端点加载）
   const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
   const initialSentRef = useRef<string | null>(null);
@@ -230,14 +256,49 @@ export function ChatPanel({
               ) : (
                 <ChatMessage key={i} sender="assistant" avatar={<Avatar name="AI" size="small" />}>
                   {msg.steps && msg.steps.length > 0 && (
-                    <ChatToolCalls
-                      defaultIsExpanded
-                      calls={msg.steps.map((s) => ({
-                        name: TOOL_NAME_MAP[s.tool] ?? s.tool,
-                        target: summarizeResult(s.result),
-                        status: "complete" as const,
-                      }))}
-                    />
+                    <>
+                      <ChatToolCalls
+                        defaultIsExpanded
+                        calls={msg.steps.map((s) => ({
+                          name: TOOL_NAME_MAP[s.tool] ?? s.tool,
+                          target: summarizeResult(s.result),
+                          status: "complete" as const,
+                        }))}
+                      />
+                      {msg.steps.map((step, stepIndex) => {
+                        if (!isAiWorkTaskDraft(step.result)) return null;
+                        const draft = step.result;
+                        return (
+                          <Button
+                            key={`${step.tool}-${stepIndex}`}
+                            size="sm"
+                            variant="secondary"
+                            label="打开任务草稿"
+                            onClick={() => {
+                              void navigate({
+                                to: "/home/tasks",
+                                search: {
+                                  draft: {
+                                    title: draft.title,
+                                    description: draft.description,
+                                    category: draft.category,
+                                    priority: draft.priority,
+                                    scheduledDate: draft.scheduledDate,
+                                    dueTime: draft.dueTime,
+                                    ...(draft.sourceType && draft.sourceId
+                                      ? {
+                                          sourceType: draft.sourceType,
+                                          sourceId: draft.sourceId,
+                                        }
+                                      : {}),
+                                  },
+                                },
+                              });
+                            }}
+                          />
+                        );
+                      })}
+                    </>
                   )}
                   <ChatMessageBubble variant="ghost">
                     <Markdown density="compact">{msg.content}</Markdown>

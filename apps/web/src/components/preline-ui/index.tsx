@@ -1916,7 +1916,7 @@ export function ChatComposer({
             submit();
           }
         }}
-        className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-app-ink outline-none placeholder:text-app-faint"
+        className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-app-ink outline-none placeholder:text-app-muted"
       />
       <Button label="发送" variant="primary" size="sm" isDisabled={!value.trim() || isDisabled} onClick={submit} />
     </div>

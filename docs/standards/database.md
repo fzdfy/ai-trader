@@ -40,10 +40,11 @@
 - 静态治理元数据保存在代码注册表；数据库只保存质量执行结果、数据事故、治理 Work Task 和相关事件。
 - `data_quality_result` 保存资产、规则版本、状态、严重度、任务标识、请求标识、指标和证据 JSON。
 - `data_incident` 保存当前事故状态，`data_incident_event` 追加确认、处理和解决事件。
-- `work_task` 保存治理审阅任务当前状态，`work_task_event` 追加状态事件；首期不实现完整任务中心。
+- `governance_review_task` 保存治理审阅任务当前状态，`governance_review_task_event` 追加状态事件。
+- `user_work_task` 保存按登录用户隔离的个人待办、计划日期、拖拽顺序和来源快照；`user_work_task_event` 追加状态事件，不提供硬删除。
 - 质量结果、事故和任务事件不提供管理 API 删除入口；保留策略由后续生命周期治理统一执行。
 - 治理证据与原始行情分开备份恢复：恢复质量结果、事故和任务时不得重建、改写或回滚 `bar1d_raw`、`adj_factor` 及 `load_kline` 输出契约。
-- 回退门禁只切换 `DATA_GOVERNANCE_GATE_MODE=warn|off`，不得删除已产生的质量结果、事故或 Work Task；恢复演练后需校验事件链完整且新增证据仍可追加。
+- 回退门禁只切换 `DATA_GOVERNANCE_GATE_MODE=warn|off`，不得删除已产生的质量结果、事故或治理审阅任务；恢复演练后需校验事件链完整且新增证据仍可追加。
 
 ## 价格与 PIT
 

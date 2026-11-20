@@ -60,7 +60,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
 ];
 
 export const DEFAULT_PRESET = PRESET_BLUE;
-export const DEFAULT_MODE: AppThemeMode = "system";
+export const DEFAULT_MODE: AppThemeMode = "light";
 
 /** 按 id 解析预设，未知 id 回退默认预设 */
 export function resolvePreset(id: string | null | undefined): ThemePreset {

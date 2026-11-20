@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, createFileRoute, useLocation } from "@tanstack/react-router";
 import {
   BookOpenText,
@@ -30,6 +30,7 @@ import { ProfileDialog } from "../../components/ProfileDialog";
 import { useAppTheme } from "../../components/AppThemeProvider";
 import { useLastUpdated, useSyncStatus } from "../../hooks/useDataSync";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useWorkTaskSummary } from "../../hooks/useWorkTasks";
 import { authClient } from "../../lib/auth-client";
 import {
   getSyncAvailability,
@@ -40,6 +41,7 @@ import {
   WORKBENCH_NAV_GROUPS,
   type WorkbenchNavIcon,
 } from "../../lib/workbench-navigation";
+import { localDateContext } from "../../lib/work-tasks";
 
 export const Route = createFileRoute("/home")({
   component: HomeLayout,
@@ -96,6 +98,7 @@ function HomeLayout() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const { data: session } = authClient.useSession();
   const { data: currentUser } = useCurrentUser();
   const { preset } = useAppTheme();
@@ -115,6 +118,15 @@ function HomeLayout() {
         ? "数据在线"
         : "同步状态不可用";
   const systemLinks = getSystemLinksForRole(currentUser?.role ?? null);
+  const taskDate = useMemo(() => localDateContext(), []);
+  const workTaskSummary = useWorkTaskSummary(
+    taskDate.localDate,
+    taskDate.timezone,
+  );
+
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((collapsed) => {
@@ -244,9 +256,9 @@ function HomeLayout() {
 
         <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="业务导航">
           {WORKBENCH_NAV_GROUPS.map((group) => (
-            <section key={group.label} className={sidebarCollapsed ? "mb-4 lg:mb-1" : "mb-4"}>
+            <section key={group.label} className={sidebarCollapsed ? "mb-3 lg:mb-1" : "mb-3"}>
               <p
-                className={`mb-[7px] px-2.5 font-mono text-[11px] font-semibold tracking-[0.12em] ${
+                className={`mb-1.5 px-2.5 font-mono text-[11px] font-semibold tracking-[0.12em] ${
                   sidebarCollapsed ? "lg:hidden" : ""
                 }`}
                 style={{ color: "var(--workbench-sidebar-label)" }}
@@ -263,7 +275,7 @@ function HomeLayout() {
                       to={href}
                       onClick={() => setMobileOpen(false)}
                       data-tooltip={label}
-                      className={`workbench-nav-item focus-ring flex min-h-[39px] w-full items-center gap-2.5 rounded-[11px] px-2.5 text-xs transition ${
+                      className={`workbench-nav-item focus-ring flex min-h-[34px] w-full items-center gap-2 rounded-[9px] px-2.5 text-[11px] transition ${
                         sidebarCollapsed ? "lg:mx-auto lg:w-[42px] lg:justify-center lg:px-0" : ""
                       } ${
                         selected
@@ -274,6 +286,20 @@ function HomeLayout() {
                     >
                       <Icon className={`size-3.5 ${selected ? "" : "text-app-faint"}`} />
                       <span className={sidebarCollapsed ? "lg:hidden" : ""}>{label}</span>
+                      {href === "/home/tasks" &&
+                      workTaskSummary.data?.incompleteToday ? (
+                        <span
+                          className={`ml-auto rounded-full px-1.5 py-0.5 font-mono text-[9px] ${
+                            selected
+                              ? "bg-primary-foreground/15 text-primary-foreground"
+                              : "bg-app-panel text-app-muted"
+                          } ${sidebarCollapsed ? "lg:hidden" : ""}`}
+                        >
+                          {workTaskSummary.data.incompleteToday > 99
+                            ? "99+"
+                            : workTaskSummary.data.incompleteToday}
+                        </span>
+                      ) : null}
                     </Link>
                   );
                 })}
@@ -410,7 +436,10 @@ function HomeLayout() {
             mobileMenuButtonRef={menuButtonRef}
             onOpenMobileMenu={() => setMobileOpen(true)}
           />
-          <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div
+            ref={contentRef}
+            className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+          >
             <Outlet />
           </div>
         </div>

@@ -1,0 +1,82 @@
+[
+  {
+    "file": "success.png",
+    "state": "success",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 87,
+        "examples": [
+          "span.brand-cn「量化 AI 工作台」（9px）",
+          "p.nav-group-label「工作空间」（9px）",
+          "small「01」（9px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 50,
+        "examples": [
+          "span.workspace-clock「08:57 · 开盘前」（3.70:1）",
+          "span「搜索资产或研报」（4.01:1）",
+          "kbd「⌘ K」（3.99:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 4,
+        "examples": [
+          "article.metric「今日完成 2 / 6 完成率 33%」（首屏 8 块各自加框）",
+          "article.task-column「待开始 3 恢复自动排序 研究 核验比亚迪海外销」（框里又有 3 个加框的块）",
+          "article.task-column「已完成 2 恢复自动排序 研报 核验贵州茅台三季」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "partial.png",
+    "state": "partial",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 89,
+        "examples": [
+          "span.brand-cn「量化 AI 工作台」（9px）",
+          "p.nav-group-label「工作空间」（9px）",
+          "small「01」（9px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 48,
+        "examples": [
+          "span.workspace-clock「08:57 · 开盘前」（3.70:1）",
+          "span「搜索资产或研报」（4.01:1）",
+          "kbd「⌘ K」（3.99:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 4,
+        "examples": [
+          "article.metric「今日完成 2 / 6 完成率 33%」（首屏 8 块各自加框）",
+          "article.task-column「待开始 3 恢复自动排序 研究 核验比亚迪海外销」（框里又有 3 个加框的块）",
+          "article.task-column「已完成 2 恢复自动排序 研报 核验贵州茅台三季」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

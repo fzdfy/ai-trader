@@ -2,6 +2,15 @@
 
 本目录保存可重复预览的 HTML 原型，不直接作为生产代码。
 
+## 哪个才是标准设计
+
+- **最新标准**只以 `initial/` 中的文件以及 [设计标准](../standards/design.md) 明确引用的基准为准，不以目录里最大的版本号判断。
+- `explorations/` 中的 `v1`、`v2` 等编号只在同一个功能线内表示迭代顺序，不是全应用版本号。
+- 探索稿即使视觉完整，在用户明确确认并复制到 `initial/` 之前也只是候选稿。
+- 新旧稿必须并存，不能为了“看起来整洁”覆盖历史确认稿；通过状态表和 `Supersedes` 关系判断取代关系。
+- 当前全局工作台标准是 `initial/quant-workbench-assistant-v2.html`；当前个股分析标准是 `initial/quant-workbench-stock-analysis-v1.html`；当前个人工作任务标准是 `initial/quant-workbench-user-work-task-v1.html`。
+- 工作任务探索稿 `v1` 是历史设计稿，探索稿 `v2` 是本次确认过程稿；`v2` 已提升为标准，但探索目录中的过程稿保持不动以便追溯。
+
 ## 目录
 
 ```text
@@ -9,7 +18,8 @@ docs/design/prototypes/
 ├── initial/
 │   ├── quant-workbench-assistant.html  # 原始稿快照，不直接修改
 │   ├── quant-workbench-assistant-v2.html # 当前默认工作台参考原型
-│   └── quant-workbench-stock-analysis-v1.html # 已确认的个股分析基准稿
+│   ├── quant-workbench-stock-analysis-v1.html # 已确认的个股分析基准稿
+│   └── quant-workbench-user-work-task-v1.html # 已确认的个人工作任务基准稿
 ├── explorations/
 │   ├── quant-workbench-preline.html    # 继承原始稿主题的独立 Preline 探索稿
 │   ├── quant-workbench-assistant-v2.html # V2 确认过程稿
@@ -18,6 +28,8 @@ docs/design/prototypes/
 │   ├── quant-workbench-stock-content-v1.html # 个股新闻、公告、研报刷新状态设计稿
 │   ├── quant-workbench-research-rag-v1.html # 研报全文索引与证据检索状态探索稿
 │   ├── quant-workbench-data-governance-v1.html # 已确认的数据治理探索稿
+│   ├── quant-workbench-user-work-task-v1.html # 个人工作任务历史设计稿
+│   ├── quant-workbench-user-work-task-v2.html # 已确认设计的过程稿
 │   ├── screenshots/data-governance-production/ # 数据治理生产页面验收截图
 │   └── screenshots/research-rag-production/ # 研报索引生产页面验收截图
 └── assets/                         # 预览所需的静态资源
@@ -50,6 +62,7 @@ python3 -m http.server 9090
 
 - `http://localhost:9090/initial/quant-workbench-assistant-v2.html`（默认参考）
 - `http://localhost:9090/initial/quant-workbench-stock-analysis-v1.html`（个股分析确认基准）
+- `http://localhost:9090/initial/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务确认基准）
 - `http://localhost:9090/initial/quant-workbench-assistant.html`
 - `http://localhost:9090/explorations/quant-workbench-preline.html`
 - `http://localhost:9090/explorations/quant-workbench-daily-dashboard-v3.html`（每日看板设计稿）
@@ -58,6 +71,8 @@ python3 -m http.server 9090
 - `http://localhost:9090/explorations/quant-workbench-research-rag-v1.html?view=detail&content=success&state=running`（研报全文索引中状态）
 - `http://localhost:9090/explorations/quant-workbench-research-rag-v1.html?view=detail&content=success&state=partial`（研报全文部分失败状态）
 - `http://localhost:9090/explorations/quant-workbench-data-governance-v1.html`（数据治理确认稿）
+- `http://localhost:9090/explorations/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务历史稿）
+- `http://localhost:9090/explorations/quant-workbench-user-work-task-v2.html?page=daily&view=today`（个人工作任务确认过程稿）
 
 探索稿使用 Tailwind CSS 与 Preline CDN。正式应用使用 npm 包和 Vite 构建。
 
@@ -74,5 +89,9 @@ V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比�
 研报 RAG 探索稿沿用个股分析基准，只扩展“研报全文”状态格和研报检索空态。覆盖暂无全文、待索引、索引中、全部成功、部分失败与证据不足；桌面、手机、浅色和深色截图保存在 `explorations/screenshots/research-rag-v1/`。
 
 研报索引生产页面验收覆盖比亚迪真实待索引状态、证据检索空态、移动端和深色模式，截图与浏览器检查报告保存在 `explorations/screenshots/research-rag-production/`。
+
+个人工作任务设计稿覆盖今日三列看板、收件箱、未来、全部、详情面板、拖拽、空/加载/错误/部分成功，以及桌面/移动端和浅色/深色。生产页面验收截图保存在 `explorations/screenshots/user-work-task-production/`。
+
+个人工作任务 V2 修订稿统一了应用主色、语义表面、Tab 选中态和助手侧栏：浅色模式下助手与页面共用暖白画布，深色模式下统一使用深色面板和边界，不再混用旧橙色、旧青绿色或固定白色表面。确认基准已保存为 `initial/quant-workbench-user-work-task-v1.html`，截图保存在 `explorations/screenshots/user-work-task-v2/`。
 
 主题必须沿用默认参考稿的暖白画布、蓝灰导航、白色内容面板、原始蓝主操作、黄色状态强调与 A 股红涨绿跌语义。

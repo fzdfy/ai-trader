@@ -12,6 +12,7 @@ import {
 import { Button } from "@preline-ui/Button";
 import { Dialog, DialogHeader } from "@preline-ui/Dialog";
 import { Spinner } from "@preline-ui/Spinner";
+import { AddWorkTaskButton } from "../../../../components/AddWorkTaskButton";
 import { useCancelWorkflowRun, useWorkflowRunQuery } from "../../../../hooks/useWorkflows";
 import {
   WORKFLOW_NODE_META,
@@ -152,15 +153,22 @@ function WorkflowRunPage() {
             </p>
           </div>
         </div>
-        {canCancel ? (
-          <Button
-            variant="secondary"
-            icon={<XCircle className="size-4" />}
-            onClick={() => setCancelOpen(true)}
-          >
-            取消运行
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <AddWorkTaskButton
+            sourceType="workflow_run"
+            sourceId={String(run.id)}
+            label="生成人工跟进任务"
+          />
+          {canCancel ? (
+            <Button
+              variant="secondary"
+              icon={<XCircle className="size-4" />}
+              onClick={() => setCancelOpen(true)}
+            >
+              取消运行
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <section className="overflow-hidden rounded-2xl border border-app-line bg-app-panel">

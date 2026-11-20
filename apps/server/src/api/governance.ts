@@ -5,7 +5,7 @@ import { db } from "../db";
 import {
   dataIncident,
   dataQualityResult,
-  workTask,
+  governanceReviewTask,
 } from "../db/schema";
 import {
   createRequireSuperAdmin,
@@ -23,9 +23,9 @@ import { QUALITY_RULES } from "../lib/data-governance/quality-rules";
 import { GOVERNANCE_ASSETS } from "../lib/data-governance/registry";
 import { getSourceStandardReference } from "../lib/data-governance/source-standards";
 import {
-  getWorkTask,
-  transitionWorkTask,
-} from "../lib/data-governance/work-tasks";
+  getGovernanceReviewTask,
+  transitionGovernanceReviewTask,
+} from "../lib/data-governance/review-tasks";
 import { getLogContext } from "../lib/request-context";
 import { badRequest, notFound, ok } from "../lib/response";
 
@@ -65,19 +65,24 @@ export function listSourceStandards() {
   return [getSourceStandardReference("a-stock-data")];
 }
 
-export async function listWorkTasks(
+export async function listGovernanceReviewTasks(
   filter: { status?: string; taskType?: string; limit?: number } = {},
 ) {
   const conditions: SQL[] = [];
-  if (filter.status) conditions.push(eq(workTask.status, filter.status));
+  if (filter.status) {
+    conditions.push(eq(governanceReviewTask.status, filter.status));
+  }
   if (filter.taskType) {
-    conditions.push(eq(workTask.taskType, filter.taskType));
+    conditions.push(eq(governanceReviewTask.taskType, filter.taskType));
   }
   return db
     .select()
-    .from(workTask)
+    .from(governanceReviewTask)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(workTask.createdAt), desc(workTask.id))
+    .orderBy(
+      desc(governanceReviewTask.createdAt),
+      desc(governanceReviewTask.id),
+    )
     .limit(Math.min(Math.max(filter.limit ?? 100, 1), 500));
 }
 
@@ -172,7 +177,7 @@ export function createGovernanceRoute(
     const [assets, qualityResults, tasks, incidents] = await Promise.all([
       Promise.resolve(listGovernanceAssets()),
       listQualityResults({ limit: 12 }),
-      listWorkTasks({ limit: 12 }),
+      listGovernanceReviewTasks({ limit: 12 }),
       listIncidents({ limit: 12 }),
     ]);
     const [activeIncidentCount] = await db
@@ -183,8 +188,8 @@ export function createGovernanceRoute(
       );
     const [pendingTaskCount] = await db
       .select({ value: count() })
-      .from(workTask)
-      .where(eq(workTask.status, "pending"));
+      .from(governanceReviewTask)
+      .where(eq(governanceReviewTask.status, "pending"));
     return ok(c, {
       counts: {
         assets: assets.length,
@@ -213,9 +218,9 @@ export function createGovernanceRoute(
       listIncidents({ assetKey, limit: 20 }),
       db
         .select()
-        .from(workTask)
-        .where(eq(workTask.relatedId, assetKey))
-        .orderBy(desc(workTask.createdAt))
+        .from(governanceReviewTask)
+        .where(eq(governanceReviewTask.relatedId, assetKey))
+        .orderBy(desc(governanceReviewTask.createdAt))
         .limit(20),
     ]);
     return ok(c, { asset, qualityResults, incidents, workTasks: tasks });
@@ -239,14 +244,17 @@ export function createGovernanceRoute(
       sourceStandards.map(async (source) => {
         const [latestTask] = await db
           .select()
-          .from(workTask)
+          .from(governanceReviewTask)
           .where(
             and(
-              eq(workTask.taskType, "source_standard_review"),
-              eq(workTask.relatedType, "source_standard"),
+              eq(governanceReviewTask.taskType, "source_standard_review"),
+              eq(governanceReviewTask.relatedType, "source_standard"),
             ),
           )
-          .orderBy(desc(workTask.createdAt), desc(workTask.id))
+          .orderBy(
+            desc(governanceReviewTask.createdAt),
+            desc(governanceReviewTask.id),
+          )
           .limit(1);
         return { ...source, latestTask: latestTask ?? null };
       }),
@@ -254,24 +262,24 @@ export function createGovernanceRoute(
     return ok(c, { items, gateMode: process.env.DATA_GOVERNANCE_GATE_MODE ?? "warn" });
   });
 
-  route.get("/work-tasks", async (c) =>
+  route.get("/review-tasks", async (c) =>
     ok(c, {
-      items: await listWorkTasks({
+      items: await listGovernanceReviewTasks({
         status: c.req.query("status") || undefined,
         taskType: c.req.query("taskType") || undefined,
         limit: readLimit(c.req.query("limit")),
       }),
     }),
   );
-  route.get("/work-tasks/:id", async (c) => {
+  route.get("/review-tasks/:id", async (c) => {
     const id = positiveId(c.req.param("id"));
     if (!id) return badRequest(c, "任务 ID 不正确");
-    const task = await getWorkTask(id);
+    const task = await getGovernanceReviewTask(id);
     return task ? ok(c, task) : notFound(c, "治理任务不存在");
   });
 
   for (const action of ["start", "complete", "cancel"] as const) {
-    route.post(`/work-tasks/:id/${action}`, async (c) => {
+    route.post(`/review-tasks/:id/${action}`, async (c) => {
       const id = positiveId(c.req.param("id"));
       if (!id) return badRequest(c, "任务 ID 不正确");
       const body = await readAction(c);
@@ -284,7 +292,7 @@ export function createGovernanceRoute(
           inputJson: { taskId: id, reason: body.reason },
         },
         async () => {
-          await transitionWorkTask(id, {
+          await transitionGovernanceReviewTask(id, {
             action,
             actorUserId: c.get("currentUser").id,
             message: body.reason,

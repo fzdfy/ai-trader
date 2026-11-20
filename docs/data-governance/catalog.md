@@ -2,7 +2,7 @@
 
 > 此文件由治理注册表自动生成，请勿手工编辑。
 
-资产总数：100
+资产总数：102
 
 | 资产 | 名称 | 数据域 | Tier | Data Owner | Data Steward | Source Standard | 分类 | 保留 |
 |---|---|---|---|---|---|---|---|---|
@@ -34,6 +34,8 @@
 | `feature_set` | 特征集 | research_derived | tier_2 | Data Platform | Quant Research | — | internal | rebuildable |
 | `feature_value` | 特征值 | research_derived | tier_2 | Data Platform | Quant Research | — | internal | permanent |
 | `fund_flow_rank` | 个股资金流排行 | market_intelligence | tier_1 | Data Platform | Quant Research | a-stock-data | internal | permanent |
+| `governance_review_task` | 治理任务 | application | tier_2 | Agent Platform | Quant Research | — | internal | permanent |
+| `governance_review_task_event` | 治理任务事件 | application | tier_2 | Agent Platform | Quant Research | — | internal | permanent |
 | `hot_reason` | 题材归因 | market_intelligence | tier_1 | Data Platform | Quant Research | a-stock-data | internal | permanent |
 | `instrument` | 交易标的基础信息 | reference | tier_0 | Data Platform | Quant Research | a-stock-data | internal | permanent |
 | `job_run` | 任务运行记录 | application | tier_1 | Agent Platform | Quant Research | — | restricted | rebuildable |
@@ -98,10 +100,10 @@
 | `sync_cursor` | 同步游标 | application | tier_1 | Agent Platform | Quant Research | — | internal | rebuildable |
 | `trading_calendar` | 交易日历 | reference | tier_0 | Data Platform | Quant Research | — | internal | permanent |
 | `user` | 用户账户 | application | tier_1 | Agent Platform | Quant Research | — | restricted | rebuildable |
+| `user_work_task` | 个人工作任务 | application | tier_2 | Agent Platform | Quant Research | — | restricted | permanent |
+| `user_work_task_event` | 个人工作任务事件 | application | tier_2 | Agent Platform | Quant Research | — | restricted | permanent |
 | `verification` | 验证记录 | application | tier_2 | Agent Platform | Quant Research | — | restricted | rebuildable |
 | `watchlist` | 用户自选 | application | tier_1 | Agent Platform | Quant Research | — | restricted | rebuildable |
-| `work_task` | 治理任务 | application | tier_2 | Agent Platform | Quant Research | — | internal | permanent |
-| `work_task_event` | 治理任务事件 | application | tier_2 | Agent Platform | Quant Research | — | internal | permanent |
 | `workflow_definition` | 工作流定义 | application | tier_1 | Agent Platform | Quant Research | — | internal | rebuildable |
 | `workflow_node_run` | 工作流节点运行 | application | tier_1 | Agent Platform | Quant Research | — | internal | rebuildable |
 | `workflow_run` | 工作流运行 | application | tier_1 | Agent Platform | Quant Research | — | internal | rebuildable |

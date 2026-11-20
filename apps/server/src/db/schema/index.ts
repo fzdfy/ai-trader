@@ -9,3 +9,4 @@ export * from "./reviews";
 export * from "./workflow";
 export * from "./stock-analysis";
 export * from "./governance";
+export * from "./work-tasks";

@@ -1,0 +1,35 @@
+[
+  {
+    "file": "page-移动端看板.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "移动端看板",
+    "animationWaitMs": 0,
+    "issues": [
+      "加载错误：Failed to load resource: the server responded with a status of 403 (Forbidden) http://localhost:9080/api/v1/data-management/sync/modules",
+      "加载错误：Failed to load resource: the server responded with a status of 403 (Forbidden) http://localhost:9080/api/v1/data-management/sync/modules"
+    ],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 18,
+        "examples": [
+          "p.font-mono.text-[10px]「TASKS · 2026-11-20」（10px）",
+          "span.mt-2.block「完成率 0%」（10px）",
+          "span.mt-2.block「尚未完成」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "div.rounded-xl.border「今日完成 0 / 3 完成率 0%」（首屏 5 块各自加框）",
+          "div.rounded-xl.border「聚焦拖拽手柄后按空格进入拖拽，使用方向键移动，按」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

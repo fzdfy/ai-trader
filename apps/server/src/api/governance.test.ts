@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { eq, like } from "drizzle-orm";
 import { db } from "../db";
-import { dataIncident, workTask } from "../db/schema";
+import { dataIncident, governanceReviewTask } from "../db/schema";
 import { getIncident, openIncident } from "../lib/data-governance/incidents";
-import { createWorkTask, getWorkTask } from "../lib/data-governance/work-tasks";
+import {
+  createGovernanceReviewTask,
+  getGovernanceReviewTask,
+} from "../lib/data-governance/review-tasks";
 import { createGovernanceRoute } from "./governance";
 
 const runDatabaseTests = process.env.ADMIN_DB_TESTS === "1";
@@ -56,7 +59,7 @@ test(
     const suffix = crypto.randomUUID();
     const adminRoute = createGovernanceRoute(async () => admin);
     try {
-      const taskId = await createWorkTask({
+      const taskId = await createGovernanceReviewTask({
         taskType: "source_standard_review",
         title: "测试审阅",
         priority: "high",
@@ -66,7 +69,7 @@ test(
         payloadJson: { commitSha: suffix },
       });
       const missingReason = await adminRoute.request(
-        `/work-tasks/${taskId}/start`,
+        `/review-tasks/${taskId}/start`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -76,7 +79,7 @@ test(
       assert.equal(missingReason.status, 400);
 
       const accepted = await adminRoute.request(
-        `/work-tasks/${taskId}/start`,
+        `/review-tasks/${taskId}/start`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -84,9 +87,14 @@ test(
         },
       );
       assert.equal(accepted.status, 200);
-      assert.equal((await getWorkTask(taskId))?.status, "in_progress");
+      assert.equal(
+        (await getGovernanceReviewTask(taskId))?.status,
+        "in_progress",
+      );
     } finally {
-      await db.delete(workTask).where(like(workTask.relatedId, suffix));
+      await db
+        .delete(governanceReviewTask)
+        .where(like(governanceReviewTask.relatedId, suffix));
     }
   },
 );

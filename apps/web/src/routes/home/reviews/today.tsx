@@ -15,6 +15,7 @@ import { Button } from "@preline-ui/Button";
 import { Spinner } from "@preline-ui/Spinner";
 import { Section } from "@preline-ui/Section";
 import { History } from "lucide-react";
+import { AddWorkTaskButton } from "../../../components/AddWorkTaskButton";
 import {
   useGenerateReviewStream,
   useReviewQuery,
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/home/reviews/today")({
   component: TodayReviewPage,
 });
 
-function ReviewPageActions() {
+function ReviewPageActions({ date }: { date: string | null }) {
   return (
     <HStack gap={2} align="center" style={{ flexWrap: "wrap" }}>
       <Link to="/home/reviews/history" style={{ textDecoration: "none" }}>
@@ -37,6 +38,13 @@ function ReviewPageActions() {
       <Link to="/home/reviews/skill" style={{ textDecoration: "none" }}>
         <Button label="查看复盘 Skill" variant="secondary" />
       </Link>
+      {date ? (
+        <AddWorkTaskButton
+          sourceType="review"
+          sourceId={date}
+          label="创建跟进任务"
+        />
+      ) : null}
     </HStack>
   );
 }
@@ -64,7 +72,7 @@ function TodayReviewPage() {
               生成最近一个交易日的复盘，覆盖行业资金流向、主线、选股池与总结。
             </Text>
           </VStack>
-          <ReviewPageActions />
+          <ReviewPageActions date={date} />
         </HStack>
         <Spinner size="sm" label="正在获取最近交易日..." />
       </VStack>
@@ -80,7 +88,7 @@ function TodayReviewPage() {
             {date} · 生成当日复盘，覆盖行业资金流向、主线、选股池与总结。
           </Text>
         </VStack>
-        <ReviewPageActions />
+        <ReviewPageActions date={date} />
       </HStack>
 
       {/* 生成 / 重新生成 */}

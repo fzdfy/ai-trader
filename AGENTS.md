@@ -50,6 +50,7 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 - 排查任务状态先分清 `interrupted (stale | worker restart | server restart)` 三种来源，见 [runbooks.md](./docs/runbooks.md)。
 - 不要重复论证 [decisions.md](./docs/decisions.md) 里已定的结论。
 - 长期事实写入 `docs/standards/`；单次行为变更写入 OpenSpec；不要只改对话或临时原型。
+- **逐步确认不可跳过**：非平凡开发按阶段及 `tasks.md` 任务逐项执行；每完成一步必须停止并汇报产物、证据、风险和下一步，只有用户明确确认后才能执行下一步。禁止自动连续执行或自动归档。
 - 非平凡开发必须先澄清与规格，再使用 `tasks.md` 实施；禁止无计划直接改业务代码。
 - 前端统一使用 Preline UI + Tailwind CSS；新增和重写 UI 必须复用 `apps/web/src/components/preline-ui/` 语义组件。
 - 量化工作台原稿 `quant-workbench-assistant.html` 不得覆盖；新视觉探索必须复制到 `docs/design/prototypes/explorations/`。
@@ -78,6 +79,7 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 规则：
 
 - 非平凡开发必须依次完成澄清、PRD、OpenSpec 规格、技术设计、方案评审、用户确认、测试计划、实施、测试报告、审查和归档。
+- 每个阶段和每个 `tasks.md` 编号任务都是独立确认步骤。执行一步后必须停下，等待用户明确确认；不得把“视觉稿确认”“确认计划”“全部同意”“继续”或早先步骤的授权推断为后续步骤或整个需求的批量授权。
 - 有 UI 影响的需求，技术设计之后必须先做视觉设计并取得用户确认，再创建实施计划和实现任务；确认前 `tasks.md` 只能包含视觉设计门禁。
 - 需求不确定时先使用 Grill-with-docs，不把猜测写成规格。
 - 新用户功能和多页面流程必须完成 PRD-lite；大型需求再生成完整 PRD。
@@ -87,6 +89,7 @@ pnpm monorepo，智能 A 股分析与策略平台：`apps/web`（React + Vite，
 - `[x]` 只表示任务级实现与对应测试完成；整个 change 仍以验证章节和归档结果为准。
 - 没有失败测试证据，不得声称新行为通过。
 - 完成声明前使用 `verification-before-completion` 并运行最新完整验证命令。
+- 测试和验证完成后也必须先提交用户验收；只有用户单独确认归档后，才能执行 OpenSpec archive。
 - 用户明确要求一次性执行完整流程时，可按顺序执行规划和实施，但仍保留各阶段产物。
 
 ## 文件职责

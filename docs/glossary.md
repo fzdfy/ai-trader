@@ -108,7 +108,7 @@ _Avoid_: Data Quality, Job Status
 
 **Data Incident**:
 数据不可用、失真、断档、口径变化或质量门禁失败所形成的受追踪事件。
-_Avoid_: Application Error, Work Task
+_Avoid_: Application Error, Work Task, Governance Review Task
 
 **Data Lineage**:
 数据从来源经过同步和派生过程流向表、字段及消费方的可追溯关系。
@@ -124,7 +124,11 @@ _Avoid_: Latest Skill, Floating Version
 
 **Source Standard Watch**:
 由系统定时检查来源标准新版本并生成人工审阅任务的治理机制。
-_Avoid_: Workflow, Data Sync Job
+_Avoid_: Workflow, Data Sync Job, User Work Task
+
+**Governance Review Task**:
+Data Steward 针对来源标准变化或数据事故进行人工判断的治理审阅记录，不等同于个人待办。
+_Avoid_: Work Task, Governance Task, Application Error
 
 **Administrative Action Audit**:
 对超级管理员触发的同步、重试等受控操作记录操作者、范围、参数、任务和结果。
@@ -227,8 +231,32 @@ _Avoid_: 系统任务, 固定任务
 _Avoid_: Work Task, 每日任务
 
 **Work Task**:
-用户在某个交易日需要完成的人工作业或待办事项，不是自动执行的 Workflow。
-_Avoid_: Workflow, 自动任务
+归属于单一登录用户的人工作业或待办事项，可安排到某个日期或暂存在收件箱，不是自动执行的 Workflow。
+_Avoid_: Workflow, Workflow Run, Governance Review Task
+
+**Task Inbox**:
+尚未安排执行日期的 Work Task 集合，用户在创建任务时无需立即决定日期。
+_Avoid_: 今日任务, Backlog Task
+
+**Blocked Reason**:
+进行中的 Work Task 等待外部输入或上游结果时记录的说明，不构成独立生命周期状态。
+_Avoid_: Blocked Status, Canceled
+
+**Work Task Source**:
+Work Task 的一个主要来源业务对象及其创建时快照，例如个股、复盘、选股候选或 Workflow Run。
+_Avoid_: Task Tag, Multiple Task Owners, 来源自由文本
+
+**Work Task Detail Panel**:
+在工作任务页面内展示和编辑任务字段、来源与事件历史的面板；移动端使用全宽呈现。
+_Avoid_: Task Page, Task Modal, Assistant Drawer
+
+**Today Task Board**:
+按待开始、进行中、已完成三列组织今日及逾期 Work Task 的看板，支持状态拖拽和列内手动排序。
+_Avoid_: Workflow Canvas, Task List
+
+**Manual Work Task Order**:
+用户在 Today Task Board 某一列内显式保存的任务顺序；可随时恢复为优先级和日期驱动的自动排序。
+_Avoid_: Priority, Task Status
 
 **Workflow Version**:
 一次发布生成的不可变工作流图快照；修改草稿不会改变当前版本。

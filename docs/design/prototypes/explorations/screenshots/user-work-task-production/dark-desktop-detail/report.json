@@ -1,0 +1,36 @@
+[
+  {
+    "file": "page-深色详情.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "深色详情",
+    "animationWaitMs": 0,
+    "issues": [
+      "加载错误：Failed to load resource: the server responded with a status of 403 (Forbidden) http://localhost:9080/api/v1/data-management/sync/modules",
+      "加载错误：Failed to load resource: the server responded with a status of 403 (Forbidden) http://localhost:9080/api/v1/data-management/sync/modules"
+    ],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 19,
+        "examples": [
+          "p.flex.items-center「TASKS · 2026-11-20」（10px）",
+          "span.mt-2.block「完成率 33%」（10px）",
+          "span.mt-2.block「尚未完成」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 3,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「视 视觉验收 量化研究 · Pro」（首屏 7 块各自加框）",
+          "div.rounded-xl.border「聚焦拖拽手柄后按空格进入拖拽，使用方向键移动，按」（框里又有 3 个加框的块）",
+          "aside.fixed.inset-0「TASK #2 任务详情 进行中 标题 说明 分」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

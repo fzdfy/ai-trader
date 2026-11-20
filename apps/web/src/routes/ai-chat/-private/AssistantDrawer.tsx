@@ -224,13 +224,19 @@ export function AssistantDrawer({
         className={`assistant-drawer ${isOpen ? "is-open" : ""}`}
       >
         <div className="flex h-full min-h-0 flex-col">
-          <div className="flex min-h-16 shrink-0 items-center gap-2 border-b border-app-line px-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+          <div
+            className="flex min-h-16 shrink-0 items-center gap-2 border-b border-app-line px-3"
+            style={{
+              background:
+                "linear-gradient(110deg, color-mix(in srgb, var(--primary) 7%, var(--panel)), color-mix(in srgb, var(--warning) 8%, var(--panel)))",
+            }}
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
               <Sparkles className="size-4" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-app-ink">量化助手</p>
-              <p className="mt-0.5 truncate text-[10px] text-app-muted">
+              <p className="mt-0.5 truncate text-[11px] text-app-muted">
                 QUANT COPILOT
               </p>
             </div>
@@ -266,7 +272,7 @@ export function AssistantDrawer({
             />
           </div>
 
-          <div className="flex min-h-9 shrink-0 items-center gap-2 border-b border-app-line bg-app-surface/55 px-4 text-[10px] text-app-muted">
+          <div className="flex min-h-9 shrink-0 items-center gap-2 border-b border-app-line bg-app-surface/55 px-4 text-[11px] text-app-muted">
             <span className="size-1.5 shrink-0 rounded-full bg-primary" />
             <strong className="min-w-0 truncate font-medium text-app-ink">{pageTitle}</strong>
             <span className="ml-auto shrink-0">

@@ -6,8 +6,8 @@ import {
   dataIncident,
   dataIncidentEvent,
   dataQualityResult,
-  workTask,
-  workTaskEvent,
+  governanceReviewTask,
+  governanceReviewTaskEvent,
 } from "./schema";
 
 const runDatabaseTests = process.env.ADMIN_DB_TESTS === "1";
@@ -65,7 +65,7 @@ test(
     });
 
     const [task] = await db
-      .insert(workTask)
+      .insert(governanceReviewTask)
       .values({
         taskType: "source_standard_review",
         title: "审阅来源标准",
@@ -74,9 +74,9 @@ test(
         ownerRole: "Data Steward",
         payloadJson: { commitSha: suffix },
       })
-      .returning({ id: workTask.id });
+      .returning({ id: governanceReviewTask.id });
     assert.ok(task);
-    await db.insert(workTaskEvent).values({
+    await db.insert(governanceReviewTaskEvent).values({
       taskId: task.id,
       eventType: "created",
       payloadJson: {},
@@ -84,15 +84,19 @@ test(
     await assert.rejects(
       () =>
         db
-          .update(workTask)
+          .update(governanceReviewTask)
           .set({ status: "unknown" })
-          .where(eq(workTask.id, task.id)),
+          .where(eq(governanceReviewTask.id, task.id)),
       (error: { cause?: { code?: string }; code?: string }) =>
         (error.cause?.code ?? error.code) === "23514",
     );
 
-    await db.delete(workTaskEvent).where(eq(workTaskEvent.taskId, task.id));
-    await db.delete(workTask).where(eq(workTask.id, task.id));
+    await db
+      .delete(governanceReviewTaskEvent)
+      .where(eq(governanceReviewTaskEvent.taskId, task.id));
+    await db
+      .delete(governanceReviewTask)
+      .where(eq(governanceReviewTask.id, task.id));
     await db
       .delete(dataIncidentEvent)
       .where(eq(dataIncidentEvent.incidentId, incident.id));

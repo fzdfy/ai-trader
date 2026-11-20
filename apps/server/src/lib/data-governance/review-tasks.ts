@@ -1,11 +1,11 @@
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
-  workTask,
-  workTaskEvent,
+  governanceReviewTask,
+  governanceReviewTaskEvent,
 } from "../../db/schema";
 
-export type CreateWorkTaskInput = {
+export type CreateGovernanceReviewTaskInput = {
   taskType: string;
   title: string;
   priority: "normal" | "high" | "critical";
@@ -15,7 +15,7 @@ export type CreateWorkTaskInput = {
   payloadJson: Record<string, unknown>;
 };
 
-export type WorkTaskTransition = {
+export type GovernanceReviewTaskTransition = {
   action: "start" | "complete" | "cancel";
   actorUserId?: string | null;
   message?: string | null;
@@ -32,9 +32,12 @@ export type SourceStandardReviewTaskInput = {
   capabilities?: string[];
 };
 
-type WorkTaskRow = typeof workTask.$inferSelect;
-type WorkTaskEventRow = typeof workTaskEvent.$inferSelect;
-export type WorkTaskDetail = WorkTaskRow & { events: WorkTaskEventRow[] };
+type GovernanceReviewTaskRow = typeof governanceReviewTask.$inferSelect;
+type GovernanceReviewTaskEventRow =
+  typeof governanceReviewTaskEvent.$inferSelect;
+export type GovernanceReviewTaskDetail = GovernanceReviewTaskRow & {
+  events: GovernanceReviewTaskEventRow[];
+};
 
 const TRANSITIONS = {
   start: {
@@ -54,16 +57,16 @@ const TRANSITIONS = {
   },
 } as const;
 
-export async function createWorkTask(
-  input: CreateWorkTaskInput,
+export async function createGovernanceReviewTask(
+  input: CreateGovernanceReviewTaskInput,
 ): Promise<number> {
   return db.transaction(async (tx) => {
     const [task] = await tx
-      .insert(workTask)
+      .insert(governanceReviewTask)
       .values({ ...input, status: "pending" })
-      .returning({ id: workTask.id });
+      .returning({ id: governanceReviewTask.id });
     if (!task) throw new Error("创建工作任务失败");
-    await tx.insert(workTaskEvent).values({
+    await tx.insert(governanceReviewTaskEvent).values({
       taskId: task.id,
       eventType: "created",
       payloadJson: {},
@@ -80,22 +83,26 @@ export async function ensureSourceStandardReviewTask(
       sql`SELECT pg_advisory_xact_lock(hashtext(${`source-standard:${input.commitSha}`}))`,
     );
     const [existing] = await tx
-      .select({ id: workTask.id })
-      .from(workTask)
+      .select({ id: governanceReviewTask.id })
+      .from(governanceReviewTask)
       .where(
         and(
-          eq(workTask.taskType, "source_standard_review"),
-          eq(workTask.relatedType, "source_standard"),
-          eq(workTask.relatedId, input.commitSha),
-          inArray(workTask.status, ["pending", "in_progress", "completed"]),
+          eq(governanceReviewTask.taskType, "source_standard_review"),
+          eq(governanceReviewTask.relatedType, "source_standard"),
+          eq(governanceReviewTask.relatedId, input.commitSha),
+          inArray(governanceReviewTask.status, [
+            "pending",
+            "in_progress",
+            "completed",
+          ]),
         ),
       )
-      .orderBy(asc(workTask.id))
+      .orderBy(asc(governanceReviewTask.id))
       .limit(1);
     if (existing) return existing.id;
 
     const [task] = await tx
-      .insert(workTask)
+      .insert(governanceReviewTask)
       .values({
         taskType: "source_standard_review",
         title: `复核 a-stock-data v${input.versionLabel} 来源标准变化`,
@@ -115,9 +122,9 @@ export async function ensureSourceStandardReviewTask(
           capabilitiesToReview: input.capabilities ?? [],
         },
       })
-      .returning({ id: workTask.id });
+      .returning({ id: governanceReviewTask.id });
     if (!task) throw new Error("创建来源标准审阅任务失败");
-    await tx.insert(workTaskEvent).values({
+    await tx.insert(governanceReviewTaskEvent).values({
       taskId: task.id,
       eventType: "created",
       payloadJson: { commitSha: input.commitSha },
@@ -131,21 +138,21 @@ export async function countPendingSourceReviewTasks(
 ): Promise<number> {
   const [row] = await db
     .select({ total: count() })
-    .from(workTask)
+    .from(governanceReviewTask)
     .where(
       and(
-        eq(workTask.taskType, "source_standard_review"),
-        eq(workTask.relatedType, "source_standard"),
-        eq(workTask.relatedId, commitSha),
-        eq(workTask.status, "pending"),
+        eq(governanceReviewTask.taskType, "source_standard_review"),
+        eq(governanceReviewTask.relatedType, "source_standard"),
+        eq(governanceReviewTask.relatedId, commitSha),
+        eq(governanceReviewTask.status, "pending"),
       ),
     );
   return row?.total ?? 0;
 }
 
-export async function transitionWorkTask(
+export async function transitionGovernanceReviewTask(
   id: number,
-  transition: WorkTaskTransition,
+  transition: GovernanceReviewTaskTransition,
 ): Promise<void> {
   const rule = TRANSITIONS[transition.action];
   if (transition.action === "complete" && !transition.resultJson) {
@@ -165,8 +172,8 @@ export async function transitionWorkTask(
   await db.transaction(async (tx) => {
     const [task] = await tx
       .select()
-      .from(workTask)
-      .where(eq(workTask.id, id))
+      .from(governanceReviewTask)
+      .where(eq(governanceReviewTask.id, id))
       .limit(1);
     if (!task) throw new Error("work task not found");
     if (!rule.from.some((status) => status === task.status)) {
@@ -175,7 +182,7 @@ export async function transitionWorkTask(
       );
     }
     await tx
-      .update(workTask)
+      .update(governanceReviewTask)
       .set({
         status: rule.to,
         updatedAt: new Date(),
@@ -183,8 +190,8 @@ export async function transitionWorkTask(
           ? { completedAt: new Date(), resultJson: transition.resultJson }
           : {}),
       })
-      .where(eq(workTask.id, id));
-    await tx.insert(workTaskEvent).values({
+      .where(eq(governanceReviewTask.id, id));
+    await tx.insert(governanceReviewTaskEvent).values({
       taskId: id,
       actorUserId: transition.actorUserId ?? null,
       eventType: rule.eventType,
@@ -194,17 +201,19 @@ export async function transitionWorkTask(
   });
 }
 
-export async function getWorkTask(id: number): Promise<WorkTaskDetail | null> {
+export async function getGovernanceReviewTask(
+  id: number,
+): Promise<GovernanceReviewTaskDetail | null> {
   const [task] = await db
     .select()
-    .from(workTask)
-    .where(eq(workTask.id, id))
+    .from(governanceReviewTask)
+    .where(eq(governanceReviewTask.id, id))
     .limit(1);
   if (!task) return null;
   const events = await db
     .select()
-    .from(workTaskEvent)
-    .where(eq(workTaskEvent.taskId, id))
-    .orderBy(asc(workTaskEvent.id));
+    .from(governanceReviewTaskEvent)
+    .where(eq(governanceReviewTaskEvent.taskId, id))
+    .orderBy(asc(governanceReviewTaskEvent.id));
   return { ...task, events };
 }

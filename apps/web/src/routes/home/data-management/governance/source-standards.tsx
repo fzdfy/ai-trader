@@ -155,7 +155,7 @@ function SourceStandardsPage() {
               {taskActive ? (
                 <div className="mt-4">
                   <GovernanceLinkButton
-                    href="/home/data-management/governance/work-tasks"
+                    href="/home/data-management/governance/review-tasks"
                     variant="primary"
                   >
                     打开审阅任务

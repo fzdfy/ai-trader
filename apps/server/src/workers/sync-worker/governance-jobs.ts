@@ -8,7 +8,7 @@ import {
   type SourceStandardSnapshot,
 } from "../../lib/data-governance/source-standard-monitor";
 import { getSourceStandardReference } from "../../lib/data-governance/source-standards";
-import { ensureSourceStandardReviewTask } from "../../lib/data-governance/work-tasks";
+import { ensureSourceStandardReviewTask } from "../../lib/data-governance/review-tasks";
 
 const log = createLogger("governance-job");
 

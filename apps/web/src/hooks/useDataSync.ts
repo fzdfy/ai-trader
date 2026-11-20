@@ -101,7 +101,7 @@ export interface SyncModuleStatus {
  * 各模块同步状态汇总（GET /api/v1/data-management/sync/modules）。
  * 运行中进度会变化，3s 轮询。
  */
-export function useSyncModules() {
+export function useSyncModules(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["sync", "modules"],
     queryFn: async () => {
@@ -113,6 +113,7 @@ export function useSyncModules() {
       };
     },
     refetchInterval: 3000,
+    enabled: options.enabled ?? true,
   });
 }
 

@@ -267,6 +267,20 @@
       "when": 1795091717002,
       "tag": "0037_stock_content_ingestion",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1795168393370,
+      "tag": "0038_separate_user_work_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1795169231070,
+      "tag": "0039_rename_governance_review_task_pk",
+      "breakpoints": true
     }
   ]
 }

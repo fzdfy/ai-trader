@@ -1,0 +1,58 @@
+[
+  {
+    "file": "success.png",
+    "state": "success",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 71,
+        "examples": [
+          "p.nav-group-label「工作空间」（9px）",
+          "small「01」（9px）",
+          "p.nav-group-label「市场情报」（9px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "article.metric「今日完成 2 / 6 完成率 33%」（首屏 6 块各自加框）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "partial.png",
+    "state": "partial",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "p.nav-group-label「工作空间」（9px）",
+          "small「01」（9px）",
+          "p.nav-group-label「市场情报」（9px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "article.metric「今日完成 2 / 6 完成率 33%」（首屏 7 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

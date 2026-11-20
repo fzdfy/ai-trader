@@ -24,6 +24,7 @@ import { stockAnalysisRoute } from "./stock-analysis";
 import { researchReportsRoute } from "./research-reports";
 import { dataManagementRoute } from "./data-management";
 import { systemRoute } from "./system";
+import { workTasksRoute } from "./work-tasks";
 // import { adminRoute } from "./admin";
 
 const api = new Hono();
@@ -49,6 +50,7 @@ api.route("/stock-analysis", stockAnalysisRoute);
 api.route("/research-reports", researchReportsRoute);
 api.route("/data-management", dataManagementRoute);
 api.route("/system", systemRoute);
+api.route("/work-tasks", workTasksRoute);
 // api.route("/signals", signalsRoute);
 api.route("/news", newsRoute);
 // api.route("/backtests", backtestsRoute);

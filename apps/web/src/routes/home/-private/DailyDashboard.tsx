@@ -16,6 +16,7 @@ import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { useDashboardQuery, type DashboardFundFlowItem } from "../../../hooks/useDashboard";
 import { useSyncModules } from "../../../hooks/useDataSync";
+import { useCurrentUser } from "../../../hooks/useCurrentUser";
 import {
   useTodayWorkflowRunsQuery,
   useWorkflowsQuery,
@@ -146,8 +147,11 @@ function FundFlowColumn({
 }
 
 export function DailyDashboard() {
+  const currentUser = useCurrentUser();
   const dashboardQuery = useDashboardQuery();
-  const syncQuery = useSyncModules();
+  const syncQuery = useSyncModules({
+    enabled: currentUser.data?.role === "super_admin",
+  });
   const workflowsQuery = useWorkflowsQuery();
   const todayWorkflowRunsQuery = useTodayWorkflowRunsQuery();
   const data = dashboardQuery.data;

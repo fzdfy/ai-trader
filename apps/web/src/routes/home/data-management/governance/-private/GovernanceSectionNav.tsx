@@ -35,7 +35,7 @@ const ITEMS = [
   },
   {
     label: "治理任务",
-    href: "/home/data-management/governance/work-tasks",
+    href: "/home/data-management/governance/review-tasks",
     icon: ListChecks,
     exact: false,
   },

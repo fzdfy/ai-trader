@@ -20,7 +20,7 @@ function isThemeMode(value: string | null): value is ThemeMode {
 
 export function readThemeMode(storage: Pick<ThemeStorage, "getItem">): ThemeMode {
   const value = storage.getItem(THEME_MODE_STORAGE_KEY);
-  return isThemeMode(value) ? value : "system";
+  return isThemeMode(value) ? value : "light";
 }
 
 export function writeThemeMode(

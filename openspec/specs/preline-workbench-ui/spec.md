@@ -28,7 +28,15 @@
 
 #### Scenario: Theme modes switch
 - **WHEN** 用户在浅色和深色模式之间切换
-- **THEN** 页面、导航、卡片、表单和图表 MUST 同步更新且保存用户选择
+- **THEN** 页面、导航、卡片、表单和助手侧栏 MUST 同步更新且保存用户选择
+
+#### Scenario: A user opens the app for the first time
+- **WHEN** 用户本地没有保存主题偏好
+- **THEN** 应用 MUST 使用与确认原型一致的浅色主题
+
+#### Scenario: A user chooses system mode
+- **WHEN** 用户明确选择“跟随系统”
+- **THEN** 应用 MUST 根据操作系统偏好决定浅色或深色
 
 ### Requirement: Workbench shell and landing page use Preline
 

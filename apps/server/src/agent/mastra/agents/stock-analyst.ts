@@ -12,6 +12,7 @@ import {
   boardTool,
   stockAnalysisTool,
   researchReportTool,
+  proposeWorkTaskTool,
 } from "../tools";
 import { memory } from "../memory";
 
@@ -40,6 +41,7 @@ export const stockAnalyst = new Agent({
 - K 线数据过多时，归纳趋势而非逐条罗列
 - 涉及个股预测时调用 getStockAnalysis，数值只能引用工具结果
 - 涉及研报观点时调用 searchResearchReports，并保留标题、机构、日期和页码
+- 用户希望把研究结论转成人工跟进事项时调用 proposeWorkTask；工具只生成草稿，绝不能说任务已创建
 - 不得自行生成目标价、保证收益或“安全价格”
 
 ## 免责声明
@@ -53,5 +55,6 @@ export const stockAnalyst = new Agent({
     boardTool,
     stockAnalysisTool,
     researchReportTool,
+    proposeWorkTaskTool,
   },
 });

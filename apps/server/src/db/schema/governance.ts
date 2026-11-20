@@ -117,8 +117,8 @@ export const dataIncidentEvent = pgTable(
   ],
 );
 
-export const workTask = pgTable(
-  "work_task",
+export const governanceReviewTask = pgTable(
+  "governance_review_task",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     taskType: text("task_type").notNull(),
@@ -138,19 +138,19 @@ export const workTask = pgTable(
   },
   (table) => [
     check(
-      "work_task_status_check",
+      "governance_review_task_status_check",
       sql`${table.status} IN ('pending', 'in_progress', 'completed', 'canceled')`,
     ),
     check(
-      "work_task_priority_check",
+      "governance_review_task_priority_check",
       sql`${table.priority} IN ('normal', 'high', 'critical')`,
     ),
-    index("work_task_status_priority_idx").on(
+    index("governance_review_task_status_priority_idx").on(
       table.status,
       table.priority,
       table.createdAt.desc(),
     ),
-    index("work_task_related_idx").on(
+    index("governance_review_task_related_idx").on(
       table.relatedType,
       table.relatedId,
       table.status,
@@ -158,13 +158,13 @@ export const workTask = pgTable(
   ],
 );
 
-export const workTaskEvent = pgTable(
-  "work_task_event",
+export const governanceReviewTaskEvent = pgTable(
+  "governance_review_task_event",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     taskId: bigint("task_id", { mode: "number" })
       .notNull()
-      .references(() => workTask.id, { onDelete: "cascade" }),
+      .references(() => governanceReviewTask.id, { onDelete: "cascade" }),
     actorUserId: text("actor_user_id"),
     eventType: text("event_type").notNull(),
     message: text("message"),
@@ -174,7 +174,7 @@ export const workTaskEvent = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
-    index("work_task_event_task_created_idx").on(
+    index("governance_review_task_event_task_created_idx").on(
       table.taskId,
       table.createdAt.desc(),
     ),
