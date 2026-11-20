@@ -1,12 +1,21 @@
 import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
-import { and, count, desc, eq, ilike, lte, or, sql } from "drizzle-orm";
+import type { Context } from "hono";
+import { and, count, desc, eq, ilike, isNotNull, lte, or, sql } from "drizzle-orm";
 import { auth } from "../auth";
 import { db } from "../db";
 import { researchReport, researchReportChunk, researchReportDocument } from "../db/schema";
 import { resolveReportStoragePath } from "../lib/research-report-storage";
 import { quant } from "../lib/quant";
+import { normalizeStockSymbol } from "../lib/stock-analysis-data";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
+import {
+  RESEARCH_CHUNK_VERSION,
+  RESEARCH_EMBEDDING_MODEL,
+  RESEARCH_EXTRACTOR_VERSION,
+} from "../services/research-index-contracts";
+import { prepareResearchIndexWindow } from "../services/research-index-service";
+import { enqueueResearchIndexJob } from "../services/research-queue";
 
 const researchReportsRoute = new Hono();
 const REPORTS_DATA_DIR = process.env.REPORTS_DATA_DIR ?? "/data/reports";
@@ -16,6 +25,39 @@ researchReportsRoute.use("*", async (c, next) => {
   if (!session) return c.json({ success: false, error: "Unauthorized" }, 401);
   await next();
 });
+
+type PrepareIndexWindow = (
+  symbol: string,
+  days: number,
+) => ReturnType<typeof prepareResearchIndexWindow>;
+
+export function createResearchIndexWindowHandler(
+  prepareIndexWindow: PrepareIndexWindow = prepareResearchIndexWindow,
+) {
+  return async (c: Context) => {
+    let body: { symbol?: unknown; days?: unknown };
+    try {
+      body = await c.req.json();
+    } catch {
+      return badRequest(c, "A JSON body is required");
+    }
+    const symbol = typeof body.symbol === "string" ? normalizeStockSymbol(body.symbol) : null;
+    if (!symbol) return badRequest(c, "Unsupported A-share symbol");
+    if (body.days != null && body.days !== 30) {
+      return badRequest(c, "Only the 30-day research window is supported");
+    }
+
+    try {
+      const result = await prepareIndexWindow(symbol, 30);
+      return c.json({ success: true, data: result }, 202);
+    } catch (error) {
+      console.error("[research-reports] index window failed:", error);
+      return serverError(c, "研报索引任务入队失败");
+    }
+  };
+}
+
+researchReportsRoute.post("/index-window", createResearchIndexWindowHandler());
 
 researchReportsRoute.get("/", async (c) => {
   const symbol = c.req.query("symbol")?.trim().toUpperCase();
@@ -249,63 +291,67 @@ researchReportsRoute.post("/:id/ingest", async (c) => {
       .limit(1);
     if (!report) return notFound(c, "Research report not found");
     if (!report.pdfUrl) return badRequest(c, "Research report has no PDF source");
-    const extracted = await quant.extractResearchReport({
-      pdf_url: report.pdfUrl,
-      source_id: report.sourceId,
-      publish_date: report.publishDate,
-      embed: true,
-    });
+    const [document] = await db
+      .select({
+        extractStatus: researchReportDocument.extractStatus,
+        extractorVersion: researchReportDocument.extractorVersion,
+      })
+      .from(researchReportDocument)
+      .where(eq(researchReportDocument.reportId, reportId))
+      .limit(1);
+    if (
+      document?.extractStatus === "extracted" &&
+      document.extractorVersion === RESEARCH_EXTRACTOR_VERSION
+    ) {
+      const [currentChunk] = await db
+        .select({ id: researchReportChunk.id })
+        .from(researchReportChunk)
+        .where(
+          and(
+            eq(researchReportChunk.reportId, reportId),
+            eq(researchReportChunk.chunkVersion, RESEARCH_CHUNK_VERSION),
+            eq(researchReportChunk.embeddingModel, RESEARCH_EMBEDDING_MODEL),
+            isNotNull(researchReportChunk.embedding),
+          ),
+        )
+        .limit(1);
+      if (currentChunk) {
+        return c.json(
+          {
+            success: true,
+            data: { reportId, status: "already_indexed", jobId: null },
+          },
+          202,
+        );
+      }
+    }
     await db
       .insert(researchReportDocument)
       .values({
         reportId,
-        storageKey: extracted.storage_key,
-        sha256: extracted.sha256,
-        fileSize: extracted.file_size,
-        pageCount: extracted.page_count,
-        contentType: "application/pdf",
-        fullText: extracted.full_text,
-        extractStatus: "extracted",
-        extractorVersion: extracted.extractor_version,
-        extractedAt: new Date(),
+        extractStatus: "pending",
+        lastError: null,
       })
       .onConflictDoUpdate({
         target: researchReportDocument.reportId,
         set: {
-          storageKey: extracted.storage_key,
-          sha256: extracted.sha256,
-          fileSize: extracted.file_size,
-          pageCount: extracted.page_count,
-          contentType: "application/pdf",
-          fullText: extracted.full_text,
-          extractStatus: "extracted",
-          extractorVersion: extracted.extractor_version,
-          extractedAt: new Date(),
+          extractStatus: "pending",
           lastError: null,
         },
       });
-    await db.delete(researchReportChunk).where(eq(researchReportChunk.reportId, reportId));
-    if (extracted.chunks.length > 0) {
-      await db.insert(researchReportChunk).values(
-        extracted.chunks.map((chunk) => ({
-          reportId,
-          chunkIndex: chunk.chunk_index,
-          pageFrom: chunk.page_from,
-          pageTo: chunk.page_to,
-          chunkText: chunk.text,
-          embedding: chunk.embedding,
-          embeddingModel: extracted.embedding_model,
-          chunkVersion: "v1",
-        })),
-      );
-    }
-    return ok(c, {
+    const jobId = await enqueueResearchIndexJob({
+      kind: "report",
       reportId,
-      storageKey: extracted.storage_key,
-      pageCount: extracted.page_count,
-      chunkCount: extracted.chunks.length,
-      embeddingModel: extracted.embedding_model,
+      symbol: report.symbol,
+      trigger: "manual",
     });
+    return c.json(
+      {
+        success: true,
+        data: { reportId, status: "queued", jobId },
+      },
+      202,
+    );
   } catch (error) {
     console.error("[research-reports] ingest failed:", error);
     return serverError(c, "研报入库失败，请稍后重试");

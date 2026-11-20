@@ -157,17 +157,24 @@ test("stock analysis returns the aggregate pending PDF count", async () => {
       pending: sql<number>`count(*) filter (where ${researchReportDocument.extractStatus} is distinct from 'extracted')::int`,
     })
     .from(researchReport)
-    .leftJoin(
-      researchReportDocument,
-      eq(researchReportDocument.reportId, researchReport.id),
-    )
+    .leftJoin(researchReportDocument, eq(researchReportDocument.reportId, researchReport.id))
     .where(eq(researchReport.symbol, "002594.SZ"));
 
   const response = await api.request("/stock-analysis/002594.SZ");
   const body = (await response.json()) as {
-    data: { reportPdfPending: number };
+    data: {
+      reportPdfPending: number;
+      reportIndex: {
+        symbol: string;
+        windowDays: number;
+        action: string;
+      };
+    };
   };
 
   assert.equal(response.status, 200);
   assert.equal(body.data.reportPdfPending, Number(expected?.pending ?? 0));
+  assert.equal(body.data.reportIndex.symbol, "002594.SZ");
+  assert.equal(body.data.reportIndex.windowDays, 30);
+  assert.ok(["sync_metadata", "index_reports", "none"].includes(body.data.reportIndex.action));
 });

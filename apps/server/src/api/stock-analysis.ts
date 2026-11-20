@@ -28,6 +28,7 @@ import {
 } from "../lib/stock-analysis-data";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
 import { syncStockContent } from "../services/stock-content-service";
+import { getResearchIndexStatus } from "../services/research-index-service";
 import {
   assertResearchDataReady,
   DataGovernanceGateError,
@@ -157,10 +158,7 @@ stockAnalysisRoute.get("/compare", async (c) => {
     });
   } catch (error) {
     if (error instanceof DataGovernanceGateError) {
-      return c.json(
-        { success: false, error: error.message, data: error.decision },
-        409,
-      );
+      return c.json({ success: false, error: error.message, data: error.decision }, 409);
     }
     console.error("[stock-analysis] compare failed:", error);
     return serverError(c, "个股对比数据读取失败，请稍后重试。");
@@ -178,10 +176,7 @@ stockAnalysisRoute.post("/:symbol/refresh", async (c) => {
     return ok(c, { ...content, ...governanceNotice(gate) });
   } catch (error) {
     if (error instanceof DataGovernanceGateError) {
-      return c.json(
-        { success: false, error: error.message, data: error.decision },
-        409,
-      );
+      return c.json({ success: false, error: error.message, data: error.decision }, 409);
     }
     console.error(`[stock-analysis] refresh ${symbol} failed:`, error);
     return serverError(c, "内容同步失败，请稍后重试。");
@@ -206,6 +201,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       consensusRows,
       valuationRows,
       announcementRows,
+      reportIndex,
     ] = await Promise.all([
       db.select().from(instrument).where(eq(instrument.symbol, symbol)).limit(1),
       db.select().from(quoteLatest).where(eq(quoteLatest.symbol, symbol)).limit(1),
@@ -221,10 +217,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
           pdfPending: sql<number>`count(*) filter (where ${researchReportDocument.extractStatus} is distinct from 'extracted')::int`,
         })
         .from(researchReport)
-        .leftJoin(
-          researchReportDocument,
-          eq(researchReportDocument.reportId, researchReport.id),
-        )
+        .leftJoin(researchReportDocument, eq(researchReportDocument.reportId, researchReport.id))
         .where(eq(researchReport.symbol, symbol)),
       db
         .select({
@@ -294,6 +287,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
         .where(eq(companyAnnouncement.symbol, symbol))
         .orderBy(desc(companyAnnouncement.publishAt))
         .limit(5),
+      getResearchIndexStatus(symbol),
     ]);
 
     const target = instrumentRows[0];
@@ -456,6 +450,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       ),
       reportCount,
       reportPdfPending,
+      reportIndex,
       fundamentals: moduleData(
         financial
           ? {
@@ -539,10 +534,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
     });
   } catch (error) {
     if (error instanceof DataGovernanceGateError) {
-      return c.json(
-        { success: false, error: error.message, data: error.decision },
-        409,
-      );
+      return c.json({ success: false, error: error.message, data: error.decision }, 409);
     }
     console.error(`[stock-analysis] ${symbol} failed:`, error);
     return serverError(c, "个股分析数据读取失败，请稍后重试。");

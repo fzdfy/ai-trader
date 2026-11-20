@@ -14,13 +14,13 @@
 ## 2. Metadata and Index Trigger
 
 - [x] 2.1 实现当前标的索引状态聚合及 `sync_metadata/index_reports/none` 判定；验证空、pending、failed、complete 和版本不匹配状态
-- [ ] 2.2 新增 `POST /research-reports/index-window` 和只读状态字段；验证任意个股、24 小时 metadata 去重、认证和非法参数
+- [x] 2.2 新增 `POST /research-reports/index-window` 和只读状态字段；验证任意个股、24 小时 metadata 去重、认证和非法参数
 - [ ] 2.3 将非自选股首次分析接到 metadata 后台任务；验证页面首屏不等待上游、重复进入不重复请求
 
 ## 3. Full-Text Indexing
 
 - [x] 3.1 入队时为最近 30 天研报创建或复用 pending 文档占位；验证成功项跳过、失败项重试和版本变化重建
-- [ ] 3.2 将单篇 ingest 从同步执行改为同一队列入队；验证 202、去重、已提取报告和 API 不执行 OCR
+- [x] 3.2 将单篇 ingest 从同步执行改为同一队列入队；验证 202、去重、已提取报告和 API 不执行 OCR
 - [x] 3.3 实现提取成功/失败状态、页数/全文/分块写入与 3 次递增重试；验证单篇失败不影响同批其他研报
 
 ## 4. Retrieval
