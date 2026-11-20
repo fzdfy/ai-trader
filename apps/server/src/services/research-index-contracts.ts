@@ -7,13 +7,13 @@ export type ResearchIndexJob =
   | {
       kind: "metadata";
       symbol: string;
-      trigger: "analysis" | "manual";
+      trigger: "analysis" | "manual" | "recovery";
     }
   | {
       kind: "report";
       reportId: number;
       symbol: string;
-      trigger: "analysis" | "manual";
+      trigger: "analysis" | "manual" | "recovery";
     };
 
 export interface ResearchIndexStatus {

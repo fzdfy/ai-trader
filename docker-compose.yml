@@ -104,6 +104,32 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # ---- 研报全文索引 Worker ----
+  research-worker:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    container_name: aitrader-research-worker
+    command: pnpm --prefix apps/server worker:research
+    env_file:
+      - .env.local
+    environment:
+      - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=research-worker
+      - QUANT_URL=http://quant:3002
+      - REPORTS_DATA_DIR=/data/reports
+      - HF_HOME=/data/reports/.models
+      - SENTENCE_TRANSFORMERS_HOME=/data/reports/.models
+      - SERVICE_NAME=research-worker
+      - LOG_FORMAT=json
+      - TZ=Asia/Shanghai
+    depends_on:
+      - postgres
+      - quant
+    volumes:
+      - reports-data:/data/reports
+    restart: unless-stopped
+    logging: *logging
+
   # ---- 回测微服务 ----
   quant:
     build:

@@ -30,6 +30,7 @@
     "governance:check": "node --env-file-if-exists=../../.env.local --import @oxc-node/core/register scripts/check-governance.ts",
     "sync:kline": "node --import @oxc-node/core/register scripts/sync-kline.ts",
     "worker:sync": "node --import @oxc-node/core/register src/workers/sync-worker/index.ts",
+    "worker:research": "node --import @oxc-node/core/register src/workers/research-worker/index.ts",
     "worker:workflow": "node --import @oxc-node/core/register src/workers/workflow-worker/index.ts",
     "worker:feature": "node --import @oxc-node/core/register src/workers/feature-worker/index.ts",
     "worker:kline": "node --import @oxc-node/core/register src/workers/kline-worker/index.ts"

@@ -7,3 +7,4 @@ Ruling: Execute Native on the existing main worktree with the current uncommitte
 Visual gate: confirmed; prototype `docs/design/prototypes/explorations/quant-workbench-research-rag-v1.html`; screenshots under `docs/design/prototypes/explorations/screenshots/research-rag-v1/`.
 Task 1: complete (commits 346d036..3744840, tests: research-index-contracts.test.ts → 1 passed)
 Task 2: complete (database tests: research-index-service.test.ts + research-index-contracts.test.ts → 6 passed; server type check passed)
+Task 3: complete (worker tests: processor.test.ts + research-index-contracts.test.ts → 5 passed; server type check and scoped lint passed; Docker/deploy wiring added)
