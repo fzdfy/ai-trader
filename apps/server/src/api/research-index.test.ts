@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "../auth";
 import { db } from "../db";
 import { researchReport, researchReportChunk, researchReportDocument } from "../db/schema";
+import { quant } from "../lib/quant";
 import {
   RESEARCH_CHUNK_VERSION,
   RESEARCH_EMBEDDING_MODEL,
@@ -192,5 +193,62 @@ test(
       .from(researchReportDocument)
       .where(eq(researchReportDocument.reportId, report!.id));
     assert.equal(document?.status, "pending");
+  },
+);
+
+test(
+  "evidence search API falls back to keyword results",
+  { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async (t) => {
+    const originalSession = auth.api.getSession;
+    const originalEmbed = quant.embedResearchTexts;
+    const source = `research-search-${crypto.randomUUID()}`;
+    t.after(async () => {
+      auth.api.getSession = originalSession;
+      quant.embedResearchTexts = originalEmbed;
+      await db.delete(researchReport).where(eq(researchReport.source, source));
+    });
+    auth.api.getSession = (async () => ({
+      user: { id: "research-index-test" },
+      session: { id: "research-index-test-session" },
+    })) as typeof originalSession;
+    quant.embedResearchTexts = async () => {
+      throw new Error("embedding unavailable");
+    };
+    const [report] = await db
+      .insert(researchReport)
+      .values({
+        source,
+        sourceId: source,
+        symbol: "002594.SZ",
+        title: "海外销量与盈利韧性",
+        analysts: [],
+        publishDate: new Date().toISOString().slice(0, 10),
+        pdfUrl: "https://example.com/search.pdf",
+        rawJson: {},
+      })
+      .returning({ id: researchReport.id });
+
+    const response = await api.request("/research-reports/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbol: "002594.SZ",
+        query: "海外销量",
+        limit: 8,
+      }),
+    });
+    const body = (await response.json()) as {
+      data: {
+        mode: string;
+        items: Array<{ reportId: number; similarity: number | null }>;
+      };
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(body.data.mode, "keyword");
+    assert.ok(
+      body.data.items.some((item) => item.reportId === report!.id && item.similarity === null),
+    );
   },
 );

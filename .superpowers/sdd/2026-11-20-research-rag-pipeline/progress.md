@@ -9,3 +9,4 @@ Task 1: complete (commits 346d036..3744840, tests: research-index-contracts.test
 Task 2: complete (database tests: research-index-service.test.ts + research-index-contracts.test.ts → 6 passed; server type check passed)
 Task 3: complete (worker tests: processor.test.ts + research-index-contracts.test.ts → 5 passed; server type check and scoped lint passed; Docker/deploy wiring added)
 Task 4: complete (API tests: research-index.test.ts + index.test.ts → 13 passed; server type check and scoped lint passed)
+Task 5: complete (retrieval/API tests: research-evidence-service.test.ts + research-index.test.ts + index.test.ts → 17 passed; server type check and scoped lint passed)

@@ -1,14 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { and, count, desc, eq, ilike, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNotNull, or } from "drizzle-orm";
 import { auth } from "../auth";
 import { db } from "../db";
 import { researchReport, researchReportChunk, researchReportDocument } from "../db/schema";
 import { resolveReportStoragePath } from "../lib/research-report-storage";
-import { quant } from "../lib/quant";
 import { normalizeStockSymbol } from "../lib/stock-analysis-data";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
+import { searchResearchEvidence } from "../services/research-evidence-service";
 import {
   RESEARCH_CHUNK_VERSION,
   RESEARCH_EMBEDDING_MODEL,
@@ -136,83 +136,17 @@ researchReportsRoute.post("/search", async (c) => {
   const limit = Math.min(Math.max(body.limit ?? 8, 1), 20);
 
   try {
-    const embedded = await quant.embedResearchTexts([query]);
-    const vector = JSON.stringify(embedded.vectors[0]);
-    const asOfFilter = body.asOf ? sql`AND rr.publish_date <= ${body.asOf}::date` : sql``;
-    const result = await db.execute(sql`
-      SELECT
-        rr.id AS report_id,
-        rr.title,
-        rr.institution,
-        rr.publish_date,
-        rr.pdf_url,
-        c.page_from,
-        c.page_to,
-        c.section_title,
-        c.chunk_text,
-        1 - (c.embedding <=> ${vector}::vector) AS similarity
-      FROM research_report_chunk c
-      JOIN research_report rr ON rr.id = c.report_id
-      WHERE rr.symbol = ${symbol}
-        AND c.embedding IS NOT NULL
-        ${asOfFilter}
-      ORDER BY c.embedding <=> ${vector}::vector
-      LIMIT ${limit}
-    `);
     return ok(c, {
-      mode: "semantic",
-      model: embedded.model,
-      items: result.rows.map((row) => ({
-        reportId: Number(row.report_id),
-        title: String(row.title),
-        institution: row.institution ? String(row.institution) : null,
-        publishDate: String(row.publish_date),
-        pdfUrl: row.pdf_url ? String(row.pdf_url) : null,
-        pageFrom: Number(row.page_from),
-        pageTo: Number(row.page_to),
-        sectionTitle: row.section_title ? String(row.section_title) : null,
-        excerpt: String(row.chunk_text).slice(0, 800),
-        similarity: Number(row.similarity),
+      ...(await searchResearchEvidence({
+        symbol,
+        query,
+        asOf: body.asOf,
+        limit,
       })),
     });
   } catch (error) {
-    console.error("[research-reports] semantic search failed, using keyword fallback:", error);
-    const conditions = [
-      eq(researchReport.symbol, symbol),
-      or(
-        ilike(researchReport.title, `%${query}%`),
-        ilike(researchReportChunk.chunkText, `%${query}%`),
-      )!,
-    ];
-    if (body.asOf) conditions.push(lte(researchReport.publishDate, body.asOf));
-    const rows = await db
-      .select({
-        reportId: researchReport.id,
-        title: researchReport.title,
-        institution: researchReport.institution,
-        publishDate: researchReport.publishDate,
-        pdfUrl: researchReport.pdfUrl,
-        pageFrom: researchReportChunk.pageFrom,
-        pageTo: researchReportChunk.pageTo,
-        sectionTitle: researchReportChunk.sectionTitle,
-        excerpt: researchReportChunk.chunkText,
-      })
-      .from(researchReport)
-      .leftJoin(researchReportChunk, eq(researchReportChunk.reportId, researchReport.id))
-      .where(and(...conditions))
-      .orderBy(desc(researchReport.publishDate), researchReportChunk.chunkIndex)
-      .limit(limit);
-    return ok(c, {
-      mode: "keyword",
-      model: null,
-      items: rows.map((row) => ({
-        ...row,
-        pageFrom: row.pageFrom,
-        pageTo: row.pageTo,
-        excerpt: row.excerpt?.slice(0, 800) ?? null,
-        similarity: null,
-      })),
-    });
+    console.error("[research-reports] evidence search failed:", error);
+    return serverError(c, "研报证据检索失败");
   }
 });
 
