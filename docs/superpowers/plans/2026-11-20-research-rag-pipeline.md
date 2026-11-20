@@ -8,7 +8,8 @@
 
 **Tech Stack:** Hono、Drizzle、PostgreSQL/pgvector、pg-boss 10、React 19、TanStack Query、Preline、Tailwind、Python quant extraction。
 
-**Spec:** `openspec/changes/complete-research-rag-pipeline/design.md`  
+**Spec:** `openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/design.md`
+
 **Detail Design:** `docs/superpowers/specs/2026-11-20-research-rag-pipeline-design.md`
 
 ## Global Constraints
@@ -427,7 +428,7 @@ git commit -m "test: add research rag golden set"
 ### Task 8: Integration Verification and Documentation
 
 **Files:**
-- Create: `openspec/changes/complete-research-rag-pipeline/verification.md`
+- Create: `openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/verification.md`
 - Modify: `docs/standards/rag.md`
 - Modify: `docs/data-pipeline.md`
 - Modify: `docs/runbooks.md`
@@ -454,7 +455,7 @@ Record commands, counts, migration/rollback notes, screenshots, Golden Set metri
 - [ ] **Step 5: Commit**
 
 ```bash
-git add openspec/changes/complete-research-rag-pipeline/verification.md \
+git add openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/verification.md \
   docs/standards/rag.md docs/data-pipeline.md docs/runbooks.md
 git commit -m "docs: verify research rag pipeline"
 ```

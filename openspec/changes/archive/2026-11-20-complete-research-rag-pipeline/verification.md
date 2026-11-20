@@ -109,10 +109,10 @@ Agent output schema 已加入 `sourceId`、`sectionTitle` 和 `similarity`，回
 
 生产页面截图：
 
-- [待索引 · 浅色桌面](../../../docs/design/prototypes/explorations/screenshots/research-rag-production/pending-light-desktop.png)
-- [待索引 · 浅色移动端](../../../docs/design/prototypes/explorations/screenshots/research-rag-production/pending-light-mobile.png)
-- [待索引 · 深色桌面](../../../docs/design/prototypes/explorations/screenshots/research-rag-production/pending-dark-desktop.png)
-- [索引中检索空态](../../../docs/design/prototypes/explorations/screenshots/research-rag-production/evidence-empty-light-desktop.png)
+- [待索引 · 浅色桌面](../../../../docs/design/prototypes/explorations/screenshots/research-rag-production/pending-light-desktop.png)
+- [待索引 · 浅色移动端](../../../../docs/design/prototypes/explorations/screenshots/research-rag-production/pending-light-mobile.png)
+- [待索引 · 深色桌面](../../../../docs/design/prototypes/explorations/screenshots/research-rag-production/pending-dark-desktop.png)
+- [索引中检索空态](../../../../docs/design/prototypes/explorations/screenshots/research-rag-production/evidence-empty-light-desktop.png)
 
 浏览器检查：无脚本异常；6 个 `ERR_ABORTED` 均为切换页面时主动中止轮询请求，已记录在截图目录 `report.json`。
 

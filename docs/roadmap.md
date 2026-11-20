@@ -13,7 +13,7 @@
 | 三条数据链与铁律文档化 | A/B/C 三链路、INV-1..14 铁律成文 | [invariants.md](./invariants.md)、[data-pipeline.md](./data-pipeline.md) |
 | 取数层可插拔切换落地 | 只改注册表两处即可切源 | [decisions.md DEC-2](./decisions.md#dec-2-切取数层只改注册表两处) |
 | 入库按标的固定源 | 北交所 `.BJ` → 东财，沪深 → 腾讯，禁止静默降级 | [decisions.md DEC-4](./decisions.md#dec-4-入库源按标的固定禁止静默降级)、[invariants.md:77](file:///Users/wukailin/Documents/study/ai-trader/docs/invariants.md#L77) |
-| 研报 RAG 首批链路 | 独立 research-worker + pg-boss，完成真实全文、分块、BGE 向量、关键词降级、Evidence Search、Agent Top 5 和 21 条 Golden Set | [验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md)、[RAG 标准](./standards/rag.md) |
+| 研报 RAG 首批链路 | 独立 research-worker + pg-boss，完成真实全文、分块、BGE 向量、关键词降级、Evidence Search、Agent Top 5 和 21 条 Golden Set | [验证报告](../openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/verification.md)、[RAG 标准](./standards/rag.md) |
 
 ## 2. 进行中 / 待观察
 
@@ -48,4 +48,4 @@
 | 研究与执行分离：`target_weights` 契约落地 | 研究侧产出 `target_weights`（date / symbol / target_weight），执行侧只保留平台相关下单薄壳 | [AGENTS.md](../AGENTS.md)、[decisions.md DEC-12](./decisions.md#dec-12-研究与执行分离用交换数据契约) |
 | 实装 `kline-1m` / `gap-detect` | 当前为未实现空壳，`enabled: false` | [data-pipeline.md:79](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L79)、[issues.md ISS-11](./issues.md#iss-11-未实现空壳任务) |
 | 信号/资金/筹码层备胎 | 现为东财/同花顺单源、无备胎 | [data-pipeline.md:164-166](file:///Users/wukailin/Documents/study/ai-trader/docs/data-pipeline.md#L164-L166)、[issues.md ISS-13](./issues.md#iss-13-信号资金筹码层东财单源无备胎) |
-| 研报语义召回优化 | 语义 Golden Set 当前 19/21 进入 Top 8；扩大样本后再评估报告级去重、rerank 和相似度阈值。新闻 RAG 暂缓 | [RAG 标准](./standards/rag.md)、[issues.md ISS-16](./issues.md#iss-16-研报-rag-已有首批数据但语义召回仍需优化)、[验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md) |
+| 研报语义召回优化 | 语义 Golden Set 当前 19/21 进入 Top 8；扩大样本后再评估报告级去重、rerank 和相似度阈值。新闻 RAG 暂缓 | [RAG 标准](./standards/rag.md)、[issues.md ISS-16](./issues.md#iss-16-研报-rag-已有首批数据但语义召回仍需优化)、[验证报告](../openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/verification.md) |

@@ -86,7 +86,7 @@ flowchart LR
   - `news` 与任意个股“重新分析”都调用 `stock-content-service`：新闻始终关联查询标的，公告按 `(source, source_url)`、研报按 `(source, source_id)` 幂等写入；单模块失败不清空其他模块。
   - 研报元数据同步不等于全文入库。元数据落库后，分析页通过独立 `POST /research-reports/index-window` 入队；独立 `research-worker` 串行执行 PDF 下载、文本/OCR、分块和本地 BGE 向量化。`pending` 超过 10 分钟会由 worker 启动或周期巡检重新入队；新闻不生成向量。两类内容的检索边界见 [RAG 标准](./standards/rag.md)。
   - `research-report-index` 中单篇任务使用提取器、分块版本和 embedding 模型组成 singleton key；失败最多重试 3 次并指数退避，页面 GET 不执行 OCR 或入库。
-  - 首批真实验证以 `002594.SZ` 和 `600519.SH` 完成 18 篇、75 页、48 个分块和 48 个向量；Golden Set 与已知召回差距见 [RAG 验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md)。
+  - 首批真实验证以 `002594.SZ` 和 `600519.SH` 完成 18 篇、75 页、48 个分块和 48 个向量；Golden Set 与已知召回差距见 [RAG 验证报告](../openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/verification.md)。
   - 任务记录表名是 `job_run`（**单数**，`apps/server/src/db/schema/ops.ts`）；手工查询写成 `job_runs` 会报 `relation does not exist`。
   - kline-1d 全市场（约 5552 只，源固定腾讯）正常约 46 分钟跑完。
 - **来源**：AGENTS.md「数据链路」「定时任务与任务记录（job_run）」、`apps/server/src/workers/sync-worker/cron-config.ts`。

@@ -211,4 +211,4 @@
   - 运行 `pnpm --filter @ai-trader/server eval:research-rag` 观察语义和关键词基线。
   - 在扩大 Golden Set、复核标签后，再决定每篇研报 chunk 上限、相似度阈值和 rerank 策略。
   - 新闻 RAG 暂不启用；长期边界见 [RAG 标准](./standards/rag.md)。
-- **证据来源**：[研报 RAG 验证报告](../openspec/changes/complete-research-rag-pipeline/verification.md)、`research-report` Golden Set fixture、检索服务与 Agent 工具。
+- **证据来源**：[研报 RAG 验证报告](../openspec/changes/archive/2026-11-20-complete-research-rag-pipeline/verification.md)、`research-report` Golden Set fixture、检索服务与 Agent 工具。
