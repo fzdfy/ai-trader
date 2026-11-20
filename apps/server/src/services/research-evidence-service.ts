@@ -3,8 +3,13 @@ import { sql, type SQL } from "drizzle-orm";
 import { db } from "../db";
 import { quant } from "../lib/quant";
 
+export const RESEARCH_RETRIEVAL_VERSION = "hybrid-keyword-v1";
+export const RESEARCH_EVIDENCE_LIMIT = 8;
+export const RESEARCH_AGENT_EVIDENCE_LIMIT = 5;
+
 export interface ResearchEvidenceItem {
   reportId: number;
+  sourceId: string;
   title: string;
   institution: string | null;
   publishDate: string;
@@ -47,6 +52,7 @@ function nullableNumber(value: unknown): number | null {
 function mapRows(rows: Record<string, unknown>[], excerptLimit: number): ResearchEvidenceItem[] {
   return rows.map((row) => ({
     reportId: Number(row.report_id),
+    sourceId: String(row.source_id),
     title: String(row.title),
     institution: nullableString(row.institution),
     publishDate: String(row.publish_date),
@@ -68,7 +74,7 @@ export async function searchResearchEvidence(
   const symbol = input.symbol.trim().toUpperCase();
   const term = input.query?.trim();
   const asOfFilter = input.asOf ? sql`AND rr.publish_date <= ${input.asOf}::date` : sql``;
-  const limit = Math.min(Math.max(input.limit ?? 8, 1), 50);
+  const limit = Math.min(Math.max(input.limit ?? RESEARCH_EVIDENCE_LIMIT, 1), 50);
 
   if (term) {
     try {
@@ -78,6 +84,7 @@ export async function searchResearchEvidence(
         const result = await execute(sql`
           SELECT
             rr.id AS report_id,
+            rr.source_id,
             rr.title,
             rr.institution,
             rr.publish_date,
@@ -108,15 +115,19 @@ export async function searchResearchEvidence(
     }
   }
 
-  const keywordFilter = term
-    ? sql`AND (
-        rr.title ILIKE ${`%${term}%`}
-        OR c.chunk_text ILIKE ${`%${term}%`}
-      )`
-    : sql``;
+  const keywordFilters = (term?.split(/\s+/).filter(Boolean) ?? []).map(
+    (keyword) =>
+      sql`(
+        rr.title ILIKE ${`%${keyword}%`}
+        OR c.chunk_text ILIKE ${`%${keyword}%`}
+      )`,
+  );
+  const keywordFilter =
+    keywordFilters.length > 0 ? sql`AND (${sql.join(keywordFilters, sql` AND `)})` : sql``;
   const result = await execute(sql`
     SELECT
       rr.id AS report_id,
+      rr.source_id,
       rr.title,
       rr.institution,
       rr.publish_date,

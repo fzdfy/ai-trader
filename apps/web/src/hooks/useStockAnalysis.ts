@@ -198,6 +198,7 @@ export interface LatestQuote {
 
 export interface ResearchEvidence {
   reportId: number;
+  sourceId: string;
   title: string;
   institution: string | null;
   publishDate: string;

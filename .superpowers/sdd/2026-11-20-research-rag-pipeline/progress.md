@@ -11,3 +11,4 @@ Task 3: complete (worker tests: processor.test.ts + research-index-contracts.tes
 Task 4: complete (API tests: research-index.test.ts + index.test.ts → 13 passed; server type check and scoped lint passed)
 Task 5: complete (retrieval/API tests: research-evidence-service.test.ts + research-index.test.ts + index.test.ts → 17 passed; server type check and scoped lint passed)
 Task 6: complete (web tests → 43 passed; type check/lint passed; production screenshots: pending desktop/mobile, dark desktop, active evidence empty state)
+Task 7: complete (21-case Golden Set → 21 passed, recall 1.0, keyword mode 21/21; retrievalVersion hybrid-keyword-v1)

@@ -13,6 +13,7 @@ const input = {
 
 const keywordRow = {
   report_id: 7,
+  source_id: "AP202611021831322093",
   title: "海外市场跟踪",
   institution: "测试证券",
   publish_date: "2026-01-20",
@@ -95,4 +96,27 @@ test("semantic results retain their similarity and model", async () => {
   assert.equal(result.items[0]?.similarity, 0.82);
   assert.equal(queries.length, 1);
   assert.equal(containsParam(queries[0]!, input.asOf), true);
+});
+
+test("keyword fallback requires every whitespace-delimited query token", async () => {
+  const queries: SQL[] = [];
+  await searchResearchEvidence(
+    {
+      symbol: "002594.SZ",
+      query: "海外销量 盈利韧性",
+      limit: 8,
+    },
+    {
+      embed: async () => {
+        throw new Error("embedding unavailable");
+      },
+      execute: async (query) => {
+        queries.push(query);
+        return { rows: [] };
+      },
+    },
+  );
+
+  assert.equal(containsParam(queries[0]!, "%海外销量%"), true);
+  assert.equal(containsParam(queries[0]!, "%盈利韧性%"), true);
 });

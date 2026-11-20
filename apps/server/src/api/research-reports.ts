@@ -8,7 +8,10 @@ import { researchReport, researchReportChunk, researchReportDocument } from "../
 import { resolveReportStoragePath } from "../lib/research-report-storage";
 import { normalizeStockSymbol } from "../lib/stock-analysis-data";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
-import { searchResearchEvidence } from "../services/research-evidence-service";
+import {
+  RESEARCH_EVIDENCE_LIMIT,
+  searchResearchEvidence,
+} from "../services/research-evidence-service";
 import {
   RESEARCH_CHUNK_VERSION,
   RESEARCH_EMBEDDING_MODEL,
@@ -133,7 +136,7 @@ researchReportsRoute.post("/search", async (c) => {
   const symbol = body.symbol?.trim().toUpperCase();
   const query = body.query?.trim();
   if (!symbol || !query) return badRequest(c, "symbol and query are required");
-  const limit = Math.min(Math.max(body.limit ?? 8, 1), 20);
+  const limit = Math.min(Math.max(body.limit ?? RESEARCH_EVIDENCE_LIMIT, 1), 20);
 
   try {
     return ok(c, {

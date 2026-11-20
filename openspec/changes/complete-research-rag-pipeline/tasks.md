@@ -38,8 +38,8 @@
 ## 6. Quality and Golden Set
 
 - [ ] 6.1 为 pending/orphaned/failed 文档和队列任务增加可观察日志与状态；验证重启、重试和部分失败证据
-- [ ] 6.2 建立比亚迪与非自选股不少于 20 条查询-证据 fixture；验证正样本召回、负样本、历史 `asOf` 和引用正确性
-- [ ] 6.3 记录 Golden Set 结果并版本化检索参数；验证设置阈值前后行为可追溯
+- [x] 6.2 建立比亚迪与非自选股不少于 20 条查询-证据 fixture；验证正样本召回、负样本、历史 `asOf` 和引用正确性
+- [x] 6.3 记录 Golden Set 结果并版本化检索参数；验证设置阈值前后行为可追溯
 
 ## 7. Integration Verification
 

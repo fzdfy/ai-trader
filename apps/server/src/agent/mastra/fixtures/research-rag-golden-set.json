@@ -1,0 +1,151 @@
+[
+  {
+    "id": "byd-export-driver",
+    "symbol": "002594.SZ",
+    "query": "出口核心驱动力",
+    "expectedSourceIds": ["AP202611131831683141"],
+    "forbiddenSourceIds": ["AP202611191831864270"]
+  },
+  {
+    "id": "byd-overseas-localization",
+    "symbol": "002594.SZ",
+    "query": "海外本地化 利润弹性",
+    "expectedSourceIds": ["AP202611021831322093"],
+    "forbiddenSourceIds": ["AP202611131831700667"]
+  },
+  {
+    "id": "byd-october-sales",
+    "symbol": "002594.SZ",
+    "query": "10月销量 出口维持高位",
+    "expectedSourceIds": ["AP202611021831308055"],
+    "forbiddenSourceIds": ["AP202611101831583829"]
+  },
+  {
+    "id": "byd-q3-overseas",
+    "symbol": "002594.SZ",
+    "query": "Q3营收 海外持续表现亮眼",
+    "expectedSourceIds": ["AP202611021831303195"],
+    "forbiddenSourceIds": ["AP202611081831533384"]
+  },
+  {
+    "id": "byd-q3-export",
+    "symbol": "002594.SZ",
+    "query": "三季报 出口持续高增 盈利稳健",
+    "asOf": "2026-10-31",
+    "expectedSourceIds": ["AP202610301831235832"],
+    "forbiddenSourceIds": ["AP202611021831322093"]
+  },
+  {
+    "id": "byd-q3-auto-growth",
+    "symbol": "002594.SZ",
+    "query": "Q3业绩 汽车业务同比高增长",
+    "expectedSourceIds": ["AP202610301831217142"],
+    "forbiddenSourceIds": ["AP202611041831416424"]
+  },
+  {
+    "id": "byd-fy27-earnings",
+    "symbol": "002594.SZ",
+    "query": "4Q26 FY27E earnings",
+    "expectedSourceIds": ["AP202610301831199077"],
+    "forbiddenSourceIds": ["AP202611031831375931"]
+  },
+  {
+    "id": "byd-overseas-growth",
+    "symbol": "002594.SZ",
+    "query": "海外市场跨越式增长 新技术",
+    "expectedSourceIds": ["AP202609111829250298"],
+    "forbiddenSourceIds": ["AP202611021831334793"]
+  },
+  {
+    "id": "byd-ev-export",
+    "symbol": "002594.SZ",
+    "query": "盈利能力回升 电车出口",
+    "expectedSourceIds": ["AP202609091829165837"],
+    "forbiddenSourceIds": ["AP202611021831307711"]
+  },
+  {
+    "id": "byd-interim-export",
+    "symbol": "002594.SZ",
+    "query": "中报 Q2业绩 出口高增",
+    "expectedSourceIds": ["AP202608301828732959"],
+    "forbiddenSourceIds": ["AP202611021831304660"]
+  },
+  {
+    "id": "byd-may-overseas-sales",
+    "symbol": "002594.SZ",
+    "query": "5月 海外销量 16万辆",
+    "expectedSourceIds": ["AP202606031823206367"],
+    "forbiddenSourceIds": ["AP202611011831287508"]
+  },
+  {
+    "id": "moutai-profit-bottom",
+    "symbol": "600519.SH",
+    "query": "利润略超预期 盈利筑底企稳",
+    "expectedSourceIds": ["AP202611191831864270"],
+    "forbiddenSourceIds": ["AP202611131831683141"]
+  },
+  {
+    "id": "moutai-market-reform",
+    "symbol": "600519.SH",
+    "query": "市场化改革重塑渠道和价格体系",
+    "expectedSourceIds": ["AP202611131831700667"],
+    "forbiddenSourceIds": ["AP202611021831322093"]
+  },
+  {
+    "id": "moutai-direct-sales",
+    "symbol": "600519.SH",
+    "query": "茅台酒 直销占比 提升",
+    "asOf": "2026-11-10",
+    "expectedSourceIds": ["AP202611101831583829"],
+    "forbiddenSourceIds": ["AP202611021831308055"]
+  },
+  {
+    "id": "moutai-reform-delivery",
+    "symbol": "600519.SH",
+    "query": "26Q3 市场化改革持续兑现",
+    "expectedSourceIds": ["AP202611081831533384"],
+    "forbiddenSourceIds": ["AP202611021831303195"]
+  },
+  {
+    "id": "moutai-sell-to-c",
+    "symbol": "600519.SH",
+    "query": "以销定产 全面向C",
+    "expectedSourceIds": ["AP202611041831416424"],
+    "forbiddenSourceIds": ["AP202610301831235832"]
+  },
+  {
+    "id": "moutai-growth-headroom",
+    "symbol": "600519.SH",
+    "query": "营收业绩均超预期 后续增长仍有余力",
+    "expectedSourceIds": ["AP202611031831375931"],
+    "forbiddenSourceIds": ["AP202610301831217142"]
+  },
+  {
+    "id": "moutai-channel-change",
+    "symbol": "600519.SH",
+    "query": "营收利润 正增长 渠道变革",
+    "expectedSourceIds": ["AP202611021831334793"],
+    "forbiddenSourceIds": ["AP202610301831199077"]
+  },
+  {
+    "id": "moutai-market-adjustment",
+    "symbol": "600519.SH",
+    "query": "市场化调整成效显著",
+    "expectedSourceIds": ["AP202611021831307711"],
+    "forbiddenSourceIds": ["AP202609111829250298"]
+  },
+  {
+    "id": "moutai-direct-foundation",
+    "symbol": "600519.SH",
+    "query": "直销 塔基 行稳 致远",
+    "expectedSourceIds": ["AP202611021831304660"],
+    "forbiddenSourceIds": ["AP202609091829165837"]
+  },
+  {
+    "id": "moutai-c-demand",
+    "symbol": "600519.SH",
+    "query": "业绩稳增长 C端放量",
+    "expectedSourceIds": ["AP202611011831287508"],
+    "forbiddenSourceIds": ["AP202608301828732959"]
+  }
+]
