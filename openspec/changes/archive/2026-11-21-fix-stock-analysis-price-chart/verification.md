@@ -116,3 +116,46 @@ node --env-file-if-exists=../../.env.local --import @oxc-node/core/register \
 - 极窄价格区间的整数 Y 轴标签可能重复，当前 120 日 A 股样本未出现。
 
 未发现 Must Fix 或 Should Fix 项。
+
+## 8. OpenSpec Verification Report
+
+### Summary
+
+| Dimension | Status |
+|---|---|
+| Completeness | 19/19 tasks, 5/5 added requirements |
+| Correctness | 5/5 requirements mapped; 10/10 scenarios covered |
+| Coherence | Design followed; no pattern issues |
+
+### Completeness
+
+- `taskTrackingConfigured=true`，任务 `19/19` 完成。
+- Delta spec 包含 5 个 ADDED requirements，全部存在对应实现。
+- 视觉门禁、技术评审、聚焦测试、页面接入、浏览器截图和验证报告均已记录。
+
+### Correctness
+
+| Requirement | Evidence |
+|---|---|
+| Price trend identifies its adjustment and price basis | 图表标题、徽标、空态和截图 |
+| Trend overlays share one visible price scale | 几何测试、真实浅/深截图 |
+| Trend x-axis follows trading-day order | 刻度单测、真实桌面/移动截图 |
+| Trend data is inspectable with pointer and keyboard | 指针、固定选中、键盘截图和选择状态测试 |
+| Trend chart remains usable across themes and viewports | 四端截图、移动端安全区和主题 token |
+
+10 个场景均有实现与截图或自动化测试证据。
+
+### Coherence
+
+- 采用纯计算模块与 SVG 组件分离，符合设计中的文件边界。
+- 未引入 ECharts、klinecharts 或新依赖。
+- 使用 Preline/Tailwind 语义 token，未在业务组件散落颜色。
+- API 结构、数据库、复权、Quant 与 Provider 路径未变化；后端只修正展示文案。
+
+### Issues
+
+无 CRITICAL、WARNING 或新的 SUGGESTION。验证报告已记录两个已知非阻塞小项：屏幕阅读器读数跟随指针悬停，以及极窄价格区间的整数 Y 轴标签可能重复。
+
+### Final Assessment
+
+All checks passed. Ready for archive.
