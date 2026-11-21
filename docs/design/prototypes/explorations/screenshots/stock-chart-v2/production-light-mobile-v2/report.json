@@ -1,0 +1,50 @@
+[
+  {
+    "file": "page-移动端图表.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "移动端图表",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 90,
+        "examples": [
+          "p.font-mono.text-[10px]「STOCK RESEARCH · 002594.」（10px）",
+          "span「MA20 82.49」（10px）",
+          "b.font-mono.text-app-ink「82.49」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 2,
+        "examples": [
+          "span.inline-flex.items-center「收盘价 · 11/20」（3.27:1）",
+          "span.inline-flex.items-center「可用」（3.27:1）"
+        ]
+      },
+      {
+        "rule": "inputZoom",
+        "label": "手机上输入框字号小于 16px（聚焦时 iOS 会自动放大页面）",
+        "count": 1,
+        "examples": [
+          "input#_r_5_.focus-ring.h-9（14px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 5,
+        "examples": [
+          "div.min-w-0.rounded-lg「实时行情 11/21 22:50 · 可用」（首屏 7 块各自加框）",
+          "div.rounded-xl.border「风险参考区间 技术、估值与情景分别解释 20D 」（框里又有 3 个加框的块）",
+          "div.rounded-xl.border「机构预测 一致预期与研报样本 可用 2026 E」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

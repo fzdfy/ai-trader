@@ -1,0 +1,41 @@
+[
+  {
+    "file": "page-进入详情.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "进入详情",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 119,
+        "examples": [
+          "span.brand-cn「量化 AI 工作台」（9px）",
+          "p.nav-group-label「工作空间」（9px）",
+          "small「01」（9px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 39,
+        "examples": [
+          "span.workspace-clock「实时 · 11/19」（3.70:1）",
+          "span「搜索资产或研报」（4.01:1）",
+          "kbd「⌘ K」（3.99:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.sa-quality-item「实时行情 11/19 · 可用」（首屏 10 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

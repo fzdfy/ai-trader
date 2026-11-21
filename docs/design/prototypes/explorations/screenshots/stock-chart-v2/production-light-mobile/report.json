@@ -1,0 +1,13 @@
+[
+  {
+    "file": "page-移动端图表.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "移动端图表",
+    "failed": true,
+    "issues": [
+      "第 5 步「click a[href=\"/home/market/analysis\"]」：匹配到 1 个元素 a[href=\"/home/market/analysis\"]，但都不可见，不能操作（被祖先 aside#business-navigation 隐藏：visibility:hidden）；先执行让它出现的那一步，或换成当前可见的元素；线索：href=\"/home/reviews/today\"；href=\"/home/market\"；href=\"/home/screens\"；href=\"/home/workflows\"；href=\"/home/research\"；例如 click [href=\"/home/reviews/today\"]"
+    ]
+  }
+]
