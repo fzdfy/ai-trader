@@ -4,21 +4,26 @@
 
 ## 哪个才是标准设计
 
+- **当前全量入口**是 [`atlas/index.html`](./atlas/index.html)。它把当前确认基准和已落地稿集中到一个可运行目录；它不替代历史文件。
 - **最新标准**只以 `initial/` 中的文件以及 [设计标准](../standards/design.md) 明确引用的基准为准，不以目录里最大的版本号判断。
 - `explorations/` 中的 `v1`、`v2` 等编号只在同一个功能线内表示迭代顺序，不是全应用版本号。
 - 探索稿即使视觉完整，在用户明确确认并复制到 `initial/` 之前也只是候选稿。
 - 新旧稿必须并存，不能为了“看起来整洁”覆盖历史确认稿；通过状态表和 `Supersedes` 关系判断取代关系。
-- 当前全局工作台标准是 `initial/quant-workbench-assistant-v2.html`；当前个股分析标准是 `initial/quant-workbench-stock-analysis-v1.html`；当前个人工作任务标准是 `initial/quant-workbench-user-work-task-v1.html`。
+- 当前全局工作台标准是 `initial/quant-workbench-assistant-v2.html`；当前个股分析标准是 `initial/quant-workbench-stock-analysis-v2.html`；当前个人工作任务标准是 `initial/quant-workbench-user-work-task-v1.html`。
 - 工作任务探索稿 `v1` 是历史设计稿，探索稿 `v2` 是本次确认过程稿；`v2` 已提升为标准，但探索目录中的过程稿保持不动以便追溯。
 
 ## 目录
 
 ```text
 docs/design/prototypes/
+├── atlas/
+│   ├── index.html # 当前全量单一入口
+│   └── README.md  # 基准、状态与覆盖缺口
 ├── initial/
 │   ├── quant-workbench-assistant.html  # 原始稿快照，不直接修改
 │   ├── quant-workbench-assistant-v2.html # 当前默认工作台参考原型
-│   ├── quant-workbench-stock-analysis-v1.html # 已确认的个股分析基准稿
+│   ├── quant-workbench-stock-analysis-v1.html # 个股分析历史基准
+│   ├── quant-workbench-stock-analysis-v2.html # 当前个股分析基准（含价格趋势）
 │   └── quant-workbench-user-work-task-v1.html # 已确认的个人工作任务基准稿
 ├── explorations/
 │   ├── quant-workbench-preline.html    # 继承原始稿主题的独立 Preline 探索稿
@@ -45,11 +50,12 @@ docs/design/prototypes/
 
 ## 使用规则
 
-1. 每次新设计先复制默认参考稿 `initial/quant-workbench-assistant-v2.html`。
+1. 先从 `atlas/index.html` 找到受影响页面，再复制该页当前基准到 `explorations/`。
 2. 只在 `explorations/` 中修改，保留历史稿。
 3. 通过浏览器检查桌面、移动端、浅色和深色主题。
 4. 设计确认后单独更新 `initial/` 基准。
-5. 正式页面使用 Preline UI + Preline Theme，不直接复制静态原型代码。
+5. 同步更新 `atlas/index.html` 的来源、状态和截图证据。
+6. 正式页面使用 Preline UI + Preline Theme，不直接复制静态原型代码。
 
 ## 预览
 
@@ -60,8 +66,9 @@ python3 -m http.server 9090
 
 访问：
 
+- `http://localhost:9090/atlas/`（当前全量设计入口）
 - `http://localhost:9090/initial/quant-workbench-assistant-v2.html`（默认参考）
-- `http://localhost:9090/initial/quant-workbench-stock-analysis-v1.html`（个股分析确认基准）
+- `http://localhost:9090/initial/quant-workbench-stock-analysis-v2.html`（个股分析当前基准）
 - `http://localhost:9090/initial/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务确认基准）
 - `http://localhost:9090/initial/quant-workbench-assistant.html`
 - `http://localhost:9090/explorations/quant-workbench-preline.html`
@@ -80,7 +87,7 @@ V2 侧栏把导航分为工作空间、市场情报、量化研究和流程自�
 
 V3 每日看板设计稿按当前数据库中的真实数据组织市场广度、资金主线、市场温度、每日选股、工作流、资讯和最近复盘，并显式标注各数据域快照日期。
 
-V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比三种状态；单股详情包含实时行情、价格趋势、研究摘要、情景预测、风险参考区间、研报检索、财务估值、资金筹码和新闻事件，并明确区分事实、推断、情景与缺失状态。确认基准已保存为 `initial/quant-workbench-stock-analysis-v1.html`。
+V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比三种状态；单股详情包含实时行情、价格趋势、研究摘要、情景预测、风险参考区间、研报检索、财务估值、资金筹码和新闻事件，并明确区分事实、推断、情景与缺失状态。含最新价格趋势修复的确认基准已保存为 `initial/quant-workbench-stock-analysis-v2.html`。
 
 数据治理确认稿以研究门禁、来源标准漂移和未解决事故为首屏主角；生产实现保留该方向，并补充资产与契约、质量证据、来源标准、治理任务和数据事故五个子页面。桌面/移动端与浅色/深色真实截图保存在 `explorations/screenshots/data-governance-production/`。
 

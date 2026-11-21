@@ -46,6 +46,10 @@ _Avoid_: Final mockup, screenshot
 从基准或参考稿复制出的独立设计尝试，不覆盖原稿。
 _Avoid_: Draft, overwrite copy
 
+**Current Design Atlas**:
+把当前已确认基准和已落地页面集中到一个可运行入口的全量设计目录，不等同于全部历史版本集合。
+_Avoid_: Latest version, all-prototype archive
+
 **Preline Theme**:
 通过语义 CSS 变量表达颜色、表面、边框和组件状态的统一视觉层。
 _Avoid_: Color palette, CSS theme file

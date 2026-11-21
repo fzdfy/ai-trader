@@ -14,11 +14,13 @@
 
 ## 原型
 
+- `atlas/` 是当前全量唯一入口，集中呈现当前确认基准、已落地页面和关键状态证据。
 - `initial/` 保存原始稿与当前默认参考稿。
 - `explorations/` 保存独立探索稿。
-- 不覆盖历史稿；确认后单独更新基准。
+- 不覆盖历史稿；确认并落地后先提升 `initial/` 基准，再回写 Atlas。
 - `quant-workbench-assistant.html` 是原始资产，基准快照在 `docs/design/prototypes/initial/`，不得直接改写。
-- 当前默认参考稿为 `docs/design/prototypes/initial/quant-workbench-assistant-v2.html`；新设计从该稿复制，原始稿仅用于追溯。
+- 当前全局工作台参考稿为 `docs/design/prototypes/initial/quant-workbench-assistant-v2.html`；局部页面设计先从 Atlas 找到该页当前基准再复制，原始稿仅用于追溯。
+- 当前个股分析基准为 `docs/design/prototypes/initial/quant-workbench-stock-analysis-v2.html`。
 
 ## 主题
 
@@ -54,3 +56,4 @@
 - 浅色、深色和移动端截图无裁切、溢出或焦点丢失。
 - Preline 交互在路由切换后正确初始化并在卸载时清理。
 - 图标、图表和状态语义一致。
+- 当前全量设计从 `docs/design/prototypes/atlas/index.html` 单入口可浏览。
