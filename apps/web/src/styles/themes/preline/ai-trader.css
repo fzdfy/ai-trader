@@ -64,6 +64,8 @@
   --chart-grid: light-dark(#e6e9f0, #2a3447);
   --chart-axis-text: light-dark(#727f98, #9aa7bd);
   --chart-current: #3157e8;
+  --chart-ma-20: #9a4dff;
+  --chart-ma-60: #2f6fe0;
   --chart-equity: light-dark(#202a42, #eef2f9);
   --assistant-accent: #25b7ff;
 }
@@ -79,6 +81,10 @@
   --ink-faint: #71809a;
   --line: #2a3447;
   --line-strong: #3b4960;
+  --chart-grid: #2a3447;
+  --chart-axis-text: #9aa7bd;
+  --chart-ma-20: #e040fb;
+  --chart-ma-60: #4c8dff;
 
   --background: var(--canvas);
   --background-plain: var(--panel);
