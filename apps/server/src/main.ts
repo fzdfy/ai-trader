@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { and, eq, isNull } from "drizzle-orm";
@@ -12,6 +11,7 @@ import { requestId } from "./middleware/request-id";
 import { createLogger } from "./lib/logger";
 import { handleHttpError } from "./lib/http-error";
 import { reconcileAdminAudits } from "./lib/admin-audit";
+import { createCorsMiddleware } from "./lib/cors";
 
 const log = createLogger("server");
 const app = new Hono();
@@ -42,13 +42,7 @@ async function cleanupInterruptedSyncs(): Promise<void> {
 // 请求 ID 中间件（必须在 cors 之前，确保 traceId 贯穿全链路）
 app.use("*", requestId);
 
-app.use(
-  "*",
-  cors({
-    origin: (origin) => origin ?? "http://localhost:9080",
-    credentials: true,
-  }),
-);
+app.use("*", createCorsMiddleware());
 
 // Mount auth routes
 app.all("/api/auth/*", (c) => auth.handler(c.req.raw));

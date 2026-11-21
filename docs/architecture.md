@@ -64,7 +64,7 @@ flowchart LR
 | alloy | `aitrader-alloy` | `12345:12345` | loki | `grafana/alloy:v1.5.1` |
 | grafana | `aitrader-grafana` | `3010:3000` | loki | `grafana/grafana:11.4.0` |
 
-- 启动后访问入口（README）：`http://localhost`（前端）、`http://localhost/signup`（注册）、`http://localhost/health`（API 健康检查）、`http://localhost:3002/docs`（quant API 文档）。
+- 启动后访问入口（README）：`http://localhost:9080`（前端）、`http://localhost:9080/signup`（注册）、`http://localhost:9080/health`（API 健康检查）、`http://localhost:3002/docs`（quant API 文档）。
 - **来源**：`docker-compose.yml`、`docker-compose.dev.yml`、README.md「访问」「按模块单独启动」。
 
 ## 4. 反向代理与超时（nginx）
@@ -73,6 +73,8 @@ flowchart LR
 - **位置**：`/docker/nginx.conf`（`conf.d/`，被 include 在 `http{}` 内）。
 - **关键事实**：
   - `location /api/` → `proxy_pass http://server:3001`；`location /health` → `server:3001`。
+  - `server_name _` 接受 zrok 或稳定自有域名，不在 nginx 中固定公网主机名。
+  - nginx 保留上游 `X-Forwarded-Proto`，缺失时才回退到内部 `$scheme`，并向 server 传递 `X-Forwarded-Host`，使 Better Auth 能识别公网 HTTPS Origin。
   - `proxy_set_header X-Request-Id $request_id`，使「nginx 访问日志 ↔ server 业务日志」可用同一 request_id 关联。
   - SSE 支持：`proxy_buffering off; proxy_cache off;`（AI Chat 流式响应）。
   - 长耗时接口（选股等 quant 全市场打分 40–60s）：当前配置 `proxy_read_timeout 300s` / `proxy_send_timeout 300s`；配置注释记载原 `120s` 会在上游仍在计算时先断开并返回 504 HTML，导致前端解析 JSON 失败。
@@ -98,7 +100,9 @@ flowchart LR
     | `./deploy/start-web.sh` | 前端（nginx） | `aitrader-nginx` | 9080 | server |
 
   - **本地开发（非 Docker）**：`pnpm install` → `docker compose up -d postgres`（仅启动数据库）→ `pnpm db:migrate` → `pnpm dev`（turbo dev + quant:dev）。开发数据库用 `docker-compose.dev.yml`，不可与生产 `docker-compose.yml` 同时运行。
-  - **环境变量**：`DATABASE_URL`、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、`DEEPSEEK_API_KEY` 为必填；`QUANT_URL` 选填（Docker 自动覆盖）。写入 `.env.local`。
+  - **本地环境变量**：`DATABASE_URL`、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、`DEEPSEEK_API_KEY` 为必填；`QUANT_URL` 选填（Docker 自动覆盖）。写入 `.env.local`。
+  - **公网环境变量**：保留 `.env.local` 作为基础环境，使用 `.env.public` 覆盖 `BETTER_AUTH_URL` 和 `AUTH_TRUSTED_ORIGINS`。公网启动命令为 `docker compose --env-file .env.public -f docker-compose.yml -f docker-compose.public.yml up -d`。
+  - **地址轮换**：zrok 公网地址变化时只修改 `.env.public` 的两个精确 Origin 并重新创建 server，不修改 Web、server 代码或数据库。
 - **来源**：README.md「部署到新机器」「按模块单独启动」「环境变量」「本地开发」、`deploy/setup.sh`、`deploy/start-web.sh`、`docker-compose.dev.yml`。
 
 ## 6. 日志与可观测性拓扑

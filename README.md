@@ -43,10 +43,46 @@ docker compose up -d
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost | 前端页面 |
-| http://localhost/signup | 注册账号 |
-| http://localhost/health | API 健康检查 |
+| http://localhost:9080 | 前端页面 |
+| http://localhost:9080/signup | 注册账号 |
+| http://localhost:9080/health | API 健康检查 |
 | http://localhost:3002/docs | quant API 文档 |
+
+### 本地与公网环境
+
+本地开发继续使用 `.env.local` 和默认 compose 命令，认证 Origin 默认为
+`http://localhost:9080`：
+
+```bash
+docker compose up -d
+```
+
+通过 zrok 等反向代理提供公网访问时，使用独立的 `.env.public`，不要修改
+`.env.local`：
+
+```bash
+cp .env.public.example .env.public
+# 编辑 BETTER_AUTH_URL 和 AUTH_TRUSTED_ORIGINS
+
+docker compose \
+  --env-file .env.public \
+  -f docker-compose.yml \
+  -f docker-compose.public.yml \
+  up -d
+```
+
+公网地址变化时只修改 `.env.public` 中两个精确 Origin，然后重新创建 server：
+
+```bash
+docker compose \
+  --env-file .env.public \
+  -f docker-compose.yml \
+  -f docker-compose.public.yml \
+  up -d --no-deps --force-recreate server
+```
+
+不要使用 `*.shares.zrok.io` 通配 Origin。需要长期稳定地址时，优先为 zrok
+配置保留子域或自有域名。
 
 ### 容器管理
 
@@ -88,7 +124,8 @@ docker compose restart server # 重启单个服务
 |------|------|------|
 | `DATABASE_URL` | PostgreSQL 连接串（Docker 自动覆盖） | 是 |
 | `BETTER_AUTH_SECRET` | 认证加密密钥 | 是 |
-| `BETTER_AUTH_URL` | 认证服务地址（Docker 自动覆盖） | 是 |
+| `BETTER_AUTH_URL` | 当前环境的唯一认证 Origin；本地默认 `http://localhost:9080`，公网必须使用 HTTPS Origin | 是 |
+| `AUTH_TRUSTED_ORIGINS` | Better Auth 与 CORS 共用的逗号分隔精确 Origin allowlist；公网 overlay 必填 | 公网必填 |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key（AI Agent） | 是 |
 | `QUANT_URL` | 回测服务地址（Docker 自动覆盖） | 否 |
 

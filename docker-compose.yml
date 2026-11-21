@@ -41,7 +41,7 @@ services:
     environment:
       # 容器网络地址覆盖（localhost → 容器名）；application_name 用于 postgres 慢查询归属
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=server
-      - BETTER_AUTH_URL=http://localhost:9080
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
       - QUANT_URL=http://quant:3002
       - REPORTS_DATA_DIR=/data/reports
       # 日志

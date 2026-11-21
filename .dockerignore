@@ -2,6 +2,8 @@ node_modules
 **/node_modules
 .git
 .env.local
+.env.public
+.env.public.example
 pgdata
 .trae
 **/dist
