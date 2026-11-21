@@ -86,9 +86,10 @@ flowchart LR
 ## 5. 部署方式
 
 - **定义**：三种部署/运行方式——一键全容器、按模块单独启动、本地非 Docker 开发。
-- **位置**：`deploy/`（`setup.sh`、`start.sh`、`stop.sh`、`start-*.sh`、`_common.sh`、`remote-deploy.sh`）。
+- **位置**：`deploy/`（`setup.sh`、`setup-public.sh`、`start.sh`、`stop.sh`、`start-*.sh`、`_common.sh`、`remote-deploy.sh`）。
 - **关键事实**：
-  - **一键部署**：`chmod +x deploy/*.sh && ./deploy/setup.sh`；脚本检查 docker → 从 `apps/server/.env.example` 生成 `.env.local` → `docker compose build/up -d` → 等 `pg_isready -U ai-trader` → 执行 `db:migrate` → `sync:instruments`。
+  - **本地 Docker 一键部署**：`chmod +x deploy/*.sh && ./deploy/setup.sh`；脚本检查 docker → 从 `apps/server/.env.example` 生成 `.env.local` → `docker compose build/up -d` → 等 `pg_isready -U ai-trader` → 执行 `db:migrate` → `sync:instruments`。
+  - **公网完整部署**：`./deploy/setup-public.sh`；脚本加载 `.env.public` 与 `docker-compose.public.yml`，校验公网 HTTPS Origin 和精确 allowlist，完成构建、启动、迁移、基础数据同步，并校验 server 容器实际认证环境。
   - **按模块单独启动**：每个模块有独立脚本，`start-*.sh` 支持 `--build`、`-f/--follow`、`--no-deps`、`-h/--help`；`./deploy/stop.sh db` 可停止单个模块（db/server/worker/quant/web）。
 
     | 脚本 | 模块 | 容器名 | 端口 | 依赖 |
@@ -102,9 +103,9 @@ flowchart LR
 
   - **本地开发（非 Docker）**：`pnpm install` → `docker compose up -d postgres`（仅启动数据库）→ `pnpm db:migrate` → `pnpm dev`（turbo dev + quant:dev）。开发数据库用 `docker-compose.dev.yml`，不可与生产 `docker-compose.yml` 同时运行。
   - **本地环境变量**：`DATABASE_URL`、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、`DEEPSEEK_API_KEY` 为必填；`QUANT_URL` 选填（Docker 自动覆盖）。写入 `.env.local`。
-  - **公网环境变量**：保留 `.env.local` 作为基础环境，使用 `.env.public` 覆盖 `BETTER_AUTH_URL` 和 `AUTH_TRUSTED_ORIGINS`。公网启动命令为 `docker compose --env-file .env.public -f docker-compose.yml -f docker-compose.public.yml up -d`。
+  - **公网环境变量**：保留 `.env.local` 作为基础环境，使用 `.env.public` 覆盖 `BETTER_AUTH_URL` 和 `AUTH_TRUSTED_ORIGINS`。公网完整部署入口为 `./deploy/setup-public.sh`。
   - **地址轮换**：zrok 公网地址变化时只修改 `.env.public` 的两个精确 Origin 并重新创建 server，不修改 Web、server 代码或数据库。
-- **来源**：README.md「部署到新机器」「按模块单独启动」「环境变量」「本地开发」、`deploy/setup.sh`、`deploy/start-web.sh`、`docker-compose.dev.yml`。
+- **来源**：README.md「部署到新机器」「按模块单独启动」「环境变量」「本地开发」、`deploy/setup.sh`、`deploy/setup-public.sh`、`deploy/start-web.sh`、`docker-compose.dev.yml`。
 
 ## 6. 日志与可观测性拓扑
 

@@ -24,7 +24,7 @@ brew install docker
 # 启动 Docker Desktop 后再继续
 ```
 
-### 一键部署
+### 本地 Docker 一键部署
 
 ```bash
 git clone <repo-url> ai-trader && cd ai-trader
@@ -65,12 +65,12 @@ docker compose up -d
 cp .env.public.example .env.public
 # 编辑 BETTER_AUTH_URL 和 AUTH_TRUSTED_ORIGINS
 
-docker compose \
-  --env-file .env.public \
-  -f docker-compose.yml \
-  -f docker-compose.public.yml \
-  up -d
+./deploy/setup-public.sh
 ```
+
+`setup.sh` 仅用于本地 Docker 环境。它不会加载
+`docker-compose.public.yml`；公网完整部署必须使用
+`setup-public.sh`，否则 Better Auth 会回退到 localhost 并拒绝公网登录。
 
 公网地址变化时只修改 `.env.public` 中两个精确 Origin，然后重新创建 server：
 

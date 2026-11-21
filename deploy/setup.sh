@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  AI Trader — 一键部署脚本（Docker Compose 全容器）
+#  AI Trader — 本地 Docker 一键部署脚本
 # ============================================================
 set -euo pipefail
 
@@ -14,7 +14,7 @@ warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 fail() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
 echo "============================================"
-echo "  AI Trader 环境部署（Docker）"
+echo "  AI Trader 本地 Docker 环境部署"
 echo "============================================"
 echo ""
 
@@ -27,6 +27,10 @@ log "配置环境变量..."
 if [ ! -f .env.local ]; then
   cp apps/server/.env.example .env.local
   warn "已从模板创建 .env.local，请填入 DEEPSEEK_API_KEY 和 BETTER_AUTH_SECRET"
+fi
+if [ -f .env.public ]; then
+  warn "检测到 .env.public；本脚本仍按本地 compose 部署，不会加载公网 overlay"
+  warn "公网部署请使用：./deploy/setup-public.sh"
 fi
 
 # ---- 3. 构建并启动所有容器 ----
@@ -64,6 +68,7 @@ echo ""
 echo "  访问地址："
 echo "    http://localhost:9180       前端页面"
 echo "    http://localhost:9180/signup 注册账号"
+echo "    公网部署：./deploy/setup-public.sh"
 echo ""
 echo "  容器管理："
 echo "    docker compose logs -f  查看日志"
