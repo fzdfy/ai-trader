@@ -182,6 +182,9 @@ test("stock analysis returns the aggregate pending PDF count", async () => {
         windowDays: number;
         action: string;
       };
+      summary: {
+        tags: string[];
+      };
     };
   };
 
@@ -190,6 +193,7 @@ test("stock analysis returns the aggregate pending PDF count", async () => {
   assert.equal(body.data.reportIndex.symbol, "002594.SZ");
   assert.equal(body.data.reportIndex.windowDays, 30);
   assert.ok(["sync_metadata", "index_reports", "none"].includes(body.data.reportIndex.action));
+  assert.match(body.data.summary.tags[0] ?? "", /^收盘价(?:截至 |缺失)/);
 });
 
 test(

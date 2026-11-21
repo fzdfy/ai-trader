@@ -477,7 +477,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
             ? "当前只有标的元数据，历史行情不足，无法形成可靠趋势判断。"
             : `价格 ${latestPrice?.toFixed(2) ?? "—"}，MA20 ${technical.ma20.toFixed(2)}，MA60 ${technical.ma60.toFixed(2)}；RSI14 ${technical.rsi14.toFixed(1)}，近 20 日波动率 ${technical.volatility20.toFixed(1)}%。预测为历史统计情景，不构成目标价。`,
         tags: [
-          technical ? `K 线截至 ${technical.asOf.slice(0, 10)}` : "K 线缺失",
+          technical ? `收盘价截至 ${technical.asOf.slice(0, 10)}` : "收盘价缺失",
           `研报 ${reportCount} 篇`,
           consensus ? "一致预期可用" : "一致预期缺失",
         ],

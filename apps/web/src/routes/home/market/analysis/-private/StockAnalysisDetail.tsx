@@ -17,6 +17,7 @@ import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { TextInput } from "@preline-ui/TextInput";
 import { AddWorkTaskButton } from "../../../../../components/AddWorkTaskButton";
+import { PriceTrendChart } from "../../../../../components/charts/PriceTrendChart";
 import {
   useAddWatchlist,
   useRemoveWatchlist,
@@ -29,7 +30,6 @@ import {
   useResearchEvidenceQuery,
   useStartResearchIndexWindow,
   type ScenarioForecast,
-  type StockAnalysisResponse,
 } from "../../../../../hooks/useStockAnalysis";
 import {
   buildStockContentTimeline,
@@ -148,88 +148,6 @@ function TimelineRow({ item }: { item: StockContentTimelineItem }) {
     </a>
   ) : (
     <div className={className}>{content}</div>
-  );
-}
-
-function PriceTrendChart({ prices }: { prices: StockAnalysisResponse["prices"]["data"] }) {
-  const geometry = useMemo(() => {
-    if (prices.length < 2) return null;
-    const width = 760;
-    const height = 250;
-    const left = 42;
-    const right = 14;
-    const top = 18;
-    const bottom = 28;
-    const lows = prices.map((bar) => bar.low);
-    const highs = prices.map((bar) => bar.high);
-    const min = Math.min(...lows);
-    const max = Math.max(...highs);
-    const span = max - min || 1;
-    const x = (index: number) => left + (index / (prices.length - 1)) * (width - left - right);
-    const y = (value: number) => top + ((max - value) / span) * (height - top - bottom);
-    const points = prices.map((bar, index) => `${x(index).toFixed(1)},${y(bar.close).toFixed(1)}`);
-    const line = `M${points.join(" L")}`;
-    const area = `${line} L${x(prices.length - 1).toFixed(1)},${height - bottom} L${left},${height - bottom} Z`;
-    const gridValues = Array.from({ length: 5 }, (_, index) => min + (span * index) / 4);
-    return { width, height, left, right, top, bottom, x, y, line, area, gridValues };
-  }, [prices]);
-
-  if (!geometry) {
-    return (
-      <EmptyState title="历史行情不足" description="至少需要两个交易日的 K 线才能绘制走势。" />
-    );
-  }
-  return (
-    <svg
-      className="h-[250px] w-full"
-      viewBox={`0 0 ${geometry.width} ${geometry.height}`}
-      role="img"
-      aria-label="最近 120 个交易日收盘价走势"
-    >
-      <defs>
-        <linearGradient id="stock-analysis-area" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--primary)" stopOpacity=".16" />
-          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {geometry.gridValues.map((value) => (
-        <g key={value}>
-          <line
-            x1={geometry.left}
-            x2={geometry.width - geometry.right}
-            y1={geometry.y(value)}
-            y2={geometry.y(value)}
-            stroke="var(--line)"
-          />
-          <text
-            x={geometry.left - 7}
-            y={geometry.y(value) + 3}
-            textAnchor="end"
-            fill="var(--ink-faint)"
-            fontSize="8"
-            fontFamily="monospace"
-          >
-            {value.toFixed(0)}
-          </text>
-        </g>
-      ))}
-      <path d={geometry.area} fill="url(#stock-analysis-area)" />
-      <path
-        d={geometry.line}
-        fill="none"
-        stroke="var(--primary)"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <circle
-        cx={geometry.x(prices.length - 1)}
-        cy={geometry.y(prices.at(-1)!.close)}
-        r="4"
-        fill="var(--primary)"
-        stroke="var(--panel)"
-        strokeWidth="3"
-      />
-    </svg>
   );
 }
 
@@ -529,11 +447,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             variant="secondary"
             href={stockComparePath(compareSymbols)}
           />
-          <AddWorkTaskButton
-            sourceType="stock"
-            sourceId={symbol}
-            label="加入工作任务"
-          />
+          <AddWorkTaskButton sourceType="stock" sourceId={symbol} label="加入工作任务" />
           <Button
             label="重新分析"
             icon={<RefreshCw className="size-3.5" />}
@@ -630,16 +544,16 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
-        <Card variant="detached" className="overflow-hidden">
+        <Card variant="detached" className="overflow-hidden" data-stock-price-trend-card>
           <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
             <div>
               <Heading level={2}>价格与趋势</Heading>
               <Text as="p" type="supporting">
-                前复权日线 · 最近 {data.prices.data.length} 个交易日
+                前复权收盘价 · 最近 {data.prices.data.length} 个交易日
               </Text>
             </div>
             <Badge variant={qualityMeta(data.prices.quality).variant}>
-              K 线 · {formatDate(data.prices.asOf)}
+              收盘价 · {formatDate(data.prices.asOf)}
             </Badge>
           </div>
           <div className="px-4 pb-4 pt-3">
@@ -668,11 +582,20 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                 <span>技术指标待生成</span>
               )}
             </div>
-            <PriceTrendChart prices={data.prices.data} />
-            <div className="flex justify-between text-[9px] text-app-muted">
-              <span>{data.prices.data.at(0)?.time.slice(0, 10) ?? "暂无"}</span>
-              <span>{data.prices.data.at(-1)?.time.slice(0, 10) ?? "暂无"}</span>
-            </div>
+            <PriceTrendChart
+              points={data.prices.data}
+              subjectName={data.name}
+              reference={
+                technical
+                  ? {
+                      ma20: technical.ma20,
+                      ma60: technical.ma60,
+                      support20: technical.support20,
+                      resistance60: technical.resistance60,
+                    }
+                  : null
+              }
+            />
           </div>
         </Card>
 
