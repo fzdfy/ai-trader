@@ -80,7 +80,7 @@ npm test
 
 ```bash
 cd apps/server
-DATABASE_URL=postgres://ai-trader:aitrader123@localhost:5432/aitrader_workflow_check \
+DATABASE_URL=postgres://ai-trader:aitrader123@localhost:5532/aitrader_workflow_check \
 WORKFLOW_DB_TESTS=1 \
 npm run test:db
 ```

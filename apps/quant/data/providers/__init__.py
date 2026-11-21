@@ -6,6 +6,7 @@
 增删平台：新建子文件夹实现 provider、在此 import + `__all__` 导出，
 再在 `registry.py` 登记即可。
 """
+from .baostock import BaostockProvider
 from .baidu import BaiduProvider
 from .cninfo import CninfoProvider
 from .eastmoney import EastmoneyProvider
@@ -15,6 +16,7 @@ from .tencent import TencentProvider
 from .ths import ThsProvider
 
 __all__ = [
+    "BaostockProvider",
     "MootdxProvider",
     "TencentProvider",
     "BaiduProvider",

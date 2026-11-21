@@ -10,13 +10,13 @@
 - **位置**：`apps/web`、`apps/server`、`apps/quant`、`packages/lint`；基础设施在 `docker/`、`deploy/`。
 - **关键事实**：
 
-| 模块 | 路径 | 技术 | 本地端口 |
+| 模块 | 路径 | 技术 | Docker 宿主端口 |
 |---|---|---|---|
-| 前端 | `apps/web` | React + Vite；nginx 代理 | 9080（容器内 80） |
-| API | `apps/server` | Hono；含 sync / feature / workflow worker | 3001 |
-| 回测 | `apps/quant` | Python FastAPI + akquant | 3002 |
-| 数据库 | — | PostgreSQL + pgvector | 5432 |
-| 日志栈 | `docker/` | Grafana Alloy → Loki → Grafana | Loki 3100 / Alloy 12345 / Grafana 3010 |
+| 前端 | `apps/web` | React + Vite；nginx 代理 | 9180（容器内 80） |
+| API | `apps/server` | Hono；含 sync / feature / workflow worker | 3101（容器内 3001） |
+| 回测 | `apps/quant` | Python FastAPI + akquant | 3102（容器内 3002） |
+| 数据库 | — | PostgreSQL + pgvector | 5532（容器内 5432） |
+| 日志栈 | `docker/` | Grafana Alloy → Loki → Grafana | Loki 3200 / Alloy 12445 / Grafana 3110 |
 
 - **来源**：AGENTS.md「项目架构」、README.md「架构」、docs/README.md「0. 这是什么」。
 
@@ -28,7 +28,7 @@
 
 ```mermaid
 flowchart LR
-  U["浏览器"] --> N["nginx（aitrader-nginx）<br/>宿主 9080 → 容器 80"]
+  U["浏览器"] --> N["nginx（aitrader-nginx）<br/>宿主 9180 → 容器 80"]
   N -- "/* 静态 SPA / assets" --> N
   N -- "/api/* 与 /health" --> S["server（aitrader-server）<br/>:3001 Hono"]
   S --> PG[("postgres（aitrader-postgres）<br/>:5432 + pgvector")]
@@ -53,18 +53,19 @@ flowchart LR
 
 | 服务 | 容器名 | 端口（宿主:容器） | 依赖 | 备注 |
 |---|---|---|---|---|
-| nginx | `aitrader-nginx` | `9080:80` | server | 前端静态 + /api 反代 |
-| server | `aitrader-server` | `3001:3001` | postgres | Hono API |
+| nginx | `aitrader-nginx` | `9180:80` | server | 前端静态 + /api 反代 |
+| server | `aitrader-server` | `3101:3001` | postgres | Hono API |
 | worker | `aitrader-worker` | 无 | postgres | `command: pnpm --prefix apps/server worker:sync` |
 | workflow-worker | `aitrader-workflow-worker` | 无 | postgres / quant | `command: pnpm --prefix apps/server worker:workflow` |
 | research-worker | `aitrader-research-worker` | 无 | postgres / quant | `command: pnpm --prefix apps/server worker:research`；研报全文索引并发 1 |
-| quant | `aitrader-quant` | `3002:3002` | postgres | FastAPI + akquant |
-| postgres | `aitrader-postgres` | `5432:5432` | — | 卷 `pgdata` |
-| loki | `aitrader-loki` | `3100:3100` | — | `grafana/loki:3.3.2` |
-| alloy | `aitrader-alloy` | `12345:12345` | loki | `grafana/alloy:v1.5.1` |
-| grafana | `aitrader-grafana` | `3010:3000` | loki | `grafana/grafana:11.4.0` |
+| quant | `aitrader-quant` | `3102:3002` | postgres | FastAPI + akquant |
+| postgres | `aitrader-postgres` | `5532:5432` | — | 卷 `pgdata` |
+| loki | `aitrader-loki` | `3200:3100` | — | `grafana/loki:3.3.2` |
+| alloy | `aitrader-alloy` | `12445:12345` | loki | `grafana/alloy:v1.5.1` |
+| grafana | `aitrader-grafana` | `3110:3000` | loki | `grafana/grafana:11.4.0` |
 
-- 启动后访问入口（README）：`http://localhost:9080`（前端）、`http://localhost:9080/signup`（注册）、`http://localhost:9080/health`（API 健康检查）、`http://localhost:3002/docs`（quant API 文档）。
+- 启动后访问入口（README）：`http://localhost:9180`（前端）、`http://localhost:9180/signup`（注册）、`http://localhost:9180/health`（API 健康检查）、`http://localhost:3102/docs`（quant API 文档）。
+- Docker 宿主机端口由 `DOCKER_*_PORT` 环境变量覆盖，默认值为 9180/3101/3102/5532/3200/12445/3110；容器内部目标端口保持 80/3001/3002/5432/3100/12345/3000。
 - **来源**：`docker-compose.yml`、`docker-compose.dev.yml`、README.md「访问」「按模块单独启动」。
 
 ## 4. 反向代理与超时（nginx）
@@ -92,12 +93,12 @@ flowchart LR
 
     | 脚本 | 模块 | 容器名 | 端口 | 依赖 |
     |---|---|---|---|---|
-    | `./deploy/start-db.sh` | 数据库 | `aitrader-postgres` | 5432 | — |
-    | `./deploy/start-server.sh` | API 服务 | `aitrader-server` | 3001 | postgres |
+    | `./deploy/start-db.sh` | 数据库 | `aitrader-postgres` | 5532 | — |
+    | `./deploy/start-server.sh` | API 服务 | `aitrader-server` | 3101 | postgres |
     | `./deploy/start-worker.sh` | 数据同步 Worker | `aitrader-worker` | — | postgres |
     | `./deploy/start-workflow-worker.sh` | 工作流 Worker | `aitrader-workflow-worker` | — | postgres / quant |
-    | `./deploy/start-quant.sh` | 回测微服务 | `aitrader-quant` | 3002 | postgres |
-    | `./deploy/start-web.sh` | 前端（nginx） | `aitrader-nginx` | 9080 | server |
+    | `./deploy/start-quant.sh` | 回测微服务 | `aitrader-quant` | 3102 | postgres |
+    | `./deploy/start-web.sh` | 前端（nginx） | `aitrader-nginx` | 9180 | server |
 
   - **本地开发（非 Docker）**：`pnpm install` → `docker compose up -d postgres`（仅启动数据库）→ `pnpm db:migrate` → `pnpm dev`（turbo dev + quant:dev）。开发数据库用 `docker-compose.dev.yml`，不可与生产 `docker-compose.yml` 同时运行。
   - **本地环境变量**：`DATABASE_URL`、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、`DEEPSEEK_API_KEY` 为必填；`QUANT_URL` 选填（Docker 自动覆盖）。写入 `.env.local`。
@@ -115,8 +116,8 @@ flowchart LR
 flowchart LR
   C["各容器 stdout/stderr<br/>（json-file 日志驱动，10m×3 轮转）"] --> A["alloy（aitrader-alloy）<br/>docker.sock 采集 :12345"]
   NG["nginx 访问日志（JSON）"] --> A
-  A --> L["loki（aitrader-loki）<br/>:3100，保留 30 天"]
-  L --> G["grafana（aitrader-grafana）<br/>宿主 3010 → 容器 3000"]
+  A --> L["loki（aitrader-loki）<br/>内部 :3100，Docker 宿主 :3200，保留 30 天"]
+  L --> G["grafana（aitrader-grafana）<br/>Docker 宿主 3110 → 容器 3000"]
 ```
 
   - 日志用 pino：生产 JSON、开发 pino-pretty；`level` 在产出端就归一为字符串（采集侧当 Loki label，数字会变成无意义取值）。

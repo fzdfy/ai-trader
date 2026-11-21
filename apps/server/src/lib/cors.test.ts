@@ -3,7 +3,7 @@ import test from "node:test";
 import { Hono } from "hono";
 import { createCorsMiddleware } from "./cors.ts";
 
-const publicOrigin = "https://ouzq6euvec18.shares.zrok.io";
+const publicOrigin = "https://public.example";
 
 function createTestApp() {
   const app = new Hono();

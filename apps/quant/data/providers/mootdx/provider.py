@@ -1,7 +1,7 @@
 """mootdx（通达信）行情源 provider。
 
 能力：kline（多周期，不复权）/ quote（五档盘口）/
-transaction（逐笔成交，备源）。
+transaction（逐笔成交，备源）/ financial_snapshot（季报财务快照）。
 
 数据来源：通达信 TCP 7709 二进制协议，零注册零鉴权，实测【不封 IP】。行情/K 线
 主源已让位腾讯（自带复权），mootdx 作为多周期 K 线与逐笔的降级备源；逐笔
@@ -12,9 +12,11 @@ bars() 返回【不复权】数据，跨除权日比价需配合新浪复权因�
 """
 from __future__ import annotations
 
-from ...base import MarketProvider
+from typing import Any
+
+from ...base import CAPABILITY_FINANCIAL_SNAPSHOT, MarketProvider
 from ...common import drop_unsettled_today_bar, norm_date, norm_ticker, tdx_client
-from ...schemas import BidAskLevel, KlineBar, Quote, TradeTick
+from ...schemas import BidAskLevel, FinancialSnapshotItem, KlineBar, Quote, TradeTick
 
 # tf → mootdx frequency 映射（mootdx 0.11.7 实测频率值表）
 _TF_TO_FREQ = {
@@ -29,9 +31,70 @@ _TF_TO_FREQ = {
 }
 
 
+def _report_period(value: Any) -> str:
+    text = str(value or "").split(".")[0]
+    if len(text) != 8 or not text.isdigit():
+        raise ValueError(f"mootdx 财务快照缺少有效报告期: {value!r}")
+    return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
+
+
+def _numeric_metrics(row: dict[str, Any]) -> dict[str, float | str | None]:
+    metrics: dict[str, float | str | None] = {}
+    for key, value in row.items():
+        if key in {"code", "updated_date", "ipo_date", "market", "province", "industry"}:
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            metrics[key] = str(value) if value is not None else None
+        else:
+            metrics[key] = number
+    return metrics
+
+
+def map_mootdx_finance_snapshot(
+    symbol: str, row: dict[str, Any]
+) -> FinancialSnapshotItem:
+    metrics = _numeric_metrics(row)
+
+    def metric(name: str) -> float | None:
+        value = metrics.get(name)
+        return float(value) if isinstance(value, (int, float)) else None
+
+    total_shares = metric("zongguben")
+    net_profit = metric("jinglirun")
+    equity = metric("jingzichan")
+    assets = metric("zongzichan")
+    current_liabilities = metric("liudongfuzhai")
+    long_term_liabilities = metric("changqifuzhai")
+
+    metrics["revenue"] = metric("zhuyingshouru")
+    metrics["net_profit"] = net_profit
+    metrics["total_assets"] = assets
+    metrics["equity"] = equity
+    if total_shares and net_profit is not None:
+        metrics["eps"] = net_profit / total_shares
+    if equity and net_profit is not None:
+        metrics["roe"] = net_profit / equity * 100
+    liabilities = (current_liabilities or 0) + (long_term_liabilities or 0)
+    if assets:
+        metrics["debt_ratio"] = liabilities / assets * 100
+
+    return FinancialSnapshotItem(
+        symbol=symbol,
+        report_period=_report_period(row.get("updated_date")),
+        statement_type="snapshot",
+        source="mootdx",
+        metrics=metrics,
+        raw=dict(row),
+    )
+
+
 class MootdxProvider(MarketProvider):
     name = "mootdx"
-    capabilities = frozenset({"kline", "quote", "transaction"})
+    capabilities = frozenset(
+        {"kline", "quote", "transaction", CAPABILITY_FINANCIAL_SNAPSHOT}
+    )
 
     def __init__(self) -> None:
         self._client = None
@@ -157,3 +220,11 @@ class MootdxProvider(MarketProvider):
                 )
             )
         return ticks
+
+    def financial_snapshot(self, symbol: str) -> list[FinancialSnapshotItem]:
+        client = self._get_client()
+        frame = client.finance(symbol=norm_ticker(symbol))
+        if frame is None or getattr(frame, "empty", True):
+            return []
+        row = frame.iloc[-1].to_dict() if hasattr(frame, "iloc") else dict(frame)
+        return [map_mootdx_finance_snapshot(symbol, row)]

@@ -1,17 +1,27 @@
 import { createHash } from "node:crypto";
-import { inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import {
+  analystConsensusSnapshot,
   companyAnnouncement,
   instrument,
   newsArticle,
   newsArticleSymbol,
   researchReport,
   researchReportForecast,
+  stockFinancialSnapshot,
+  stockValuationDaily,
   syncCursor,
 } from "../db/schema";
-import { quant, type AnnouncementItem, type NewsItem } from "../lib/quant";
+import {
+  quant,
+  type AnalystConsensusItem,
+  type AnnouncementItem,
+  type FinancialSnapshotItem,
+  type NewsItem,
+  type ValuationDailyItem,
+} from "../lib/quant";
 import { normalizeStockSymbol } from "../lib/stock-analysis-data";
 import {
   RESEARCH_METADATA_SYNC_ENDPOINT,
@@ -33,6 +43,10 @@ export interface StockContentResult {
     news: ContentModuleResult;
     announcements: ContentModuleResult;
     reports: ContentModuleResult;
+    analystConsensus: ContentModuleResult;
+    financialSnapshot: ContentModuleResult;
+    financialStatements: ContentModuleResult;
+    valuationHistory: ContentModuleResult;
   };
 }
 
@@ -50,6 +64,25 @@ function result(
     observedAt,
     error: error == null ? null : error instanceof Error ? error.message : String(error),
   };
+}
+
+function numericString(value: number | null | undefined): string | null {
+  return value == null || !Number.isFinite(value) ? null : String(value);
+}
+
+function dedupeByKey<T>(items: T[], keyOf: (item: T) => string): T[] {
+  return [...new Map(items.map((item) => [keyOf(item), item])).values()];
+}
+
+export function shanghaiDate(instant = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function linkSymbols(symbol: string | null, related: string[]): string[] {
@@ -193,17 +226,46 @@ async function saveAnnouncements(symbol: string, items: AnnouncementItem[]): Pro
   return inserted.length;
 }
 
-function reportCutoff(): Date {
-  const cutoff = new Date();
-  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
-  return cutoff;
+const RESEARCH_METADATA_OVERLAP_DAYS = 7;
+
+function reportCutoff(now: Date): string {
+  return shanghaiDate(new Date(now.getTime() - 365 * 86_400_000));
+}
+
+async function researchMetadataCursor(symbol: string): Promise<Date | null> {
+  const [row] = await db
+    .select({
+      cursorTime: syncCursor.cursorTime,
+      updatedAt: syncCursor.updatedAt,
+    })
+    .from(syncCursor)
+    .where(
+      and(
+        eq(syncCursor.source, RESEARCH_METADATA_SYNC_SOURCE),
+        eq(syncCursor.endpoint, RESEARCH_METADATA_SYNC_ENDPOINT),
+        eq(syncCursor.symbol, symbol),
+        eq(syncCursor.timeframe, RESEARCH_METADATA_SYNC_TIMEFRAME),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+  const value = row.cursorTime ?? row.updatedAt;
+  return value instanceof Date ? value : new Date(value);
+}
+
+function metadataBeginTime(cursor: Date | null, cutoff: string): string {
+  if (!cursor || !Number.isFinite(cursor.getTime())) return cutoff;
+  const cursorBegin = shanghaiDate(
+    new Date(cursor.getTime() - RESEARCH_METADATA_OVERLAP_DAYS * 86_400_000),
+  );
+  return cursorBegin > cutoff ? cursorBegin : cutoff;
 }
 
 async function saveReports(
   symbol: string,
   items: Awaited<ReturnType<typeof quant.researchReports>>["items"],
+  cutoff: string,
 ): Promise<number> {
-  const cutoff = reportCutoff().toISOString().slice(0, 10);
   const recent = items.filter((item) => item.publish_date >= cutoff);
   if (recent.length === 0) return 0;
   const values = recent.map((item) => ({
@@ -273,6 +335,140 @@ async function saveReports(
   return inserted.length;
 }
 
+async function saveAnalystConsensus(
+  symbol: string,
+  items: AnalystConsensusItem[],
+): Promise<number> {
+  if (items.length === 0) return 0;
+  const unique = dedupeByKey(
+    items,
+    (item) => `${item.as_of_date}\0${item.fiscal_year}\0${item.source}`,
+  );
+  const values = unique.map((item) => ({
+    symbol,
+    asOfDate: item.as_of_date,
+    fiscalYear: item.fiscal_year,
+    epsMin: numericString(item.eps_min),
+    epsMean: numericString(item.eps_mean),
+    epsMax: numericString(item.eps_max),
+    analystCount: item.analyst_count,
+    source: item.source,
+    rawJson: item.raw,
+  }));
+  const inserted = await db
+    .insert(analystConsensusSnapshot)
+    .values(values)
+    .onConflictDoNothing()
+    .returning({ fiscalYear: analystConsensusSnapshot.fiscalYear });
+  await db
+    .insert(analystConsensusSnapshot)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [
+        analystConsensusSnapshot.symbol,
+        analystConsensusSnapshot.asOfDate,
+        analystConsensusSnapshot.fiscalYear,
+        analystConsensusSnapshot.source,
+      ],
+      set: {
+        epsMin: sql`excluded.eps_min`,
+        epsMean: sql`excluded.eps_mean`,
+        epsMax: sql`excluded.eps_max`,
+        analystCount: sql`excluded.analyst_count`,
+        rawJson: sql`excluded.raw_json`,
+        fetchedAt: sql`now()`,
+      },
+    });
+  return inserted.length;
+}
+
+async function saveFinancialSnapshots(
+  symbol: string,
+  items: FinancialSnapshotItem[],
+): Promise<number> {
+  if (items.length === 0) return 0;
+  const unique = dedupeByKey(
+    items,
+    (item) => `${item.report_period}\0${item.statement_type}\0${item.source}`,
+  );
+  const values = unique.map((item) => ({
+    symbol,
+    reportPeriod: item.report_period,
+    statementType: item.statement_type,
+    source: item.source,
+    metrics: item.metrics,
+    rawJson: item.raw,
+  }));
+  const inserted = await db
+    .insert(stockFinancialSnapshot)
+    .values(values)
+    .onConflictDoNothing()
+    .returning({ reportPeriod: stockFinancialSnapshot.reportPeriod });
+  await db
+    .insert(stockFinancialSnapshot)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [
+        stockFinancialSnapshot.symbol,
+        stockFinancialSnapshot.reportPeriod,
+        stockFinancialSnapshot.statementType,
+        stockFinancialSnapshot.source,
+      ],
+      set: {
+        metrics: sql`excluded.metrics`,
+        rawJson: sql`excluded.raw_json`,
+        fetchedAt: sql`now()`,
+      },
+    });
+  return inserted.length;
+}
+
+async function saveValuationHistory(symbol: string, items: ValuationDailyItem[]): Promise<number> {
+  if (items.length === 0) return 0;
+  const unique = dedupeByKey(items, (item) => `${item.trade_date}\0${item.source}`);
+  const values = unique.map((item) => ({
+    symbol,
+    tradeDate: item.trade_date,
+    peTtm: numericString(item.pe_ttm),
+    peStatic: numericString(item.pe_static),
+    pb: numericString(item.pb),
+    psTtm: numericString(item.ps_ttm),
+    pcf: numericString(item.pcf),
+    turnoverRate: numericString(item.turnover_rate),
+    tradeStatus: item.trade_status,
+    isSt: item.is_st,
+    source: item.source,
+    rawJson: item.raw,
+  }));
+  const inserted = await db
+    .insert(stockValuationDaily)
+    .values(values)
+    .onConflictDoNothing()
+    .returning({ tradeDate: stockValuationDaily.tradeDate });
+  await db
+    .insert(stockValuationDaily)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [
+        stockValuationDaily.symbol,
+        stockValuationDaily.tradeDate,
+        stockValuationDaily.source,
+      ],
+      set: {
+        peTtm: sql`excluded.pe_ttm`,
+        peStatic: sql`excluded.pe_static`,
+        pb: sql`excluded.pb`,
+        psTtm: sql`excluded.ps_ttm`,
+        pcf: sql`excluded.pcf`,
+        turnoverRate: sql`excluded.turnover_rate`,
+        tradeStatus: sql`excluded.trade_status`,
+        isSt: sql`excluded.is_st`,
+        rawJson: sql`excluded.raw_json`,
+      },
+    });
+  return inserted.length;
+}
+
 export async function syncStockNews(symbol: string): Promise<ContentModuleResult> {
   try {
     const items = await quant.stockNews(symbol, 20);
@@ -293,13 +489,17 @@ export async function syncStockAnnouncements(symbol: string): Promise<ContentMod
   }
 }
 
-export async function syncStockResearchReports(symbol: string): Promise<ContentModuleResult> {
+export async function syncStockResearchReports(
+  symbol: string,
+  now = new Date(),
+): Promise<ContentModuleResult> {
   try {
-    const cutoff = reportCutoff().toISOString().slice(0, 10);
+    const cutoff = reportCutoff(now);
+    const beginTime = metadataBeginTime(await researchMetadataCursor(symbol), cutoff);
     const collected: Awaited<ReturnType<typeof quant.researchReports>>["items"] = [];
     let page = 1;
     for (;;) {
-      const response = await quant.researchReports(symbol, page, 100, cutoff);
+      const response = await quant.researchReports(symbol, page, 100, beginTime);
       collected.push(...response.items);
       if (response.items.length < 100 || collected.length >= response.total) {
         break;
@@ -307,7 +507,7 @@ export async function syncStockResearchReports(symbol: string): Promise<ContentM
       page++;
     }
     const recent = collected.filter((item) => item.publish_date >= cutoff);
-    const inserted = await saveReports(symbol, recent);
+    const inserted = await saveReports(symbol, recent, cutoff);
     const observedAt = new Date();
     await db
       .insert(syncCursor)
@@ -332,6 +532,53 @@ export async function syncStockResearchReports(symbol: string): Promise<ContentM
   }
 }
 
+export async function syncStockAnalystConsensus(
+  symbol: string,
+  asOfDate = shanghaiDate(),
+): Promise<ContentModuleResult> {
+  try {
+    const items = await quant.analystConsensus(symbol, asOfDate);
+    const inserted = await saveAnalystConsensus(symbol, items);
+    return result(true, inserted, items.length, new Date().toISOString());
+  } catch (error) {
+    return result(false, 0, 0, new Date().toISOString(), error);
+  }
+}
+
+export async function syncStockFinancialSnapshot(symbol: string): Promise<ContentModuleResult> {
+  try {
+    const items = await quant.financialSnapshot(symbol);
+    const inserted = await saveFinancialSnapshots(symbol, items);
+    return result(true, inserted, items.length, new Date().toISOString());
+  } catch (error) {
+    return result(false, 0, 0, new Date().toISOString(), error);
+  }
+}
+
+export async function syncStockFinancialStatements(symbol: string): Promise<ContentModuleResult> {
+  try {
+    const items = await quant.financialStatements(symbol);
+    const inserted = await saveFinancialSnapshots(symbol, items);
+    return result(true, inserted, items.length, new Date().toISOString());
+  } catch (error) {
+    return result(false, 0, 0, new Date().toISOString(), error);
+  }
+}
+
+export async function syncStockValuationHistory(
+  symbol: string,
+  start?: string,
+  end?: string,
+): Promise<ContentModuleResult> {
+  try {
+    const items = await quant.valuationHistory(symbol, start, end);
+    const inserted = await saveValuationHistory(symbol, items);
+    return result(true, inserted, items.length, new Date().toISOString());
+  } catch (error) {
+    return result(false, 0, 0, new Date().toISOString(), error);
+  }
+}
+
 function settledResult(settled: PromiseSettledResult<ContentModuleResult>): ContentModuleResult {
   return settled.status === "fulfilled"
     ? settled.value
@@ -339,10 +586,22 @@ function settledResult(settled: PromiseSettledResult<ContentModuleResult>): Cont
 }
 
 export async function syncStockContent(symbol: string): Promise<StockContentResult> {
-  const [news, announcements, reports] = await Promise.allSettled([
+  const [
+    news,
+    announcements,
+    reports,
+    analystConsensus,
+    financialSnapshot,
+    financialStatements,
+    valuationHistory,
+  ] = await Promise.allSettled([
     syncStockNews(symbol),
     syncStockAnnouncements(symbol),
     syncStockResearchReports(symbol),
+    syncStockAnalystConsensus(symbol),
+    syncStockFinancialSnapshot(symbol),
+    syncStockFinancialStatements(symbol),
+    syncStockValuationHistory(symbol),
   ]);
   return {
     symbol,
@@ -350,6 +609,10 @@ export async function syncStockContent(symbol: string): Promise<StockContentResu
       news: settledResult(news),
       announcements: settledResult(announcements),
       reports: settledResult(reports),
+      analystConsensus: settledResult(analystConsensus),
+      financialSnapshot: settledResult(financialSnapshot),
+      financialStatements: settledResult(financialStatements),
+      valuationHistory: settledResult(valuationHistory),
     },
   };
 }

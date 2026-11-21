@@ -22,7 +22,7 @@ services:
       dockerfile: docker/web.Dockerfile
     container_name: aitrader-nginx
     ports:
-      - "9080:80"
+      - "${DOCKER_WEB_PORT:-9180}:80"
     depends_on:
       - server
     restart: unless-stopped
@@ -35,13 +35,13 @@ services:
       dockerfile: docker/server.Dockerfile
     container_name: aitrader-server
     ports:
-      - "3001:3001"
+      - "${DOCKER_SERVER_PORT:-3101}:3001"
     env_file:
       - .env.local
     environment:
       # 容器网络地址覆盖（localhost → 容器名）；application_name 用于 postgres 慢查询归属
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=server
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9180}
       - QUANT_URL=http://quant:3002
       - REPORTS_DATA_DIR=/data/reports
       # 日志
@@ -66,7 +66,7 @@ services:
       - .env.local
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=worker
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9180}
       - QUANT_URL=http://quant:3002
       # 日志
       - SERVICE_NAME=worker
@@ -93,7 +93,7 @@ services:
       - .env.local
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=workflow-worker
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9080}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9180}
       - QUANT_URL=http://quant:3002
       - SERVICE_NAME=workflow-worker
       - LOG_FORMAT=json
@@ -137,7 +137,7 @@ services:
       dockerfile: docker/quant.Dockerfile
     container_name: aitrader-quant
     ports:
-      - "3002:3002"
+      - "${DOCKER_QUANT_PORT:-3102}:3002"
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=quant
       # 日志
@@ -175,7 +175,7 @@ services:
       POSTGRES_DB: aitrader
       POSTGRES_USER: ai-trader
     ports:
-      - "5432:5432"
+      - "${DOCKER_POSTGRES_PORT:-5532}:5432"
     volumes:
       - pgdata:/var/lib/postgresql
     restart: unless-stopped
@@ -187,7 +187,7 @@ services:
     container_name: aitrader-loki
     command: -config.file=/etc/loki/loki-config.yml
     ports:
-      - "3100:3100"
+      - "${DOCKER_LOKI_PORT:-3200}:3100"
     volumes:
       - ./docker/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
@@ -204,7 +204,7 @@ services:
       - --server.http.listen-addr=0.0.0.0:12345
       - --storage.path=/var/lib/alloy/data
     ports:
-      - "12345:12345"
+      - "${DOCKER_ALLOY_PORT:-12445}:12345"
     volumes:
       - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -219,7 +219,7 @@ services:
     image: grafana/grafana:11.4.0
     container_name: aitrader-grafana
     ports:
-      - "3010:3000"
+      - "${DOCKER_GRAFANA_PORT:-3110}:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin

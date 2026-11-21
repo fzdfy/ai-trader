@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+from datetime import date as Date
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
@@ -19,6 +20,7 @@ from . import registry
 from .adjust import align_series, solve_adjust_params
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
+    CAPABILITY_ANALYST_CONSENSUS,
     CAPABILITY_ANNOUNCEMENT,
     CAPABILITY_BLOCK_TRADE,
     CAPABILITY_BOARD_CONSTITUENTS,
@@ -33,6 +35,8 @@ from .base import (
     CAPABILITY_FUND_FLOW_120D,
     CAPABILITY_FUND_FLOW_MINUTE,
     CAPABILITY_FUND_FLOW_RANK,
+    CAPABILITY_FINANCIAL_SNAPSHOT,
+    CAPABILITY_FINANCIAL_STATEMENTS,
     CAPABILITY_HOLDER_NUM,
     CAPABILITY_HOT_REASON,
     CAPABILITY_INDUSTRY_COMPARISON,
@@ -45,10 +49,12 @@ from .base import (
     CAPABILITY_QUOTE,
     CAPABILITY_STOCK_NEWS,
     CAPABILITY_TRANSACTION,
+    CAPABILITY_VALUATION_HISTORY,
 )
 from .schemas import (
     AdjustFactor,
     AdjustParams,
+    AnalystConsensusItem,
     AnnouncementItem,
     BlockTradeItem,
     BoardConstituentItem,
@@ -62,6 +68,7 @@ from .schemas import (
     FundFlowDay,
     FundFlowPoint,
     FundFlowRankItem,
+    FinancialSnapshotItem,
     HolderNumItem,
     HotReasonItem,
     IndustryComparison,
@@ -73,6 +80,7 @@ from .schemas import (
     NorthboundPoint,
     Quote,
     TradeTick,
+    ValuationDailyItem,
 )
 
 router = APIRouter(tags=["data"])
@@ -296,6 +304,86 @@ def get_announcements(
         symbol,
         since_days=since_days,
         page_size=page_size,
+    )
+
+
+@router.get("/analyst-consensus", response_model=list[AnalystConsensusItem])
+def get_analyst_consensus(
+    symbol: Annotated[str, Query(description="标的代码，如 002594.SZ")],
+    as_of_date: Annotated[Date | None, Query(description="观察日期 YYYY-MM-DD")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[AnalystConsensusItem]:
+    """机构一致预期 EPS。同花顺主源，东财近 400 天研报聚合备源。"""
+    provider = _pick(CAPABILITY_ANALYST_CONSENSUS, source)
+    if provider is not None:
+        return provider.analyst_consensus(
+            symbol,
+            as_of_date=as_of_date.isoformat() if as_of_date else None,
+        )
+    return registry.call_with_fallback(
+        CAPABILITY_ANALYST_CONSENSUS,
+        "analyst_consensus",
+        symbol,
+        retry_on_empty=True,
+        as_of_date=as_of_date.isoformat() if as_of_date else None,
+    )
+
+
+@router.get("/financial-snapshot", response_model=list[FinancialSnapshotItem])
+def get_financial_snapshot(
+    symbol: Annotated[str, Query(description="标的代码，如 002594.SZ")],
+    source: Annotated[str | None, Query()] = None,
+) -> list[FinancialSnapshotItem]:
+    """通达信季报财务快照。"""
+    provider = _pick(CAPABILITY_FINANCIAL_SNAPSHOT, source)
+    if provider is not None:
+        return provider.financial_snapshot(symbol)
+    return registry.call_with_fallback(
+        CAPABILITY_FINANCIAL_SNAPSHOT,
+        "financial_snapshot",
+        symbol,
+    )
+
+
+@router.get("/financial-statements", response_model=list[FinancialSnapshotItem])
+def get_financial_statements(
+    symbol: Annotated[str, Query(description="标的代码，如 002594.SZ")],
+    periods: Annotated[int, Query(ge=1, le=20)] = 8,
+    source: Annotated[str | None, Query()] = None,
+) -> list[FinancialSnapshotItem]:
+    """新浪财务三表，按报告期倒序。"""
+    provider = _pick(CAPABILITY_FINANCIAL_STATEMENTS, source)
+    if provider is not None:
+        return provider.financial_statements(symbol, periods=periods)
+    return registry.call_with_fallback(
+        CAPABILITY_FINANCIAL_STATEMENTS,
+        "financial_statements",
+        symbol,
+        periods=periods,
+    )
+
+
+@router.get("/valuation-history", response_model=list[ValuationDailyItem])
+def get_valuation_history(
+    symbol: Annotated[str, Query(description="标的代码，如 002594.SZ")],
+    start: Annotated[Date | None, Query(description="起始日期 YYYY-MM-DD")] = None,
+    end: Annotated[Date | None, Query(description="结束日期 YYYY-MM-DD")] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[ValuationDailyItem]:
+    """Baostock 日频估值、换手率、停牌与 ST 状态；不支持北交所。"""
+    provider = _pick(CAPABILITY_VALUATION_HISTORY, source)
+    if provider is not None:
+        return provider.valuation_history(
+            symbol,
+            start=start.isoformat() if start else None,
+            end=end.isoformat() if end else None,
+        )
+    return registry.call_with_fallback(
+        CAPABILITY_VALUATION_HISTORY,
+        "valuation_history",
+        symbol,
+        start=start.isoformat() if start else None,
+        end=end.isoformat() if end else None,
     )
 
 

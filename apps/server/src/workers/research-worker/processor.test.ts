@@ -38,6 +38,26 @@ test("metadata jobs sync the report window before preparing indexes", async () =
   assert.deepEqual(calls, ["sync:002594.SZ", "prepare:002594.SZ"]);
 });
 
+test("metadata jobs propagate their trigger to window preparation", async () => {
+  const triggers: string[] = [];
+
+  await processResearchIndexJob(
+    { kind: "metadata", symbol: "002594.SZ", trigger: "watchlist" },
+    {
+      syncMetadata: async () => ({ ok: true, error: null }),
+      prepareWindow: async (_symbol, trigger) => {
+        triggers.push(trigger);
+        return { queued: 0, skipped: 0, failed: 0 };
+      },
+      processReport: async () => {
+        throw new Error("unexpected report processing");
+      },
+    },
+  );
+
+  assert.deepEqual(triggers, ["watchlist"]);
+});
+
 test("report jobs process one report and preserve retry failures", async () => {
   const reportJob: ResearchIndexJob = {
     kind: "report",

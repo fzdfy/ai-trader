@@ -20,7 +20,7 @@ services:
       POSTGRES_DB: aitrader
       POSTGRES_USER: ai-trader
     ports:
-      - "5432:5432"
+      - "${DOCKER_POSTGRES_PORT:-5532}:5432"
     volumes:
       - pgdata:/var/lib/postgresql
     restart: unless-stopped

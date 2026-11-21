@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 #  AI Trader — 启动所有服务（Docker Compose）
-#  访问：http://localhost:9080
+#  访问：http://localhost:9180
 #
 #  只需启动某个模块时，请使用对应脚本：
 #    ./deploy/start-db.sh     数据库
@@ -54,7 +54,7 @@ wait_for_postgres
 log "全部服务已启动"
 
 echo ""
-echo "访问 http://localhost:9080"
+echo "访问 http://localhost:9180"
 echo ""
 echo "docker compose logs -f  查看日志"
 echo "docker compose down     停止所有容器"

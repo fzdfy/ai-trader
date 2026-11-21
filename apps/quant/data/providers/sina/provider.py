@@ -1,6 +1,7 @@
-"""新浪财经行情源 provider。
+"""新浪财经行情与财务 provider。
 
-能力：adjust_factor（前复权 qfq / 后复权 hfq 复权因子序列）。
+能力：adjust_factor（前复权 qfq / 后复权 hfq 复权因子序列）/
+financial_statements（利润表、资产负债表、现金流量表）。
 
 一次 HTTP 约 1.8KB，零鉴权。用 stdlib urllib 直连 + json.raw_decode 解析
 （响应末尾挂着 `/* base64 */` 注释块，不能用 `$` 锚定正则）。
@@ -12,9 +13,13 @@ import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from ...base import CAPABILITY_STOCK_NEWS, MarketProvider
+from ...base import (
+    CAPABILITY_FINANCIAL_STATEMENTS,
+    CAPABILITY_STOCK_NEWS,
+    MarketProvider,
+)
 from ...common import UA, get_prefix, norm_ticker
-from ...schemas import AdjustFactor, NewsItem
+from ...schemas import AdjustFactor, FinancialSnapshotItem, NewsItem
 
 
 def _sina_symbol(value: str) -> str | None:
@@ -74,9 +79,79 @@ def parse_sina_stock_news(payload: dict, symbol: str) -> list[NewsItem]:
     return result
 
 
+_STATEMENT_TYPES = {
+    "fzb": "balance_sheet",
+    "lrb": "income_statement",
+    "llb": "cash_flow",
+}
+
+
+def _number_or_text(value):
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    try:
+        return float(text.replace(",", ""))
+    except ValueError:
+        return text
+
+
+def parse_sina_financial_reports(
+    payload: dict,
+    symbol: str,
+    report_type: str,
+) -> list[FinancialSnapshotItem]:
+    statement_type = _STATEMENT_TYPES.get(report_type)
+    if statement_type is None:
+        raise ValueError(f"新浪财务报表类型不支持: {report_type}")
+    report_list = (
+        (((payload.get("result") or {}).get("data") or {}).get("report_list"))
+        or {}
+    )
+    periods = (
+        report_list.items()
+        if isinstance(report_list, dict)
+        else [
+            (str(item.get("report_date") or ""), item)
+            for item in report_list
+            if isinstance(item, dict)
+        ]
+    )
+    result: list[FinancialSnapshotItem] = []
+    for raw_period, period_payload in periods:
+        period = str(raw_period)
+        if len(period) != 8 or not period.isdigit():
+            continue
+        metrics: dict[str, float | str | None] = {}
+        for item in (period_payload or {}).get("data") or []:
+            title = str(item.get("item_title") or "").strip()
+            if not title or item.get("item_value") is None:
+                continue
+            metrics[title] = _number_or_text(item.get("item_value"))
+            if item.get("item_tongbi") not in (None, ""):
+                metrics[f"{title}_同比"] = _number_or_text(item.get("item_tongbi"))
+        result.append(
+            FinancialSnapshotItem(
+                symbol=symbol,
+                report_period=f"{period[:4]}-{period[4:6]}-{period[6:8]}",
+                statement_type=statement_type,
+                source="sina",
+                metrics=metrics,
+                raw={"report_type": report_type, "report_period": period},
+            )
+        )
+    return sorted(result, key=lambda item: item.report_period, reverse=True)
+
+
 class SinaProvider(MarketProvider):
     name = "sina"
-    capabilities = frozenset({"adjust_factor", CAPABILITY_STOCK_NEWS})
+    capabilities = frozenset(
+        {
+            "adjust_factor",
+            CAPABILITY_STOCK_NEWS,
+            CAPABILITY_FINANCIAL_STATEMENTS,
+        }
+    )
 
     def stock_news(self, symbol: str, page_size: int = 20) -> list[NewsItem]:
         url = (
@@ -114,3 +189,35 @@ class SinaProvider(MarketProvider):
             AdjustFactor(date=it["d"], factor=float(it["f"]))
             for it in data.get("data", [])
         ]
+
+    def financial_statements(
+        self, symbol: str, periods: int = 8
+    ) -> list[FinancialSnapshotItem]:
+        code = f"{get_prefix(symbol)}{norm_ticker(symbol)}"
+        result: list[FinancialSnapshotItem] = []
+        errors: list[Exception] = []
+        for report_type in ("lrb", "fzb", "llb"):
+            url = (
+                "https://quotes.sina.cn/cn/api/openapi.php/"
+                "CompanyFinanceService.getFinanceReport2022?"
+                f"paperCode={code}&source={report_type}&type=0&page=1"
+                f"&num={max(1, min(periods, 20))}"
+            )
+            try:
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": UA,
+                        "Referer": "https://finance.sina.com.cn/",
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    payload = json.loads(
+                        response.read().decode("utf-8", errors="replace")
+                    )
+                result.extend(parse_sina_financial_reports(payload, symbol, report_type))
+            except Exception as exc:  # noqa: BLE001 — 单表失败不阻断其他两张表
+                errors.append(exc)
+        if not result and errors:
+            raise errors[-1]
+        return result

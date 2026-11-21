@@ -1,14 +1,15 @@
 import { createTool } from "@mastra/core/tools";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../db";
-import { bar1dQfq, instrument, quoteLatest } from "../../../db/schema";
+import { instrument } from "../../../db/schema";
 import {
   buildRiskReferenceRange,
   buildScenarioForecasts,
   calculateTechnicalSnapshot,
   normalizeStockSymbol,
 } from "../../../lib/stock-analysis-data";
+import { marketDataReader } from "../../../lib/market-data-read";
 
 export const stockAnalysisTool = createTool({
   id: "getStockAnalysis",
@@ -29,36 +30,24 @@ export const stockAnalysisTool = createTool({
   execute: async ({ symbol }) => {
     const normalized = normalizeStockSymbol(symbol);
     if (!normalized) throw new Error(`Unsupported A-share symbol: ${symbol}`);
-    const [targetRows, quoteRows, barRowsDesc] = await Promise.all([
+    const [targetRows, quoteRead, barsRead] = await Promise.all([
       db.select().from(instrument).where(eq(instrument.symbol, normalized)).limit(1),
-      db.select().from(quoteLatest).where(eq(quoteLatest.symbol, normalized)).limit(1),
-      db
-        .select()
-        .from(bar1dQfq)
-        .where(eq(bar1dQfq.symbol, normalized))
-        .orderBy(desc(bar1dQfq.time))
-        .limit(320),
+      marketDataReader.readQuote(normalized),
+      marketDataReader.readDailyBars(normalized, 320),
     ]);
-    const bars = [...barRowsDesc].reverse().map((bar) => ({
-      time: bar.time.toISOString(),
-      open: Number(bar.open),
-      high: Number(bar.high),
-      low: Number(bar.low),
-      close: Number(bar.close),
-      volume: Number(bar.volume),
-      amount: bar.amount == null ? null : Number(bar.amount),
-    }));
+    const bars = barsRead.bars;
+    const quote = quoteRead.quote;
     const technical = calculateTechnicalSnapshot(bars);
     const forecasts = buildScenarioForecasts(bars);
     const riskReferenceRange = buildRiskReferenceRange({
-      current: technical?.close ?? Number(quoteRows[0]?.last ?? 0),
+      current: technical?.close ?? quote?.last ?? 0,
       technical,
       forecast: forecasts.find((item) => item.horizon === "20D"),
     });
     return {
       symbol: normalized,
-      name: targetRows[0]?.name ?? quoteRows[0]?.name ?? null,
-      asOf: bars.at(-1)?.time ?? null,
+      name: targetRows[0]?.name ?? quote?.name ?? null,
+      asOf: barsRead.asOf,
       technical,
       forecasts,
       riskReferenceRange,

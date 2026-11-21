@@ -318,6 +318,29 @@ export interface StockKlineBar {
   adj_factor: number | null;
 }
 
+/** 个股实时行情（quant /quotes 返回）。 */
+export interface StockQuote {
+  symbol: string;
+  name: string | null;
+  last: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  pre_close: number | null;
+  volume: number | null;
+  amount: number | null;
+  change: number | null;
+  change_pct: number | null;
+  turnover_rate: number | null;
+  pe: number | null;
+  pb: number | null;
+  limit_up: number | null;
+  limit_down: number | null;
+  is_stale: boolean;
+  stale_reason: string | null;
+  extra: Record<string, unknown>;
+}
+
 /** 分段仿射复权参数的一个生效步（quant /adjust-params 返回；date 为 YYYY-MM-DD） */
 export interface AdjustParamPoint {
   date: string;
@@ -459,6 +482,42 @@ export interface AnnouncementItem {
   pdf_url: string | null;
 }
 
+export interface AnalystConsensusItem {
+  symbol: string;
+  as_of_date: string;
+  fiscal_year: number;
+  eps_min: number | null;
+  eps_mean: number | null;
+  eps_max: number | null;
+  analyst_count: number | null;
+  source: string;
+  raw: Record<string, unknown>;
+}
+
+export interface FinancialSnapshotItem {
+  symbol: string;
+  report_period: string;
+  statement_type: string;
+  source: string;
+  metrics: Record<string, number | string | null>;
+  raw: Record<string, unknown>;
+}
+
+export interface ValuationDailyItem {
+  symbol: string;
+  trade_date: string;
+  pe_ttm: number | null;
+  pe_static: number | null;
+  pb: number | null;
+  ps_ttm: number | null;
+  pcf: number | null;
+  turnover_rate: number | null;
+  trade_status: string;
+  is_st: boolean;
+  source: string;
+  raw: Record<string, unknown>;
+}
+
 export interface ResearchReportProviderItem {
   source: string;
   source_id: string;
@@ -565,18 +624,45 @@ async function postJson<T>(path: string, body: unknown, timeoutMs = QUANT_TIMEOU
 }
 
 export const quant = {
+  liveQuotes: (symbols: string[]) =>
+    getJson<Record<string, StockQuote>>(
+      `/api/v1/data/quotes?codes=${encodeURIComponent(symbols.join(","))}`,
+    ),
+
   stockNews: (symbol: string, pageSize = 20) =>
     getJson<NewsItem[]>(
       `/api/v1/data/stock-news?symbol=${encodeURIComponent(symbol)}&page_size=${pageSize}`,
     ),
 
-  marketNews: (limit = 50) =>
-    getJson<NewsItem[]>(`/api/v1/data/market-news?limit=${limit}`),
+  marketNews: (limit = 50) => getJson<NewsItem[]>(`/api/v1/data/market-news?limit=${limit}`),
 
   announcements: (symbol: string, sinceDays = 30, pageSize = 30) =>
     getJson<AnnouncementItem[]>(
       `/api/v1/data/announcements?symbol=${encodeURIComponent(symbol)}&since_days=${sinceDays}&page_size=${pageSize}`,
     ),
+
+  analystConsensus: (symbol: string, asOfDate?: string) => {
+    let path = `/api/v1/data/analyst-consensus?symbol=${encodeURIComponent(symbol)}`;
+    if (asOfDate) path += `&as_of_date=${encodeURIComponent(asOfDate)}`;
+    return getJson<AnalystConsensusItem[]>(path);
+  },
+
+  financialSnapshot: (symbol: string) =>
+    getJson<FinancialSnapshotItem[]>(
+      `/api/v1/data/financial-snapshot?symbol=${encodeURIComponent(symbol)}`,
+    ),
+
+  financialStatements: (symbol: string, periods = 8) =>
+    getJson<FinancialSnapshotItem[]>(
+      `/api/v1/data/financial-statements?symbol=${encodeURIComponent(symbol)}&periods=${periods}`,
+    ),
+
+  valuationHistory: (symbol: string, start?: string, end?: string) => {
+    let path = `/api/v1/data/valuation-history?symbol=${encodeURIComponent(symbol)}`;
+    if (start) path += `&start=${encodeURIComponent(start)}`;
+    if (end) path += `&end=${encodeURIComponent(end)}`;
+    return getJson<ValuationDailyItem[]>(path, 120_000);
+  },
 
   researchReports: (symbol: string, page = 1, pageSize = 100, beginTime?: string) => {
     let path = `/api/v1/research/reports?symbol=${encodeURIComponent(symbol)}&page=${page}&page_size=${pageSize}`;
@@ -603,11 +689,7 @@ export const quant = {
     ),
 
   embedResearchTexts: (texts: string[]) =>
-    postJson<{ model: string; vectors: number[][] }>(
-      "/api/v1/research/embed",
-      { texts },
-      120_000,
-    ),
+    postJson<{ model: string; vectors: number[][] }>("/api/v1/research/embed", { texts }, 120_000),
 
   /** 个股资金流（日级，最近 120 个交易日） */
   fundFlow120d: (symbol: string) =>

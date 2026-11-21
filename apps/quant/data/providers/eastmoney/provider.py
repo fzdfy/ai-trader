@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 
 from ...base import (
+    CAPABILITY_ANALYST_CONSENSUS,
     CAPABILITY_ANNOUNCEMENT,
     CAPABILITY_MARKET_NEWS,
     CAPABILITY_STOCK_NEWS,
@@ -50,6 +51,7 @@ from ...base import (
 )
 from ...common import UA, drop_unsettled_today_bar, get_prefix, norm_date, norm_ticker, tdx_client
 from ...schemas import (
+    AnalystConsensusItem,
     BlockTradeItem,
     BoardConstituentItem,
     BoardFundFlow,
@@ -572,6 +574,7 @@ def _chip_distribution(df: pd.DataFrame, grid_size: int = 300, decay: float = 1.
 class EastmoneyProvider(MarketProvider):
     name = "eastmoney"
     capabilities = frozenset({
+        CAPABILITY_ANALYST_CONSENSUS,
         CAPABILITY_STOCK_NEWS,
         CAPABILITY_MARKET_NEWS,
         CAPABILITY_ANNOUNCEMENT,
@@ -664,6 +667,65 @@ class EastmoneyProvider(MarketProvider):
         return [
             item for item in items if item.published_at >= cutoff.isoformat()
         ][: max(1, min(page_size, 100))]
+
+    def analyst_consensus(
+        self, symbol: str, as_of_date: str | None = None
+    ) -> list[AnalystConsensusItem]:
+        """由近 400 天研报 EPS 预测聚合，仅作为同花顺一致预期的降级源。"""
+        from research_reports import fetch_reports
+
+        observed = as_of_date or _date.today().isoformat()
+        begin = (_date.today() - timedelta(days=400)).isoformat()
+        reports: list[dict] = []
+        for page in range(1, 4):
+            response = fetch_reports(
+                symbol,
+                page=page,
+                page_size=100,
+                begin_time=begin,
+                end_time=_date.today().isoformat(),
+            )
+            reports.extend(response["items"])
+            if len(response["items"]) < 100:
+                break
+        grouped: dict[int, list[tuple[float, str]]] = {}
+        for report in reports:
+            publish_date = str(report.get("publish_date") or "")
+            if len(publish_date) < 4 or not publish_date[:4].isdigit():
+                continue
+            publish_year = int(publish_date[:4])
+            institution = str(report.get("institution") or "")
+            for forecast in report.get("forecasts") or []:
+                eps = forecast.get("eps")
+                horizon = forecast.get("horizon")
+                if not isinstance(eps, (int, float)):
+                    continue
+                offset = {"current": 0, "next": 1, "next_two": 2}.get(horizon)
+                if offset is None:
+                    continue
+                grouped.setdefault(publish_year + offset, []).append((float(eps), institution))
+
+        result: list[AnalystConsensusItem] = []
+        for fiscal_year, values in sorted(grouped.items()):
+            eps_values = [eps for eps, _ in values]
+            institutions = {name for _, name in values if name}
+            result.append(
+                AnalystConsensusItem(
+                    symbol=symbol,
+                    as_of_date=observed,
+                    fiscal_year=fiscal_year,
+                    eps_min=min(eps_values),
+                    eps_mean=sum(eps_values) / len(eps_values),
+                    eps_max=max(eps_values),
+                    analyst_count=len(institutions) or None,
+                    source="eastmoney",
+                    raw={
+                        "forecast_count": len(values),
+                        "report_count": len(reports),
+                    },
+                )
+            )
+        return result
 
     # ── 3.3 概念板块归属 ────────────────────────────────────────────
 

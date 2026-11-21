@@ -265,6 +265,32 @@ test(
 );
 
 test(
+  "watchlist preparation keeps the background trigger on report jobs",
+  { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async (t) => {
+    const source = `research-watchlist-${crypto.randomUUID()}`;
+    const symbol = `TEST${crypto.randomUUID().slice(0, 2).toUpperCase()}.SZ`;
+    const reportId = await seedReport(source, symbol, 1);
+    const jobs: Array<{ kind: string; trigger?: string }> = [];
+    t.after(async () => {
+      await db.delete(researchReport).where(eq(researchReport.source, source));
+    });
+
+    await prepareResearchIndexWindow(
+      symbol,
+      30,
+      async (job) => {
+        jobs.push(job);
+        return "job-id";
+      },
+      "watchlist",
+    );
+
+    assert.deepEqual(jobs, [{ kind: "report", reportId, symbol, trigger: "watchlist" }]);
+  },
+);
+
+test(
   "report processing writes current chunks or persists failure",
   { skip: runDatabaseTests ? false : "set ADMIN_DB_TESTS=1 to run" },
   async (t) => {

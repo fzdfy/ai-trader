@@ -1,16 +1,14 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
-import { and, count, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   analystConsensusSnapshot,
-  bar1dQfq,
   companyAnnouncement,
   fundFlowRank,
   instrument,
   newsArticle,
   newsArticleSymbol,
-  quoteLatest,
   researchReport,
   researchReportDocument,
   stockFinancialSnapshot,
@@ -24,7 +22,6 @@ import {
   buildValuationRange,
   calculateTechnicalSnapshot,
   normalizeStockSymbol,
-  type AnalysisBar,
 } from "../lib/stock-analysis-data";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
 import { syncStockContent } from "../services/stock-content-service";
@@ -34,6 +31,7 @@ import {
   DataGovernanceGateError,
   type ResearchGateDecision,
 } from "../lib/data-governance/quality-gate";
+import { marketDataReader } from "../lib/market-data-read";
 
 const stockAnalysisRoute = new Hono();
 
@@ -47,11 +45,6 @@ function isoDate(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function quoteQuality(ts: Date | null, now = Date.now()): "available" | "low" | "missing" {
-  if (!ts) return "missing";
-  return now - ts.getTime() <= 3 * 86_400_000 ? "available" : "low";
 }
 
 function moduleData<T>(data: T, asOf: string | null, source: string, quality: string) {
@@ -69,28 +62,6 @@ function governanceNotice(decision: ResearchGateDecision) {
     : {};
 }
 
-function mapBars(
-  rows: Array<{
-    time: Date;
-    open: string;
-    high: string;
-    low: string;
-    close: string;
-    volume: string;
-    amount: string | null;
-  }>,
-): AnalysisBar[] {
-  return [...rows].reverse().map((bar) => ({
-    time: bar.time.toISOString(),
-    open: Number(bar.open),
-    high: Number(bar.high),
-    low: Number(bar.low),
-    close: Number(bar.close),
-    volume: Number(bar.volume),
-    amount: bar.amount == null ? null : Number(bar.amount),
-  }));
-}
-
 stockAnalysisRoute.get("/compare", async (c) => {
   const requested = (c.req.query("symbols") ?? "")
     .split(",")
@@ -103,41 +74,34 @@ stockAnalysisRoute.get("/compare", async (c) => {
     const gate = await assertResearchDataReady("stock_analysis");
     const items = await Promise.all(
       symbols.map(async (symbol) => {
-        const [instrumentRows, quoteRows, barRowsDesc, reportCountRows] = await Promise.all([
+        const [instrumentRows, quoteRead, barsRead, reportCountRows] = await Promise.all([
           db.select().from(instrument).where(eq(instrument.symbol, symbol)).limit(1),
-          db.select().from(quoteLatest).where(eq(quoteLatest.symbol, symbol)).limit(1),
-          db
-            .select()
-            .from(bar1dQfq)
-            .where(eq(bar1dQfq.symbol, symbol))
-            .orderBy(desc(bar1dQfq.time))
-            .limit(320),
+          marketDataReader.readQuote(symbol),
+          marketDataReader.readDailyBars(symbol, 320),
           db
             .select({ total: count() })
             .from(researchReport)
             .where(eq(researchReport.symbol, symbol)),
         ]);
         const target = instrumentRows[0];
-        const quote = quoteRows[0];
-        const bars = mapBars(barRowsDesc);
+        const quote = quoteRead.quote;
+        const bars = barsRead.bars;
         const technical = calculateTechnicalSnapshot(bars);
         const forecasts = buildScenarioForecasts(bars);
-        const extra = (quote?.extra ?? {}) as Record<string, unknown>;
         return {
           symbol,
           name: target?.name ?? quote?.name ?? symbol,
           exchange: target?.exchange ?? symbol.split(".").at(-1) ?? "",
           quote: {
-            last: numberOrNull(quote?.last),
-            changePct: numberOrNull(quote?.changePct),
-            pe: numberOrNull(quote?.pe),
-            pb: numberOrNull(quote?.pb),
-            totalMarketCap:
-              numberOrNull(extra.totalMarketCap) ??
-              numberOrNull(extra.total_market_cap) ??
-              numberOrNull(extra.marketCap),
-            at: isoDate(quote?.ts),
-            quality: quoteQuality(quote?.ts ?? null),
+            last: quote?.last ?? null,
+            changePct: quote?.changePct ?? null,
+            pe: quote?.pe ?? null,
+            pb: quote?.pb ?? null,
+            totalMarketCap: quote?.totalMarketCap ?? null,
+            at: quoteRead.asOf,
+            source: quoteRead.source,
+            quality: quoteRead.quality,
+            fallback: quoteRead.fallback,
           },
           reportCount: reportCountRows[0]?.total ?? 0,
           technical,
@@ -191,8 +155,8 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
     const gate = await assertResearchDataReady("stock_analysis");
     const [
       instrumentRows,
-      quoteRows,
-      barRowsDesc,
+      quoteRead,
+      barsRead,
       reportCountRows,
       reportRows,
       fundFlowRow,
@@ -204,13 +168,8 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       reportIndex,
     ] = await Promise.all([
       db.select().from(instrument).where(eq(instrument.symbol, symbol)).limit(1),
-      db.select().from(quoteLatest).where(eq(quoteLatest.symbol, symbol)).limit(1),
-      db
-        .select()
-        .from(bar1dQfq)
-        .where(eq(bar1dQfq.symbol, symbol))
-        .orderBy(desc(bar1dQfq.time))
-        .limit(320),
+      marketDataReader.readQuote(symbol),
+      marketDataReader.readDailyBars(symbol, 320),
       db
         .select({
           total: count(),
@@ -271,9 +230,10 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
           and(
             eq(analystConsensusSnapshot.symbol, symbol),
             gte(analystConsensusSnapshot.asOfDate, sql`current_date - interval '400 days'`),
+            gte(analystConsensusSnapshot.fiscalYear, sql`extract(year from current_date)::int`),
           ),
         )
-        .orderBy(desc(analystConsensusSnapshot.asOfDate), desc(analystConsensusSnapshot.fiscalYear))
+        .orderBy(desc(analystConsensusSnapshot.asOfDate), asc(analystConsensusSnapshot.fiscalYear))
         .limit(3),
       db
         .select()
@@ -293,15 +253,11 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
     const target = instrumentRows[0];
     if (!target) return notFound(c, `Instrument ${symbol} not found`);
 
-    const quote = quoteRows[0];
-    const bars = mapBars(barRowsDesc);
+    const quote = quoteRead.quote;
+    const bars = barsRead.bars;
     const technical = calculateTechnicalSnapshot(bars);
     const forecasts = buildScenarioForecasts(bars);
-    const extra = (quote?.extra ?? {}) as Record<string, unknown>;
-    const totalMarketCap =
-      numberOrNull(extra.totalMarketCap) ??
-      numberOrNull(extra.total_market_cap) ??
-      numberOrNull(extra.marketCap);
+    const totalMarketCap = quote?.totalMarketCap ?? null;
     const reportCount = reportCountRows[0]?.total ?? 0;
     const reportPdfPending = Number(reportCountRows[0]?.pdfPending ?? 0);
     const flow = fundFlowRow[0];
@@ -337,13 +293,13 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       valuationRows.map((row) => numberOrNull(row.peTtm)),
     );
     const riskReferenceRange = buildRiskReferenceRange({
-      current: technical?.close ?? (quote?.last == null ? 0 : Number(quote.last)),
+      current: technical?.close ?? quote?.last ?? 0,
       technical,
       forecast: forecasts.find((item) => item.horizon === "20D"),
       valuation: valuationRange,
     });
-    const quoteAt = quote?.ts ?? null;
-    const quoteState = quoteQuality(quoteAt);
+    const quoteAt = quoteRead.asOf ? new Date(quoteRead.asOf) : null;
+    const quoteState = quoteRead.quality;
     const asOfTradeDate = bars.at(-1)?.time.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
     const inputHash = createHash("sha256")
       .update(
@@ -351,7 +307,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
           symbol,
           barTime: bars.at(-1)?.time ?? null,
           barCount: bars.length,
-          quoteAt: quoteAt?.toISOString() ?? null,
+          quoteAt: quoteRead.asOf,
           quoteLast: quote?.last ?? null,
           consensusAsOf: consensus?.asOfDate ?? null,
           valuationCount: valuationRows.length,
@@ -378,7 +334,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
         },
       })
       .onConflictDoNothing();
-    const latestPrice = numberOrNull(quote?.last) ?? technical?.close ?? null;
+    const latestPrice = quote?.last ?? technical?.close ?? null;
     const summaryTitle =
       technical == null
         ? "历史行情不足，暂不生成趋势判断。"
@@ -396,32 +352,30 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       quote: moduleData(
         quote
           ? {
-              last: numberOrNull(quote.last),
-              change: numberOrNull(quote.change),
-              changePct: numberOrNull(quote.changePct),
-              pe: numberOrNull(quote.pe),
-              pb: numberOrNull(quote.pb),
-              turnoverRate: numberOrNull(quote.turnoverRate),
+              last: quote.last,
+              change: quote.change,
+              changePct: quote.changePct,
+              pe: quote.pe,
+              pb: quote.pb,
+              turnoverRate: quote.turnoverRate,
               totalMarketCap,
               status: quote.status,
-              at: isoDate(quoteAt),
+              at: quoteRead.asOf,
+              source: quoteRead.source,
+              quality: quoteRead.quality,
+              fallback: quoteRead.fallback,
             }
           : null,
-        isoDate(quoteAt),
-        "quote_latest",
+        quoteRead.asOf,
+        quoteRead.source,
         quoteState,
       ),
-      prices: moduleData(
-        bars.slice(-120),
-        bars.at(-1)?.time ?? null,
-        "bar1d_qfq",
-        bars.length > 0 ? "available" : "missing",
-      ),
+      prices: moduleData(bars.slice(-120), barsRead.asOf, barsRead.source, barsRead.quality),
       technical: moduleData(
         technical,
         technical?.asOf ?? null,
-        "bar1d_qfq",
-        technical ? "available" : "missing",
+        barsRead.source,
+        technical ? barsRead.quality : "missing",
       ),
       forecasts: moduleData(
         forecasts,

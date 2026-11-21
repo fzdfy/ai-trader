@@ -19,7 +19,7 @@ usage() {
   -h, --help     显示本帮助
 
 说明:
-  容器名 aitrader-quant，端口 3002。
+  容器名 aitrader-quant，端口 3102 → 容器 3002。
   依赖 postgres（默认自动拉起）。
 EOF
 }
@@ -30,5 +30,5 @@ start_module quant postgres
 follow_logs quant
 
 echo ""
-echo "回测服务已启动: http://localhost:3002"
-echo "接口文档:      http://localhost:3002/docs"
+echo "回测服务已启动: http://localhost:3102"
+echo "接口文档:      http://localhost:3102/docs"

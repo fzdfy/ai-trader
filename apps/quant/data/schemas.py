@@ -146,6 +146,48 @@ class AnnouncementItem(BaseModel):
     pdf_url: str | None = None
 
 
+class AnalystConsensusItem(BaseModel):
+    """机构一致预期 EPS 的一条年度快照。"""
+
+    symbol: str
+    as_of_date: str
+    fiscal_year: int
+    eps_min: float | None = None
+    eps_mean: float | None = None
+    eps_max: float | None = None
+    analyst_count: int | None = None
+    source: str
+    raw: dict = Field(default_factory=dict)
+
+
+class FinancialSnapshotItem(BaseModel):
+    """财务报告期快照，metrics 保留来源口径与标准化核心字段。"""
+
+    symbol: str
+    report_period: str
+    statement_type: str
+    source: str
+    metrics: dict[str, float | str | None]
+    raw: dict = Field(default_factory=dict)
+
+
+class ValuationDailyItem(BaseModel):
+    """日频历史估值与交易状态。"""
+
+    symbol: str
+    trade_date: str
+    pe_ttm: float | None = None
+    pe_static: float | None = None
+    pb: float | None = None
+    ps_ttm: float | None = None
+    pcf: float | None = None
+    turnover_rate: float | None = None
+    trade_status: str = "trading"
+    is_st: bool = False
+    source: str
+    raw: dict = Field(default_factory=dict)
+
+
 # ============================================================================
 # 信号层（Layer 3）模型 — 同花顺热点 / 北向 / 概念归属 / 资金流 / 龙虎榜 / 解禁 / 板块
 # ============================================================================

@@ -18,7 +18,7 @@ test("research index jobs preserve dedupe and retry contracts", () => {
     {
       singletonKey: "research-metadata:002594.SZ",
       singletonSeconds: 86_400,
-      priority: 10,
+      priority: 30,
       retryLimit: 3,
       retryDelay: 60,
       retryBackoff: true,
@@ -32,13 +32,31 @@ test("research index jobs preserve dedupe and retry contracts", () => {
       trigger: "analysis",
     }),
     {
-      singletonKey:
-        `research-index:42:${RESEARCH_EXTRACTOR_VERSION}:${RESEARCH_CHUNK_VERSION}:${RESEARCH_EMBEDDING_MODEL}`,
+      singletonKey: `research-index:42:${RESEARCH_EXTRACTOR_VERSION}:${RESEARCH_CHUNK_VERSION}:${RESEARCH_EMBEDDING_MODEL}`,
       singletonSeconds: 600,
-      priority: 10,
+      priority: 30,
       retryLimit: 3,
       retryDelay: 60,
       retryBackoff: true,
     },
   );
+});
+
+test("current analysis work is prioritized above watchlist background work", () => {
+  const analysis = researchIndexJobOptions({
+    kind: "report",
+    reportId: 42,
+    symbol: "002594.SZ",
+    trigger: "analysis",
+  });
+  const watchlist = researchIndexJobOptions({
+    kind: "report",
+    reportId: 42,
+    symbol: "002594.SZ",
+    trigger: "watchlist",
+  });
+
+  assert.ok(analysis.priority > watchlist.priority);
+  assert.equal(analysis.retryLimit, 3);
+  assert.equal(watchlist.retryLimit, 3);
 });

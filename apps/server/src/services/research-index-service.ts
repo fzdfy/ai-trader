@@ -18,6 +18,7 @@ import {
   RESEARCH_METADATA_SYNC_TIMEFRAME,
   type ResearchIndexJob,
   type ResearchIndexStatus,
+  type ResearchIndexTrigger,
 } from "./research-index-contracts";
 import { enqueueResearchIndexJob } from "./research-queue";
 
@@ -166,6 +167,7 @@ export async function prepareResearchIndexWindow(
   symbol: string,
   days = RESEARCH_INDEX_WINDOW_DAYS,
   enqueue: Enqueue = enqueueResearchIndexJob,
+  trigger: ResearchIndexTrigger = "analysis",
 ): Promise<PrepareIndexResult> {
   const status = await getResearchIndexStatus(symbol, days);
   if (status.action === "none") {
@@ -175,7 +177,7 @@ export async function prepareResearchIndexWindow(
     const jobId = await enqueue({
       kind: "metadata",
       symbol,
-      trigger: "analysis",
+      trigger,
     });
     return {
       queued: jobId ? 1 : 0,
@@ -219,7 +221,7 @@ export async function prepareResearchIndexWindow(
         kind: "report",
         reportId: row.reportId,
         symbol,
-        trigger: "analysis",
+        trigger,
       });
       if (jobId) queued++;
       else skipped++;

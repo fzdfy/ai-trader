@@ -16,10 +16,10 @@ export interface CronJobConfig {
 
 export const CRON_JOBS: CronJobConfig[] = [
   // 分钟 K 线 / 缺口检测管道尚未实现（空壳），暂不调度，避免同步中心显示"成功"误导
-  { name: "kline-1m",   cron: "*/30 * * * * *", enabled: false },
-  { name: "gap-detect",  cron: "*/5 * * * *",    enabled: false },
+  { name: "kline-1m", cron: "*/30 * * * * *", enabled: false },
+  { name: "gap-detect", cron: "*/5 * * * *", enabled: false },
   // 新闻：仅交易日活跃时段（07:00–23:00）运行，高频独立触发，不走重试循环
-  { name: "news",        cron: "*/2 * * * *",    enabled: true, marketHoursOnly: true },
+  { name: "news", cron: "*/2 * * * *", enabled: true, marketHoursOnly: true },
   // ============================ 收盘后任务 ============================
   // 统一交易日 15:10 触发一次（腾讯日线收盘后即定稿，无需等 16:00），
   // 失败由管道内部循环重试到 deadline（18:00），不再靠 cron 多次触发；
@@ -28,22 +28,100 @@ export const CRON_JOBS: CronJobConfig[] = [
   //   boards → board-kline / constituents
   //   kline-1d → adj-factor → kline-period / features
   //   （adj-factor 反解腾讯仿射复权参数，是 qfq/hfq 视图的数据来源，须先于读视图的下游）
-  { name: "kline-1d",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "boards",        cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "board-kline",   cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "boards", deadline: "18:00" },
-  { name: "constituents",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "boards", deadline: "18:00" },
-  { name: "fundflow",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "limit-up-pool", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "board-fund-flow", cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "dragon-tiger",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "hot-reason",    cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "18:00" },
-  { name: "adj-factor",    cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "kline-1d", deadline: "18:00" },
-  { name: "kline-period",  cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "adj-factor", deadline: "18:00" },
-  { name: "features",      cron: "10 15 * * 1-5", enabled: true, marketCloseOnly: true, dependsOn: "adj-factor", deadline: "18:00" },
+  {
+    name: "kline-1d",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "boards",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "board-kline",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: "boards",
+    deadline: "18:00",
+  },
+  {
+    name: "constituents",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: "boards",
+    deadline: "18:00",
+  },
+  {
+    name: "fundflow",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "limit-up-pool",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "board-fund-flow",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "dragon-tiger",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "hot-reason",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
+  {
+    name: "adj-factor",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: "kline-1d",
+    deadline: "18:00",
+  },
+  {
+    name: "kline-period",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: "adj-factor",
+    deadline: "18:00",
+  },
+  {
+    name: "features",
+    cron: "10 15 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: "adj-factor",
+    deadline: "18:00",
+  },
   { name: "governance-quality-scan", cron: "30 18 * * 1-5", enabled: true, marketCloseOnly: true },
   // 自选股内容：收盘后按 watchlist 串行刷新，禁止退化为全市场抓取
   { name: "stock-announcements", cron: "5 18 * * 1-5", enabled: true, marketCloseOnly: true },
   { name: "stock-research-reports", cron: "10 18 * * 1-5", enabled: true, marketCloseOnly: true },
+  { name: "stock-fundamentals", cron: "20 18 * * 1-5", enabled: true, marketCloseOnly: true },
   // ======================= 历史回补（独立任务） =======================
   // 与当日同步彻底分离：回补只补「窗口内缺失的历史交易日」（显式排除当日），
   // 各自拥有独立 jobType / 幂等状态 / 重试窗口，互不连累。
@@ -54,15 +132,39 @@ export const CRON_JOBS: CronJobConfig[] = [
   //      故留出间隔单独运行。
   //      kline-1d-backfill 完成后会对「本次实际写入的标的」内联重收敛 adj-factor（重解分段
   //      仿射参数）与 kline-period（整段重建周期线），补上回补晚于主链路（15:10）的收敛缺口。
-  { name: "limit-up-pool-backfill", cron: "0 19 * * 1-5",  enabled: true, marketCloseOnly: true, deadline: "22:00" },
-  { name: "dragon-tiger-backfill",  cron: "5 19 * * 1-5",  enabled: true, marketCloseOnly: true, deadline: "22:00" },
-  { name: "hot-reason-backfill",    cron: "10 19 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "22:00" },
-  { name: "kline-1d-backfill",      cron: "30 19 * * 1-5", enabled: true, marketCloseOnly: true, deadline: "22:00" },
+  {
+    name: "limit-up-pool-backfill",
+    cron: "0 19 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "22:00",
+  },
+  {
+    name: "dragon-tiger-backfill",
+    cron: "5 19 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "22:00",
+  },
+  {
+    name: "hot-reason-backfill",
+    cron: "10 19 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "22:00",
+  },
+  {
+    name: "kline-1d-backfill",
+    cron: "30 19 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "22:00",
+  },
   // 交易日历：每周一凌晨 2 点一次性补未来交易日
-  { name: "calendar",      cron: "0 2 * * 1",      enabled: true },
+  { name: "calendar", cron: "0 2 * * 1", enabled: true },
   // 来源标准巡检：每天低峰检查 a-stock-data 的不可变版本，不依赖交易日。
   { name: "source-standard-watch", cron: "0 3 * * *", enabled: true },
   // 分区维护：每周一凌晨低峰巡检 bar1d_raw 年度分区，提前建好未来 2 年分区并告警 DEFAULT 断档。
   // 纯 DDL（无行情写入），不参与手动同步互斥、无需交易日守卫；错开 calendar 20 分钟。
-  { name: "partition-maint", cron: "20 2 * * 1",   enabled: true },
+  { name: "partition-maint", cron: "20 2 * * 1", enabled: true },
 ];

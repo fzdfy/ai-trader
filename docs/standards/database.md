@@ -22,7 +22,7 @@
 - 区分 `executed`、`skipped`、`failed`。
 - 历史回补与当日同步分离并错峰。
 - `job_run` 是单数表名。
-- 自选股内容任务只读取 `watchlist`，不得退化为全市场抓取；新闻 20 条、公告 30 天、研报 12 个月为固定首次窗口。
+- 自选股内容任务只读取 `watchlist`，不得退化为全市场抓取；新闻 20 条、公告 30 天、研报 12 个月为固定首次窗口。研报元数据首次同步后按游标只回看最近 7 天并保留 7 天重叠；一致预期、财务和估值由独立基本面任务同步，北交所跳过 Baostock 估值。
 - `company_announcement` 以 `(source, source_url)` 唯一；迁移清理重复行时保留最大 `id`，其他历史行按 `id` 确定性删除。
 - 新闻按 `(source, url)` 唯一，空 Provider URL 必须生成稳定 `fallback:` 键；新闻关联以 `(article_id, symbol)` 唯一，查询标的必须显式关联。
 

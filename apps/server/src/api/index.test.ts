@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test, { after } from "node:test";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { auth } from "../auth";
 import { db } from "../db";
 import {
+  analystConsensusSnapshot,
   newsArticle,
   newsArticleSymbol,
   researchReport,
@@ -90,6 +91,10 @@ test("stock analysis refresh returns module results when one content source fail
   const originalNews = quant.stockNews;
   const originalAnnouncements = quant.announcements;
   const originalReports = quant.researchReports;
+  const originalConsensus = quant.analystConsensus;
+  const originalSnapshot = quant.financialSnapshot;
+  const originalStatements = quant.financialStatements;
+  const originalValuation = quant.valuationHistory;
   const source = `test-refresh-${crypto.randomUUID()}`;
   const url = `https://example.com/${crypto.randomUUID()}`;
   t.after(async () => {
@@ -97,6 +102,10 @@ test("stock analysis refresh returns module results when one content source fail
     quant.stockNews = originalNews;
     quant.announcements = originalAnnouncements;
     quant.researchReports = originalReports;
+    quant.analystConsensus = originalConsensus;
+    quant.financialSnapshot = originalSnapshot;
+    quant.financialStatements = originalStatements;
+    quant.valuationHistory = originalValuation;
     const articles = await db
       .select({ id: newsArticle.id })
       .from(newsArticle)
@@ -131,6 +140,10 @@ test("stock analysis refresh returns module results when one content source fail
     total: 0,
     items: [],
   });
+  quant.analystConsensus = async () => [];
+  quant.financialSnapshot = async () => [];
+  quant.financialStatements = async () => [];
+  quant.valuationHistory = async () => [];
 
   const response = await api.request("/stock-analysis/002594.SZ/refresh", {
     method: "POST",
@@ -178,3 +191,47 @@ test("stock analysis returns the aggregate pending PDF count", async () => {
   assert.equal(body.data.reportIndex.windowDays, 30);
   assert.ok(["sync_metadata", "index_reports", "none"].includes(body.data.reportIndex.action));
 });
+
+test(
+  "stock analysis uses the current fiscal year consensus before later estimates",
+  { skip: process.env.ADMIN_DB_TESTS === "1" ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async (t) => {
+    const source = `test-current-consensus-${crypto.randomUUID()}`;
+    const asOfDate = new Date().toISOString().slice(0, 10);
+    const currentYear = Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+      }).format(new Date()),
+    );
+    t.after(async () => {
+      await db
+        .delete(analystConsensusSnapshot)
+        .where(
+          and(
+            eq(analystConsensusSnapshot.symbol, "002594.SZ"),
+            eq(analystConsensusSnapshot.source, source),
+          ),
+        );
+    });
+    await db.insert(analystConsensusSnapshot).values(
+      [currentYear - 2, currentYear, currentYear + 2].map((fiscalYear, index) => ({
+        symbol: "002594.SZ",
+        asOfDate,
+        fiscalYear,
+        epsMean: String(3 + index),
+        analystCount: 10 + index,
+        source,
+        rawJson: {},
+      })),
+    );
+
+    const response = await api.request("/stock-analysis/002594.SZ");
+    const body = (await response.json()) as {
+      data: { consensus: { data: { fiscalYear: number } | null } };
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(body.data.consensus.data?.fiscalYear, currentYear);
+  },
+);

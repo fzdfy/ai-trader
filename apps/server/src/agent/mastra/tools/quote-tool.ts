@@ -5,9 +5,7 @@
  */
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { db } from "../../../db";
-import { quoteLatest } from "../../../db/schema/md";
-import { eq } from "drizzle-orm";
+import { marketDataReader } from "../../../lib/market-data-read";
 
 export const quoteTool = createTool({
   id: "getQuote",
@@ -30,13 +28,9 @@ export const quoteTool = createTool({
     status: z.string().nullable(),
   }),
   execute: async ({ symbol }) => {
-    const row = await db
-      .select()
-      .from(quoteLatest)
-      .where(eq(quoteLatest.symbol, symbol))
-      .limit(1);
+    const read = await marketDataReader.readQuote(symbol);
 
-    if (row.length === 0) {
+    if (!read.quote) {
       return {
         symbol,
         name: null,
@@ -51,17 +45,17 @@ export const quoteTool = createTool({
       };
     }
 
-    const q = row[0]!;
+    const q = read.quote;
     return {
       symbol: q.symbol,
       name: q.name,
-      last: q.last ? Number(q.last) : null,
-      changePct: q.changePct ? Number(q.changePct) : null,
-      volume: q.volume ? Number(q.volume) : null,
-      amount: q.amount ? Number(q.amount) : null,
-      turnoverRate: q.turnoverRate ? Number(q.turnoverRate) : null,
-      pe: q.pe ? Number(q.pe) : null,
-      pb: q.pb ? Number(q.pb) : null,
+      last: q.last,
+      changePct: q.changePct,
+      volume: q.volume,
+      amount: q.amount,
+      turnoverRate: q.turnoverRate,
+      pe: q.pe,
+      pb: q.pb,
       status: q.status,
     };
   },

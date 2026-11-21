@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from .base import (
     CAPABILITY_ADJUST_FACTOR,
+    CAPABILITY_ANALYST_CONSENSUS,
     CAPABILITY_ANNOUNCEMENT,
     CAPABILITY_BLOCK_TRADE,
     CAPABILITY_BOARD_CONSTITUENTS,
@@ -29,6 +30,8 @@ from .base import (
     CAPABILITY_FUND_FLOW_120D,
     CAPABILITY_FUND_FLOW_MINUTE,
     CAPABILITY_FUND_FLOW_RANK,
+    CAPABILITY_FINANCIAL_SNAPSHOT,
+    CAPABILITY_FINANCIAL_STATEMENTS,
     CAPABILITY_HOLDER_NUM,
     CAPABILITY_HOT_REASON,
     CAPABILITY_INDUSTRY_COMPARISON,
@@ -41,9 +44,11 @@ from .base import (
     CAPABILITY_QUOTE,
     CAPABILITY_STOCK_NEWS,
     CAPABILITY_TRANSACTION,
+    CAPABILITY_VALUATION_HISTORY,
     MarketProvider,
 )
 from .providers import (
+    BaostockProvider,
     BaiduProvider,
     CninfoProvider,
     EastmoneyProvider,
@@ -62,6 +67,7 @@ _PROVIDER_CLASSES: dict[str, type[MarketProvider]] = {
     "ths": ThsProvider,
     "eastmoney": EastmoneyProvider,
     "cninfo": CninfoProvider,
+    "baostock": BaostockProvider,
 }
 
 _instances: dict[str, MarketProvider] = {}
@@ -103,6 +109,11 @@ _CAPABILITY_PRIORITY: dict[str, list[str]] = {
     CAPABILITY_STOCK_NEWS: ["eastmoney", "sina"],
     CAPABILITY_MARKET_NEWS: ["eastmoney"],
     CAPABILITY_ANNOUNCEMENT: ["cninfo", "eastmoney"],
+    # 研究 / 基本面层
+    CAPABILITY_ANALYST_CONSENSUS: ["ths", "eastmoney"],
+    CAPABILITY_FINANCIAL_SNAPSHOT: ["mootdx"],
+    CAPABILITY_FINANCIAL_STATEMENTS: ["sina"],
+    CAPABILITY_VALUATION_HISTORY: ["baostock"],
 }
 
 

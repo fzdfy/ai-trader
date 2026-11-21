@@ -18,7 +18,7 @@ usage() {
   -h, --help     显示本帮助
 
 说明:
-  容器名 aitrader-postgres，端口 5432。
+  容器名 aitrader-postgres，端口 5532 → 容器 5432。
   数据持久化在 docker volume `pgdata`，停止/重启容器不会丢失。
 EOF
 }
@@ -30,5 +30,5 @@ wait_for_postgres
 follow_logs postgres
 
 echo ""
-echo "数据库已启动: localhost:5432 (db=aitrader, user=ai-trader)"
-echo "连接串: postgres://ai-trader:aitrader123@localhost:5432/aitrader"
+echo "数据库已启动: localhost:5532 (db=aitrader, user=ai-trader)"
+echo "连接串: postgres://ai-trader:aitrader123@localhost:5532/aitrader"

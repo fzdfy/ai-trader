@@ -2,7 +2,10 @@ import { and, eq, lt, sql } from "drizzle-orm";
 
 import { db } from "../../db";
 import { researchReport, researchReportDocument } from "../../db/schema";
-import type { ResearchIndexJob } from "../../services/research-index-contracts";
+import type {
+  ResearchIndexJob,
+  ResearchIndexTrigger,
+} from "../../services/research-index-contracts";
 import {
   prepareResearchIndexWindow,
   processResearchReport,
@@ -15,7 +18,7 @@ import {
 } from "../../services/stock-content-service";
 
 type SyncMetadata = (symbol: string) => Promise<Pick<ContentModuleResult, "ok" | "error">>;
-type PrepareWindow = (symbol: string) => Promise<PrepareIndexResult>;
+type PrepareWindow = (symbol: string, trigger: ResearchIndexTrigger) => Promise<PrepareIndexResult>;
 type ProcessReport = (reportId: number) => Promise<void>;
 type Enqueue = (job: ResearchIndexJob) => Promise<string | null>;
 type LoadActiveReportIds = () => Promise<Set<number>>;
@@ -28,7 +31,8 @@ export interface ResearchProcessorDependencies {
 
 const defaultDependencies: ResearchProcessorDependencies = {
   syncMetadata: syncStockResearchReports,
-  prepareWindow: (symbol) => prepareResearchIndexWindow(symbol),
+  prepareWindow: (symbol, trigger) =>
+    prepareResearchIndexWindow(symbol, undefined, undefined, trigger),
   processReport: processResearchReport,
 };
 
@@ -47,7 +51,7 @@ export async function processResearchIndexJob(
       `Research metadata sync failed for ${job.symbol}: ${metadata.error ?? "unknown error"}`,
     );
   }
-  const prepared = await dependencies.prepareWindow(job.symbol);
+  const prepared = await dependencies.prepareWindow(job.symbol, job.trigger);
   if (prepared.failed > 0) {
     throw new Error(`Research index preparation failed for ${prepared.failed} report(s)`);
   }

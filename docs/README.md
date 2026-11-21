@@ -6,14 +6,14 @@
 
 pnpm monorepo，四个模块 + 一个数据库 + 一套日志栈，Docker Compose 全容器部署。
 
-| 模块 | 路径 | 技术 | 本地端口 |
+| 模块 | 路径 | 技术 | Docker 宿主端口 |
 |---|---|---|---|
-| 前端 | `apps/web` | React 19 + Vite + TanStack Router + Preline + Tailwind CSS | 9080（容器内 80，nginx） |
-| API | `apps/server` | Hono + Drizzle | 3001 |
+| 前端 | `apps/web` | React 19 + Vite + TanStack Router + Preline + Tailwind CSS | 9180（容器内 80，nginx） |
+| API | `apps/server` | Hono + Drizzle | 3101（容器内 3001） |
 | Worker | `apps/server/src/workers` | 同步 / 特征 / 工作流任务 | — |
-| 回测 | `apps/quant` | Python FastAPI + akquant | 3002 |
-| 数据库 | — | PostgreSQL + pgvector | 5432 |
-| 日志栈 | `docker/` | Alloy → Loki → Grafana | Loki 3100 / Alloy 12345 / Grafana 3010 |
+| 回测 | `apps/quant` | Python FastAPI + akquant | 3102（容器内 3002） |
+| 数据库 | — | PostgreSQL + pgvector | 5532（容器内 5432） |
+| 日志栈 | `docker/` | Alloy → Loki → Grafana | Loki 3200 / Alloy 12445 / Grafana 3110 |
 
 ## 1. 三分钟全局图
 
@@ -21,7 +21,7 @@ pnpm monorepo，四个模块 + 一个数据库 + 一套日志栈，Docker Compos
 
 ```mermaid
 flowchart LR
-  U[浏览器] --> N["nginx :80（本地 :9080）"]
+  U[浏览器] --> N["nginx 容器 :80（Docker :9180 / 本地 Vite :9080）"]
   N -- "/* 静态 SPA" --> N
   N -- "/api/*" --> S["server :3001（Hono）"]
   S --> PG[("PostgreSQL :5432")]

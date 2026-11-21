@@ -194,6 +194,9 @@ export interface LatestQuote {
   pe: string | null;
   pb: string | null;
   ts: string;
+  source?: "quant-live" | "quote_latest";
+  quality?: "available" | "low" | "missing";
+  fallback?: boolean;
 }
 
 export interface ResearchEvidence {

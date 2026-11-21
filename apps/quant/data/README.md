@@ -5,17 +5,18 @@
 架构：`router`（端点）→ `registry`（能力注册 + 降级链）→ `providers`（各数据源实现）。
 调用方只面向 `MarketProvider` 协议编程，切换 / 增删数据源无需改动上层。
 
-## 数据源总览（7 个 Provider）
+## 数据源总览（8 个 Provider）
 
 | Provider | 能力（capabilities） | 接口域名 | 风控特征 |
 |---|---|---|---|
 | `tencent` 腾讯 | quote、kline、transaction | `qt.gtimg.cn`、`proxy.finance.qq.com`、`stock.gtimg.cn` | 不封 IP，连续 5000+ 次才限流返回空 |
-| `mootdx` 通达信 | kline、quote、transaction | 本地 TDX 行情库（非 HTTP） | 本地接口，无网络风控 |
+| `mootdx` 通达信 | kline、quote、transaction、financial_snapshot | 本地 TDX 行情库（非 HTTP） | 本地接口，无网络风控 |
 | `baidu` 百度 | kline | `finance.pae.baidu.com` | 需 Origin/Referer，低频不封 |
-| `sina` 新浪 | adjust_factor、stock_news | `finance.sina.com.cn` | 带 UA/Referer，低频不封 |
-| `ths` 同花顺 | hot_reason、northbound | `zx.10jqka.com.cn`、`data.hexin.cn` | 需 UA/Referer，低频不封 |
-| `eastmoney` 东财 | 25 项（信号/资金/筹码/内容层） | `push2` / `push2delay` / `push2his` / `datacenter-web` / `search-api-web` | 有风控：>5次/秒、并发≥10、1分钟≥200 会临时封 IP，统一走 `_em_get` 串行限流 |
+| `sina` 新浪 | adjust_factor、stock_news、financial_statements | `finance.sina.com.cn`、`quotes.sina.cn` | 带 UA/Referer，低频不封 |
+| `ths` 同花顺 | hot_reason、northbound、analyst_consensus | `zx.10jqka.com.cn`、`data.hexin.cn`、`basic.10jqka.com.cn` | 需 UA/Referer，低频不封 |
+| `eastmoney` 东财 | 23 项（信号/资金/筹码/内容层 + 一致预期备源） | `push2` / `push2delay` / `push2his` / `datacenter-web` / `search-api-web` / `reportapi` | 有风控：>5次/秒、并发≥10、1分钟≥200 会临时封 IP，统一走 `_em_get` 串行限流 |
 | `cninfo` 巨潮 | announcement | `www.cninfo.com.cn` | 带 UA/Referer，公告主源 |
+| `baostock` | valuation_history | Baostock TCP 客户端 | 免注册；**不支持北交所** |
 
 ## 通用参数
 
@@ -109,6 +110,50 @@
 | `source` | str | null | — | 强制指定源 |
 
 来源：巨潮资讯（主）→ 东财公告（备）。
+
+---
+
+## 研究与基本面层
+
+### `/analyst-consensus` — 机构一致预期 EPS
+
+| 参数 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `symbol` | str | 必填 | 标的代码，如 `002594.SZ` |
+| `as_of_date` | str | null | 观察日期；缺省为今天 |
+| `source` | str | null | 强制指定源 |
+
+来源：同花顺 `worth.html`（主）→ 东财近 400 天研报 EPS 聚合（备）。返回财年、最小值、均值、最大值和机构数。
+
+### `/financial-snapshot` — 通达信季报财务快照
+
+| 参数 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `symbol` | str | 必填 | 标的代码 |
+| `source` | str | null | — |
+
+来源：mootdx `finance`。报告期取 `updated_date`；保留原始 37 字段，并补充 `revenue / net_profit / total_assets / equity / eps / roe / debt_ratio` 标准键。
+
+### `/financial-statements` — 新浪财务三表
+
+| 参数 | 类型 | 默认 | 约束 | 说明 |
+|---|---|---|---|---|
+| `symbol` | str | 必填 | — | 标的代码 |
+| `periods` | int | `8` | 1~20 | 每张表最近报告期数 |
+| `source` | str | null | — | — |
+
+来源：新浪 `CompanyFinanceService`，分别读取利润表、资产负债表和现金流量表；单表失败不影响其他已成功表。
+
+### `/valuation-history` — 日频历史估值
+
+| 参数 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `symbol` | str | 必填 | 沪深标的代码；北交所不支持 |
+| `start` | str | 近 5 年 | `YYYY-MM-DD` |
+| `end` | str | 今天 | `YYYY-MM-DD` |
+| `source` | str | null | — |
+
+来源：Baostock。返回 PE TTM、PB MRQ、PS TTM、PCF、换手率、交易/停牌状态和 ST 标记；调用使用不复权口径 `adjustflag=3`，不进入 K 线或回测价格链路。
 
 ---
 
@@ -309,8 +354,8 @@
 
 ## 降级机制
 
-- **多源降级链**：行情与内容层按 `_CAPABILITY_PRIORITY` 顺序调用，任一源失败自动落到下一源，全部失败才抛最后一个异常。当前包含 `kline`、`quote`、`transaction`、`stock_news` 和 `announcement`；`adjust_factor` 与 `market_news` 为单源。
-- **独有单源**：信号/资金/筹码层共 20 项为东财或同花顺「独有、别处拿不到」，降级链只有 1 个源，无备胎。真正的兜底在 server 端：
+- **多源降级链**：行情、内容和研究数据按 `_CAPABILITY_PRIORITY` 顺序调用，任一源失败自动落到下一源，全部失败才抛最后一个异常。当前包含 `kline`、`quote`、`transaction`、`stock_news`、`announcement` 和 `analyst_consensus`；`adjust_factor`、`market_news`、`financial_snapshot`、`financial_statements` 与 `valuation_history` 为单源。
+- **独有单源**：信号/资金/筹码层多为东财或同花顺「独有、别处拿不到」，降级链只有 1 个源、无备胎；财务快照、财务三表和估值历史也各固定一个来源。真正的兜底在 server 端：
   - sync 脚本对每类数据 `try/catch` 失败即 `skip`，不中断整轮；
   - 热力图等实时页面在 DB 兜底模式跳过成分股、15s 总时限。
 
@@ -319,8 +364,8 @@
 1. **东财（唯一有封禁风险的源）**：所有 `eastmoney.com` 请求强制走 `_em_get()` ——
    - **串行限流**：全局线程锁保证同一时刻只发一个东财请求，两次请求最小间隔 `1.0s` + 随机抖动 `0.1~0.5s`，统一 UA；
    - **锁粒度**：锁仅覆盖「等待最小间隔 + 发起单次请求」，重试退避睡眠在**锁外**进行，避免慢/失败请求长时间持锁导致全体请求排队（head-of-line blocking 雪崩）；
-   - **熔断**：连续失败达 `5` 次即跳闸，冷却 `30s` 内所有东财请求快速失败上抛（由上层降级链处理），冷却后自动恢复；`_em_get_kline` 遇熔断直接上抛，不再走 `/..` 二次尝试。
-2. **腾讯/mootdx/百度/新浪/同花顺**：不封 IP，无需限流；仅带 UA 和必要的 Referer/Origin。
+   - **熔断**：连续失败达 `5` 次即跳闸，冷却 `300s` 内所有东财请求快速失败上抛（由上层降级链处理），冷却后自动恢复；`_em_get_kline` 遇熔断直接上抛，不再走 `/..` 二次尝试。
+2. **腾讯/mootdx/百度/新浪/同花顺/巨潮/Baostock**：无东财式高频封禁，无需统一限流；仅带 UA 和必要的 Referer/Origin。
 3. **域名选择**：东财行情类端点（`slist/get`、`stock/fflow/kline/get`、`clist/get` 等）统一走 `push2delay`（延迟行情，约 15 分钟，较实时 `push2` 更稳、不易 `RemoteDisconnected`）；`push2his` 用于历史 K 线/日线资金流。
 
 ## 待办 / 风险点

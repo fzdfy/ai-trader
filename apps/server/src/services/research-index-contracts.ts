@@ -6,17 +6,19 @@ export const RESEARCH_METADATA_SYNC_SOURCE = "eastmoney";
 export const RESEARCH_METADATA_SYNC_ENDPOINT = "research-reports-metadata";
 export const RESEARCH_METADATA_SYNC_TIMEFRAME = "12m";
 
+export type ResearchIndexTrigger = "analysis" | "manual" | "recovery" | "watchlist";
+
 export type ResearchIndexJob =
   | {
       kind: "metadata";
       symbol: string;
-      trigger: "analysis" | "manual" | "recovery";
+      trigger: ResearchIndexTrigger;
     }
   | {
       kind: "report";
       reportId: number;
       symbol: string;
-      trigger: "analysis" | "manual" | "recovery";
+      trigger: ResearchIndexTrigger;
     };
 
 export interface ResearchIndexStatus {
@@ -40,13 +42,21 @@ export interface ResearchIndexSendOptions {
 }
 
 export function researchIndexJobOptions(job: ResearchIndexJob): ResearchIndexSendOptions {
+  const priority =
+    job.trigger === "analysis"
+      ? 30
+      : job.trigger === "manual"
+        ? 20
+        : job.trigger === "recovery"
+          ? 10
+          : 5;
   return {
     singletonKey:
       job.kind === "metadata"
         ? `research-metadata:${job.symbol}`
         : `research-index:${job.reportId}:${RESEARCH_EXTRACTOR_VERSION}:${RESEARCH_CHUNK_VERSION}:${RESEARCH_EMBEDDING_MODEL}`,
     singletonSeconds: job.kind === "metadata" ? 86_400 : 600,
-    priority: 10,
+    priority,
     retryLimit: 3,
     retryDelay: 60,
     retryBackoff: true,

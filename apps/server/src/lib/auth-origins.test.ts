@@ -5,10 +5,10 @@ import { parseTrustedOrigins, resolveCorsOrigin } from "./auth-origins.ts";
 test("normalizes configured trusted origins deterministically", () => {
   assert.deepEqual(
     parseTrustedOrigins(
-      " https://ouzq6euvec18.shares.zrok.io/, http://localhost:9080, https://ouzq6euvec18.shares.zrok.io ",
+      " https://public.example/, http://localhost:9080, https://public.example ",
       undefined,
     ),
-    ["https://ouzq6euvec18.shares.zrok.io", "http://localhost:9080"],
+    ["https://public.example", "http://localhost:9080"],
   );
 });
 
@@ -26,12 +26,9 @@ test("falls back to the auth base URL and local UI origin", () => {
 });
 
 test("only allows an origin present in the exact allowlist", () => {
-  const allowed = new Set(["https://ouzq6euvec18.shares.zrok.io", "http://localhost:9080"]);
+  const allowed = new Set(["https://public.example", "http://localhost:9080"]);
 
-  assert.equal(
-    resolveCorsOrigin("https://ouzq6euvec18.shares.zrok.io", allowed),
-    "https://ouzq6euvec18.shares.zrok.io",
-  );
+  assert.equal(resolveCorsOrigin("https://public.example", allowed), "https://public.example");
   assert.equal(resolveCorsOrigin("https://evil.example", allowed), null);
   assert.equal(resolveCorsOrigin(undefined, allowed), null);
 });

@@ -6,9 +6,7 @@
  */
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { db } from "../../../db";
-import { bar1dQfq } from "../../../db/schema/md";
-import { eq, desc } from "drizzle-orm";
+import { marketDataReader } from "../../../lib/market-data-read";
 
 export const klineTool = createTool({
   id: "getKline",
@@ -35,36 +33,11 @@ export const klineTool = createTool({
   }),
   execute: async ({ symbol, limit: _limit }) => {
     const limit = Math.min(_limit, 120);
-
-    const rows = await db
-      .select({
-        time: bar1dQfq.time,
-        open: bar1dQfq.open,
-        high: bar1dQfq.high,
-        low: bar1dQfq.low,
-        close: bar1dQfq.close,
-        volume: bar1dQfq.volume,
-        amount: bar1dQfq.amount,
-      })
-      .from(bar1dQfq)
-      .where(eq(bar1dQfq.symbol, symbol))
-      .orderBy(desc(bar1dQfq.time))
-      .limit(limit);
-
-    // 反转顺序：按时间升序
-    rows.reverse();
+    const read = await marketDataReader.readDailyBars(symbol, limit);
 
     return {
       symbol,
-      bars: rows.map((r) => ({
-        time: r.time.toISOString(),
-        open: Number(r.open),
-        high: Number(r.high),
-        low: Number(r.low),
-        close: Number(r.close),
-        volume: Number(r.volume),
-        amount: r.amount ? Number(r.amount) : null,
-      })),
+      bars: read.bars,
     };
   },
 });

@@ -6,11 +6,15 @@
 选择与降级，调用方（router）只面向本协议编程，从而「切换 / 增删数据源」时
 无需改动上层代码。
 
-当前能力（capability，均为行情层）：
+当前基础能力（capability）：
 - kline           K 线（多周期）
 - quote           实时行情（价格 / PE / PB / 市值 / 五档 …）
 - transaction     逐笔成交
 - adjust_factor   复权因子（qfq / hfq）
+- analyst_consensus      机构一致预期 EPS
+- financial_snapshot     季报财务快照
+- financial_statements   利润表 / 资产负债表 / 现金流量表
+- valuation_history      日频历史估值、换手率、停牌与 ST
 
 扩展方式：新增一类数据（如资金流 / 板块 / 研报）时，在此处追加能力常量、
 在基类增加对应方法签名，再为支持该能力的平台实现方法并在 registry 登记，
@@ -23,6 +27,7 @@ from typing import ClassVar
 
 from .schemas import (
     AdjustFactor,
+    AnalystConsensusItem,
     BlockTradeItem,
     BoardConstituentItem,
     BoardFundFlow,
@@ -35,6 +40,7 @@ from .schemas import (
     FundFlowDay,
     FundFlowPoint,
     FundFlowRankItem,
+    FinancialSnapshotItem,
     HolderNumItem,
     HotReasonItem,
     IndustryComparison,
@@ -47,6 +53,7 @@ from .schemas import (
     NorthboundPoint,
     Quote,
     TradeTick,
+    ValuationDailyItem,
 )
 
 # 能力常量
@@ -83,6 +90,12 @@ CAPABILITY_CHIP_DISTRIBUTION = "chip_distribution"
 CAPABILITY_STOCK_NEWS = "stock_news"
 CAPABILITY_MARKET_NEWS = "market_news"
 CAPABILITY_ANNOUNCEMENT = "announcement"
+
+# 研究与基本面层
+CAPABILITY_ANALYST_CONSENSUS = "analyst_consensus"
+CAPABILITY_FINANCIAL_SNAPSHOT = "financial_snapshot"
+CAPABILITY_FINANCIAL_STATEMENTS = "financial_statements"
+CAPABILITY_VALUATION_HISTORY = "valuation_history"
 
 
 class MarketProvider(ABC):
@@ -244,3 +257,30 @@ class MarketProvider(ABC):
     ) -> list[AnnouncementItem]:
         """上市公司公告。"""
         raise NotImplementedError(f"{self.name} 不支持 announcement")
+
+    def analyst_consensus(
+        self, symbol: str, as_of_date: str | None = None
+    ) -> list[AnalystConsensusItem]:
+        """机构一致预期 EPS，按财年返回。"""
+        raise NotImplementedError(f"{self.name} 不支持 analyst_consensus")
+
+    def financial_snapshot(
+        self, symbol: str
+    ) -> list[FinancialSnapshotItem]:
+        """季报财务快照。"""
+        raise NotImplementedError(f"{self.name} 不支持 financial_snapshot")
+
+    def financial_statements(
+        self, symbol: str, periods: int = 8
+    ) -> list[FinancialSnapshotItem]:
+        """利润表、资产负债表和现金流量表。"""
+        raise NotImplementedError(f"{self.name} 不支持 financial_statements")
+
+    def valuation_history(
+        self,
+        symbol: str,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[ValuationDailyItem]:
+        """日频历史估值、换手率、停牌与 ST 状态。"""
+        raise NotImplementedError(f"{self.name} 不支持 valuation_history")

@@ -43,13 +43,11 @@ import { adjFactorPipeRun } from "./pipes/adj-factor";
 import { partitionMaintPipeRun } from "./pipes/partition-maint";
 import {
   runStockAnnouncementSync,
+  runStockFundamentalsSync,
   runStockResearchReportSync,
 } from "./stock-content-jobs";
 import { triggerSyncCompleteWorkflows } from "../../services/workflow-service";
-import {
-  runGovernanceQualityScan,
-  runSourceStandardWatchJob,
-} from "./governance-jobs";
+import { runGovernanceQualityScan, runSourceStandardWatchJob } from "./governance-jobs";
 
 export type PipeName =
   | "kline-1m"
@@ -73,6 +71,7 @@ export type PipeName =
   | "partition-maint"
   | "stock-announcements"
   | "stock-research-reports"
+  | "stock-fundamentals"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -101,6 +100,7 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "partition-maint": () => partitionMaintPipeRun(),
   "stock-announcements": () => runStockAnnouncementSync(),
   "stock-research-reports": () => runStockResearchReportSync(),
+  "stock-fundamentals": () => runStockFundamentalsSync(),
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),
@@ -371,6 +371,7 @@ export const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "hot-reason" },
   { name: "stock-announcements" },
   { name: "stock-research-reports" },
+  { name: "stock-fundamentals" },
 ];
 
 /**

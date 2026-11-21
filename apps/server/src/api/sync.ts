@@ -53,6 +53,7 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "hot-reason", name: "题材归因" },
   { jobType: "stock-announcements", name: "自选股公告" },
   { jobType: "stock-research-reports", name: "自选股研报" },
+  { jobType: "stock-fundamentals", name: "自选股基本面" },
   { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
   // 历史回补：与当日同步分离的独立任务（收盘后错峰运行，只补窗口内缺失的历史交易日）
@@ -152,8 +153,7 @@ syncRoute.get("/records", async (c) => {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const total =
-    (await db.select({ value: count() }).from(jobRun).where(where))[0]?.value ?? 0;
+  const total = (await db.select({ value: count() }).from(jobRun).where(where))[0]?.value ?? 0;
 
   const rows = await db
     .select()
@@ -362,10 +362,7 @@ syncRoute.post("/modules/:jobType/retry", async (c) => {
     }
   });
   if (!reservation.ok) {
-    return c.json(
-      { success: false, error: reservation.reason },
-      reservation.status,
-    );
+    return c.json({ success: false, error: reservation.reason }, reservation.status);
   }
 
   const parentRequestId = getLogContext()?.requestId;
@@ -377,14 +374,10 @@ syncRoute.post("/modules/:jobType/retry", async (c) => {
       jobName: jobType,
     },
     async () => {
-      const ok = await wrapJob(
-        jobType,
-        RUNNERS[jobType as PipeName],
-        {
-          source: "manual",
-          reservedRunId: reservation.runId,
-        },
-      )();
+      const ok = await wrapJob(jobType, RUNNERS[jobType as PipeName], {
+        source: "manual",
+        reservedRunId: reservation.runId,
+      })();
       const [finished] = await db
         .select({ error: jobRun.error })
         .from(jobRun)
@@ -521,7 +514,9 @@ syncRoute.post("/run", async (c) => {
             .set({
               status: "success",
               finishedAt: new Date(),
-              ...(noop ? { message: `今日已同步，本次未实际拉取（跳过 ${skipped.length} 个管道）` } : {}),
+              ...(noop
+                ? { message: `今日已同步，本次未实际拉取（跳过 ${skipped.length} 个管道）` }
+                : {}),
             })
             .where(eq(jobRun.id, runId));
         }
@@ -530,9 +525,15 @@ syncRoute.post("/run", async (c) => {
           jobRunId: runId,
           resultJson: { executed, skipped },
         });
-        log.info({ job_run_id: runId, executed: executed.length, skipped: skipped.length }, "manual sync done");
+        log.info(
+          { job_run_id: runId, executed: executed.length, skipped: skipped.length },
+          "manual sync done",
+        );
       } catch (error) {
-        log.error({ err: error, error_type: (error as Error)?.name ?? "Error" }, "manual sync failed");
+        log.error(
+          { err: error, error_type: (error as Error)?.name ?? "Error" },
+          "manual sync failed",
+        );
         if (runId != null) {
           await db
             .update(jobRun)

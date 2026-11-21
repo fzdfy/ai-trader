@@ -5,7 +5,7 @@
 ## 架构
 
 ```
-浏览器 → :80 (nginx)
+浏览器 → Docker :9180 / 本地 Vite :9080 (nginx)
            ├── /*         → dist/ 静态文件（SPA fallback）
            └── /api/*     → server:3001 (Hono API)
                               ├── postgres:5432 (数据库)
@@ -43,15 +43,16 @@ docker compose up -d
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:9080 | 前端页面 |
-| http://localhost:9080/signup | 注册账号 |
-| http://localhost:9080/health | API 健康检查 |
-| http://localhost:3002/docs | quant API 文档 |
+| http://localhost:9180 | Docker 前端页面 |
+| http://localhost:9180/signup | Docker 注册账号 |
+| http://localhost:9180/health | Docker API 健康检查 |
+| http://localhost:3102/docs | Docker quant API 文档 |
 
 ### 本地与公网环境
 
-本地开发继续使用 `.env.local` 和默认 compose 命令，认证 Origin 默认为
-`http://localhost:9080`：
+本地开发继续使用 9080/3001/3002/5432。Docker 部署默认使用
+9180/3101/3102/5532，可同时运行；Docker 本地认证 Origin 默认为
+`http://localhost:9180`：
 
 ```bash
 docker compose up -d
@@ -100,11 +101,11 @@ docker compose restart server # 重启单个服务
 
 | 脚本 | 模块 | 容器名 | 端口 | 依赖 |
 |------|------|--------|------|------|
-| `./deploy/start-db.sh` | 数据库（postgres + pgvector） | aitrader-postgres | 5432 | — |
-| `./deploy/start-server.sh` | API 服务 | aitrader-server | 3001 | postgres |
+| `./deploy/start-db.sh` | 数据库（postgres + pgvector） | aitrader-postgres | 5532 | — |
+| `./deploy/start-server.sh` | API 服务 | aitrader-server | 3101 | postgres |
 | `./deploy/start-worker.sh` | 数据同步 Worker | aitrader-worker | — | postgres |
-| `./deploy/start-quant.sh` | 回测微服务 | aitrader-quant | 3002 | postgres |
-| `./deploy/start-web.sh` | 前端（nginx） | aitrader-nginx | 9080 | server |
+| `./deploy/start-quant.sh` | 回测微服务 | aitrader-quant | 3102 | postgres |
+| `./deploy/start-web.sh` | 前端（nginx） | aitrader-nginx | 9180 | server |
 
 ```bash
 ./deploy/start-server.sh              # 启动 server（自动拉起 postgres）
@@ -124,16 +125,20 @@ docker compose restart server # 重启单个服务
 |------|------|------|
 | `DATABASE_URL` | PostgreSQL 连接串（Docker 自动覆盖） | 是 |
 | `BETTER_AUTH_SECRET` | 认证加密密钥 | 是 |
-| `BETTER_AUTH_URL` | 当前环境的唯一认证 Origin；本地默认 `http://localhost:9080`，公网必须使用 HTTPS Origin | 是 |
+| `BETTER_AUTH_URL` | 当前环境的唯一认证 Origin；Docker 本地默认 `http://localhost:9180`，公网必须使用 HTTPS Origin | 是 |
 | `AUTH_TRUSTED_ORIGINS` | Better Auth 与 CORS 共用的逗号分隔精确 Origin allowlist；公网 overlay 必填 | 公网必填 |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key（AI Agent） | 是 |
 | `QUANT_URL` | 回测服务地址（Docker 自动覆盖） | 否 |
+
+Docker 宿主机端口可通过 `DOCKER_WEB_PORT`、`DOCKER_SERVER_PORT`、
+`DOCKER_QUANT_PORT`、`DOCKER_POSTGRES_PORT`、`DOCKER_LOKI_PORT`、
+`DOCKER_ALLOY_PORT` 和 `DOCKER_GRAFANA_PORT` 覆盖。容器内部端口不受影响。
 
 ## 本地开发（非 Docker）
 
 ```bash
 pnpm install
-docker compose up -d postgres  # 仅启动数据库
+docker compose up -d postgres  # Docker 数据库发布在 localhost:5532
 pnpm db:migrate
 pnpm dev                       # turbo dev + quant:dev
 ```

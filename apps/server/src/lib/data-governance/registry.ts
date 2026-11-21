@@ -1,9 +1,4 @@
-import type {
-  DataDomain,
-  DataTier,
-  GovernanceAsset,
-  ResearchConsumer,
-} from "./types.ts";
+import type { DataDomain, DataTier, GovernanceAsset, ResearchConsumer } from "./types.ts";
 
 const PLATFORM = { name: "Data Platform" };
 const QUANT = { name: "Quant Research" };
@@ -521,6 +516,7 @@ export const GOVERNANCE_ASSETS: readonly GovernanceAsset[] = [
     description: "机构一致预期和历史估值输入",
     grain: "symbol + as-of date + fiscal year + source",
     timeField: "as_of_date",
+    jobs: ["stock-fundamentals"],
   }),
   asset({
     key: "stock_financial_snapshot",
@@ -531,6 +527,7 @@ export const GOVERNANCE_ASSETS: readonly GovernanceAsset[] = [
     description: "财务三表和指标快照",
     grain: "symbol + report period + statement + source",
     timeField: "report_period",
+    jobs: ["stock-fundamentals"],
   }),
   asset({
     key: "stock_valuation_daily",
@@ -541,6 +538,7 @@ export const GOVERNANCE_ASSETS: readonly GovernanceAsset[] = [
     description: "PE/PB/PS 等日估值",
     grain: "symbol + trade date + source",
     timeField: "trade_date",
+    jobs: ["stock-fundamentals"],
   }),
   asset({
     key: "company_announcement",
@@ -850,13 +848,7 @@ export const GOVERNANCE_ASSETS: readonly GovernanceAsset[] = [
     grain: "user",
     timeField: "updated_at",
     classification: "restricted",
-    downstream: [
-      "session",
-      "account",
-      "watchlist",
-      "workflow_definition",
-      "user_work_task",
-    ],
+    downstream: ["session", "account", "watchlist", "workflow_definition", "user_work_task"],
   }),
   asset({
     key: "user_work_task",

@@ -19,7 +19,7 @@ usage() {
   -h, --help     显示本帮助
 
 说明:
-  容器名 aitrader-nginx，端口 9080 → 容器 80。
+  容器名 aitrader-nginx，端口 9180 → 容器 80。
   依赖 server（默认自动拉起，server 又会拉起 postgres）。
 EOF
 }
@@ -30,5 +30,5 @@ start_module nginx postgres server
 follow_logs nginx
 
 echo ""
-echo "前端已启动: http://localhost:9080"
-echo "注册账号:   http://localhost:9080/signup"
+echo "前端已启动: http://localhost:9180"
+echo "注册账号:   http://localhost:9180/signup"

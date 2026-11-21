@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const expectedOrigins = ["https://ouzq6euvec18.shares.zrok.io", "http://localhost:9080"];
+const expectedOrigins = ["https://public.example", "http://localhost:9080"];
 
-process.env.BETTER_AUTH_URL = "https://ouzq6euvec18.shares.zrok.io";
+process.env.BETTER_AUTH_URL = "https://public.example";
 process.env.AUTH_TRUSTED_ORIGINS = expectedOrigins.join(",");
 
 const { auth, createAuth } = await import("./index.ts");

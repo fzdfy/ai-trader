@@ -19,7 +19,7 @@ usage() {
   -h, --help     显示本帮助
 
 说明:
-  容器名 aitrader-server，端口 3001。
+  容器名 aitrader-server，端口 3101 → 容器 3001。
   依赖 postgres（默认自动拉起）。
 EOF
 }
@@ -30,5 +30,5 @@ start_module server postgres
 follow_logs server
 
 echo ""
-echo "API 已启动: http://localhost:3001"
-echo "健康检查:  http://localhost:3001/health"
+echo "API 已启动: http://localhost:3101"
+echo "健康检查:  http://localhost:3101/health"
