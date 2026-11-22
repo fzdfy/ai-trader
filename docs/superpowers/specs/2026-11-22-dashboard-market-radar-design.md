@@ -368,7 +368,7 @@ type MarketBriefResponse = {
 新增组件：
 
 - `AShareMarketBoard`: 上证/创业板切换、A 股趋势图、成交量和 SIGNAL。
-- `AShareSignalPanel`: 标题、正文、三项 Deterministic Factor、数据质量和“追问 AI”入口。
+- `AShareSignalPanel`: 标题、正文、三项 Deterministic Factor 和数据质量。
 - `ETFContextCard`: 三个主流 ETF 的横向 Tab、独立报价、区间和走势，明确不进入 A 股 SIGNAL。
 - `GlobalContextCard`: 伦敦金与纳指 Tab、独立报价、区间和走势，明确不进入 A 股信号。
 - `TodayExecutionSection`: 今日行动与今日工作流并列；行动读取 Work Task，工作流读取 Workflow Run。
@@ -390,7 +390,6 @@ type MarketBriefResponse = {
 - 信号缺失：显示“证据不足”，不生成判断。
 - 今日任务缺失：显示任务空态。
 - 今日工作流失败：只显示工作流错误/重试，不影响市场和今日行动。
-- AI 追问：打开现有助手，自动带入当前 A 股信号和所选指数/ETF 上下文，不执行交易或修改任务。
 - 桌面端：右侧两张观察卡合计高度与左侧主控台一致，底边差值为 0。
 - 移动端：A 股主控台、跨市场卡、ETF 卡、今日执行依次单列。
 

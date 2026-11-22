@@ -149,6 +149,7 @@ Interactions:
 - ETF and price-chart keyboard paths were verified in the real browser. Market Brief retains previous data while the next ETF request is in flight, so the focused tablist is not unmounted during normal keyboard navigation.
 - Today actions, today workflows and the Market Radar aggregate now expose focused retry actions for their recoverable error states.
 - The A-share signal input caption follows the selected index instead of always claiming “上证趋势”.
+- The user confirmed removal of the unimplemented “追问 AI” context entry; the OpenSpec scenario and long-term technical design no longer promise that control.
 
 ## Automated Checks
 
@@ -176,8 +177,7 @@ Interactions:
 - IXIC minute/daily ingestion is currently blocked by Yahoo upstream `HTTP 429`; fixture parsing and the UI missing state are verified.
 - The 50 skipped server tests require explicit `ADMIN_DB_TESTS=1` / `WORKFLOW_DB_TESTS=1` database fixtures and are outside this change-specific run.
 - Feature flags remain default-off; integration used explicit `true` overrides.
-- The technical design mentions a contextual “追问 AI” entry from A-share SIGNAL, but no implementation task or confirmed v6 visual control exists. It remains unimplemented rather than being added without a visual gate. Before archive, the user must either approve that visual addition or remove the requirement from the design/spec.
 
 ## Acceptance
 
-Task `4.1` is complete and the user accepted the original implementation. The code-review fix pass is verified above. The change is not archived; resolve the contextual AI scope decision, then explicitly confirm archive.
+Task `4.1` is complete and the user accepted the implementation. The code-review fix pass and the user-approved scope cleanup are verified above. The change is not archived and still requires a separate archive confirmation.

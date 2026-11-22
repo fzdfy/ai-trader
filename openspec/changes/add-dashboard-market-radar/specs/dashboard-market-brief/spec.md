@@ -103,13 +103,6 @@ A 股主控台 SHALL 只包含上证指数和创业板指切换并承载 A 股�
 - **THEN** 信号卡片 MAY 显示其涨跌作为跨资产背景
 - **AND** 伦敦金 MUST NOT 改变 A 股趋势、广度和热度分数
 
-#### Scenario: User asks AI about the signal
-
-- **WHEN** 用户从 A 股 SIGNAL 点击“追问 AI”
-- **THEN** 页面 MUST 打开现有量化助手
-- **AND** 助手 MUST 带入当前 A 股信号和所选标的上下文
-- **AND** 助手 MUST NOT 自动执行交易或修改任务
-
 ### Requirement: Data confidence excludes prediction accuracy
 
 数据置信度 SHALL 只表达 A 股报价新鲜度、A 股图完整度和 A 股信号输入完整度；伦敦金数据质量不得进入该分数。

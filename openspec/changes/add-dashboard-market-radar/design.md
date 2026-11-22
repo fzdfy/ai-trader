@@ -51,10 +51,6 @@ A 股主控台只切换上证指数和创业板指，并承载趋势与 SIGNAL�
 
 桌面端右列把跨市场背景和主流 ETF 两卡拉伸到与左侧 A 股主控台同高，底边对齐；移动端自然单列。今日行动与今日工作流放在首屏下方的今日执行区，桌面并列、移动端单列。今日行动只读取 Work Task，今日工作流只读取 Workflow Run，前端并行请求，不把用户任务混入共享行情缓存。
 
-### Add contextual AI entry to the A-share signal
-
-A 股 SIGNAL 提供“追问 AI”入口。点击后复用现有助手并带入当前 A 股信号、所选指数或 ETF、趋势/广度/热度上下文；助手只负责解释和反证，不自动交易或修改任务。
-
 ### Reuse ECharts and existing Preline tokens
 
 A 股图和黄金图都有区间、成交量差异、十字线和图表读屏需求，复用现有 ECharts 比扩展手写 SVG 更合适。不新增图表库。
