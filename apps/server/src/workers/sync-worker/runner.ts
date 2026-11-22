@@ -48,6 +48,11 @@ import {
 } from "./stock-content-jobs";
 import { triggerSyncCompleteWorkflows } from "../../services/workflow-service";
 import { runGovernanceQualityScan, runSourceStandardWatchJob } from "./governance-jobs";
+import {
+  marketAssetDailyBackfillRun,
+  marketAssetDailyJobRun,
+  marketAssetMinuteJobRun,
+} from "./pipes/market-asset-jobs";
 
 export type PipeName =
   | "kline-1m"
@@ -72,6 +77,9 @@ export type PipeName =
   | "stock-announcements"
   | "stock-research-reports"
   | "stock-fundamentals"
+  | "market-asset-minute"
+  | "market-asset-daily"
+  | "market-asset-daily-backfill"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -101,6 +109,24 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "stock-announcements": () => runStockAnnouncementSync(),
   "stock-research-reports": () => runStockResearchReportSync(),
   "stock-fundamentals": () => runStockFundamentalsSync(),
+  "market-asset-minute": async () => {
+    const result = await marketAssetMinuteJobRun();
+    console.log(
+      `[market-asset-minute] quotes=${result.quotesUpserted} bars=${result.barsUpserted} failed=${result.failed.length}`,
+    );
+  },
+  "market-asset-daily": async () => {
+    const result = await marketAssetDailyJobRun();
+    console.log(
+      `[market-asset-daily] quotes=${result.quotesUpserted} bars=${result.barsUpserted} failed=${result.failed.length}`,
+    );
+  },
+  "market-asset-daily-backfill": async () => {
+    const result = await marketAssetDailyBackfillRun();
+    console.log(
+      `[market-asset-daily-backfill] quotes=${result.quotesUpserted} bars=${result.barsUpserted} failed=${result.failed.length}`,
+    );
+  },
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),

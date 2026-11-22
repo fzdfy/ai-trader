@@ -15,6 +15,21 @@ export interface CronJobConfig {
 }
 
 export const CRON_JOBS: CronJobConfig[] = [
+  {
+    name: "market-asset-minute",
+    cron: "* * * * *",
+    enabled: process.env.MARKET_ASSET_INGEST_ENABLED === "true",
+  },
+  {
+    name: "market-asset-daily",
+    cron: "10 6,16 * * *",
+    enabled: process.env.MARKET_ASSET_INGEST_ENABLED === "true",
+  },
+  {
+    name: "market-asset-daily-backfill",
+    cron: "40 3 * * 6",
+    enabled: process.env.MARKET_ASSET_INGEST_ENABLED === "true",
+  },
   // 分钟 K 线 / 缺口检测管道尚未实现（空壳），暂不调度，避免同步中心显示"成功"误导
   { name: "kline-1m", cron: "*/30 * * * * *", enabled: false },
   { name: "gap-detect", cron: "*/5 * * * *", enabled: false },
