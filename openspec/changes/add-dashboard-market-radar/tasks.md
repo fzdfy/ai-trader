@@ -13,7 +13,7 @@
 
 - [x] 1.1 增加 `MarketAssetQuote`、`MarketAssetBar`、三项 market-asset capability 和 router 契约；验证未知资产、错误能力与空结果显式失败。
 - [x] 1.2 实现腾讯指数/ETF/XAU/IXIC 报价及 A 股时序，实现新浪 XAU 时序和 Yahoo IXIC 时序解析；验证 fixture、单位、session 和空结果测试。
-- [ ] 1.3 新增 `market_asset_quote`、`market_asset_minute_bar`、`market_asset_daily_bar` schema 与 additive migration；验证迁移、唯一键和索引。
+- [x] 1.3 新增 `market_asset_quote`、`market_asset_minute_bar`、`market_asset_daily_bar` schema 与 additive migration；验证迁移、唯一键和索引。
 - [ ] 1.4 实现 server market-asset storage adapter 与幂等 upsert，隔离股票复权/回测表；验证单资产失败不影响其他资产。
 - [ ] 1.5 增加 minute、daily 与 daily-backfill Worker 管道和 cron；验证 A 股交易时段、XAU 跨午夜、IXIC 5 分钟桶和单资产部分成功。
 - [ ] 1.6 增加 13 个月分钟保留任务、运行观测与数据质量检查；验证保留边界只删除分钟线。

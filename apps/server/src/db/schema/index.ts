@@ -10,3 +10,4 @@ export * from "./workflow";
 export * from "./stock-analysis";
 export * from "./governance";
 export * from "./work-tasks";
+export * from "./market-assets";
