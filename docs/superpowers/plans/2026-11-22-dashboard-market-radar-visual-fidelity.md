@@ -95,7 +95,7 @@ git commit -m "feat: add dashboard visual fidelity tokens"
 - Produces: `AShareIndexOverview({ data, selectedSymbol, onSelectSymbol })`.
 - Produces a two-button quote overview that remains a direct A-share switch.
 
-- [ ] **Step 1: Add a failing interaction contract test**
+- [x] **Step 1: Add a failing interaction contract test**
 
 Extend `market-selection.test.ts` with a test that selecting `399006.SZ` changes only the index symbol:
 
@@ -112,23 +112,23 @@ assert.deepEqual(
 );
 ```
 
-- [ ] **Step 2: Run the test to verify RED if the existing behavior changes**
+- [x] **Step 2: Run the test to verify RED if the existing behavior changes**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-selection.test.ts`
 
 Expected: PASS if existing isolation is already correct; keep the test as regression coverage.
 
-- [ ] **Step 3: Implement the quote overview and recompose the board header**
+- [x] **Step 3: Implement the quote overview and recompose the board header**
 
 Show both index names, codes, prices and changes. Use the selected quote block as the A-share switch, remove the duplicate tab control, and place range controls beside the chart metadata. Use semantic dashboard tokens for the A-share wash.
 
-- [ ] **Step 4: Run focused checks**
+- [x] **Step 4: Run focused checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-selection.test.ts src/lib/market-brief.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/routes/home/-private/AShareMarketBoard.tsx apps/web/src/routes/home/-private/AShareIndexOverview.tsx apps/web/src/routes/home/-private/MarketRadarHero.tsx apps/web/src/lib/market-selection.test.ts
