@@ -76,6 +76,8 @@
   --dashboard-etf-wash: color-mix(in srgb, var(--primary) 5%, var(--surface));
   --dashboard-signal-start: #2446d8;
   --dashboard-signal-end: #5b72f1;
+  --dashboard-action-accent: #ffd951;
+  --dashboard-action-ink: #18223a;
   --dashboard-shadow: 0 18px 44px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
@@ -144,6 +146,8 @@
   --dashboard-etf-wash: color-mix(in srgb, var(--primary) 8%, var(--surface));
   --dashboard-signal-start: #263eaa;
   --dashboard-signal-end: #4c62ca;
+  --dashboard-action-accent: #ffd951;
+  --dashboard-action-ink: #18223a;
   --dashboard-shadow: 0 18px 44px color-mix(in srgb, black 34%, transparent);
 }
 
@@ -172,6 +176,8 @@
   --color-dashboard-etf: var(--dashboard-etf-wash);
   --color-dashboard-signal-start: var(--dashboard-signal-start);
   --color-dashboard-signal-end: var(--dashboard-signal-end);
+  --color-dashboard-action: var(--dashboard-action-accent);
+  --color-dashboard-action-ink: var(--dashboard-action-ink);
   --shadow-dashboard: var(--dashboard-shadow);
 }
 

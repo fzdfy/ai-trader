@@ -55,7 +55,7 @@ ETF keyboard navigation selected `科创50ETF / 588000.SH`, updated `aria-active
 
 Specific interaction checks:
 
-- Price line: `2.4px`; grid/reference lines: `1px`.
+- Price line: A-share `2.4px`; Gold/ETF `1.6px`; grid/reference lines `1px`.
 - `1D` labels: time such as `09:30`; `5D/1M`: dates such as `11/20`; `YTD`: month labels such as `11月`.
 - Price and volume X axes use the same category positions.
 - London gold, Nasdaq, and Nasdaq missing state keep the global card at exactly `344px`.

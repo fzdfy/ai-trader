@@ -34,7 +34,7 @@ export function AShareIndexOverview({
             onClick={() => onSelectSymbol(item.symbol)}
             className={`focus-ring min-w-0 rounded-lg px-2.5 py-[7px] text-left transition sm:px-3 ${
               selected
-                ? "bg-app-panel text-app-ink shadow-sm"
+                ? "bg-dashboard-a text-app-ink shadow-sm"
                 : "text-app-muted hover:bg-app-panel/65 hover:text-app-ink"
             }`}
           >

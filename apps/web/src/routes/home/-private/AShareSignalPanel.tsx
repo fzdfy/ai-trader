@@ -26,7 +26,9 @@ export function AShareSignalPanel({
       <div className="relative z-10 flex items-center justify-between gap-3">
         <span
           className={`inline-flex min-h-7 items-center gap-1.5 rounded-lg px-2.5 font-mono text-[11px] font-bold tracking-[0.05em] ${
-            low ? "bg-app-surface-strong text-app-muted" : "bg-app-warning text-app-ink"
+            low
+              ? "bg-app-surface-strong text-app-muted"
+              : "bg-dashboard-action text-dashboard-action-ink"
           }`}
         >
           <Sparkles className="size-3.5" />
@@ -80,7 +82,11 @@ export function AShareSignalPanel({
           </div>
           <button
             type="button"
-            className="focus-ring inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-app-warning px-2.5 text-[11px] font-bold text-app-ink transition hover:bg-app-warning/85"
+            className={`focus-ring inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition ${
+              low
+                ? "bg-app-line text-app-ink hover:bg-app-line-strong"
+                : "bg-dashboard-action text-dashboard-action-ink hover:brightness-95"
+            }`}
             onClick={requestAssistant}
           >
             <Sparkles className="size-3.5" />

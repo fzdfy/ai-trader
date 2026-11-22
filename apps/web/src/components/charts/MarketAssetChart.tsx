@@ -71,6 +71,7 @@ export function MarketAssetChart({
         : tone === "cyan"
           ? cssVar("--assistant-accent", "#25b7ff")
           : chartCurrent();
+    const lineWidth = compact || dense ? 1.6 : 2.4;
     const mainGrid = hasVolume
       ? dense
         ? { left: 8, right: 8, top: 6, bottom: 30 }
@@ -165,7 +166,7 @@ export function MarketAssetChart({
           data: chart.points.map((point) => point.price),
           showSymbol: false,
           smooth: 0.12,
-          lineStyle: { color: lineColor, width: 2.4 },
+          lineStyle: { color: lineColor, width: lineWidth },
           areaStyle: {
             color: new graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: hexToRgba(lineColor, 0.2) },
