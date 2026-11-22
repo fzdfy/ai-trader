@@ -5,6 +5,7 @@ import {
   type MarketBriefQuery,
   type MarketBriefResponse,
 } from "../lib/dashboard/market-brief";
+import { getSystemFeatures } from "../lib/system-features";
 import { badRequest, ok, serverError } from "../lib/response";
 
 const querySchema = z.object({
@@ -18,9 +19,13 @@ const querySchema = z.object({
 
 export function createDashboardMarketBriefRoute(
   loadBrief: (query: MarketBriefQuery) => Promise<MarketBriefResponse> = loadMarketBrief,
+  isEnabled: () => boolean = () => true,
 ) {
   const route = new Hono();
   route.get("/", async (c) => {
+    if (!isEnabled()) {
+      return c.json({ success: false, error: "行情雷达未启用" }, 404);
+    }
     const parsed = querySchema.safeParse(c.req.query());
     if (!parsed.success) {
       return badRequest(c, parsed.error.issues[0]?.message ?? "行情参数不正确");
@@ -35,4 +40,7 @@ export function createDashboardMarketBriefRoute(
   return route;
 }
 
-export const dashboardMarketBriefRoute = createDashboardMarketBriefRoute();
+export const dashboardMarketBriefRoute = createDashboardMarketBriefRoute(
+  loadMarketBrief,
+  () => getSystemFeatures().dashboardMarketRadar,
+);

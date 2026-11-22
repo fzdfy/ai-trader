@@ -51,3 +51,21 @@ test("market brief route rejects unknown symbols and ranges", async () => {
   assert.equal((await app.request("/?range=2Y")).status, 400);
   assert.equal((await app.request("/?etfSymbol=000001.SH")).status, 400);
 });
+
+test("disabled market brief returns 404 before loading data", async () => {
+  let loads = 0;
+  const app = new Hono();
+  app.route(
+    "/",
+    createDashboardMarketBriefRoute(
+      async () => {
+        loads += 1;
+        return response;
+      },
+      () => false,
+    ),
+  );
+  const result = await app.request("/");
+  assert.equal(result.status, 404);
+  assert.equal(loads, 0);
+});
