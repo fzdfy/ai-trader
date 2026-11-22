@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canRenderMarketChart,
+  formatChangePct,
   formatMarketPrice,
   marketQualityLabel,
   moveChartPoint,
@@ -10,6 +11,13 @@ import {
   orderTodayWorkTasks,
   shouldLoadMarketRadar,
 } from "./market-brief.ts";
+
+test("percentage changes use signed two-decimal formatting", () => {
+  assert.equal(formatChangePct(-1.234), "-1.23%");
+  assert.equal(formatChangePct(1.234), "+1.23%");
+  assert.equal(formatChangePct(0), "0.00%");
+  assert.equal(formatChangePct(null), "—");
+});
 
 test("chart keyboard navigation stays inside available points", () => {
   assert.equal(moveChartPoint(5, 0, "ArrowLeft"), 0);

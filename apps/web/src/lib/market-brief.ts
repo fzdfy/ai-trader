@@ -126,6 +126,11 @@ export function formatMarketPrice(value: number | null, unit: string): string {
   }).format(value)} ${unit}`;
 }
 
+export function formatChangePct(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
 export function marketQualityLabel(
   quality: MarketQuality,
   staleReason: string | null,

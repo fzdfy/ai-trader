@@ -68,6 +68,13 @@
   --chart-ma-60: #2f6fe0;
   --chart-equity: light-dark(#202a42, #eef2f9);
   --assistant-accent: #25b7ff;
+
+  --dashboard-a-wash: color-mix(in srgb, var(--primary) 7%, var(--panel));
+  --dashboard-global-wash: color-mix(in srgb, var(--warning) 10%, var(--panel));
+  --dashboard-etf-wash: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  --dashboard-signal-start: color-mix(in srgb, var(--primary) 88%, var(--ink));
+  --dashboard-signal-end: color-mix(in srgb, var(--primary) 72%, white);
+  --dashboard-shadow: 0 18px 44px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .dark {
@@ -129,6 +136,13 @@
   --warning: #f4c765;
   --warning-soft: #322817;
   --assistant-accent: #78d9ff;
+
+  --dashboard-a-wash: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  --dashboard-global-wash: color-mix(in srgb, var(--warning) 8%, var(--panel));
+  --dashboard-etf-wash: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  --dashboard-signal-start: color-mix(in srgb, var(--primary) 68%, var(--ink));
+  --dashboard-signal-end: color-mix(in srgb, var(--primary) 46%, var(--panel));
+  --dashboard-shadow: 0 18px 44px color-mix(in srgb, black 34%, transparent);
 }
 
 @theme inline {
@@ -148,6 +162,12 @@
   --color-app-warning-soft: var(--warning-soft);
   --color-chart-up: var(--chart-up);
   --color-chart-down: var(--chart-down);
+  --color-dashboard-a: var(--dashboard-a-wash);
+  --color-dashboard-global: var(--dashboard-global-wash);
+  --color-dashboard-etf: var(--dashboard-etf-wash);
+  --color-dashboard-signal-start: var(--dashboard-signal-start);
+  --color-dashboard-signal-end: var(--dashboard-signal-end);
+  --shadow-dashboard: var(--dashboard-shadow);
 }
 
 .preline-app {
