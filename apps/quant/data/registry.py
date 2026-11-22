@@ -61,6 +61,7 @@ from .providers import (
     ThsProvider,
     YahooProvider,
 )
+from .market_assets import resolve_market_asset
 
 # 全部数据源实例（惰性创建，避免未安装依赖时 import 即崩）
 _PROVIDER_CLASSES: dict[str, type[MarketProvider]] = {
@@ -125,6 +126,12 @@ _CAPABILITY_PRIORITY: dict[str, list[str]] = {
     CAPABILITY_VALUATION_HISTORY: ["baostock"],
 }
 
+_MARKET_ASSET_PROVIDER_PRIORITY: dict[str, list[str]] = {
+    "a_share": ["tencent"],
+    "global_gold": ["sina"],
+    "us_equity": ["yahoo"],
+}
+
 
 def get_provider(name: str) -> MarketProvider:
     """按名取 provider 实例（惰性创建）。"""
@@ -140,6 +147,25 @@ def providers_for(capability: str) -> list[MarketProvider]:
     for name in _CAPABILITY_PRIORITY.get(capability, []):
         if name not in _PROVIDER_CLASSES:
             continue
+        provider = get_provider(name)
+        if capability in provider.capabilities:
+            out.append(provider)
+    return out
+
+
+def market_asset_providers_for(
+    capability: str,
+    symbol: str,
+) -> list[MarketProvider]:
+    """返回固定资产的有序 provider，避免调用明确拒绝该资产的数据源。"""
+    if capability not in {
+        CAPABILITY_MARKET_ASSET_MINUTE,
+        CAPABILITY_MARKET_ASSET_DAILY,
+    }:
+        raise ValueError(f"{capability} 不是市场资产时序能力")
+    session = resolve_market_asset(symbol).session
+    out: list[MarketProvider] = []
+    for name in _MARKET_ASSET_PROVIDER_PRIORITY[session]:
         provider = get_provider(name)
         if capability in provider.capabilities:
             out.append(provider)
@@ -172,7 +198,17 @@ def call_with_fallback(
     **kwargs,
 ):
     """按降级链依次调用 provider 方法，全部失败抛最后一个异常。"""
-    providers = providers_for(capability)
+    if (
+        capability
+        in {
+            CAPABILITY_MARKET_ASSET_MINUTE,
+            CAPABILITY_MARKET_ASSET_DAILY,
+        }
+        and args
+    ):
+        providers = market_asset_providers_for(capability, str(args[0]))
+    else:
+        providers = providers_for(capability)
     if not providers:
         raise RuntimeError(f"没有数据源支持能力 {capability}")
     last_error: Exception | None = None

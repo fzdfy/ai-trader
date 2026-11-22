@@ -210,7 +210,7 @@ export const defaultMarketAssetJobDependencies: MarketAssetJobDependencies = {
   fetchQuotes: (symbols) => quant.marketAssetQuotes(symbols),
   fetchMinute: (symbol, tf) =>
     quant.marketAssetMinute(symbol, tf, symbol === "XAUUSD" ? 2000 : 500),
-  fetchDaily: (symbol) => quant.marketAssetDaily(symbol, 5000),
+  fetchDaily: (symbol) => quant.marketAssetDaily(symbol, 600),
   upsertQuotes: upsertMarketAssetQuotes,
   upsertMinute: upsertMarketAssetMinuteBars,
   upsertDaily: upsertMarketAssetDailyBars,

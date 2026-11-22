@@ -27,9 +27,9 @@ from data.providers.yahoo.provider import (
     YahooProvider,
     parse_yahoo_market_asset_bars,
 )
-from data.registry import capability_chains, providers_for
+from data.registry import capability_chains, market_asset_providers_for, providers_for
 from data.router import router as data_router
-from data.schemas import MarketAssetBar, MarketAssetQuote
+from data.schemas import KlineBar, MarketAssetBar, MarketAssetQuote
 
 
 class MarketAssetContractTest(unittest.TestCase):
@@ -71,6 +71,22 @@ class MarketAssetContractTest(unittest.TestCase):
     def test_registry_ignores_not_yet_installed_chain_members(self):
         names = [provider.name for provider in providers_for(CAPABILITY_MARKET_ASSET_MINUTE)]
         self.assertEqual(names, ["tencent", "sina", "yahoo"])
+
+    def test_market_asset_provider_chain_is_fixed_by_asset(self):
+        daily = CAPABILITY_MARKET_ASSET_DAILY
+        minute = CAPABILITY_MARKET_ASSET_MINUTE
+        self.assertEqual(
+            [provider.name for provider in market_asset_providers_for(daily, "000001.SH")],
+            ["tencent"],
+        )
+        self.assertEqual(
+            [provider.name for provider in market_asset_providers_for(daily, "XAUUSD")],
+            ["sina"],
+        )
+        self.assertEqual(
+            [provider.name for provider in market_asset_providers_for(minute, "IXIC")],
+            ["yahoo"],
+        )
 
     def test_provider_base_methods_fail_explicitly(self):
         provider = MarketProvider()
@@ -173,6 +189,29 @@ class MarketAssetContractTest(unittest.TestCase):
         self.assertEqual(bars[1].volume, 150)
         self.assertEqual(bars[1].amount, 1600)
         self.assertEqual(bars[1].close, 3532.08)
+
+    def test_tencent_market_asset_daily_clamps_to_supported_page_size(self):
+        provider = TencentProvider()
+        requested_limits = []
+
+        def fake_kline(symbol, tf, limit, start, end, adjust):
+            requested_limits.append(limit)
+            return [
+                KlineBar(
+                    time="2026-11-20",
+                    open=100,
+                    high=101,
+                    low=99,
+                    close=100.5,
+                    volume=1000,
+                    amount=None,
+                )
+            ]
+
+        provider.kline = fake_kline
+        bars = provider.market_asset_daily("000001.SH", limit=5000)
+        self.assertEqual(requested_limits, [600])
+        self.assertEqual(bars[0].source, "tencent")
 
     def test_sina_xau_daily_is_jsonp_and_has_no_volume(self):
         text = (

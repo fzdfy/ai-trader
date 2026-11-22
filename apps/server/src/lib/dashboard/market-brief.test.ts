@@ -86,6 +86,53 @@ test("loads all quotes and three independent chart ranges", async () => {
   assert.equal(new Set(fixture.ranges.map(([, start]) => start)).size, 3);
 });
 
+test("minute charts query seven days and keep only the latest session", async () => {
+  const requests: Array<{
+    kind: "minute" | "daily";
+    start: string;
+    latestSessionOnly?: boolean;
+  }> = [];
+  const fixture = dependencies({
+    readBars: async (symbol, options) => {
+      requests.push({
+        kind: options.kind,
+        start: options.start.toISOString(),
+        latestSessionOnly: options.latestSessionOnly,
+      });
+      return bars(symbol);
+    },
+  });
+  await loadMarketBrief(
+    {
+      symbol: "000001.SH",
+      range: "1D",
+      etfSymbol: "510300.SH",
+      etfRange: "1D",
+      globalSymbol: "XAUUSD",
+      globalRange: "1D",
+    },
+    fixture.deps,
+  );
+
+  assert.deepEqual(requests, [
+    {
+      kind: "minute",
+      start: "2026-11-13T07:30:00.000Z",
+      latestSessionOnly: true,
+    },
+    {
+      kind: "minute",
+      start: "2026-11-13T07:30:00.000Z",
+      latestSessionOnly: true,
+    },
+    {
+      kind: "minute",
+      start: "2026-11-13T07:30:00.000Z",
+      latestSessionOnly: true,
+    },
+  ]);
+});
+
 test("one missing asset remains missing without failing the response", async () => {
   const fixture = dependencies({
     readQuote: async (symbol) => {

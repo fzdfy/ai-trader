@@ -44,6 +44,7 @@ _TICK_MAX_PAGES = 300            # 一页 70 笔；2026-09 实测最活跃的票
 _TICK_SESSION_END = "15:00:59"   # 连续竞价 + 收盘集合竞价到此为止，之后是盘后定价
 
 _MINUTE_URL = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/minute/query"
+_MARKET_ASSET_DAILY_LIMIT = 600
 
 
 def _market_asset_number(fields: list[str], index: int) -> float | None:
@@ -385,7 +386,7 @@ class TencentProvider(MarketProvider):
         bars = self.kline(
             symbol,
             tf="1d",
-            limit=limit,
+            limit=min(max(1, limit), _MARKET_ASSET_DAILY_LIMIT),
             start=start,
             end=end,
             adjust="none",

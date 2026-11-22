@@ -1,8 +1,6 @@
 import {
   MARKET_ASSET_SYMBOLS,
-  MARKET_ASSETS,
   resolveMarketAsset,
-  type MarketAssetSession,
 } from "../market-assets/catalog";
 import {
   marketAssetReader,
@@ -69,6 +67,7 @@ export interface MarketBriefDependencies {
       start: Date;
       end: Date;
       limit: number;
+      latestSessionOnly?: boolean;
     },
   ) => Promise<MarketAssetBarRead>;
   loadSnapshot: () => Promise<{
@@ -195,12 +194,14 @@ async function safeChart(
 ): Promise<MarketChartResponse> {
   const definition = resolveMarketAsset(symbol);
   const resolved = resolveMarketRange(range, now, definition.session);
+  const isMinute = resolved.granularity === "minute";
   try {
     const read = await dependencies.readBars(symbol, {
       kind: resolved.granularity,
-      start: resolved.start,
+      start: isMinute ? new Date(now.getTime() - 7 * 24 * 60 * 60_000) : resolved.start,
       end: resolved.end,
-      limit: resolved.granularity === "minute" ? 2000 : 1000,
+      limit: isMinute ? 2000 : 1000,
+      latestSessionOnly: isMinute,
     });
     return toMarketChart(read, definition, range);
   } catch {

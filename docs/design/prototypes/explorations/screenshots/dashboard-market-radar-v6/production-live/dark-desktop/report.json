@@ -1,0 +1,42 @@
+[
+  {
+    "file": "page-登录并加载真实行情.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "登录并加载真实行情",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 7,
+        "examples": [
+          "p.font-mono.text-[11px]「SUN 11.22 · DAILY BRIEF」（3.17:1）",
+          "span.text-[11px].font-semibold「参与 A 股 SIGNAL」（2.94:1）",
+          "span.text-right.text-xs「100% 数据质量 · 非预测准确率」（4.27:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 59,
+        "examples": [
+          "p.font-mono.text-[9px]「DATA STATUS」（9px）",
+          "p.text-[10px].text-app-muted「行情与资金」（10px）",
+          "p.text-[10px].text-app-muted「资讯」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「M Market Radar QA 量化研究 ·」（首屏 4 块各自加框）",
+          "div.rounded-xl.border「DATA STATUS 行情快照滞后 2 天 市」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

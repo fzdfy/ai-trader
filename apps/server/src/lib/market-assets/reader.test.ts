@@ -29,9 +29,13 @@ const quote = (symbol: string, observedAt: Date): StoredMarketAssetQuote => ({
   raw: null,
 });
 
-const bar = (symbol: string, bucketStart: Date): StoredMarketAssetBar => ({
+const bar = (
+  symbol: string,
+  bucketStart: Date,
+  sessionDate = "2026-11-20",
+): StoredMarketAssetBar => ({
   symbol,
-  sessionDate: "2026-11-20",
+  sessionDate,
   bucketStart,
   open: 4030,
   high: 4035,
@@ -96,6 +100,36 @@ test("bar read returns ascending points and asset volume capability", async () =
   assert.equal(read.hasVolume, true);
   assert.equal(read.quality, "available");
   assert.equal(read.points[0]?.time, "2026-11-20T01:30:00.000Z");
+});
+
+test("1D latest-session reads exclude prior sessions", async () => {
+  let latestSessionOnly = false;
+  const reader = createMarketAssetReader(
+    dependencies({
+      readStoredBars: async (_symbol, options) => {
+        latestSessionOnly = options.latestSessionOnly === true;
+        return [
+          bar("XAUUSD", new Date("2026-11-19T01:30:00.000Z"), "2026-11-19"),
+          bar("XAUUSD", new Date("2026-11-20T01:30:00.000Z"), "2026-11-20"),
+          bar("XAUUSD", new Date("2026-11-20T01:31:00.000Z"), "2026-11-20"),
+        ];
+      },
+    }),
+  );
+  const read = await reader.readBars("XAUUSD", {
+    kind: "minute",
+    start: new Date("2026-11-15T00:00:00.000Z"),
+    end: new Date("2026-11-20T08:00:00.000Z"),
+    limit: 10,
+    latestSessionOnly: true,
+  });
+
+  assert.equal(latestSessionOnly, true);
+  assert.equal(read.sessionDate, "2026-11-20");
+  assert.deepEqual(
+    read.points.map((point) => point.time),
+    ["2026-11-20T01:30:00.000Z", "2026-11-20T01:31:00.000Z"],
+  );
 });
 
 test("unknown asset is rejected before storage access", async () => {

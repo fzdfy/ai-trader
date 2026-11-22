@@ -55,6 +55,7 @@ export interface MarketAssetReaderDependencies {
       start?: Date;
       end?: Date;
       limit?: number;
+      latestSessionOnly?: boolean;
     },
   ) => Promise<StoredMarketAssetBar[]>;
 }
@@ -140,6 +141,7 @@ export function createMarketAssetReader(
         start?: Date;
         end?: Date;
         limit?: number;
+        latestSessionOnly?: boolean;
       },
     ): Promise<MarketAssetBarRead> {
       const definition = resolveMarketAsset(symbol);
@@ -155,7 +157,11 @@ export function createMarketAssetReader(
           staleReason: "no valid bars",
         };
       }
-      const points = [...rows]
+      const latestSessionDate = rows.at(-1)?.sessionDate;
+      const selectedRows = options.latestSessionOnly
+        ? rows.filter((row) => row.sessionDate === latestSessionDate)
+        : rows;
+      const points = [...selectedRows]
         .sort((left, right) => left.bucketStart.getTime() - right.bucketStart.getTime())
         .map((row) => ({
           time: row.bucketStart.toISOString(),
@@ -169,7 +175,7 @@ export function createMarketAssetReader(
         symbol: definition.symbol,
         name: definition.name,
         points,
-        sessionDate: rows.at(-1)?.sessionDate ?? null,
+        sessionDate: selectedRows.at(-1)?.sessionDate ?? null,
         hasVolume: definition.hasVolume,
         quality: "available",
         staleReason: null,

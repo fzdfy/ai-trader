@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { MarketAssetBar, MarketAssetQuote } from "../../../lib/quant.ts";
 import {
+  quant,
+  type MarketAssetBar,
+  type MarketAssetQuote,
+} from "../../../lib/quant.ts";
+import {
+  defaultMarketAssetJobDependencies,
   runMarketAssetDailyJob,
   runMarketAssetMinuteJob,
   type MarketAssetJobDependencies,
@@ -57,8 +62,8 @@ function dependencies(overrides: Partial<MarketAssetJobDependencies> = {}) {
       quoteCalls.push(requested);
       return Object.fromEntries(requested.map((symbol) => [symbol, quote(symbol)]));
     },
-    fetchMinute: async (symbol, tf) => {
-      minuteCalls.push([symbol, tf]);
+    fetchMinute: async (symbol, _tf) => {
+      minuteCalls.push([symbol, _tf]);
       return [bar(symbol)];
     },
     fetchDaily: async (symbol) => {
@@ -109,7 +114,7 @@ test("minute job uses 5m for IXIC during the US session", async () => {
 
 test("one asset failure does not block minute upserts for other assets", async () => {
   const fixture = dependencies({
-    fetchMinute: async (symbol, tf) => {
+    fetchMinute: async (symbol, _tf) => {
       if (symbol === "159992.SZ") throw new Error("ETF timeout");
       return [bar(symbol)];
     },
@@ -126,4 +131,19 @@ test("daily job fetches all fixed assets and never calls minute endpoints", asyn
   assert.deepEqual(fixture.dailyCalls, symbols);
   assert.equal(fixture.minuteCalls.length, 0);
   assert.equal(fixture.upserts.daily, 7);
+});
+
+test("daily job keeps Tencent history requests inside its paging limit", async () => {
+  const original = quant.marketAssetDaily;
+  let limit = 0;
+  quant.marketAssetDaily = async (symbol, requestedLimit) => {
+    limit = requestedLimit ?? 0;
+    return [bar(symbol)];
+  };
+  try {
+    await defaultMarketAssetJobDependencies.fetchDaily("000001.SH");
+  } finally {
+    quant.marketAssetDaily = original;
+  }
+  assert.equal(limit, 600);
 });

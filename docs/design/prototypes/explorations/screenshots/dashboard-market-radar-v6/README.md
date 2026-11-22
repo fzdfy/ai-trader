@@ -26,10 +26,19 @@
 - `production-mock/details/execution/`：今日行动与今日工作流生产组件。
 - 实测生产组件桌面左右高度均为 `775.5px`，底边差值 `0px`。
 
+## 生产页面验收（真实 Docker + PostgreSQL）
+
+- `production-live/light-desktop/`、`production-live/dark-desktop/`、`production-live/light-mobile/`、`production-live/dark-mobile/`：当前工作树 React 页面连接本机 Docker PostgreSQL 与真实 quant 数据。
+- `production-live/interactions/`、`production-live/browser-check/`：ETF Tab、跨市场缺失态、今日行动/今日工作流与数值测量。
+- 桌面 `1440×900` 左栏与右侧组合高度均为 `775.5px`，底边差 `0px`；移动端 `390×844` 为单列，文档宽度和视口宽度均为 `390px`。
+- ETF `ArrowRight` 从沪深300ETF切到科创50ETF，只替换 ETF 图表；纳指缺历史数据时显示“历史行情不足”，A 股与 ETF 继续显示。
+- 今日行动只显示 Work Task，今日工作流只显示 Workflow Run；当前测试账户两者均为空态。
+- 真实运行无控制台错误、横向溢出或图片加载失败。浏览器 lint 仍报告工作台既有密集小字（59 处小于 `11px`）及浅/深色下 3-7 处低对比度提示，属于独立可访问性清理项，不影响本轮模块归位和高度对齐结论。
+
 ## 检查结果
 
 标准桌面与移动端、浅色与深色截图均无控制台错误、横向溢出、图片加载失败和小字提示。桌面首屏仍保留一项页面级“多卡片分组”启发式提示，来自 A 股主控台、跨市场、ETF 和固定导航卡同时出现在首屏；右侧两张观察卡内部没有该提示。
 
 `1440×900` 浏览器实测：左侧 A 股主控台与右侧两卡组合高度均为 `697.875px`，底边差值为 `0px`。
 
-本轮只验证视觉探索稿，未修改生产代码和业务数据口径。
+历史探索稿未修改生产代码和业务数据口径；正式实现与真实数据验收见上两节。
