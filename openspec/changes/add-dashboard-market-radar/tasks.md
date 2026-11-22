@@ -32,7 +32,7 @@
 
 对应计划：`docs/superpowers/plans/2026-11-22-dashboard-market-radar-dashboard-ui.md`
 
-- [ ] 3.1 增加 Market Brief 查询 hooks、前端类型与市场纯 helper 测试；验证三组 range、ETF Tab 和图表空态。
+- [x] 3.1 增加 Market Brief 查询 hooks、前端类型与市场纯 helper 测试；验证三组 range、ETF Tab 和图表空态。
 - [ ] 3.2 增加可访问价格趋势图组件，支持成交量、十字线、键盘和 reduced motion；验证缺失数据不绘制空坐标。
 - [ ] 3.3 拆出 `AShareMarketBoard`、`AShareSignalPanel`、`ETFContextCard`、`GlobalContextCard`，实现 Tab 与独立区间；验证 ETF 不改变 SIGNAL。
 - [ ] 3.4 增加今日执行查询和 `TodayExecutionSection`，并列展示今日行动与今日工作流；验证排序、空态、错误态和点击入口相互独立。
