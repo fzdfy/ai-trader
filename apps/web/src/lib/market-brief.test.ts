@@ -5,6 +5,8 @@ import {
   formatMarketPrice,
   marketQualityLabel,
   nextMarketTab,
+  latestThreeWorkflowRuns,
+  orderTodayWorkTasks,
   shouldLoadMarketRadar,
 } from "./market-brief.ts";
 
@@ -49,4 +51,22 @@ test("market radar loads only when feature flag is explicitly true", () => {
   assert.equal(shouldLoadMarketRadar(undefined), false);
   assert.equal(shouldLoadMarketRadar({ dashboardMarketRadar: false }), false);
   assert.equal(shouldLoadMarketRadar({ dashboardMarketRadar: true }), true);
+});
+
+test("today work task ordering keeps input immutable", () => {
+  const input = [
+    { id: 1, dueTime: "14:30", sortOrder: 1 },
+    { id: 2, dueTime: "09:20", sortOrder: 2 },
+    { id: 3, dueTime: null, sortOrder: 0 },
+  ];
+  assert.deepEqual(orderTodayWorkTasks(input).map((item) => item.id), [2, 1, 3]);
+  assert.deepEqual(input.map((item) => item.id), [1, 2, 3]);
+});
+
+test("workflow run ordering returns the latest three", () => {
+  const input = [1, 2, 3, 4].map((id) => ({
+    id,
+    createdAt: `2026-11-20T0${id}:00:00.000Z`,
+  }));
+  assert.deepEqual(latestThreeWorkflowRuns(input).map((item) => item.id), [4, 3, 2]);
 });

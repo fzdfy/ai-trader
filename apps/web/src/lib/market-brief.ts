@@ -129,3 +129,24 @@ export function canRenderMarketChart(chart: { points: Array<{ time: string; pric
 export function shouldLoadMarketRadar(features: Partial<SystemFeatures> | undefined): boolean {
   return features?.dashboardMarketRadar === true;
 }
+
+export function orderTodayWorkTasks<
+  T extends { dueTime: string | null; sortOrder: number },
+>(items: readonly T[]): T[] {
+  return [...items].sort((left, right) => {
+    if (left.dueTime && right.dueTime && left.dueTime !== right.dueTime) {
+      return left.dueTime.localeCompare(right.dueTime);
+    }
+    if (left.dueTime && !right.dueTime) return -1;
+    if (!left.dueTime && right.dueTime) return 1;
+    return left.sortOrder - right.sortOrder;
+  });
+}
+
+export function latestThreeWorkflowRuns<T extends { createdAt: string }>(
+  items: readonly T[],
+): T[] {
+  return [...items]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, 3);
+}
