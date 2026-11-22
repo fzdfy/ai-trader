@@ -1,7 +1,13 @@
 import { Sparkles } from "lucide-react";
 import type { MarketSignal } from "../../../lib/market-brief";
 
-export function AShareSignalPanel({ signal }: { signal: MarketSignal }) {
+export function AShareSignalPanel({
+  signal,
+  trendName,
+}: {
+  signal: MarketSignal;
+  trendName: string;
+}) {
   const low = signal.quality !== "available";
   return (
     <section
@@ -51,7 +57,7 @@ export function AShareSignalPanel({ signal }: { signal: MarketSignal }) {
         ))}
       </div>
       <div className={`mt-2 text-[11px] ${low ? "text-app-muted" : "text-primary-foreground/80"}`}>
-        输入 · 上证趋势 / 创业板广度 / 行业资金与涨停
+        输入 · {trendName}趋势 / 行业广度 / 行业资金与涨停
       </div>
     </section>
   );

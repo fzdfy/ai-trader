@@ -7,8 +7,9 @@
 ## Verdict
 
 - `tasks.md` `4.1` is complete using real Docker PostgreSQL, real quant data and the current worktree React page.
-- Implementation and integration verification are complete.
-- User acceptance is still required. This change must not be archived without a separate user confirmation.
+- User acceptance was confirmed on 2026-11-22.
+- Native code review completed and its verified correctness fixes are included below.
+- Archive still requires a separate confirmation; one unresolved product-scope decision is listed under Known Gaps.
 
 ## Environment
 
@@ -130,21 +131,34 @@ Measurements at mobile `390×844`:
 
 Interactions:
 
-- ETF `ArrowRight` moved selection from 沪深300ETF to 科创50ETF and changed the ETF chart to `588000.SH`.
+- ETF `ArrowRight` moved selection from 沪深300ETF to 科创50ETF, changed the ETF chart to `588000.SH`, retained focus on the ETF tablist and exposed `aria-activedescendant="etf-tab-588000.SH"`.
+- A focused price chart accepted `ArrowLeft` and exposed the selected data point through its live region.
 - IXIC missing selection rendered “历史行情不足 / no valid bars” while A-share and ETF remained visible.
 - Today Execution contains exactly two sibling cards: “今日行动” and “今日工作流”.
 - Today Actions showed the Work Task empty state; Today Workflows showed the Workflow Run empty state.
 - Light/dark desktop and mobile screenshots had no console errors, horizontal overflow or failed images.
 
+## Code Review Fixes
+
+- SIGNAL trend now reads a separate daily history series. It remains identical when the user changes the A-share chart between `1D` and `YTD`, instead of accidentally calculating a 20-minute MA for `1D`.
+- Data confidence uses four explicit inputs: selected quote, all A-share quotes, daily trend coverage and breadth/heat completeness. Stale or missing inputs lower quality as defined by the design.
+- Stored bars with fewer than two points or a latest bucket older than four days are returned as `low` with a stale reason.
+- Weekday exchange holidays now return `non_trading_day` using `trading_calendar`; weekday alone is no longer treated as proof that the market is open.
+- Explicit provider selection now returns HTTP `400` when the provider does not support the asset, rather than leaking a provider `ValueError` as HTTP `500`.
+- Today Work Task rows navigate to `/home/tasks?task=<id>`, and Workflow Run timestamps use the user timezone.
+- ETF and price-chart keyboard paths were verified in the real browser. Market Brief retains previous data while the next ETF request is in flight, so the focused tablist is not unmounted during normal keyboard navigation.
+- Today actions, today workflows and the Market Radar aggregate now expose focused retry actions for their recoverable error states.
+- The A-share signal input caption follows the selected index instead of always claiming “上证趋势”.
+
 ## Automated Checks
 
 | Check | Result | Evidence |
 |---|---|---|
-| Quant full suite | PASS | `cd apps/quant && .venv/bin/python -m unittest discover -s tests -v` → 46 tests passed |
-| Server full suite | PASS | `cd apps/server && DATABASE_URL=... pnpm test` → 235 tests, 185 passed, 0 failed, 50 skipped by explicit DB-test flags |
+| Quant full suite | PASS | `cd apps/quant && .venv/bin/python -m unittest discover -s tests -v` → 47 tests passed |
+| Server full suite | PASS | `cd apps/server && DATABASE_URL=... pnpm test` → 240 tests, 190 passed, 0 failed, 50 skipped by explicit DB-test flags |
 | Server type check | PASS | `cd apps/server && pnpm check-types` |
 | Server lint | PASS with existing warnings | `oxlint .` → 0 errors |
-| Web full suite | PASS | `cd apps/web && pnpm test` → 71 tests passed |
+| Web full suite | PASS | `cd apps/web && pnpm test` → 74 tests passed |
 | Web type check | PASS | `cd apps/web && pnpm check-types` |
 | Web lint | PASS with existing warnings | `oxlint .` → 0 errors, 6 pre-existing warnings |
 | Web production build | PASS | Vite build completed; existing chunk-size warnings remain |
@@ -162,7 +176,8 @@ Interactions:
 - IXIC minute/daily ingestion is currently blocked by Yahoo upstream `HTTP 429`; fixture parsing and the UI missing state are verified.
 - The 50 skipped server tests require explicit `ADMIN_DB_TESTS=1` / `WORKFLOW_DB_TESTS=1` database fixtures and are outside this change-specific run.
 - Feature flags remain default-off; integration used explicit `true` overrides.
+- The technical design mentions a contextual “追问 AI” entry from A-share SIGNAL, but no implementation task or confirmed v6 visual control exists. It remains unimplemented rather than being added without a visual gate. Before archive, the user must either approve that visual addition or remove the requirement from the design/spec.
 
 ## Acceptance
 
-Task `4.1` is complete. The implementation is ready for user acceptance and is not archived.
+Task `4.1` is complete and the user accepted the original implementation. The code-review fix pass is verified above. The change is not archived; resolve the contextual AI scope decision, then explicitly confirm archive.

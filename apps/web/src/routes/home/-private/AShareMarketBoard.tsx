@@ -107,7 +107,7 @@ export function AShareMarketBoard({
           </div>
         </div>
         <MarketAssetChart chart={chart} subjectName={chart.name} />
-        <AShareSignalPanel signal={data.signal} />
+        <AShareSignalPanel signal={data.signal} trendName={chart.name} />
       </div>
     </Card>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
 import { EmptyState } from "@preline-ui/EmptyState";
 import { useAppTheme } from "../AppThemeProvider";
@@ -12,6 +12,7 @@ import {
 } from "../../lib/theme";
 import {
   canRenderMarketChart,
+  moveChartPoint,
   type MarketChart,
 } from "../../lib/market-brief";
 
@@ -41,8 +42,14 @@ export function MarketAssetChart({
 }: MarketAssetChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
+  const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null);
   const { mode, preset } = useAppTheme();
   const renderable = canRenderMarketChart(chart);
+  const activeIndex =
+    keyboardIndex == null
+      ? chart.points.length - 1
+      : Math.max(0, Math.min(keyboardIndex, chart.points.length - 1));
+  const activePoint = renderable ? chart.points[activeIndex] : null;
   const option = useMemo(() => {
     const labels = chart.points.map((point) => axisTime(point.time));
     const hasVolume = chart.hasVolume && chart.points.some((point) => point.volume != null);
@@ -160,6 +167,10 @@ export function MarketAssetChart({
     };
   }, [option, renderable]);
 
+  useEffect(() => {
+    setKeyboardIndex(chart.points.length > 0 ? chart.points.length - 1 : null);
+  }, [chart.points.length, chart.range, chart.symbol]);
+
   if (!renderable) {
     return (
       <EmptyState
@@ -171,11 +182,39 @@ export function MarketAssetChart({
 
   return (
     <div
-      className={compact ? "h-44 w-full" : "h-64 w-full"}
-      aria-label={`${subjectName}${chart.range}价格走势${chart.hasVolume ? "和成交量" : ""}`}
-      role="img"
+      className={`${compact ? "h-44 w-full" : "h-64 w-full"} focus-ring rounded-xl`}
+      aria-label={`${subjectName}${chart.range}价格走势${chart.hasVolume ? "和成交量" : ""}，使用左右方向键查看数据点`}
+      role="group"
+      tabIndex={0}
+      onFocus={() => {
+        if (activeIndex >= 0) {
+          chartRef.current?.dispatchAction({
+            type: "showTip",
+            seriesIndex: 0,
+            dataIndex: activeIndex,
+          });
+        }
+      }}
+      onBlur={() => chartRef.current?.dispatchAction({ type: "hideTip" })}
+      onKeyDown={(event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = moveChartPoint(
+          chart.points.length,
+          activeIndex,
+          event.key as "ArrowLeft" | "ArrowRight" | "Home" | "End",
+        );
+        if (next < 0) return;
+        setKeyboardIndex(next);
+        chartRef.current?.dispatchAction({ type: "showTip", seriesIndex: 0, dataIndex: next });
+      }}
     >
       <div ref={containerRef} className="h-full w-full" />
+      {activePoint ? (
+        <span className="sr-only" aria-live="polite">
+          {axisTime(activePoint.time)}，价格 {activePoint.price.toFixed(2)}
+        </span>
+      ) : null}
     </div>
   );
 }

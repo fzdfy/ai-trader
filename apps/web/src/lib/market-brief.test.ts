@@ -4,11 +4,20 @@ import {
   canRenderMarketChart,
   formatMarketPrice,
   marketQualityLabel,
+  moveChartPoint,
   nextMarketTab,
   latestThreeWorkflowRuns,
   orderTodayWorkTasks,
   shouldLoadMarketRadar,
 } from "./market-brief.ts";
+
+test("chart keyboard navigation stays inside available points", () => {
+  assert.equal(moveChartPoint(5, 0, "ArrowLeft"), 0);
+  assert.equal(moveChartPoint(5, 4, "ArrowRight"), 4);
+  assert.equal(moveChartPoint(5, 2, "Home"), 0);
+  assert.equal(moveChartPoint(5, 2, "End"), 4);
+  assert.equal(moveChartPoint(0, 0, "ArrowRight"), -1);
+});
 
 test("ETF arrow keys wrap and preserve symbol order", () => {
   const symbols = ["510300.SH", "588000.SH", "159992.SZ"] as const;

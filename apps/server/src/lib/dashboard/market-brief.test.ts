@@ -4,7 +4,11 @@ import type {
   MarketAssetBarRead,
   MarketAssetQuoteRead,
 } from "../market-assets/reader.ts";
-import { loadMarketBrief, type MarketBriefDependencies } from "./market-brief.ts";
+import {
+  loadMarketBrief,
+  resolveAShareSession,
+  type MarketBriefDependencies,
+} from "./market-brief.ts";
 
 const quote = (symbol: string, price: number): MarketAssetQuoteRead => ({
   symbol: symbol as MarketAssetQuoteRead["symbol"],
@@ -81,9 +85,18 @@ test("loads all quotes and three independent chart ranges", async () => {
   assert.equal(brief.globalChart.symbol, "IXIC");
   assert.deepEqual(
     fixture.ranges.map(([symbol]) => symbol),
-    ["000001.SH", "588000.SH", "IXIC"],
+    ["000001.SH", "000001.SH", "588000.SH", "IXIC"],
   );
-  assert.equal(new Set(fixture.ranges.map(([, start]) => start)).size, 3);
+  assert.equal(new Set(fixture.ranges.map(([, start]) => start)).size, 4);
+});
+
+test("weekday market holidays are not reported as open sessions", () => {
+  const session = resolveAShareSession(
+    new Date("2026-10-01T02:00:00.000Z"),
+    false,
+  );
+  assert.equal(session.phase, "non_trading_day");
+  assert.equal(session.label, "非交易日");
 });
 
 test("minute charts query seven days and keep only the latest session", async () => {
@@ -121,6 +134,11 @@ test("minute charts query seven days and keep only the latest session", async ()
       latestSessionOnly: true,
     },
     {
+      kind: "daily",
+      start: "2026-08-22T07:30:00.000Z",
+      latestSessionOnly: undefined,
+    },
+    {
       kind: "minute",
       start: "2026-11-13T07:30:00.000Z",
       latestSessionOnly: true,
@@ -131,6 +149,33 @@ test("minute charts query seven days and keep only the latest session", async ()
       latestSessionOnly: true,
     },
   ]);
+});
+
+test("SIGNAL trend uses daily history independently from the chart range", async () => {
+  const fixture = dependencies({
+    readBars: async (symbol, options) => {
+      const base = bars(symbol);
+      return {
+        ...base,
+        points: base.points.map((point, index) => ({
+          ...point,
+          price: (options.kind === "daily" ? 200 : 400) + index,
+        })),
+      };
+    },
+  });
+  const query = {
+    symbol: "000001.SH" as const,
+    etfSymbol: "510300.SH" as const,
+    etfRange: "1D" as const,
+    globalSymbol: "XAUUSD" as const,
+    globalRange: "1D" as const,
+  };
+  const intraday = await loadMarketBrief({ ...query, range: "1D" }, fixture.deps);
+  const yearToDate = await loadMarketBrief({ ...query, range: "YTD" }, fixture.deps);
+
+  assert.deepEqual(intraday.signal, yearToDate.signal);
+  assert.match(intraday.signal.body, /20 日收益/);
 });
 
 test("one missing asset remains missing without failing the response", async () => {
@@ -193,4 +238,49 @@ test("snapshot failure degrades SIGNAL without failing market charts", async () 
   assert.equal(brief.aShareChart.quality, "available");
   assert.equal(brief.signal.quality, "missing");
   assert.equal(brief.signal.stance, "neutral");
+});
+
+test("stale A-share quotes cannot leave SIGNAL at full confidence", async () => {
+  const fixture = dependencies({
+    readQuote: async (symbol) => ({
+      ...quote(symbol, 100),
+      quality: symbol === "000001.SH" ? "low" : "available",
+      staleReason: symbol === "000001.SH" ? "stale quote" : null,
+    }),
+  });
+  const brief = await loadMarketBrief(
+    {
+      symbol: "000001.SH",
+      range: "1D",
+      etfSymbol: "510300.SH",
+      etfRange: "1D",
+      globalSymbol: "XAUUSD",
+      globalRange: "1D",
+    },
+    fixture.deps,
+  );
+  assert.equal(brief.signal.quality, "missing");
+  assert.equal(brief.signal.dataConfidence, 25);
+});
+
+test("missing another A-share quote lowers SIGNAL confidence", async () => {
+  const fixture = dependencies({
+    readQuote: async (symbol) => {
+      if (symbol === "588000.SH") throw new Error("ETF unavailable");
+      return quote(symbol, 100);
+    },
+  });
+  const brief = await loadMarketBrief(
+    {
+      symbol: "000001.SH",
+      range: "1D",
+      etfSymbol: "510300.SH",
+      etfRange: "1D",
+      globalSymbol: "XAUUSD",
+      globalRange: "1D",
+    },
+    fixture.deps,
+  );
+  assert.equal(brief.signal.quality, "low");
+  assert.equal(brief.signal.dataConfidence, 75);
 });

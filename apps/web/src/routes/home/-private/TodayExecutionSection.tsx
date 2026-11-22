@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { CircleAlert, Clock3, ListChecks, Workflow } from "lucide-react";
+import { Button } from "@preline-ui/Button";
 import { Card } from "@preline-ui/Card";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
@@ -11,8 +12,10 @@ import {
 } from "../../../hooks/useWorkflows";
 import {
   WORK_TASK_CATEGORY_LABELS,
+  formatWorkflowRunTime,
   formatTaskDue,
   localDateContext,
+  workTaskDetailSearch,
 } from "../../../lib/work-tasks";
 import { WORKFLOW_STATUS_META } from "../../../lib/workflows";
 import {
@@ -45,16 +48,29 @@ export function TodayExecutionSection() {
           </Link>
         </header>
         {tasks.isError ? (
-          <div className="flex items-center gap-3 p-4 text-xs text-destructive">
-            <CircleAlert className="size-4" />
-            今日任务加载失败，行情与工作流不受影响。
+          <div className="flex items-center justify-between gap-3 p-4 text-xs text-destructive">
+            <span className="flex items-center gap-2">
+              <CircleAlert className="size-4" />
+              今日任务加载失败，行情与工作流不受影响。
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              label="重试任务"
+              onClick={() => void tasks.refetch()}
+            />
           </div>
         ) : orderedTasks.length > 0 ? (
           <div className="divide-y divide-app-line/70 px-4">
             {orderedTasks.map((task) => {
               const due = formatTaskDue(task, new Date(), local.localDate);
               return (
-                <Link key={task.id} to="/home/tasks" className="grid grid-cols-[48px_minmax(0,1fr)_20px] items-center gap-2 py-3">
+                <Link
+                  key={task.id}
+                  to="/home/tasks"
+                  search={workTaskDetailSearch(task.id)}
+                  className="grid grid-cols-[48px_minmax(0,1fr)_20px] items-center gap-2 py-3"
+                >
                   <span className="font-mono text-[11px] text-app-muted">{task.dueTime?.slice(0, 5) ?? "—"}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-semibold text-app-ink">{task.title}</span>
@@ -90,9 +106,17 @@ export function TodayExecutionSection() {
           </Link>
         </header>
         {todayRuns.isError ? (
-          <div className="flex items-center gap-3 p-4 text-xs text-destructive">
-            <CircleAlert className="size-4" />
-            今日工作流加载失败，市场与今日行动继续显示。
+          <div className="flex items-center justify-between gap-3 p-4 text-xs text-destructive">
+            <span className="flex items-center gap-2">
+              <CircleAlert className="size-4" />
+              今日工作流加载失败，市场与今日行动继续显示。
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              label="重试工作流"
+              onClick={() => void todayRuns.refetch()}
+            />
           </div>
         ) : runs.length > 0 ? (
           <div className="divide-y divide-app-line/70 px-4">
@@ -110,7 +134,9 @@ export function TodayExecutionSection() {
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-semibold text-app-ink">{run.workflowName}</span>
-                    <span className="mt-0.5 block text-[11px] text-app-muted">{run.createdAt.slice(5, 16).replace("T", " ")}</span>
+                    <span className="mt-0.5 block text-[11px] text-app-muted">
+                      {formatWorkflowRunTime(run.createdAt, local.timezone)}
+                    </span>
                   </span>
                   <span className={`rounded-full px-2 py-1 text-[11px] ${status.className}`}>{status.label}</span>
                 </Link>

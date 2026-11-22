@@ -50,21 +50,28 @@ export function ETFContextCard({
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col px-3.5 py-2.5">
-        <div className="flex gap-4 overflow-x-auto border-b border-app-line pb-1" role="tablist" aria-label="切换主流 ETF">
+        <div
+          className="focus-ring flex gap-4 overflow-x-auto rounded-md border-b border-app-line pb-1"
+          role="tablist"
+          aria-label="切换主流 ETF"
+          aria-activedescendant={`etf-tab-${selectedSymbol}`}
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            onTabKeyDown(event.key as "ArrowLeft" | "ArrowRight" | "Home" | "End");
+          }}
+        >
           {ETF_SYMBOLS.map((symbol) => (
             <button
               key={symbol}
+              id={`etf-tab-${symbol}`}
               type="button"
               role="tab"
+              data-etf-symbol={symbol}
               aria-selected={selectedSymbol === symbol}
-              tabIndex={selectedSymbol === symbol ? 0 : -1}
+              tabIndex={-1}
               onClick={() => onSelectSymbol(symbol)}
-              onKeyDown={(event) => {
-                if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-                  event.preventDefault();
-                  onTabKeyDown(event.key as "ArrowLeft" | "ArrowRight" | "Home" | "End");
-                }
-              }}
               className={`shrink-0 border-b-2 px-0.5 pb-2 text-[11px] font-semibold transition ${
                 selectedSymbol === symbol
                   ? "border-primary text-app-ink"

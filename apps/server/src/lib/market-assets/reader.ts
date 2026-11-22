@@ -66,6 +66,19 @@ function staleThresholdMs(definition: MarketAssetDefinition): number {
   return 4 * 24 * 60 * 60_000;
 }
 
+function barsStaleReason(
+  rows: StoredMarketAssetBar[],
+  now: Date,
+): string | null {
+  if (rows.length < 2) return "insufficient bars for chart";
+  const latest = rows.reduce((current, row) =>
+    row.bucketStart.getTime() > current.bucketStart.getTime() ? row : current,
+  );
+  const age = now.getTime() - latest.bucketStart.getTime();
+  if (age <= 4 * 24 * 60 * 60_000) return null;
+  return `stale bars: ${Math.floor(age / 60_000)} minutes old`;
+}
+
 function quoteStaleReason(
   definition: MarketAssetDefinition,
   quotedAt: Date,
@@ -161,6 +174,7 @@ export function createMarketAssetReader(
       const selectedRows = options.latestSessionOnly
         ? rows.filter((row) => row.sessionDate === latestSessionDate)
         : rows;
+      const staleReason = barsStaleReason(selectedRows, now());
       const points = [...selectedRows]
         .sort((left, right) => left.bucketStart.getTime() - right.bucketStart.getTime())
         .map((row) => ({
@@ -177,8 +191,8 @@ export function createMarketAssetReader(
         points,
         sessionDate: selectedRows.at(-1)?.sessionDate ?? null,
         hasVolume: definition.hasVolume,
-        quality: "available",
-        staleReason: null,
+        quality: staleReason ? "low" : "available",
+        staleReason,
       };
     },
   };

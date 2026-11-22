@@ -371,6 +371,14 @@ class MarketAssetRouteContractTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         fallback.assert_not_called()
 
+    def test_explicit_source_rejects_an_asset_it_does_not_support(self):
+        with patch.object(YahooProvider, "market_asset_daily", return_value=[]):
+            response = self.client.get(
+                "/api/v1/data/market-assets/daily?symbol=000001.SH&source=yahoo"
+            )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("yahoo", response.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -132,6 +132,20 @@ test("1D latest-session reads exclude prior sessions", async () => {
   );
 });
 
+test("old or insufficient bar history is marked low quality", async () => {
+  const reader = createMarketAssetReader(
+    dependencies({
+      readStoredBars: async () => [
+        bar("000001.SH", new Date("2026-11-10T01:30:00.000Z"), "2026-11-10"),
+      ],
+    }),
+  );
+  const read = await reader.readBars("000001.SH", { kind: "minute", limit: 10 });
+
+  assert.equal(read.quality, "low");
+  assert.match(read.staleReason ?? "", /insufficient|stale/);
+});
+
 test("unknown asset is rejected before storage access", async () => {
   let reads = 0;
   const reader = createMarketAssetReader(

@@ -277,11 +277,20 @@ export function DailyDashboard() {
             </div>
           ) : marketBriefQuery.isError || !marketBriefQuery.data ? (
             <Card className="border-app-warning/30 bg-app-warning-soft/40 p-5">
-              <CircleAlert className="size-5 text-app-warning" />
-              <p className="mt-2 text-sm font-semibold text-app-ink">行情雷达暂时无法读取</p>
-              <p className="mt-1 text-xs text-app-muted">
-                原有研究模块继续显示；市场数据不会用静态样例替代。
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CircleAlert className="size-5 text-app-warning" />
+                  <p className="mt-2 text-sm font-semibold text-app-ink">行情雷达暂时无法读取</p>
+                  <p className="mt-1 text-xs text-app-muted">
+                    原有研究模块继续显示；市场数据不会用静态样例替代。
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  label="重试行情"
+                  onClick={() => void marketBriefQuery.refetch()}
+                />
+              </div>
             </Card>
           ) : (
             <MarketRadarHero

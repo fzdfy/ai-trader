@@ -153,23 +153,33 @@ def providers_for(capability: str) -> list[MarketProvider]:
     return out
 
 
-def market_asset_providers_for(
+def market_asset_provider_names_for(
     capability: str,
     symbol: str,
-) -> list[MarketProvider]:
-    """返回固定资产的有序 provider，避免调用明确拒绝该资产的数据源。"""
+) -> list[str]:
+    """返回固定资产允许的 provider 名称，避免调用明确拒绝该资产的数据源。"""
     if capability not in {
         CAPABILITY_MARKET_ASSET_MINUTE,
         CAPABILITY_MARKET_ASSET_DAILY,
     }:
         raise ValueError(f"{capability} 不是市场资产时序能力")
     session = resolve_market_asset(symbol).session
-    out: list[MarketProvider] = []
-    for name in _MARKET_ASSET_PROVIDER_PRIORITY[session]:
-        provider = get_provider(name)
-        if capability in provider.capabilities:
-            out.append(provider)
-    return out
+    return [
+        name
+        for name in _MARKET_ASSET_PROVIDER_PRIORITY[session]
+        if capability in _PROVIDER_CLASSES[name].capabilities
+    ]
+
+
+def market_asset_providers_for(
+    capability: str,
+    symbol: str,
+) -> list[MarketProvider]:
+    """返回固定资产的有序 provider。"""
+    return [
+        get_provider(name)
+        for name in market_asset_provider_names_for(capability, symbol)
+    ]
 
 
 def all_provider_names() -> list[str]:

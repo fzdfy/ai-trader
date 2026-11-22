@@ -107,12 +107,25 @@ def _market_asset_minute_tf(symbol: str, tf: str) -> str:
     return tf
 
 
-def _pick(capability: str, source: str | None):
+def _pick(capability: str, source: str | None, symbol: str | None = None):
     """指定 source 则强制用该源，否则返回 None 表示走降级链。"""
     if source:
-        provider = registry.get_provider(source)
+        try:
+            provider = registry.get_provider(source)
+        except KeyError as error:
+            raise HTTPException(400, f"未知数据源 {source}") from error
         if capability not in provider.capabilities:
             raise HTTPException(400, f"数据源 {source} 不支持能力 {capability}")
+        if (
+            symbol
+            and capability
+            in {
+                CAPABILITY_MARKET_ASSET_MINUTE,
+                CAPABILITY_MARKET_ASSET_DAILY,
+            }
+            and source not in registry.market_asset_provider_names_for(capability, symbol)
+        ):
+            raise HTTPException(400, f"数据源 {source} 不支持资产 {symbol}")
         return provider
     providers = registry.providers_for(capability)
     if not providers:
@@ -246,7 +259,7 @@ def get_market_asset_minute(
 ) -> list[MarketAssetBar]:
     asset = _market_asset(symbol)
     tf = _market_asset_minute_tf(asset.symbol, tf)
-    provider = _pick(CAPABILITY_MARKET_ASSET_MINUTE, source)
+    provider = _pick(CAPABILITY_MARKET_ASSET_MINUTE, source, asset.symbol)
     if provider is not None:
         return provider.market_asset_minute(
             asset.symbol,
@@ -275,7 +288,7 @@ def get_market_asset_daily(
     source: Annotated[str | None, Query()] = None,
 ) -> list[MarketAssetBar]:
     asset = _market_asset(symbol)
-    provider = _pick(CAPABILITY_MARKET_ASSET_DAILY, source)
+    provider = _pick(CAPABILITY_MARKET_ASSET_DAILY, source, asset.symbol)
     if provider is not None:
         return provider.market_asset_daily(
             asset.symbol,

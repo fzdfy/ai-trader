@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type {
   MarketBriefQueryParams,
   MarketBriefResponse,
@@ -26,5 +26,6 @@ export function useMarketBriefQuery(
     },
     refetchInterval: 60_000,
     staleTime: 15_000,
+    placeholderData: keepPreviousData,
   });
 }

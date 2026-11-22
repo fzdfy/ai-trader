@@ -14,6 +14,12 @@ export interface MarketSignalInput {
     maxBoard: number | null;
     avgTurnover: number | null;
   };
+  confidence: {
+    selectedQuote: boolean;
+    aShareQuotes: boolean;
+    trendCoverage: boolean;
+    breadthHeat: boolean;
+  };
   asOf: string | null;
 }
 
@@ -92,9 +98,15 @@ export function computeMarketSignal(input: MarketSignalInput): MarketSignal {
     heatFactor(input.heat),
   ];
   const missing = factors.filter((factor) => factor.score == null).length;
-  const dataConfidence = 25 * (4 - missing);
+  const dataConfidence =
+    25 *
+    Object.values(input.confidence).filter(Boolean).length;
   const quality =
-    missing >= 2 || dataConfidence < 40 ? "missing" : missing === 1 ? "low" : "available";
+    missing >= 2 || dataConfidence < 40
+      ? "missing"
+      : missing === 1 || dataConfidence < 100
+        ? "low"
+        : "available";
   const scores = factors.map((factor) => factor.score ?? 50);
   const overall = scores[0]! * 0.5 + scores[1]! * 0.3 + scores[2]! * 0.2;
   const stance: MarketSignal["stance"] =

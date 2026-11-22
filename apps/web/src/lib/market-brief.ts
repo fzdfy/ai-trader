@@ -105,6 +105,19 @@ export function nextMarketTab<T extends string>(
   return symbols[(index + direction + symbols.length) % symbols.length]!;
 }
 
+export function moveChartPoint(
+  length: number,
+  current: number,
+  key: "ArrowLeft" | "ArrowRight" | "Home" | "End",
+): number {
+  if (length <= 0) return -1;
+  if (key === "Home") return 0;
+  if (key === "End") return length - 1;
+  const index = Math.max(0, Math.min(current, length - 1));
+  const direction = key === "ArrowRight" ? 1 : -1;
+  return Math.max(0, Math.min(index + direction, length - 1));
+}
+
 export function formatMarketPrice(value: number | null, unit: string): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${new Intl.NumberFormat("zh-CN", {

@@ -18,6 +18,12 @@ const strong: MarketSignalInput = {
     maxBoard: 10,
     avgTurnover: 10,
   },
+  confidence: {
+    selectedQuote: true,
+    aShareQuotes: true,
+    trendCoverage: true,
+    breadthHeat: true,
+  },
   asOf: "2026-11-20T07:00:00.000Z",
 };
 
@@ -38,6 +44,7 @@ test("one missing factor degrades confidence but not to missing", () => {
   const signal = computeMarketSignal({
     ...strong,
     aShare: { ...strong.aShare, ma20: null },
+    confidence: { ...strong.confidence, trendCoverage: false },
   });
   assert.equal(signal.quality, "low");
   assert.equal(signal.dataConfidence, 75);
@@ -49,6 +56,11 @@ test("two missing factors force neutral and insufficient-evidence copy", () => {
     ...strong,
     aShare: { ...strong.aShare, ma20: null },
     breadth: { risingIndustryRatio: null, positiveFundFlowRatio: null },
+    confidence: {
+      ...strong.confidence,
+      trendCoverage: false,
+      breadthHeat: false,
+    },
   });
   assert.equal(signal.quality, "missing");
   assert.equal(signal.stance, "neutral");
