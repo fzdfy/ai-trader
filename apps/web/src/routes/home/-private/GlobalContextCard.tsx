@@ -29,14 +29,16 @@ export function GlobalContextCard({
   const chart = data.globalChart;
   const ticker = data.tickers.find((item) => item.symbol === selectedSymbol);
   const change = ticker?.changePct ?? null;
+  const unavailable = ticker?.quality === "missing" || chart.quality === "missing";
+  const displayName = selectedSymbol === "IXIC" ? "纳斯达克综指" : chart.name;
   return (
     <Card
-      className={`dashboard-panel-global overflow-hidden rounded-[18px] border-app-warning/25 shadow-dashboard ${
+      className={`dashboard-panel-global flex h-[358px] min-h-[358px] flex-col overflow-hidden rounded-[18px] border-app-warning/25 shadow-dashboard ${
         selectedSymbol === "IXIC" ? "is-nasdaq border-assistant/25" : ""
       }`}
     >
       <header className="flex items-start justify-between gap-2.5 px-[15px] pt-3.5">
-        <div>
+        <div className="min-w-0">
           <p className="font-mono text-[11px] font-semibold tracking-[0.1em] text-app-ink-secondary">
             GLOBAL · CONTEXT
           </p>
@@ -59,9 +61,13 @@ export function GlobalContextCard({
               </button>
             ))}
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <Heading level={2} className="text-sm font-semibold">
-              {chart.name}
+          <div className="mt-2 flex min-w-0 items-baseline gap-2">
+            <Heading
+              level={2}
+              title={chart.name}
+              className="truncate whitespace-nowrap text-sm font-semibold"
+            >
+              {displayName}
             </Heading>
             <Text type="supporting" className="font-mono text-[11px]">
               {selectedSymbol}
@@ -135,15 +141,26 @@ export function GlobalContextCard({
         </div>
       </header>
       <div className="px-1 pt-1">
-        <MarketAssetChart
-          chart={chart}
-          subjectName={chart.name}
-          compact
-          tone={selectedSymbol === "IXIC" ? "cyan" : "warning"}
-          referencePrice={range === "1D" ? (ticker?.preClose ?? null) : null}
-        />
+        {unavailable ? (
+          <div className="grid h-44 place-items-center px-4 text-center">
+            <div>
+              <strong className="text-sm font-semibold text-app-ink">历史行情不足</strong>
+              <p className="mt-1 text-[11px] leading-5 text-app-muted">
+                {chart.staleReason ?? ticker?.staleReason ?? "当前跨市场历史数据不足。"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <MarketAssetChart
+            chart={chart}
+            subjectName={chart.name}
+            compact
+            tone={selectedSymbol === "IXIC" ? "cyan" : "warning"}
+            referencePrice={range === "1D" ? (ticker?.preClose ?? null) : null}
+          />
+        )}
       </div>
-      <footer className="mx-[15px] flex items-center justify-between gap-2 whitespace-nowrap border-t border-app-warning/20 py-[9px] text-[11px] text-app-ink-secondary">
+      <footer className="mx-[15px] mt-auto flex items-center justify-between gap-2 whitespace-nowrap border-t border-app-warning/20 py-[9px] text-[11px] text-app-ink-secondary">
         <span>{selectedSymbol === "XAUUSD" ? "USD/oz · 无成交量" : "指数点 · 美股收盘"}</span>
         <span
           className={`inline-flex items-center gap-1.5 font-semibold ${selectedSymbol === "IXIC" ? "text-assistant" : "text-app-warning"}`}

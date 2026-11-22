@@ -7,6 +7,7 @@ import {
   formatChangePct,
   formatFactorScore,
   formatMarketBriefDate,
+  formatMarketChartAxisLabel,
   formatMarketPrice,
   marketQualityLabel,
   moveChartPoint,
@@ -17,11 +18,7 @@ import {
   type MarketTick,
 } from "./market-brief.ts";
 
-const marketTick = (
-  symbol: MarketTick["symbol"],
-  name: string,
-  price: number,
-): MarketTick => ({
+const marketTick = (symbol: MarketTick["symbol"], name: string, price: number): MarketTick => ({
   symbol,
   name,
   price,
@@ -48,13 +45,14 @@ test("A-share overview keeps the fixed index order", () => {
       ["399006.SZ", "创业板指", 2212.13],
     ],
   );
-  assert.deepEqual(input.map((item) => item.symbol), ["399006.SZ", "000001.SH"]);
+  assert.deepEqual(
+    input.map((item) => item.symbol),
+    ["399006.SZ", "000001.SH"],
+  );
 });
 
 test("A-share overview keeps an unavailable slot when a ticker is missing", () => {
-  const overview = buildAShareIndexOverview([
-    marketTick("000001.SH", "上证指数", 3533.79),
-  ]);
+  const overview = buildAShareIndexOverview([marketTick("000001.SH", "上证指数", 3533.79)]);
 
   assert.equal(overview.length, 2);
   assert.equal(overview[1]?.symbol, "399006.SZ");
@@ -96,6 +94,14 @@ test("chart axes use readable precision by value scale", () => {
   assert.equal(formatChartAxisValue(Number.NaN), "—");
 });
 
+test("chart axis labels follow the selected range", () => {
+  const value = "2026-11-20T01:30:00.000Z";
+  assert.equal(formatMarketChartAxisLabel(value, "1D"), "09:30");
+  assert.equal(formatMarketChartAxisLabel(value, "5D"), "11/20");
+  assert.equal(formatMarketChartAxisLabel(value, "1M"), "11/20");
+  assert.equal(formatMarketChartAxisLabel(value, "YTD"), "11月");
+});
+
 test("factor scores render as integers or an explicit missing label", () => {
   assert.equal(formatFactorScore(26.516202596626652), "27");
   assert.equal(formatFactorScore(-0.4), "0");
@@ -121,10 +127,7 @@ test("unknown quality never renders as available", () => {
 
 test("chart requires at least two points", () => {
   assert.equal(canRenderMarketChart({ points: [] }), false);
-  assert.equal(
-    canRenderMarketChart({ points: [{ time: "a", price: 1 }] }),
-    false,
-  );
+  assert.equal(canRenderMarketChart({ points: [{ time: "a", price: 1 }] }), false);
   assert.equal(
     canRenderMarketChart({
       points: [
@@ -148,8 +151,14 @@ test("today work task ordering keeps input immutable", () => {
     { id: 2, dueTime: "09:20", sortOrder: 2 },
     { id: 3, dueTime: null, sortOrder: 0 },
   ];
-  assert.deepEqual(orderTodayWorkTasks(input).map((item) => item.id), [2, 1, 3]);
-  assert.deepEqual(input.map((item) => item.id), [1, 2, 3]);
+  assert.deepEqual(
+    orderTodayWorkTasks(input).map((item) => item.id),
+    [2, 1, 3],
+  );
+  assert.deepEqual(
+    input.map((item) => item.id),
+    [1, 2, 3],
+  );
 });
 
 test("workflow run ordering returns the latest three", () => {
@@ -157,5 +166,8 @@ test("workflow run ordering returns the latest three", () => {
     id,
     createdAt: `2026-11-20T0${id}:00:00.000Z`,
   }));
-  assert.deepEqual(latestThreeWorkflowRuns(input).map((item) => item.id), [4, 3, 2]);
+  assert.deepEqual(
+    latestThreeWorkflowRuns(input).map((item) => item.id),
+    [4, 3, 2],
+  );
 });

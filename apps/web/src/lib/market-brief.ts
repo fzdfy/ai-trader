@@ -170,15 +170,37 @@ export function formatChartAxisValue(value: number): string {
   }).format(value);
 }
 
+export function formatMarketChartAxisLabel(value: string, range: MarketRange): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(5, 16);
+  if (range === "1D") {
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(date);
+  }
+  if (range === "YTD") {
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      month: "2-digit",
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 export function formatFactorScore(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "缺失";
   const rounded = Math.round(value);
   return String(Object.is(rounded, -0) ? 0 : rounded);
 }
 
-export function formatMarketBriefDate(
-  asOf: string | null,
-): { weekday: string; date: string } {
+export function formatMarketBriefDate(asOf: string | null): { weekday: string; date: string } {
   if (!asOf) return { weekday: "MARKET", date: "NO SNAPSHOT" };
   const date = new Date(asOf);
   if (Number.isNaN(date.getTime())) {
@@ -198,16 +220,15 @@ export function formatMarketBriefDate(
   };
 }
 
-export function marketQualityLabel(
-  quality: MarketQuality,
-  staleReason: string | null,
-): string {
+export function marketQualityLabel(quality: MarketQuality, staleReason: string | null): string {
   if (quality === "missing") return "暂不可用";
   if (quality === "low") return staleReason ? "数据陈旧" : "低质量";
   return "可用";
 }
 
-export function canRenderMarketChart(chart: { points: Array<{ time: string; price: number }> }): boolean {
+export function canRenderMarketChart(chart: {
+  points: Array<{ time: string; price: number }>;
+}): boolean {
   return chart.points.length >= 2;
 }
 
@@ -215,9 +236,9 @@ export function shouldLoadMarketRadar(features: Partial<SystemFeatures> | undefi
   return features?.dashboardMarketRadar === true;
 }
 
-export function orderTodayWorkTasks<
-  T extends { dueTime: string | null; sortOrder: number },
->(items: readonly T[]): T[] {
+export function orderTodayWorkTasks<T extends { dueTime: string | null; sortOrder: number }>(
+  items: readonly T[],
+): T[] {
   return [...items].sort((left, right) => {
     if (left.dueTime && right.dueTime && left.dueTime !== right.dueTime) {
       return left.dueTime.localeCompare(right.dueTime);
@@ -228,9 +249,7 @@ export function orderTodayWorkTasks<
   });
 }
 
-export function latestThreeWorkflowRuns<T extends { createdAt: string }>(
-  items: readonly T[],
-): T[] {
+export function latestThreeWorkflowRuns<T extends { createdAt: string }>(items: readonly T[]): T[] {
   return [...items]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .slice(0, 3);

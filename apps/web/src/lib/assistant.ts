@@ -6,6 +6,11 @@ export interface AssistantThread {
 }
 
 const ASSISTANT_SOURCE_STORAGE_KEY = "apollo.assistant.source";
+export const OPEN_ASSISTANT_EVENT = "apollo:open-assistant";
+
+export function requestAssistant(): void {
+  window.dispatchEvent(new Event(OPEN_ASSISTANT_EVENT));
+}
 
 export function getAssistantSourcePath(value: unknown): string {
   if (

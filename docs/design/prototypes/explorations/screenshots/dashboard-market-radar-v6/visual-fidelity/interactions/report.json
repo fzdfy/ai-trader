@@ -1,0 +1,59 @@
+{
+  "labelsByRange": {
+    "1D": [
+      "09:30",
+      "10:11",
+      "10:52",
+      "13:02",
+      "13:43",
+      "14:24",
+      "15:00"
+    ],
+    "5D": [
+      "11/16",
+      "11/17",
+      "11/18",
+      "11/19",
+      "11/20"
+    ],
+    "1M": [
+      "10/22",
+      "10/28",
+      "11/03",
+      "11/09",
+      "11/13",
+      "11/19",
+      "11/20"
+    ],
+    "YTD": [
+      "01月",
+      "03月",
+      "04月",
+      "06月",
+      "08月",
+      "09月",
+      "11月"
+    ]
+  },
+  "lineStyle": [
+    "rgb(219, 222, 228)|1px|none",
+    "rgb(84, 85, 90)|1px|none",
+    "rgb(49, 87, 232)|2.1px|none"
+  ],
+  "globalBefore": {
+    "height": 358,
+    "width": 356.3
+  },
+  "globalAfter": {
+    "height": 358,
+    "width": 356.3,
+    "text": "GLOBAL · CONTEXT伦敦金纳指纳斯达克综指IXIC22,617.73点-5.28%1D5D1MYTD暂不可用历史行情不足no valid bars指数点 · 美股收盘仅作背景，不进入 A 股信号"
+  },
+  "globalHeightDelta": 0,
+  "signal": {
+    "background": "radial-gradient(circle at 105% -8%, color(srgb 1 1 1 / 0.18), rgba(0, 0, 0, 0) 35%), linear-gradient(145deg, rgb(36, 70, 216), rgb(91, 114, 241))",
+    "button": "追问 AI"
+  },
+  "assistantOpen": true,
+  "consoleErrors": []
+}

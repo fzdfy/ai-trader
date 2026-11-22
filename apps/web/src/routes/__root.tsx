@@ -4,6 +4,7 @@ import { LinkProvider } from "@preline-ui/Link";
 import { Sparkles } from "lucide-react";
 import { PrelineInit } from "../components/preline/PrelineInit";
 import { authClient } from "../lib/auth-client";
+import { OPEN_ASSISTANT_EVENT } from "../lib/assistant";
 import { getWorkbenchPageTitle } from "../lib/workbench-navigation";
 
 const AssistantDrawer = lazy(() =>
@@ -43,6 +44,15 @@ function RootLayout() {
       setAssistantOpen(false);
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    const openAssistant = () => {
+      setAssistantMounted(true);
+      setAssistantOpen(true);
+    };
+    window.addEventListener(OPEN_ASSISTANT_EVENT, openAssistant);
+    return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, openAssistant);
+  }, []);
 
   if (PUBLIC_PATHS.has(location.pathname)) {
     return (

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
-import { EmptyState } from "@preline-ui/EmptyState";
 import { useAppTheme } from "../AppThemeProvider";
 import { echarts, graphic } from "../../lib/echarts";
 import {
@@ -15,6 +14,7 @@ import {
 import {
   canRenderMarketChart,
   formatChartAxisValue,
+  formatMarketChartAxisLabel,
   moveChartPoint,
   type MarketChart,
 } from "../../lib/market-brief";
@@ -27,19 +27,6 @@ export interface MarketAssetChartProps {
   fill?: boolean;
   referencePrice?: number | null;
   tone?: "primary" | "warning" | "cyan";
-}
-
-function axisTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(5, 16);
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(date);
 }
 
 export function MarketAssetChart({
@@ -56,13 +43,21 @@ export function MarketAssetChart({
   const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null);
   const { mode, preset } = useAppTheme();
   const renderable = canRenderMarketChart(chart);
+  const heightClass = fill
+    ? "h-full min-h-[180px] w-full flex-1"
+    : dense
+      ? "h-[104px] w-full"
+      : compact
+        ? "h-44 w-full"
+        : "h-64 w-full";
+  const accessibleLabel = `${subjectName}${chart.range}价格走势${chart.hasVolume ? "和成交量" : ""}，使用左右方向键查看数据点`;
   const activeIndex =
     keyboardIndex == null
       ? chart.points.length - 1
       : Math.max(0, Math.min(keyboardIndex, chart.points.length - 1));
   const activePoint = renderable ? chart.points[activeIndex] : null;
   const option = useMemo(() => {
-    const labels = chart.points.map((point) => axisTime(point.time));
+    const labels = chart.points.map((point) => formatMarketChartAxisLabel(point.time, chart.range));
     const hasVolume = chart.hasVolume && chart.points.some((point) => point.volume != null);
     const labelInterval = Math.max(
       0,
@@ -110,7 +105,7 @@ export function MarketAssetChart({
           type: "category" as const,
           data: labels,
           boundaryGap: false,
-          axisTick: { show: false },
+          axisTick: { show: false, alignWithLabel: true },
           axisLabel: {
             color: chartAxisText(),
             fontSize: compact ? 10 : 11,
@@ -130,7 +125,7 @@ export function MarketAssetChart({
                 data: labels,
                 boundaryGap: false,
                 axisLabel: { show: false },
-                axisTick: { show: false },
+                axisTick: { show: false, alignWithLabel: true },
                 ...(dense ? {} : axisLineStyle()),
               },
             ]
@@ -168,7 +163,7 @@ export function MarketAssetChart({
           data: chart.points.map((point) => point.price),
           showSymbol: false,
           smooth: 0.12,
-          lineStyle: { color: lineColor, width: 2.4 },
+          lineStyle: { color: lineColor, width: 2.1 },
           areaStyle: {
             color: new graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: hexToRgba(lineColor, 0.2) },
@@ -228,25 +223,27 @@ export function MarketAssetChart({
 
   if (!renderable) {
     return (
-      <EmptyState
-        title="历史行情不足"
-        description={chart.staleReason ?? "至少需要两个有效数据点才能绘制走势。"}
-      />
+      <div
+        className={`${heightClass} focus-ring rounded-xl`}
+        role="group"
+        aria-label={accessibleLabel}
+      >
+        <div className="grid h-full place-items-center overflow-hidden rounded-xl">
+          <div className="max-w-[360px] px-4 text-center">
+            <strong className="text-sm font-semibold text-app-ink">历史行情不足</strong>
+            <p className="mt-1 text-[11px] leading-5 text-app-muted">
+              {chart.staleReason ?? "至少需要两个有效数据点才能绘制走势。"}
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
     <div
-      className={`${
-        fill
-          ? "h-full min-h-[180px] w-full flex-1"
-          : dense
-            ? "h-[104px] w-full"
-            : compact
-              ? "h-44 w-full"
-              : "h-64 w-full"
-      } focus-ring rounded-xl`}
-      aria-label={`${subjectName}${chart.range}价格走势${chart.hasVolume ? "和成交量" : ""}，使用左右方向键查看数据点`}
+      className={`${heightClass} focus-ring rounded-xl`}
+      aria-label={accessibleLabel}
       role="group"
       tabIndex={0}
       onFocus={() => {
@@ -275,7 +272,8 @@ export function MarketAssetChart({
       <div ref={containerRef} className="h-full w-full" />
       {activePoint ? (
         <span className="sr-only" aria-live="polite">
-          {axisTime(activePoint.time)}，价格 {activePoint.price.toFixed(2)}
+          {formatMarketChartAxisLabel(activePoint.time, chart.range)}，价格{" "}
+          {activePoint.price.toFixed(2)}
         </span>
       ) : null}
     </div>

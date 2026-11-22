@@ -2,32 +2,32 @@
   "lightDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2289.83,
-      "height": 2202.83,
+      "bottom": 2289.63,
+      "height": 2202.63,
       "width": 1154
     },
     "left": {
       "top": 180.69,
-      "bottom": 896.55,
-      "height": 715.86,
+      "bottom": 896.34,
+      "height": 715.66,
       "width": 785.69
     },
     "right": {
       "top": 180.69,
-      "bottom": 896.55,
-      "height": 715.86,
+      "bottom": 896.34,
+      "height": 715.66,
       "width": 356.3
     },
     "executionCards": [
       {
-        "top": 920.55,
-        "bottom": 1190.55,
+        "top": 920.34,
+        "bottom": 1190.34,
         "height": 270,
         "width": 657.19
       },
       {
-        "top": 920.55,
-        "bottom": 1190.55,
+        "top": 920.34,
+        "bottom": 1190.34,
         "height": 270,
         "width": 484.81
       }
@@ -39,32 +39,32 @@
   "darkDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2289.83,
-      "height": 2202.83,
+      "bottom": 2289.63,
+      "height": 2202.63,
       "width": 1154
     },
     "left": {
       "top": 180.69,
-      "bottom": 896.55,
-      "height": 715.86,
+      "bottom": 896.34,
+      "height": 715.66,
       "width": 785.69
     },
     "right": {
       "top": 180.69,
-      "bottom": 896.55,
-      "height": 715.86,
+      "bottom": 896.34,
+      "height": 715.66,
       "width": 356.3
     },
     "executionCards": [
       {
-        "top": 920.55,
-        "bottom": 1190.55,
+        "top": 920.34,
+        "bottom": 1190.34,
         "height": 270,
         "width": 657.19
       },
       {
-        "top": 920.55,
-        "bottom": 1190.55,
+        "top": 920.34,
+        "bottom": 1190.34,
         "height": 270,
         "width": 484.81
       }
@@ -113,32 +113,32 @@
   "lightMobile": {
     "page": {
       "top": 79,
-      "bottom": 4721.63,
-      "height": 4642.63,
+      "bottom": 4726.63,
+      "height": 4647.63,
       "width": 358
     },
     "left": {
       "top": 207.5,
-      "bottom": 995.91,
-      "height": 788.41,
+      "bottom": 1000.91,
+      "height": 793.41,
       "width": 358
     },
     "right": {
-      "top": 1007.91,
-      "bottom": 1723.41,
+      "top": 1012.91,
+      "bottom": 1728.41,
       "height": 715.5,
       "width": 358
     },
     "executionCards": [
       {
-        "top": 1747.41,
-        "bottom": 2017.41,
+        "top": 1752.41,
+        "bottom": 2022.41,
         "height": 270,
         "width": 358
       },
       {
-        "top": 2029.41,
-        "bottom": 2299.41,
+        "top": 2034.41,
+        "bottom": 2304.41,
         "height": 270,
         "width": 358
       }
@@ -150,32 +150,32 @@
   "darkMobile": {
     "page": {
       "top": 79,
-      "bottom": 4721.63,
-      "height": 4642.63,
+      "bottom": 4726.63,
+      "height": 4647.63,
       "width": 358
     },
     "left": {
       "top": 207.5,
-      "bottom": 995.91,
-      "height": 788.41,
+      "bottom": 1000.91,
+      "height": 793.41,
       "width": 358
     },
     "right": {
-      "top": 1007.91,
-      "bottom": 1723.41,
+      "top": 1012.91,
+      "bottom": 1728.41,
       "height": 715.5,
       "width": 358
     },
     "executionCards": [
       {
-        "top": 1747.41,
-        "bottom": 2017.41,
+        "top": 1752.41,
+        "bottom": 2022.41,
         "height": 270,
         "width": 358
       },
       {
-        "top": 2029.41,
-        "bottom": 2299.41,
+        "top": 2034.41,
+        "bottom": 2304.41,
         "height": 270,
         "width": 358
       }
@@ -187,12 +187,12 @@
   "etfKeyboard": {
     "selected": "科创50ETF588000.SH1.30元-3.27%",
     "activeDescendant": "etf-tab-588000.SH",
-    "chart": "科创50ETF588000.SHETF 走势1D · 独立行情1.30-3.27%可用11/20 15:30，价格 1.30"
+    "chart": "科创50ETF588000.SHETF 走势1D · 独立行情1.30-3.27%可用15:30，价格 1.30"
   },
   "chartKeyboard": {
     "role": "group",
     "label": "上证指数1D价格走势和成交量，使用左右方向键查看数据点",
-    "live": "11/20 14:59，价格 3531.12"
+    "live": "14:59，价格 3531.12"
   },
   "consoleErrors": []
 }
