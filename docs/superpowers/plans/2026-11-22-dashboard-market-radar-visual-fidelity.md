@@ -45,7 +45,7 @@
 - Produces: `formatChangePct(value: number | null): string`.
 - Produces tokens: `--dashboard-a-wash`, `--dashboard-global-wash`, `--dashboard-etf-wash`, `--dashboard-signal-start`, `--dashboard-signal-end`, `--dashboard-shadow`.
 
-- [ ] **Step 1: Write failing formatter tests**
+- [x] **Step 1: Write failing formatter tests**
 
 Add tests asserting:
 
@@ -54,27 +54,27 @@ assert.equal(formatChangePct(-1.234), "-1.23%");
 assert.equal(formatChangePct(null), "—");
 ```
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts`
 
 Expected: FAIL because the formatter export does not exist.
 
-- [ ] **Step 3: Implement the pure helpers**
+- [x] **Step 3: Implement the pure helpers**
 
 Use two decimals for percentage changes and return `—` for null or non-finite input.
 
-- [ ] **Step 4: Add semantic dashboard tokens**
+- [x] **Step 4: Add semantic dashboard tokens**
 
 Add light and dark tokens to `ai-trader.css` for A-share wash, global wash, ETF wash, signal gradient endpoints, and soft shadow. Expose only the needed colors through `@theme inline`; retain the existing Preline token system.
 
-- [ ] **Step 5: Run focused tests and checks**
+- [x] **Step 5: Run focused tests and checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS with 0 lint errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/styles/themes/preline/ai-trader.css apps/web/src/lib/market-brief.ts apps/web/src/lib/market-brief.test.ts
