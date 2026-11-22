@@ -27,6 +27,8 @@ The Apollo Quant shell, sidebar, authentication, routes, task links, workflow li
 
 The first unconfigured server test run could not connect to PostgreSQL from the sandbox and failed two database-backed tests with `EPERM`; rerunning with the current `.env.local` against Docker PostgreSQL passed.
 
+The Docker `server` and `nginx` images were rebuilt without resetting the PostgreSQL volume. `http://localhost:3101/health` returned HTTP 200 and `http://localhost:9180/` returned HTTP 200 from the rebuilt images.
+
 ## Browser Verification
 
 The real authenticated page was exercised at:
