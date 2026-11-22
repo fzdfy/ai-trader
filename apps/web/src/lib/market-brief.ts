@@ -34,6 +34,7 @@ export interface MarketTick {
   symbol: string;
   name: string;
   price: number | null;
+  preClose: number | null;
   changePct: number | null;
   priceUnit: string;
   asOf: string | null;
@@ -144,16 +145,57 @@ export function moveChartPoint(
 }
 
 export function formatMarketPrice(value: number | null, unit: string): string {
+  const formatted = formatMarketNumber(value);
+  return formatted === "—" ? formatted : `${formatted} ${unit}`;
+}
+
+export function formatMarketNumber(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "—";
-  return `${new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat("zh-CN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value)} ${unit}`;
+  }).format(value);
 }
 
 export function formatChangePct(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+export function formatChartAxisValue(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat("zh-CN", {
+    minimumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
+    maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
+  }).format(value);
+}
+
+export function formatFactorScore(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "缺失";
+  const rounded = Math.round(value);
+  return String(Object.is(rounded, -0) ? 0 : rounded);
+}
+
+export function formatMarketBriefDate(
+  asOf: string | null,
+): { weekday: string; date: string } {
+  if (!asOf) return { weekday: "MARKET", date: "NO SNAPSHOT" };
+  const date = new Date(asOf);
+  if (Number.isNaN(date.getTime())) {
+    return { weekday: "MARKET", date: "NO SNAPSHOT" };
+  }
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    weekday: "short",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    weekday: value("weekday").toUpperCase(),
+    date: `${value("month")}.${value("day")}`,
+  };
 }
 
 export function marketQualityLabel(

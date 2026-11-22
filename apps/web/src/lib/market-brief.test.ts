@@ -3,7 +3,10 @@ import test from "node:test";
 import {
   buildAShareIndexOverview,
   canRenderMarketChart,
+  formatChartAxisValue,
   formatChangePct,
+  formatFactorScore,
+  formatMarketBriefDate,
   formatMarketPrice,
   marketQualityLabel,
   moveChartPoint,
@@ -28,6 +31,7 @@ const marketTick = (
   quality: "available",
   source: "fixture",
   staleReason: null,
+  preClose: price - 1,
 });
 
 test("A-share overview keeps the fixed index order", () => {
@@ -84,6 +88,29 @@ test("price formatting keeps asset unit and missing marker", () => {
   assert.equal(formatMarketPrice(4.018, "元"), "4.02 元");
   assert.equal(formatMarketPrice(3533.79, "点"), "3,533.79 点");
   assert.equal(formatMarketPrice(null, "点"), "—");
+});
+
+test("chart axes use readable precision by value scale", () => {
+  assert.equal(formatChartAxisValue(3533.79), "3,534");
+  assert.equal(formatChartAxisValue(4.018), "4.02");
+  assert.equal(formatChartAxisValue(Number.NaN), "—");
+});
+
+test("factor scores render as integers or an explicit missing label", () => {
+  assert.equal(formatFactorScore(26.516202596626652), "27");
+  assert.equal(formatFactorScore(-0.4), "0");
+  assert.equal(formatFactorScore(null), "缺失");
+});
+
+test("market brief dates use the latest Shanghai market snapshot", () => {
+  assert.deepEqual(formatMarketBriefDate("2026-11-20T08:14:27.000Z"), {
+    weekday: "FRI",
+    date: "11.20",
+  });
+  assert.deepEqual(formatMarketBriefDate(null), {
+    weekday: "MARKET",
+    date: "NO SNAPSHOT",
+  });
 });
 
 test("unknown quality never renders as available", () => {

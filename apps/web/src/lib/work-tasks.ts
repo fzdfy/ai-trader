@@ -226,3 +226,14 @@ export function formatWorkflowRunTime(value: string, timeZone: string): string {
     hourCycle: "h23",
   }).format(date);
 }
+
+export function formatWorkflowSuccessRate(
+  runs: readonly { status: string }[],
+): string {
+  const terminal = runs.filter((run) =>
+    ["success", "failed", "canceled", "skipped"].includes(run.status),
+  );
+  if (terminal.length === 0) return "—";
+  const succeeded = terminal.filter((run) => run.status === "success").length;
+  return `${Math.round((succeeded / terminal.length) * 100)}%`;
+}

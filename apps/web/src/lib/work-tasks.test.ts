@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatTaskDue,
+  formatWorkflowSuccessRate,
   formatWorkflowRunTime,
   groupTodayTasks,
   localDateContext,
@@ -17,6 +18,23 @@ test("workflow run time is rendered in the user timezone", () => {
   assert.equal(
     formatWorkflowRunTime("2026-11-20T01:30:00.000Z", "Asia/Shanghai"),
     "11/20 09:30",
+  );
+});
+
+test("workflow success rate excludes non-terminal runs", () => {
+  assert.equal(formatWorkflowSuccessRate([]), "—");
+  assert.equal(
+    formatWorkflowSuccessRate([{ status: "success" }, { status: "failed" }]),
+    "50%",
+  );
+  assert.equal(formatWorkflowSuccessRate([{ status: "running" }]), "—");
+  assert.equal(
+    formatWorkflowSuccessRate([
+      { status: "success" },
+      { status: "canceled" },
+      { status: "running" },
+    ]),
+    "50%",
   );
 });
 

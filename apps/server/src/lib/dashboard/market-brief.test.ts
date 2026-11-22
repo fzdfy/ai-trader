@@ -83,6 +83,10 @@ test("loads all quotes and three independent chart ranges", async () => {
   assert.equal(brief.aShareChart.symbol, "000001.SH");
   assert.equal(brief.etfChart.symbol, "588000.SH");
   assert.equal(brief.globalChart.symbol, "IXIC");
+  assert.equal(
+    brief.tickers.find((item) => item.symbol === "000001.SH")?.preClose,
+    99,
+  );
   assert.deepEqual(
     fixture.ranges.map(([symbol]) => symbol),
     ["000001.SH", "000001.SH", "588000.SH", "IXIC"],

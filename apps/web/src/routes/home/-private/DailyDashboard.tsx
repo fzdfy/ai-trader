@@ -5,7 +5,7 @@ import {
   CircleAlert,
   Clock3,
   Database,
-  Sparkles,
+  History,
   Target,
   TrendingUp,
   Workflow,
@@ -25,7 +25,10 @@ import {
   useWorkflowsQuery,
 } from "../../../hooks/useWorkflows";
 import { WORKFLOW_STATUS_META, type WorkflowRunSummary } from "../../../lib/workflows";
-import { shouldLoadMarketRadar } from "../../../lib/market-brief";
+import {
+  formatMarketBriefDate,
+  shouldLoadMarketRadar,
+} from "../../../lib/market-brief";
 import {
   initialMarketSelection,
   reduceMarketSelection,
@@ -183,16 +186,20 @@ export function DailyDashboard() {
 
   if (dashboardQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-[1500px] space-y-4" aria-label="正在加载每日看板">
-        <div className="h-20 animate-pulse rounded-2xl bg-app-surface" />
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-28 animate-pulse rounded-2xl bg-app-surface" />
-          ))}
+      <div className="mx-auto max-w-[1480px] space-y-4" aria-label="正在加载每日看板">
+        <div className="flex items-end justify-between gap-5">
+          <div className="space-y-2">
+            <div className="h-3 w-36 animate-pulse rounded bg-app-surface" />
+            <div className="h-11 w-44 animate-pulse rounded-lg bg-app-surface" />
+          </div>
+          <div className="h-9 w-52 animate-pulse rounded-lg bg-app-surface" />
         </div>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,.78fr)]">
-          <div className="h-80 animate-pulse rounded-2xl bg-app-surface" />
-          <div className="h-80 animate-pulse rounded-2xl bg-app-surface" />
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]">
+          <div className="h-[536px] animate-pulse rounded-3xl bg-app-surface" />
+          <div className="grid grid-rows-[auto_minmax(0,1fr)] gap-3">
+            <div className="h-64 animate-pulse rounded-[18px] bg-app-surface" />
+            <div className="animate-pulse rounded-[18px] bg-app-surface" />
+          </div>
         </div>
       </div>
     );
@@ -226,68 +233,66 @@ export function DailyDashboard() {
   const inflowRatio = fundBreadth.total > 0 ? (fundBreadth.positive / fundBreadth.total) * 100 : 0;
   const topPick = data.stockPool.items[0];
   const latestRunStatus = latestRun ? statusMeta(latestRun.status) : null;
-  const today = new Date();
-  const weekday = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][today.getDay()];
-  const briefDate = `${weekday} ${String(today.getMonth() + 1).padStart(2, "0")}.${String(today.getDate()).padStart(2, "0")}`;
+  const briefDate = formatMarketBriefDate(
+    marketBriefQuery.data?.asOf ?? data.asOf.market,
+  );
   const reviewHasDataGap = Boolean(
     data.review && /数据提示|缺失|空档|空数据/.test(data.review.summary),
   );
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4">
+    <div className="mx-auto max-w-[1480px] space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[11px] font-semibold tracking-[0.12em] text-primary">
-            {briefDate} · DAILY BRIEF
+          <p className="flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[0.12em] text-primary before:h-0.5 before:w-[18px] before:rounded-full before:bg-current">
+            {briefDate.weekday} {briefDate.date} · MARKET RADAR
           </p>
           <Heading
             level={1}
-            className="mt-1 text-3xl tracking-[-0.04em] md:text-[42px]"
+            className="mt-1.5 text-3xl tracking-[-0.055em] md:text-[46px]"
           >
             每日看板
           </Heading>
-          <Text as="p" type="supporting" className="mt-1.5 max-w-2xl">
-            先确认数据是否可信，再判断市场温度、资金主线与今日候选。
-          </Text>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-app-warning/30 bg-app-warning-soft px-3 text-[11px] font-medium text-app-warning">
-            <span className="size-1.5 rounded-full bg-app-warning" />
-            行情快照 {formatDate(data.asOf.market)}
+        <div className="flex flex-wrap items-center gap-2 pb-1">
+          <span className="inline-flex h-[34px] items-center gap-2 rounded-full border border-app-warning/30 bg-app-panel/75 px-3 text-[11px] font-medium text-app-warning">
+            <span className="size-1.5 rounded-full bg-app-warning shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-app-warning)_12%,transparent)]" />
+            最近收盘 {formatDate(data.asOf.market)}
           </span>
           <Link
             to="/home/reviews/today"
-            className="focus-ring inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-medium text-primary-foreground transition hover:bg-primary-hover"
+            className="focus-ring inline-flex h-[34px] items-center gap-2 rounded-[10px] border border-app-line bg-app-panel px-3 text-[11px] font-medium text-app-ink-secondary transition hover:border-app-line-strong hover:bg-app-surface"
           >
-            <Sparkles className="size-3.5" />
-            生成每日复盘
+            <History className="size-3.5" />
+            查看收盘复盘
           </Link>
         </div>
       </header>
 
       {marketRadarEnabled ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {marketBriefQuery.isLoading ? (
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]" aria-label="行情雷达加载中">
-              <div className="h-[620px] animate-pulse rounded-3xl bg-app-surface" />
+            <div className="grid min-h-[536px] gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]" aria-label="行情雷达加载中">
+              <div className="h-[536px] animate-pulse rounded-3xl bg-app-surface" />
               <div className="grid grid-rows-2 gap-3">
                 <div className="animate-pulse rounded-2xl bg-app-surface" />
                 <div className="animate-pulse rounded-2xl bg-app-surface" />
               </div>
             </div>
           ) : marketBriefQuery.isError || !marketBriefQuery.data ? (
-            <Card className="border-app-warning/30 bg-app-warning-soft/40 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CircleAlert className="size-5 text-app-warning" />
-                  <p className="mt-2 text-sm font-semibold text-app-ink">行情雷达暂时无法读取</p>
-                  <p className="mt-1 text-xs text-app-muted">
-                    原有研究模块继续显示；市场数据不会用静态样例替代。
-                  </p>
-                </div>
+            <Card className="flex min-h-[360px] items-center justify-center border-app-line bg-app-panel p-8 text-center">
+              <div className="max-w-md">
+                <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-app-warning-soft font-mono text-lg font-bold text-app-warning">
+                  !
+                </span>
+                <p className="mt-3 text-lg font-semibold text-app-ink">行情雷达暂不可用</p>
+                <p className="mt-2 text-xs leading-6 text-app-muted">
+                  Market Brief 聚合请求失败。页面不会使用静态样例替代真实数据；今日任务可从独立接口继续加载。
+                </p>
                 <Button
+                  className="mt-4"
                   variant="secondary"
-                  label="重试行情"
+                  label="重新加载行情"
                   onClick={() => void marketBriefQuery.refetch()}
                 />
               </div>

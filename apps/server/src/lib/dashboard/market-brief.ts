@@ -41,6 +41,7 @@ export interface MarketTick {
   symbol: string;
   name: string;
   price: number | null;
+  preClose: number | null;
   changePct: number | null;
   priceUnit: string;
   asOf: string | null;
@@ -267,6 +268,7 @@ function toTick(read: MarketAssetQuoteRead): MarketTick {
     symbol: read.symbol,
     name: read.name,
     price: read.price,
+    preClose: read.preClose,
     changePct: read.changePct,
     priceUnit: read.priceUnit,
     asOf: read.asOf,
