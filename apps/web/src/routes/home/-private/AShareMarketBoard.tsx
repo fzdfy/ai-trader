@@ -5,11 +5,14 @@ import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { MarketAssetChart } from "../../../components/charts/MarketAssetChart";
 import {
+  formatChangePct,
   formatMarketPrice,
   marketQualityLabel,
+  type AShareIndexSymbol,
   type MarketBriefResponse,
   type MarketRange,
 } from "../../../lib/market-brief";
+import { AShareIndexOverview } from "./AShareIndexOverview";
 import { AShareSignalPanel } from "./AShareSignalPanel";
 
 const RANGES: MarketRange[] = ["1D", "5D", "1M", "YTD"];
@@ -22,20 +25,16 @@ export function AShareMarketBoard({
   onSelectRange,
 }: {
   data: MarketBriefResponse;
-  selectedSymbol: "000001.SH" | "399006.SZ";
+  selectedSymbol: AShareIndexSymbol;
   range: MarketRange;
-  onSelectSymbol: (symbol: "000001.SH" | "399006.SZ") => void;
+  onSelectSymbol: (symbol: AShareIndexSymbol) => void;
   onSelectRange: (range: MarketRange) => void;
 }) {
   const chart = data.aShareChart;
   const ticker = data.tickers.find((item) => item.symbol === selectedSymbol);
-  const symbols = [
-    ["000001.SH", "上证指数"],
-    ["399006.SZ", "创业板指"],
-  ] as const;
   return (
-    <Card className="market-radar-a-board flex min-h-0 flex-col overflow-hidden rounded-3xl border-app-line shadow-sm">
-      <header className="flex flex-col gap-3 border-b border-app-line px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="market-radar-a-board flex min-h-0 flex-col overflow-hidden rounded-3xl border-app-line bg-app-panel shadow-dashboard">
+      <header className="flex flex-col gap-3 border-b border-app-line bg-dashboard-a/65 px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-primary shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-primary)_10%,transparent)]" />
           <Heading level={2} className="text-base">
@@ -45,25 +44,11 @@ export function AShareMarketBoard({
             风险判断主视图
           </Text>
         </div>
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-app-surface p-1" role="tablist" aria-label="切换 A 股指数">
-          {symbols.map(([symbol, label]) => (
-            <button
-              key={symbol}
-              type="button"
-              role="tab"
-              aria-selected={selectedSymbol === symbol}
-              tabIndex={selectedSymbol === symbol ? 0 : -1}
-              onClick={() => onSelectSymbol(symbol)}
-              className={`rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                selectedSymbol === symbol
-                  ? "bg-app-panel text-app-ink shadow-sm"
-                  : "text-app-muted hover:text-app-ink"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <AShareIndexOverview
+          data={data}
+          selectedSymbol={selectedSymbol}
+          onSelectSymbol={onSelectSymbol}
+        />
       </header>
       <div className="flex flex-1 flex-col">
         <div className="px-4 pt-3">
@@ -82,7 +67,7 @@ export function AShareMarketBoard({
                 {formatMarketPrice(ticker?.price ?? null, ticker?.priceUnit ?? "点")}
                 <span className="ml-2 inline-flex items-center gap-1 text-xs text-app-ink">
                   <span className={`size-1.5 rounded-full ${Number(ticker?.changePct ?? 0) >= 0 ? "bg-chart-up" : "bg-chart-down"}`} />
-                  {ticker?.changePct == null ? "—" : `${ticker.changePct >= 0 ? "+" : ""}${ticker.changePct.toFixed(2)}%`}
+                  {formatChangePct(ticker?.changePct ?? null)}
                 </span>
               </p>
             </div>

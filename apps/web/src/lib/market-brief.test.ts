@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildAShareIndexOverview,
   canRenderMarketChart,
   formatChangePct,
   formatMarketPrice,
@@ -10,7 +11,51 @@ import {
   latestThreeWorkflowRuns,
   orderTodayWorkTasks,
   shouldLoadMarketRadar,
+  type MarketTick,
 } from "./market-brief.ts";
+
+const marketTick = (
+  symbol: MarketTick["symbol"],
+  name: string,
+  price: number,
+): MarketTick => ({
+  symbol,
+  name,
+  price,
+  changePct: 1.23,
+  priceUnit: "点",
+  asOf: "2026-11-20T08:00:00.000Z",
+  quality: "available",
+  source: "fixture",
+  staleReason: null,
+});
+
+test("A-share overview keeps the fixed index order", () => {
+  const input = [
+    marketTick("399006.SZ", "创业板指", 2212.13),
+    marketTick("000001.SH", "上证指数", 3533.79),
+  ];
+  const overview = buildAShareIndexOverview(input);
+
+  assert.deepEqual(
+    overview.map((item) => [item.symbol, item.label, item.ticker?.price]),
+    [
+      ["000001.SH", "上证指数", 3533.79],
+      ["399006.SZ", "创业板指", 2212.13],
+    ],
+  );
+  assert.deepEqual(input.map((item) => item.symbol), ["399006.SZ", "000001.SH"]);
+});
+
+test("A-share overview keeps an unavailable slot when a ticker is missing", () => {
+  const overview = buildAShareIndexOverview([
+    marketTick("000001.SH", "上证指数", 3533.79),
+  ]);
+
+  assert.equal(overview.length, 2);
+  assert.equal(overview[1]?.symbol, "399006.SZ");
+  assert.equal(overview[1]?.ticker, null);
+});
 
 test("percentage changes use signed two-decimal formatting", () => {
   assert.equal(formatChangePct(-1.234), "-1.23%");

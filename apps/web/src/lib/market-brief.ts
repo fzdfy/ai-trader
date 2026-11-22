@@ -93,6 +93,31 @@ export interface SystemFeatures {
   dashboardMarketRadar: boolean;
 }
 
+export const A_SHARE_INDEX_SYMBOLS = ["000001.SH", "399006.SZ"] as const;
+export type AShareIndexSymbol = (typeof A_SHARE_INDEX_SYMBOLS)[number];
+
+const A_SHARE_INDEX_LABELS: Record<AShareIndexSymbol, string> = {
+  "000001.SH": "上证指数",
+  "399006.SZ": "创业板指",
+};
+
+export interface AShareIndexOverviewItem {
+  symbol: AShareIndexSymbol;
+  label: string;
+  ticker: MarketTick | null;
+}
+
+export function buildAShareIndexOverview(
+  tickers: readonly MarketTick[],
+): AShareIndexOverviewItem[] {
+  const bySymbol = new Map(tickers.map((ticker) => [ticker.symbol, ticker]));
+  return A_SHARE_INDEX_SYMBOLS.map((symbol) => ({
+    symbol,
+    label: A_SHARE_INDEX_LABELS[symbol],
+    ticker: bySymbol.get(symbol) ?? null,
+  }));
+}
+
 export function nextMarketTab<T extends string>(
   symbols: readonly T[],
   current: T,

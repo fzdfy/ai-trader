@@ -12,8 +12,21 @@ test("ETF keyboard changes only ETF selection", () => {
     key: "ArrowRight",
   });
   assert.equal(after.etfSymbol, "588000.SH");
-  assert.equal(after.indexSymbol, before.indexSymbol);
+  assert.equal(after.symbol, before.symbol);
   assert.equal(after.globalSymbol, before.globalSymbol);
+});
+
+test("A-share index changes only the selected index", () => {
+  const before = initialMarketSelection();
+  const after = reduceMarketSelection(before, {
+    type: "index",
+    symbol: "399006.SZ",
+  });
+
+  assert.deepEqual(after, {
+    ...before,
+    symbol: "399006.SZ",
+  });
 });
 
 test("range changes stay isolated to their asset domain", () => {
@@ -24,7 +37,7 @@ test("range changes stay isolated to their asset domain", () => {
     range: "YTD",
   });
   assert.equal(after.globalRange, "YTD");
-  assert.equal(after.indexRange, before.indexRange);
+  assert.equal(after.range, before.range);
   assert.equal(after.etfRange, before.etfRange);
 });
 
