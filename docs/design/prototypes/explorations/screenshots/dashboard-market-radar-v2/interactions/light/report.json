@@ -1,0 +1,212 @@
+[
+  {
+    "file": "page-创业板-1D-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "创业板 1D",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-伦敦金-1D-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "伦敦金 1D",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-伦敦金-YTD-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "伦敦金 YTD",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-键盘聚焦-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "键盘聚焦",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 136,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-悬停读数-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "悬停读数",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-创业板-1D-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "创业板 1D",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-伦敦金-1D-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "伦敦金 1D",
+    "animationWaitMs": 27,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-伦敦金-YTD-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "伦敦金 YTD",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-键盘聚焦-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "键盘聚焦",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 128,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-悬停读数-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "悬停读数",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,128 @@
+[
+  {
+    "file": "page-黄金-YTD-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "黄金 YTD",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-纳指-5D-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "纳指 5D",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-科创50ETF-YTD-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "科创50ETF YTD",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-黄金-YTD-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "黄金 YTD",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-纳指-5D-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "纳指 5D",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-科创50ETF-YTD-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "科创50ETF YTD",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  }
+]

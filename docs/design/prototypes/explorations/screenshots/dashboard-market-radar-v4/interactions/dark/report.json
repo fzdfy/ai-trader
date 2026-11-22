@@ -1,0 +1,165 @@
+[
+  {
+    "file": "page-纳指-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "纳指",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-AI-助手-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "AI 助手",
+    "animationWaitMs": 258,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 152,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 25,
+        "examples": [
+          "div.ai-title「量化助手」（1.11:1）",
+          "div.ai-subtitle「QUANT COPILOT · Q3」（2.76:1）",
+          "span「沪深 300 · 科技主线」（2.25:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "section.mr-a-board「A 股市场 风险判断主视图 上证指数 00000」（首屏 5 块各自加框）",
+          "div.bubble「我把收盘行情、资金流和 42 篇增量研报放在一起」（框里又有 3 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-跨市场悬停-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "跨市场悬停",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-纳指-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "纳指",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-AI-助手-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "AI 助手",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 144,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 25,
+        "examples": [
+          "div.ai-title「量化助手」（1.11:1）",
+          "div.ai-subtitle「QUANT COPILOT · Q3」（2.76:1）",
+          "span「沪深 300 · 科技主线」（2.25:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.bubble「我把收盘行情、资金流和 42 篇增量研报放在一起」（框里又有 3 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-跨市场悬停-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "跨市场悬停",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  }
+]

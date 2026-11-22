@@ -1,0 +1,202 @@
+[
+  {
+    "file": "partial-1440x900.png",
+    "state": "partial",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "stale-1440x900.png",
+    "state": "stale",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "signal-missing-1440x900.png",
+    "state": "signal-missing",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "tasks-empty-1440x900.png",
+    "state": "tasks-empty",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "tasks-error-1440x900.png",
+    "state": "tasks-error",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 135,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "partial-390x844.png",
+    "state": "partial",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "stale-390x844.png",
+    "state": "stale",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "signal-missing-390x844.png",
+    "state": "signal-missing",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "tasks-empty-390x844.png",
+    "state": "tasks-empty",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "tasks-error-390x844.png",
+    "state": "tasks-error",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  }
+]

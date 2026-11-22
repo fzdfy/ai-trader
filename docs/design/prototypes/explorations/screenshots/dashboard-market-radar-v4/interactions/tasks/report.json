@@ -1,0 +1,64 @@
+[
+  {
+    "file": "page-任务跳转反馈.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "任务跳转反馈",
+    "animationWaitMs": 72,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 136,
+        "examples": [
+          "span「行业广度」（9px）",
+          "small「/ 51 跌」（9px）",
+          "div.v3-kpi-note「496 个行业 · 上涨占比 89.7%」（9px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-全部任务.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "全部任务",
+    "animationWaitMs": 231,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 38,
+        "examples": [
+          "div.eyebrow「TASKS · MON 11.16」（10px）",
+          "span.status-pill「距离开盘 33 分钟」（10px）",
+          "span「今日完成」（9px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 19,
+        "examples": [
+          "span「今日完成」（3.99:1）",
+          "div.metric-note「完成率 67%」（3.99:1）",
+          "span「专注时长」（3.99:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 4,
+        "examples": [
+          "article.metric「今日完成 4 / 6 完成率 67%」（首屏 7 块各自加框）",
+          "article.task-column「待开始 2 复盘 完成 11 月 14 日交易复」（框里又有 2 个加框的块）",
+          "article.task-column「进行中 2 AI 研判 生成周一盘前作战简报 聚」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  }
+]
