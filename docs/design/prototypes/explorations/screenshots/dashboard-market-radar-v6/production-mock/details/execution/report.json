@@ -1,0 +1,79 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 5,
+        "examples": [
+          "p.mt-3.font-mono「TODAY'S MARKET REGIME」（4.27:1）",
+          "p.mt-2.max-w-3xl「趋势：上证收盘低于 MA20；广度：行业上涨占比」（4.27:1）",
+          "div.mt-2.text-[11px]「输入 · 上证趋势 / 创业板广度 / 行业资金」（4.27:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "p.font-mono.text-[9px]「DATA STATUS」（9px）",
+          "p.text-[10px].text-app-muted「行情与资金」（10px）",
+          "p.text-[10px].text-app-muted「资讯」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「林 林策 量化研究 · Pro」（首屏 9 块各自加框）",
+          "div.rounded-xl.border「DATA STATUS 行情快照滞后 2 天 市」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 2,
+        "examples": [
+          "span.rounded-full.px-2「已完成」（3.27:1）",
+          "p.font-mono.text-[9px]「DATA STATUS」（2.93:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "p.font-mono.text-[9px]「DATA STATUS」（9px）",
+          "p.text-[10px].text-app-muted「行情与资金」（10px）",
+          "p.text-[10px].text-app-muted「资讯」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "div.rounded-xl.border「主流 ETF A 股 1D 5D 1M YTD 」（首屏 4 块各自加框）",
+          "div.rounded-xl.border「DATA STATUS 行情快照滞后 2 天 市」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

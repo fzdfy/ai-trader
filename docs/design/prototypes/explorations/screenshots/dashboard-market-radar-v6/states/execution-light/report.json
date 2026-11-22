@@ -1,0 +1,38 @@
+[
+  {
+    "file": "tasks-empty.png",
+    "state": "tasks-empty",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "section.mr-a-board「A 股市场 风险判断主视图 上证指数 00000」（首屏 5 块各自加框）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "tasks-error.png",
+    "state": "tasks-error",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "section.mr-a-board「A 股市场 风险判断主视图 上证指数 00000」（首屏 5 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

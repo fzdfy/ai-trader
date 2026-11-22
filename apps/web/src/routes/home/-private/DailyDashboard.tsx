@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useReducer } from "react";
 import {
   ChartNoAxesCombined,
   CircleAlert,
@@ -17,11 +18,20 @@ import { Text } from "@preline-ui/Text";
 import { useDashboardQuery, type DashboardFundFlowItem } from "../../../hooks/useDashboard";
 import { useSyncModules } from "../../../hooks/useDataSync";
 import { useCurrentUser } from "../../../hooks/useCurrentUser";
+import { useMarketBriefQuery } from "../../../hooks/useMarketBrief";
+import { useSystemFeaturesQuery } from "../../../hooks/useSystemFeatures";
 import {
   useTodayWorkflowRunsQuery,
   useWorkflowsQuery,
 } from "../../../hooks/useWorkflows";
 import { WORKFLOW_STATUS_META, type WorkflowRunSummary } from "../../../lib/workflows";
+import { shouldLoadMarketRadar } from "../../../lib/market-brief";
+import {
+  initialMarketSelection,
+  reduceMarketSelection,
+} from "../../../lib/market-selection";
+import { MarketRadarHero } from "./MarketRadarHero";
+import { TodayExecutionSection } from "./TodayExecutionSection";
 
 const SOURCE_LABELS: Record<string, string> = {
   cls: "财联社",
@@ -148,6 +158,14 @@ function FundFlowColumn({
 
 export function DailyDashboard() {
   const currentUser = useCurrentUser();
+  const featuresQuery = useSystemFeaturesQuery();
+  const [marketSelection, dispatchMarketSelection] = useReducer(
+    reduceMarketSelection,
+    undefined,
+    initialMarketSelection,
+  );
+  const marketRadarEnabled = shouldLoadMarketRadar(featuresQuery.data);
+  const marketBriefQuery = useMarketBriefQuery(marketSelection, marketRadarEnabled);
   const dashboardQuery = useDashboardQuery();
   const syncQuery = useSyncModules({
     enabled: currentUser.data?.role === "super_admin",
@@ -219,7 +237,7 @@ export function DailyDashboard() {
     <div className="mx-auto max-w-[1500px] space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">
+          <p className="font-mono text-[11px] font-semibold tracking-[0.12em] text-primary">
             {briefDate} · DAILY BRIEF
           </p>
           <Heading
@@ -246,6 +264,44 @@ export function DailyDashboard() {
           </Link>
         </div>
       </header>
+
+      {marketRadarEnabled ? (
+        <div className="space-y-4">
+          {marketBriefQuery.isLoading ? (
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]" aria-label="行情雷达加载中">
+              <div className="h-[620px] animate-pulse rounded-3xl bg-app-surface" />
+              <div className="grid grid-rows-2 gap-3">
+                <div className="animate-pulse rounded-2xl bg-app-surface" />
+                <div className="animate-pulse rounded-2xl bg-app-surface" />
+              </div>
+            </div>
+          ) : marketBriefQuery.isError || !marketBriefQuery.data ? (
+            <Card className="border-app-warning/30 bg-app-warning-soft/40 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CircleAlert className="size-5 text-app-warning" />
+                  <p className="mt-2 text-sm font-semibold text-app-ink">行情雷达暂时无法读取</p>
+                  <p className="mt-1 text-xs text-app-muted">
+                    原有研究模块继续显示；市场数据不会用静态样例替代。
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  label="重试行情"
+                  onClick={() => void marketBriefQuery.refetch()}
+                />
+              </div>
+            </Card>
+          ) : (
+            <MarketRadarHero
+              data={marketBriefQuery.data}
+              selection={marketSelection}
+              dispatch={dispatchMarketSelection}
+            />
+          )}
+          <TodayExecutionSection />
+        </div>
+      ) : null}
 
       <Card className="grid gap-4 border-app-warning/20 bg-app-warning-soft/45 p-4 md:grid-cols-[minmax(240px,.9fr)_minmax(0,1.5fr)] md:items-center">
         <div>
@@ -426,7 +482,13 @@ export function DailyDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
+      <div
+        className={`grid gap-4 ${
+          marketRadarEnabled
+            ? "xl:grid-cols-1"
+            : "xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]"
+        }`}
+      >
         <Card className="overflow-hidden">
           <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
             <div>
@@ -470,6 +532,7 @@ export function DailyDashboard() {
           </div>
         </Card>
 
+        {!marketRadarEnabled ? (
         <Card className="overflow-hidden">
           <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
             <div>
@@ -544,6 +607,7 @@ export function DailyDashboard() {
             ) : null}
           </div>
         </Card>
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -2,10 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatTaskDue,
+  formatWorkflowRunTime,
   groupTodayTasks,
   localDateContext,
+  workTaskDetailSearch,
   type UserWorkTask,
 } from "./work-tasks.ts";
+
+test("work task links open the matching task detail", () => {
+  assert.deepEqual(workTaskDetailSearch(42), { task: 42 });
+});
+
+test("workflow run time is rendered in the user timezone", () => {
+  assert.equal(
+    formatWorkflowRunTime("2026-11-20T01:30:00.000Z", "Asia/Shanghai"),
+    "11/20 09:30",
+  );
+});
 
 function task(id: number, overrides: Partial<UserWorkTask> = {}): UserWorkTask {
   return {

@@ -2,17 +2,18 @@
 
 ## Intent
 
-把每日看板首屏升级为盘前与盘中决策入口：A 股主控台集中展示上证指数、创业板指、主流 ETF、趋势图和确定性市场信号；伦敦金与纳指使用独立跨市场背景卡，提供经过数据质量校验的走势，以及当前用户真实今日任务。
+把每日看板首屏升级为盘前与盘中决策入口：A 股主控台集中展示上证指数、创业板指、趋势图和确定性市场信号；主流 ETF 使用独立 Tab 观察卡，伦敦金与纳指使用独立跨市场背景卡；今日行动与今日工作流组成首屏下方的今日执行区。
 
-用户提供的视觉参考强调：顶部关键行情横向总览、大尺寸主趋势图、右侧可解释市场判断和右下可直接执行的今日行动。
+用户确认的 v6 视觉稿强调：左侧大尺寸 A 股趋势与信号，右侧跨市场背景和主流 ETF 两张同级观察卡，今日行动与今日工作流在下方并列执行。
 
 ## Confirmed Decisions
 
 - 保留现有市场主线、市场温度、每日选股、工作流、资讯和复盘模块，新内容位于首屏，旧模块下沉。
 - 固定展示 `000001.SH`、`399006.SZ`、`510300.SH`、`588000.SH`、`159992.SZ`、`XAUUSD` 和 `IXIC`。
-- A 股主控台默认上证指数，可切换创业板指和三个 A 股 ETF；ETF 只改变行情视图，不改变 A 股风险信号。
-- A 股图与跨市场图分别拥有自己的 `1D/5D/1M/YTD` 区间。
+- A 股主控台默认上证指数，可切换创业板指；三个 A 股 ETF 使用独立 Tab 卡，不改变 A 股风险信号。
+- A 股图、ETF 图和跨市场图分别拥有自己的 `1D/5D/1M/YTD` 区间。
 - 伦敦金与纳指不进入 A 股主图，使用独立跨市场背景卡展示，避免把跨市场走势与 A 股风险信号误读为同一判断。
+- 桌面端右侧跨市场卡与 ETF 卡作为同一列拉伸，两卡总高度与左侧 A 股主控台一致；移动端自然单列。
 - 每个资产使用自己的交易时段。A 股横轴为 `09:30–11:30 / 13:00–15:00`；伦敦金使用连续交易时段。
 - 伦敦金没有可信成交量，黄金图隐藏成交量柱，不补零伪装；纳指跨市场视图不将成交量作为判断依据。
 - 首期不做无法校准的等权基准和量价事件标注。
@@ -20,6 +21,7 @@
 - 分数由确定性规则计算，文案由确定性模板归纳证据；不使用 LLM 生成判断或数字。
 - 数据置信度只表达数据新鲜度和完整度，不表示方向预测准确率。
 - 今日行动直接绑定当前用户今日 Work Task，按 `dueTime` 排序，不混入 Workflow Run。
+- 今日工作流独立绑定当前用户今日 Workflow Run，不混入 Work Task；今日行动与今日工作流在今日执行区并列展示。
 - 分钟线前向采集，保留最近 13 个月；日线可回填，历史分钟缺口必须明确显示。
 
 ## Goals
@@ -249,12 +251,15 @@ primary key(symbol, trade_date)
 ## Market Brief API
 
 ```text
-GET /api/v1/dashboard/market-brief?symbol=000001.SH&range=1D&goldRange=1D
+GET /api/v1/dashboard/market-brief?symbol=000001.SH&range=1D&etfSymbol=510300.SH&etfRange=1D&globalSymbol=XAUUSD&globalRange=1D
 ```
 
 - `symbol`: A 股 allowlist `000001.SH | 399006.SZ`，默认 `000001.SH`
 - `range`: A 股图 `1D | 5D | 1M | YTD`
-- `goldRange`: 独立黄金图 `1D | 5D | 1M | YTD`
+- `etfSymbol`: ETF allowlist `510300.SH | 588000.SH | 159992.SZ`，默认 `510300.SH`
+- `etfRange`: 独立 ETF 图 `1D | 5D | 1M | YTD`
+- `globalSymbol`: 跨市场 allowlist `XAUUSD | IXIC`，默认 `XAUUSD`
+- `globalRange`: 独立跨市场图 `1D | 5D | 1M | YTD`
 
 ```ts
 type MarketBriefResponse = {
@@ -287,13 +292,23 @@ type MarketBriefResponse = {
     quality: "available" | "low" | "missing";
     staleReason: string | null;
   };
-  goldChart: {
-    symbol: "XAUUSD";
+  etfChart: {
+    symbol: "510300.SH" | "588000.SH" | "159992.SZ";
+    range: "1D" | "5D" | "1M" | "YTD";
+    timezone: "Asia/Shanghai";
+    sessionDate: string | null;
+    hasVolume: true;
+    points: Array<{ time: string; price: number; volume: number | null }>;
+    quality: "available" | "low" | "missing";
+    staleReason: string | null;
+  };
+  globalChart: {
+    symbol: "XAUUSD" | "IXIC";
     range: "1D" | "5D" | "1M" | "YTD";
     timezone: "Asia/Shanghai";
     sessionDate: string | null;
     hasVolume: false;
-    points: Array<{ time: string; price: number; volume: null }>;
+    points: Array<{ time: string; price: number; volume: number | null }>;
     quality: "available" | "low" | "missing";
     staleReason: string | null;
   };
@@ -308,10 +323,6 @@ type MarketBriefResponse = {
       score: number;
       evidence: string;
     }>;
-    crossAsset: {
-      goldChangePct: number | null;
-      note: string;
-    };
     modelVersion: string;
     asOf: string | null;
     quality: "available" | "low" | "missing";
@@ -320,6 +331,8 @@ type MarketBriefResponse = {
 ```
 
 用户任务不进入该响应。前端并行调用现有 `/api/v1/work-tasks?view=today`，避免个人数据进入共享行情缓存。
+
+今日工作流同样不进入该响应。前端并行调用现有 `/api/v1/workflows/runs/today`，并用 Workflow 列表补齐活跃流程数量。
 
 ## Market Signal
 
@@ -354,36 +367,42 @@ type MarketBriefResponse = {
 
 新增组件：
 
-- `AShareMarketBoard`: 上证/创业板及三个 ETF 切换、A 股趋势图和可选成交量。
-- `AShareSignalPanel`: 标题、正文、三项 Deterministic Factor、数据质量和“追问 AI”入口。
-- `GlobalContextCard`: 伦敦金与纳指独立报价、区间和走势，明确不进入 A 股信号。
-- `TodayActionsCard`: 今日 Work Task 前 3 项、市场阶段和下一节点。
+- `AShareMarketBoard`: 上证/创业板切换、A 股趋势图、成交量和 SIGNAL。
+- `AShareSignalPanel`: 标题、正文、三项 Deterministic Factor 和数据质量。
+- `ETFContextCard`: 三个主流 ETF 的横向 Tab、独立报价、区间和走势，明确不进入 A 股 SIGNAL。
+- `GlobalContextCard`: 伦敦金与纳指 Tab、独立报价、区间和走势，明确不进入 A 股信号。
+- `TodayExecutionSection`: 今日行动与今日工作流并列；行动读取 Work Task，工作流读取 Workflow Run。
 
 现有 `DailyDashboard` 模块保留并下沉。查询并行：
 
-- `useMarketBriefQuery(symbol, range, goldRange)`
+- `useMarketBriefQuery({ symbol, range, etfSymbol, etfRange, globalSymbol, globalRange })`
 - `useWorkTasks("today", localDate, timezone)`
+- `useTodayWorkflowRunsQuery()`
+- `useWorkflowsQuery()`
 
 页面状态：
 
 - Market Brief 成功：完整首屏。
 - 单个 A 股缺失：A 股主控台显示“暂不可用”，黄金卡和任务继续。
-- 黄金缺失：独立黄金卡显示“暂不可用”或陈旧，A 股主控台继续。
+- ETF 缺失：独立 ETF 卡显示“暂不可用”或陈旧，A 股主控台继续。
+- 跨市场缺失：独立跨市场卡显示“暂不可用”或陈旧，A 股主控台继续。
 - 图表缺失：对应卡片显示最后可信快照或空态，不显示空坐标。
 - 信号缺失：显示“证据不足”，不生成判断。
 - 今日任务缺失：显示任务空态。
-- AI 追问：打开现有助手，自动带入当前 A 股信号和所选指数/ETF 上下文，不执行交易或修改任务。
-- 移动端：A 股主控台、A 股信号、黄金背景卡、任务依次单列。
+- 今日工作流失败：只显示工作流错误/重试，不影响市场和今日行动。
+- 桌面端：右侧两张观察卡合计高度与左侧主控台一致，底边差值为 0。
+- 移动端：A 股主控台、跨市场卡、ETF 卡、今日执行依次单列。
 
 ## Visual Design Gate
 
 进入生产代码前必须：
 
-1. 基于 `explorations/quant-workbench-dashboard-market-radar-v2.html` 创建分离 A 股与黄金的 `quant-workbench-dashboard-market-radar-v4.html`。
-2. 使用真实 `000001.SH / 399006.SZ / XAUUSD` 样例。
-3. 覆盖 A 股指数切换、两图独立四区间、黄金缺失、A 股信号降级和今日任务。
-4. 截取桌面/移动端、浅色/深色和键盘状态。
-5. 用户确认后才创建含生产代码的 OpenSpec tasks 和实施计划。
+已确认：`explorations/quant-workbench-dashboard-market-radar-v6.html`。
+
+- 使用真实 `000001.SH / 399006.SZ / XAUUSD / IXIC / 三个 ETF` 样例。
+- 覆盖指数切换、ETF Tab 与方向键、跨市场 Tab、三图独立区间、缺失、陈旧、SIGNAL 降级、今日行动和今日工作流。
+- 截图覆盖桌面/移动端、浅色/深色和键盘状态。
+- 用户已于 2026-11-22 确认 v6；生产实现不得改变模块归属、Tab 交互和等高关系。
 
 ## Security and Ownership
 
@@ -399,9 +418,10 @@ type MarketBriefResponse = {
 - Ingestion：幂等 upsert、跨午夜 session_date、单资产失败不连累其他资产。
 - Retention：13 个月边界和日线不影响。
 - Market Signal：阈值、数据不足、陈旧、确定性文案和版本。
-- API：全部配置资产报价、A 股图与跨市场图独立区间、缺失/部分成功、缓存隔离。
-- Frontend pure helpers：单位、断点、图表点数、任务排序。
+- API：全部配置资产报价、A 股/ETF/跨市场三图独立区间、缺失/部分成功、缓存隔离。
+- Frontend pure helpers：单位、断点、三组图表区间、ETF Tab 方向键、任务与 Workflow Run 排序。
 - 真实浏览器：桌面/移动端、深浅色、键盘、空态和部分成功。
+- 布局：桌面左右高度与底边完全对齐，移动端不强制等高。
 
 ## Deployment and Rollback
 

@@ -209,3 +209,20 @@ export const WORK_TASK_SOURCE_LABELS: Record<WorkTaskSourceType, string> = {
   screen: "每日选股",
   workflow_run: "Workflow Run",
 };
+
+export function workTaskDetailSearch(taskId: number): { task: number } {
+  return { task: taskId };
+}
+
+export function formatWorkflowRunTime(value: string, timeZone: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(5, 16).replace("T", " ");
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}

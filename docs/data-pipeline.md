@@ -82,6 +82,8 @@ flowchart LR
   - 依赖关系（下游内部等待上游成功）：`boards → board-kline / constituents`；`kline-1d → adj-factor → kline-period / features`（`adj-factor` 反解腾讯仿射复权参数，是 qfq/hfq 视图的数据来源，须先于读视图的下游）。
   - 历史回补为独立任务：`limit-up-pool-backfill`（19:00）、`dragon-tiger-backfill`（19:05）、`hot-reason-backfill`（19:10）、`kline-1d-backfill`（19:30），deadline 22:00；显式排除当日，`kline-1d-backfill` 完成后内联重收敛 `adj-factor` 与 `kline-period`。
   - 其他计划：`news`（`*/2 * * * *`，仅交易日 07:00–23:00）、`stock-announcements`（`5 18 * * 1-5`）、`stock-research-reports`（`10 18 * * 1-5`）、`stock-fundamentals`（`20 18 * * 1-5`）、`calendar`（`0 2 * * 1`）、`partition-maint`（`20 2 * * 1`，巡检 `bar1d_raw` 年度分区）；`kline-1m` / `gap-detect` 为未实现空壳，`enabled: false`。
+  - 跨资产行情使用独立 `market_asset_*` 表：`market-asset-minute` 每分钟刷新固定资产报价/分钟线，`market-asset-daily` 每日 06:10 与 16:10 刷新日线，`market-asset-daily-backfill` 每周回填日线；三者由 `MARKET_ASSET_INGEST_ENABLED=true` 启用。`market-asset-retention` 每日只删除超过 13 个月的分钟线，不触碰日线、报价或 A 股复权/回测表。
+  - 跨资产时序按资产固定来源：A 股指数与 ETF 走腾讯，XAU 走新浪，IXIC 走 Yahoo；registry 按资产过滤 provider，避免把“明确不支持该资产”的备源当成有效降级。腾讯日线单次请求上限取 600 根；`1D` 读库从最近 7 个自然日回看并只保留最新完整 session，周末与跨时区不会退化成空图。
   - 自选股内容只遍历 `watchlist`，新闻回填 20 条、公告回填 30 天、研报首次回填 12 个月；后续研报元数据按 `sync_cursor` 只请求最近 7 天并保留 7 天重叠。`stock-fundamentals` 同步一致预期、mootdx 财务快照、新浪财务三表和 Baostock 估值；单股失败继续下一只，结束后汇总抛出使 `job_run` 反映部分失败。
   - `news` 与任意个股“重新分析”都调用 `stock-content-service`：新闻始终关联查询标的，公告按 `(source, source_url)`、研报按 `(source, source_id)`、一致预期/财务/估值按各自业务主键幂等写入；单模块失败不清空其他模块。北交所没有 Baostock 估值，自选股基本面任务只跳过该模块。
   - 研报元数据同步不等于全文入库。元数据落库后，分析页通过独立 `POST /research-reports/index-window` 入队；自选股研报任务完成后也自动排队最近 30 天全文，并使用较低优先级。独立 `research-worker` 全局并发 1，串行执行 PDF 下载、文本/OCR、分块和本地 BGE 向量化；当前分析优先级高于自选股后台批次。`pending` 超过 10 分钟会由 worker 启动或周期巡检重新入队；新闻不生成向量。两类内容的检索边界见 [RAG 标准](./standards/rag.md)。

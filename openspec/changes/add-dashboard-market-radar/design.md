@@ -12,6 +12,7 @@
 
 - 为三个固定资产建立正式 Provider、报价、分钟线、日线、质量和保留能力。
 - 提供跨资产 Market Brief API、确定性 A 股市场信号和真实今日任务。
+- 固定 A 股主控台、独立 ETF 观察卡、跨市场背景卡和今日执行区的内容边界。
 - 保持现有每日看板模块继续可用，并支持功能开关回退。
 
 **Non-Goals:**
@@ -42,13 +43,13 @@ Market Brief API 只包含市场数据；前端并行调用现有 Work Task API�
 
 趋势、广度和热度按固定公式计算，标题正文来自证据模板。数据置信度只代表新鲜度和完整度，不代表上涨概率。
 
-### Separate A-share decisions from cross-asset context
+### Separate market decision, ETF observation, and cross-market context
 
-A 股主控台切换上证指数、创业板指和三个主流 ETF，并把 A 股趋势与 A 股风险信号放在同一连续面板；ETF 只切换行情视图，不参与信号公式。伦敦金与纳指使用独立背景卡和自己的区间。Market Brief 响应分别返回 `aShareChart` 与 `goldChart`，避免跨市场走势被误读为 A 股信号的一部分。
+A 股主控台只切换上证指数和创业板指，并承载趋势与 SIGNAL。三个主流 ETF 使用右侧独立 Tab 卡、独立区间和图表，不参与信号公式；伦敦金与纳指使用另一张独立背景卡。Market Brief 分别返回 `aShareChart`、`etfChart` 和 `globalChart`，避免不同资产域被误读为同一判断。
 
-### Add contextual AI entry to the A-share signal
+### Align observation cards and separate execution domains
 
-A 股 SIGNAL 提供“追问 AI”入口。点击后复用现有助手并带入当前 A 股信号、所选指数或 ETF、趋势/广度/热度上下文；助手只负责解释和反证，不自动交易或修改任务。
+桌面端右列把跨市场背景和主流 ETF 两卡拉伸到与左侧 A 股主控台同高，底边对齐；移动端自然单列。今日行动与今日工作流放在首屏下方的今日执行区，桌面并列、移动端单列。今日行动只读取 Work Task，今日工作流只读取 Workflow Run，前端并行请求，不把用户任务混入共享行情缓存。
 
 ### Reuse ECharts and existing Preline tokens
 
@@ -61,26 +62,31 @@ A 股图和黄金图都有区间、成交量差异、十字线和图表读屏需
 - 历史分钟不足：返回缺失区间，不补造。
 - Market Signal 核心因子不足：返回中性缺失态，不生成方向。
 - Work Task 请求失败：首屏其他模块继续，今日行动显示错误/重试。
+- Workflow Run 请求失败：市场与今日行动继续，今日工作流显示错误/重试。
+- ETF 图表失败：主控台、跨市场卡和今日执行继续，ETF 卡显示暂不可用。
 - 新首屏异常：功能开关回退旧每日看板。
 
 ## Visual Design
 
-计划原型：`docs/design/prototypes/explorations/quant-workbench-dashboard-market-radar-v4.html`
+已确认原型：`docs/design/prototypes/explorations/quant-workbench-dashboard-market-radar-v6.html`
 
-计划截图目录：`docs/design/prototypes/explorations/screenshots/dashboard-market-radar-v4/`
+已确认截图目录：`docs/design/prototypes/explorations/screenshots/dashboard-market-radar-v6/`
 
 必须覆盖：
 
-- A 股主控台：上证、创业板、沪深300ETF、科创50ETF、创新药ETF 切换
+- A 股主控台：上证、创业板切换
+- 主流 ETF 独立卡：沪深300ETF、科创50ETF、创新药ETF 横向 Tab
 - 独立伦敦金与纳指跨市场背景卡
-- A 股图与黄金图各自支持 1D/5D/1M/YTD
+- A 股、ETF 与跨市场图各自支持 1D/5D/1M/YTD
+- 桌面端左右总高度一致，右侧两卡底边对齐
 - A 股成交量与伦敦金无成交量
 - Market Signal 成功、证据不足和跨资产背景
+- 今日行动与今日工作流并列但数据完全分离
 - 今日任务有数据、空态和错误
 - 加载、单资产缺失、陈旧和整体错误
 - 桌面/移动端、浅色/深色、键盘焦点
 
-视觉稿未确认前，不得开始生产代码。
+视觉稿已于 2026-11-22 经用户确认。生产实现必须沿用 v6 的模块归属、Tab 交互和等高关系。
 
 ## Migration Plan
 
@@ -110,4 +116,4 @@ A 股图和黄金图都有区间、成交量差异、十字线和图表读屏需
 - **Date:** 2026-11-22
 - **Result:** approved
 - **Blocking items:** 无
-- **Scope:** 用户明确选择正式跨资产行情平台 C，并确认资产品种、存储、回填、信号、任务和图表行为。
+- **Scope:** 用户明确选择正式跨资产行情平台 C，确认资产品种、存储、回填、信号、任务和图表行为；随后确认 v6 的 ETF Tab、独立观察卡、今日执行区及左右等高布局。

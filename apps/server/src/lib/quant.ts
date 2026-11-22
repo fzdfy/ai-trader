@@ -12,6 +12,34 @@ const log = createLogger("quant");
 
 const QUANT_URL = process.env.QUANT_URL ?? "http://localhost:3002";
 
+export interface MarketAssetQuote {
+  symbol: string;
+  price: number;
+  pre_close: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  change_pct: number | null;
+  volume: number | null;
+  amount: number | null;
+  quoted_at: string;
+  source: string;
+  price_unit: string;
+}
+
+export interface MarketAssetBar {
+  symbol: string;
+  session_date: string;
+  bucket_start: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number | null;
+  amount: number | null;
+  source: string;
+}
+
 /** 个股资金流日级一条（quant /fund-flow-120d 返回，单位：元） */
 export interface FundFlowDay {
   date: string;
@@ -628,6 +656,40 @@ export const quant = {
     getJson<Record<string, StockQuote>>(
       `/api/v1/data/quotes?codes=${encodeURIComponent(symbols.join(","))}`,
     ),
+
+  marketAssetQuotes: (symbols: string[]) =>
+    getJson<Record<string, MarketAssetQuote>>(
+      `/api/v1/data/market-assets/quotes?symbols=${encodeURIComponent(symbols.join(","))}`,
+    ),
+
+  marketAssetMinute: (
+    symbol: string,
+    tf: "1m" | "5m",
+    limit = 500,
+    start?: string,
+    end?: string,
+  ) => {
+    const query = new URLSearchParams({
+      symbol,
+      tf,
+      limit: String(limit),
+    });
+    if (start) query.set("start", start);
+    if (end) query.set("end", end);
+    return getJson<MarketAssetBar[]>(`/api/v1/data/market-assets/minute?${query}`);
+  },
+
+  marketAssetDaily: (
+    symbol: string,
+    limit = 500,
+    start?: string,
+    end?: string,
+  ) => {
+    const query = new URLSearchParams({ symbol, limit: String(limit) });
+    if (start) query.set("start", start);
+    if (end) query.set("end", end);
+    return getJson<MarketAssetBar[]>(`/api/v1/data/market-assets/daily?${query}`);
+  },
 
   stockNews: (symbol: string, pageSize = 20) =>
     getJson<NewsItem[]>(

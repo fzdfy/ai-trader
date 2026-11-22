@@ -281,6 +281,13 @@
       "when": 1795169231070,
       "tag": "0039_rename_governance_review_task_pk",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795344217656,
+      "tag": "0040_parallel_whistler",
+      "breakpoints": true
     }
   ]
 }

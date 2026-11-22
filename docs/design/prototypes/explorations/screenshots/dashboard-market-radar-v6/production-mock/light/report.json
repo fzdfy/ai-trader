@@ -1,0 +1,79 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 10,
+        "examples": [
+          "span.inline-flex.h-8「行情快照 11/20」（2.91:1）",
+          "span.ml-2.text-xs「-1.23%」（3.71:1）",
+          "span.inline-flex.items-center「A 股 SIGNAL · 规则判定」（4.42:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 75,
+        "examples": [
+          "span.rounded-full.px-2「运行中」（10px）",
+          "span.rounded-full.px-2「已完成」（10px）",
+          "p.font-mono.text-[9px]「DATA STATUS」（9px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「林 林策 量化研究 · Pro」（首屏 4 块各自加框）",
+          "div.rounded-xl.border「DATA STATUS 行情快照滞后 2 天 市」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 5,
+        "examples": [
+          "span.inline-flex.h-8「行情快照 11/20」（2.91:1）",
+          "span.ml-2.text-xs「-1.23%」（3.71:1）",
+          "span.inline-flex.items-center「A 股 SIGNAL · 规则判定」（4.42:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 75,
+        "examples": [
+          "span.rounded-full.px-2「运行中」（10px）",
+          "span.rounded-full.px-2「已完成」（10px）",
+          "p.font-mono.text-[9px]「DATA STATUS」（9px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「DATA STATUS 行情快照滞后 2 天 市」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

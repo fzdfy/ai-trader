@@ -43,6 +43,9 @@ from .base import (
     CAPABILITY_KLINE,
     CAPABILITY_LIMIT_UP_POOL,
     CAPABILITY_LOCKUP_EXPIRY,
+    CAPABILITY_MARKET_ASSET_DAILY,
+    CAPABILITY_MARKET_ASSET_MINUTE,
+    CAPABILITY_MARKET_ASSET_QUOTE,
     CAPABILITY_MARKET_NEWS,
     CAPABILITY_MARGIN_TRADING,
     CAPABILITY_NORTHBOUND,
@@ -76,22 +79,53 @@ from .schemas import (
     LimitUpPoolItem,
     LockupExpiry,
     MarginTradingItem,
+    MarketAssetBar,
+    MarketAssetQuote,
     NewsItem,
     NorthboundPoint,
     Quote,
     TradeTick,
     ValuationDailyItem,
 )
+from .market_assets import resolve_market_asset
 
 router = APIRouter(tags=["data"])
 
 
-def _pick(capability: str, source: str | None):
+def _market_asset(symbol: str):
+    try:
+        return resolve_market_asset(symbol)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+
+
+def _market_asset_minute_tf(symbol: str, tf: str) -> str:
+    allowed = {"5m"} if symbol == "IXIC" else {"1m"}
+    if tf not in allowed:
+        expected = "5m" if symbol == "IXIC" else "1m"
+        raise HTTPException(400, f"{symbol} only supports {expected} minute bars")
+    return tf
+
+
+def _pick(capability: str, source: str | None, symbol: str | None = None):
     """指定 source 则强制用该源，否则返回 None 表示走降级链。"""
     if source:
-        provider = registry.get_provider(source)
+        try:
+            provider = registry.get_provider(source)
+        except KeyError as error:
+            raise HTTPException(400, f"未知数据源 {source}") from error
         if capability not in provider.capabilities:
             raise HTTPException(400, f"数据源 {source} 不支持能力 {capability}")
+        if (
+            symbol
+            and capability
+            in {
+                CAPABILITY_MARKET_ASSET_MINUTE,
+                CAPABILITY_MARKET_ASSET_DAILY,
+            }
+            and source not in registry.market_asset_provider_names_for(capability, symbol)
+        ):
+            raise HTTPException(400, f"数据源 {source} 不支持资产 {symbol}")
         return provider
     providers = registry.providers_for(capability)
     if not providers:
@@ -188,6 +222,88 @@ def get_quotes(
     if provider is not None:
         return provider.quote(symbols)
     return registry.call_with_fallback(CAPABILITY_QUOTE, "quote", symbols)
+
+
+@router.get(
+    "/market-assets/quotes",
+    response_model=dict[str, MarketAssetQuote],
+)
+def get_market_asset_quotes(
+    symbols: Annotated[str, Query(description="逗号分隔的固定跨资产代码")],
+    source: Annotated[str | None, Query()] = None,
+) -> dict[str, MarketAssetQuote]:
+    """固定跨资产标的报价。未知代码在调用 provider 前返回 400。"""
+    normalized = [symbol.strip().upper() for symbol in symbols.split(",") if symbol.strip()]
+    if not normalized:
+        return {}
+    for symbol in normalized:
+        _market_asset(symbol)
+    provider = _pick(CAPABILITY_MARKET_ASSET_QUOTE, source)
+    if provider is not None:
+        return provider.market_asset_quote(normalized)
+    return registry.call_with_fallback(
+        CAPABILITY_MARKET_ASSET_QUOTE,
+        "market_asset_quote",
+        normalized,
+    )
+
+
+@router.get("/market-assets/minute", response_model=list[MarketAssetBar])
+def get_market_asset_minute(
+    symbol: Annotated[str, Query()],
+    tf: Annotated[str, Query(description="A 股/XAU 为 1m，IXIC 为 5m")] = "1m",
+    limit: Annotated[int, Query(ge=1, le=5000)] = 500,
+    start: Annotated[str | None, Query()] = None,
+    end: Annotated[str | None, Query()] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[MarketAssetBar]:
+    asset = _market_asset(symbol)
+    tf = _market_asset_minute_tf(asset.symbol, tf)
+    provider = _pick(CAPABILITY_MARKET_ASSET_MINUTE, source, asset.symbol)
+    if provider is not None:
+        return provider.market_asset_minute(
+            asset.symbol,
+            tf=tf,
+            limit=limit,
+            start=start,
+            end=end,
+        )
+    return registry.call_with_fallback(
+        CAPABILITY_MARKET_ASSET_MINUTE,
+        "market_asset_minute",
+        asset.symbol,
+        tf=tf,
+        limit=limit,
+        start=start,
+        end=end,
+    )
+
+
+@router.get("/market-assets/daily", response_model=list[MarketAssetBar])
+def get_market_asset_daily(
+    symbol: Annotated[str, Query()],
+    limit: Annotated[int, Query(ge=1, le=5000)] = 500,
+    start: Annotated[str | None, Query()] = None,
+    end: Annotated[str | None, Query()] = None,
+    source: Annotated[str | None, Query()] = None,
+) -> list[MarketAssetBar]:
+    asset = _market_asset(symbol)
+    provider = _pick(CAPABILITY_MARKET_ASSET_DAILY, source, asset.symbol)
+    if provider is not None:
+        return provider.market_asset_daily(
+            asset.symbol,
+            limit=limit,
+            start=start,
+            end=end,
+        )
+    return registry.call_with_fallback(
+        CAPABILITY_MARKET_ASSET_DAILY,
+        "market_asset_daily",
+        asset.symbol,
+        limit=limit,
+        start=start,
+        end=end,
+    )
 
 
 @router.get("/transaction", response_model=list[TradeTick])

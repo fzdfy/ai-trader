@@ -1,0 +1,20 @@
+[
+  {
+    "file": "tasks-empty.png",
+    "state": "tasks-empty",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "tasks-error.png",
+    "state": "tasks-error",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]
