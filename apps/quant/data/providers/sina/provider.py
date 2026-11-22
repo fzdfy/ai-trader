@@ -10,16 +10,18 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from datetime import datetime
+from datetime import date, datetime, time as datetime_time
 from zoneinfo import ZoneInfo
 
 from ...base import (
     CAPABILITY_FINANCIAL_STATEMENTS,
+    CAPABILITY_MARKET_ASSET_DAILY,
+    CAPABILITY_MARKET_ASSET_MINUTE,
     CAPABILITY_STOCK_NEWS,
     MarketProvider,
 )
-from ...common import UA, get_prefix, norm_ticker
-from ...schemas import AdjustFactor, FinancialSnapshotItem, NewsItem
+from ...common import MARKET_TZ, UA, get_prefix, norm_date, norm_ticker
+from ...schemas import AdjustFactor, FinancialSnapshotItem, MarketAssetBar, NewsItem
 
 
 def _sina_symbol(value: str) -> str | None:
@@ -84,6 +86,103 @@ _STATEMENT_TYPES = {
     "lrb": "income_statement",
     "llb": "cash_flow",
 }
+
+_XAU_DAILY_URL = (
+    "https://stock2.finance.sina.com.cn/futures/api/jsonp.php/"
+    "var%20_XAU=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU&type=5"
+)
+_XAU_MINUTE_URL = (
+    "https://stock2.finance.sina.com.cn/futures/api/jsonp.php/"
+    "var%20_XAU=/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
+)
+
+
+def _parse_sina_jsonp(text: str, symbol: str):
+    start = text.find("(")
+    end = text.rfind(")")
+    if start < 0 or end <= start:
+        raise RuntimeError(f"新浪 {symbol} 响应不是预期 JSONP")
+    try:
+        payload = json.loads(text[start + 1 : end])
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"新浪 {symbol} JSONP 解析失败: {error}") from error
+    if isinstance(payload, dict) and "__ERROR" in payload:
+        raise RuntimeError(
+            f"新浪 {symbol} 端点错误: {payload.get('__ERRORMSG') or payload['__ERROR']}"
+        )
+    return payload
+
+
+def parse_sina_xau_daily(text: str) -> list[MarketAssetBar]:
+    rows = _parse_sina_jsonp(text, "XAUUSD")
+    if not isinstance(rows, list):
+        raise RuntimeError("新浪 XAUUSD 日线响应不是列表")
+    bars: list[MarketAssetBar] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            session_date = date.fromisoformat(str(row["date"])[:10])
+            bars.append(
+                MarketAssetBar(
+                    symbol="XAUUSD",
+                    session_date=session_date,
+                    bucket_start=datetime.combine(
+                        session_date,
+                        datetime_time.min,
+                        tzinfo=MARKET_TZ,
+                    ),
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=None,
+                    amount=None,
+                    source="sina",
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not bars:
+        raise RuntimeError("新浪 XAUUSD 日线返回空结果")
+    return sorted(bars, key=lambda bar: bar.bucket_start)
+
+
+def parse_sina_xau_minute(text: str) -> list[MarketAssetBar]:
+    payload = _parse_sina_jsonp(text, "XAUUSD")
+    rows = payload.get("minLine_1d") if isinstance(payload, dict) else None
+    if not isinstance(rows, list) or not rows:
+        raise RuntimeError("新浪 XAUUSD 分时返回空结果")
+    first = rows[0]
+    if not isinstance(first, list) or len(first) < 10:
+        raise RuntimeError("新浪 XAUUSD 分时首行格式异常")
+    session_date = date.fromisoformat(str(first[0])[:10])
+    bars: list[MarketAssetBar] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, list):
+            continue
+        try:
+            price = float(row[5] if index == 0 else row[1])
+            timestamp = datetime.fromisoformat(str(row[9] if index == 0 else row[5]))
+        except (IndexError, TypeError, ValueError):
+            continue
+        bars.append(
+            MarketAssetBar(
+                symbol="XAUUSD",
+                session_date=session_date,
+                bucket_start=timestamp.replace(tzinfo=MARKET_TZ),
+                open=price,
+                high=price,
+                low=price,
+                close=price,
+                volume=None,
+                amount=None,
+                source="sina",
+            )
+        )
+    if not bars:
+        raise RuntimeError("新浪 XAUUSD 分时没有有效分钟点")
+    return bars
 
 
 def _number_or_text(value):
@@ -150,8 +249,67 @@ class SinaProvider(MarketProvider):
             "adjust_factor",
             CAPABILITY_STOCK_NEWS,
             CAPABILITY_FINANCIAL_STATEMENTS,
+            CAPABILITY_MARKET_ASSET_MINUTE,
+            CAPABILITY_MARKET_ASSET_DAILY,
         }
     )
+
+    def market_asset_minute(
+        self,
+        symbol: str,
+        tf: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[MarketAssetBar]:
+        if symbol != "XAUUSD":
+            raise ValueError(f"新浪 market_asset_minute 仅支持 XAUUSD，收到 {symbol}")
+        if tf != "1m":
+            raise ValueError(f"新浪 XAUUSD 分时只支持 tf=1m，收到 {tf}")
+        req = urllib.request.Request(
+            _XAU_MINUTE_URL,
+            headers={"User-Agent": UA, "Referer": "https://finance.sina.com.cn/"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            text = response.read().decode("utf-8", errors="replace")
+        bars = parse_sina_xau_minute(text)
+        start_date = norm_date(start)
+        end_date = norm_date(end)
+        if start_date or end_date:
+            bars = [
+                bar
+                for bar in bars
+                if (not start_date or bar.session_date.isoformat() >= start_date)
+                and (not end_date or bar.session_date.isoformat() <= end_date)
+            ]
+        return bars[-limit:]
+
+    def market_asset_daily(
+        self,
+        symbol: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[MarketAssetBar]:
+        if symbol != "XAUUSD":
+            raise ValueError(f"新浪 market_asset_daily 仅支持 XAUUSD，收到 {symbol}")
+        req = urllib.request.Request(
+            _XAU_DAILY_URL,
+            headers={"User-Agent": UA, "Referer": "https://finance.sina.com.cn/"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            text = response.read().decode("utf-8", errors="replace")
+        bars = parse_sina_xau_daily(text)
+        start_date = norm_date(start)
+        end_date = norm_date(end)
+        if start_date or end_date:
+            bars = [
+                bar
+                for bar in bars
+                if (not start_date or bar.session_date.isoformat() >= start_date)
+                and (not end_date or bar.session_date.isoformat() <= end_date)
+            ]
+        return bars[-limit:]
 
     def stock_news(self, symbol: str, page_size: int = 20) -> list[NewsItem]:
         url = (

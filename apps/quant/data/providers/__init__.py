@@ -14,6 +14,7 @@ from .mootdx import MootdxProvider
 from .sina import SinaProvider
 from .tencent import TencentProvider
 from .ths import ThsProvider
+from .yahoo import YahooProvider
 
 __all__ = [
     "BaostockProvider",
@@ -23,5 +24,6 @@ __all__ = [
     "CninfoProvider",
     "SinaProvider",
     "ThsProvider",
+    "YahooProvider",
     "EastmoneyProvider",
 ]

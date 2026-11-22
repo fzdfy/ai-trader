@@ -1,6 +1,7 @@
 import unittest
 from datetime import date, datetime, timezone
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -12,6 +13,20 @@ from data.base import (
     MarketProvider,
 )
 from data.market_assets import MARKET_ASSETS, resolve_market_asset
+from data.providers.sina.provider import (
+    SinaProvider,
+    parse_sina_xau_daily,
+    parse_sina_xau_minute,
+)
+from data.providers.tencent.provider import (
+    TencentProvider,
+    parse_tencent_market_asset_minute,
+    parse_tencent_market_asset_quotes,
+)
+from data.providers.yahoo.provider import (
+    YahooProvider,
+    parse_yahoo_market_asset_bars,
+)
 from data.registry import capability_chains, providers_for
 from data.router import router as data_router
 from data.schemas import MarketAssetBar, MarketAssetQuote
@@ -54,7 +69,8 @@ class MarketAssetContractTest(unittest.TestCase):
         )
 
     def test_registry_ignores_not_yet_installed_chain_members(self):
-        self.assertEqual(providers_for(CAPABILITY_MARKET_ASSET_MINUTE), [])
+        names = [provider.name for provider in providers_for(CAPABILITY_MARKET_ASSET_MINUTE)]
+        self.assertEqual(names, ["tencent", "sina", "yahoo"])
 
     def test_provider_base_methods_fail_explicitly(self):
         provider = MarketProvider()
@@ -99,6 +115,144 @@ class MarketAssetContractTest(unittest.TestCase):
         self.assertEqual(bar.session_date, date(2026, 11, 20))
         self.assertIsNone(bar.volume)
         self.assertEqual(quote.price_unit, "USD/oz")
+
+    def test_tencent_quote_parser_accepts_spaced_cross_market_time(self):
+        fields = [""] * 60
+        fields[1] = "纳斯达克"
+        fields[3] = "22617.73"
+        fields[4] = "23879.20"
+        fields[5] = "23587.38"
+        fields[30] = "2026-11-20 17:15:59"
+        fields[31] = "-1261.47"
+        fields[32] = "-5.28"
+        fields[33] = "23837.76"
+        fields[34] = "22513.01"
+        text = f'v_usIXIC="{"~".join(fields)}";'
+        quotes = parse_tencent_market_asset_quotes(text, ["IXIC"])
+        self.assertEqual(
+            quotes["IXIC"].quoted_at,
+            datetime(2026, 11, 20, 17, 15, 59, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+
+    def test_tencent_xau_uses_compact_gold_quote_shape(self):
+        text = (
+            'v_hf_XAU="3534.64,-2.49,3534.64,3534.99,3636.63,3502.73,'
+            '05:55:00,3625.01,3628.88,0,0,0,2026-11-21,伦敦金";'
+        )
+        quotes = parse_tencent_market_asset_quotes(text, ["XAUUSD"])
+        quote = quotes["XAUUSD"]
+        self.assertEqual(quote.price, 3534.64)
+        self.assertEqual(quote.pre_close, 3625.01)
+        self.assertEqual(quote.open, 3628.88)
+        self.assertEqual(quote.high, 3636.63)
+        self.assertEqual(quote.low, 3502.73)
+        self.assertEqual(quote.change_pct, -2.49)
+        self.assertEqual(
+            quote.quoted_at,
+            datetime(2026, 11, 21, 5, 55, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+
+    def test_tencent_minute_parser_uses_cumulative_deltas(self):
+        payload = {
+            "data": {
+                "sh000001": {
+                    "data": {
+                        "date": "20261120",
+                        "data": [
+                            "0930 3527.30 100 1000.00",
+                            "0931 3532.08 250 2600.00",
+                        ],
+                    }
+                }
+            }
+        }
+        bars = parse_tencent_market_asset_minute(payload, "000001.SH")
+        self.assertEqual(len(bars), 2)
+        self.assertEqual(bars[0].session_date, date(2026, 11, 20))
+        self.assertEqual(bars[0].volume, 100)
+        self.assertEqual(bars[1].volume, 150)
+        self.assertEqual(bars[1].amount, 1600)
+        self.assertEqual(bars[1].close, 3532.08)
+
+    def test_sina_xau_daily_is_jsonp_and_has_no_volume(self):
+        text = (
+            "/*<script>location.href='//sina.com';</script>*/\n"
+            'var _XAU=([{"date":"2026-11-19","open":"3719.84",'
+            '"high":"3738.42","low":"3620.11","close":"3625.01",'
+            '"volume":"0"}]);'
+        )
+        bars = parse_sina_xau_daily(text)
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].symbol, "XAUUSD")
+        self.assertEqual(bars[0].session_date, date(2026, 11, 19))
+        self.assertIsNone(bars[0].volume)
+        self.assertEqual(bars[0].source, "sina")
+
+    def test_sina_xau_minute_keeps_cross_midnight_session_date(self):
+        text = (
+            "/*<script>location.href='//sina.com';</script>*/\n"
+            'var _XAU=({"minLine_1d":['
+            '["2026-11-20","3625.010","LIFFE","","23:59","3625.010",'
+            '"0","0","3625.000","2026-11-20 23:59:00"],'
+            '["00:00","3624.500","0","0","3624.900",'
+            '"2026-11-21 00:00:00"]'
+            "]});"
+        )
+        bars = parse_sina_xau_minute(text)
+        self.assertEqual(len(bars), 2)
+        self.assertEqual(bars[0].session_date, date(2026, 11, 20))
+        self.assertEqual(bars[1].session_date, date(2026, 11, 20))
+        self.assertEqual(bars[1].bucket_start.isoformat(), "2026-11-21T00:00:00+08:00")
+        self.assertEqual(bars[1].close, 3624.5)
+        self.assertIsNone(bars[1].volume)
+
+    def test_yahoo_ixic_parses_five_minute_bars_without_volume(self):
+        first = int(datetime(2026, 11, 20, 14, 30, tzinfo=timezone.utc).timestamp())
+        second = first + 300
+        payload = {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "exchangeTimezoneName": "America/New_York",
+                            "dataGranularity": "5m",
+                        },
+                        "timestamp": [first, second],
+                        "indicators": {
+                            "quote": [
+                                {
+                                    "open": [100.0, 101.0],
+                                    "high": [102.0, 103.0],
+                                    "low": [99.0, 100.0],
+                                    "close": [101.5, 102.5],
+                                    "volume": [1000, 1200],
+                                }
+                            ]
+                        },
+                    }
+                ],
+                "error": None,
+            }
+        }
+        bars = parse_yahoo_market_asset_bars(payload, "IXIC", "5m")
+        self.assertEqual(len(bars), 2)
+        self.assertEqual(bars[0].session_date, date(2026, 11, 20))
+        self.assertIsNone(bars[0].volume)
+        self.assertEqual(bars[1].close, 102.5)
+
+    def test_providers_reject_assets_outside_their_market_asset_scope(self):
+        with self.assertRaisesRegex(ValueError, "A 股"):
+            TencentProvider().market_asset_minute(
+                "XAUUSD", tf="1m", limit=10, start=None, end=None
+            )
+        with self.assertRaisesRegex(ValueError, "XAUUSD"):
+            SinaProvider().market_asset_minute(
+                "000001.SH", tf="1m", limit=10, start=None, end=None
+            )
+        with self.assertRaisesRegex(ValueError, "5m"):
+            YahooProvider().market_asset_minute(
+                "IXIC", tf="1m", limit=10, start=None, end=None
+            )
 
 
 class _FakeMarketAssetProvider(MarketProvider):

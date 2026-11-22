@@ -17,10 +17,17 @@ import re
 import time
 import urllib.parse
 import urllib.request
+from datetime import date, datetime, time as datetime_time
 
-from ...base import MarketProvider
-from ...common import UA, drop_unsettled_today_bar, get_prefix, norm_date, norm_ticker
-from ...schemas import KlineBar, Quote, TradeTick
+from ...base import (
+    CAPABILITY_MARKET_ASSET_DAILY,
+    CAPABILITY_MARKET_ASSET_MINUTE,
+    CAPABILITY_MARKET_ASSET_QUOTE,
+    MarketProvider,
+)
+from ...common import MARKET_TZ, UA, drop_unsettled_today_bar, get_prefix, norm_date, norm_ticker
+from ...market_assets import MARKET_ASSETS, resolve_market_asset
+from ...schemas import KlineBar, MarketAssetBar, MarketAssetQuote, Quote, TradeTick
 
 # 前复权日 K 线端点：param={前缀}{代码},day,{start},{end},{count},qfq
 # 返回 JSON `data.{前缀}{代码}.qfqday`，每行 [日期, 开, 收, 高, 低, 量(手)]，
@@ -35,6 +42,154 @@ _FQKLINE_URL = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get"
 _TICK_URL = "https://stock.gtimg.cn/data/index.php"
 _TICK_MAX_PAGES = 300            # 一页 70 笔；2026-09 实测最活跃的票全天约 69 页
 _TICK_SESSION_END = "15:00:59"   # 连续竞价 + 收盘集合竞价到此为止，之后是盘后定价
+
+_MINUTE_URL = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/minute/query"
+
+
+def _market_asset_number(fields: list[str], index: int) -> float | None:
+    if index >= len(fields) or fields[index] in ("", "-"):
+        return None
+    try:
+        return float(fields[index])
+    except ValueError:
+        return None
+
+
+def _market_asset_quote_time(raw: str) -> datetime:
+    for pattern in ("%Y%m%d%H%M%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(raw, pattern).replace(tzinfo=MARKET_TZ)
+        except ValueError:
+            continue
+    raise RuntimeError(f"腾讯跨资产报价时间异常: {raw!r}")
+
+
+def parse_tencent_market_asset_quotes(
+    text: str, symbols: list[str]
+) -> dict[str, MarketAssetQuote]:
+    """解析腾讯 qt 快照中的固定跨资产报价。"""
+    definitions = {resolve_market_asset(symbol).provider_symbol: resolve_market_asset(symbol) for symbol in symbols}
+    result: dict[str, MarketAssetQuote] = {}
+    for line in text.split(";"):
+        match = re.search(r'v_([^=]+)="([^"]*)"', line)
+        if not match:
+            continue
+        provider_symbol, payload = match.groups()
+        definition = definitions.get(provider_symbol)
+        if definition is None:
+            continue
+        if definition.kind == "spot_gold":
+            fields = payload.split(",")
+            if len(fields) < 13:
+                continue
+            try:
+                price = float(fields[0])
+                change_pct = float(fields[1])
+                high = float(fields[4])
+                low = float(fields[5])
+                clock = fields[6]
+                pre_close = float(fields[7])
+                open_price = float(fields[8])
+                quoted_at = datetime.fromisoformat(
+                    f"{fields[12]} {clock}"
+                ).replace(tzinfo=MARKET_TZ)
+            except (TypeError, ValueError):
+                continue
+            if price <= 0:
+                continue
+            result[definition.symbol] = MarketAssetQuote(
+                symbol=definition.symbol,
+                price=price,
+                pre_close=pre_close,
+                open=open_price,
+                high=high,
+                low=low,
+                change_pct=change_pct,
+                volume=None,
+                amount=None,
+                quoted_at=quoted_at,
+                source="tencent",
+                price_unit=definition.price_unit,
+            )
+            continue
+        fields = payload.split("~")
+        if len(fields) < 38:
+            continue
+        price = _market_asset_number(fields, 3)
+        if price is None or price <= 0:
+            continue
+        quoted_at = _market_asset_quote_time(fields[30])
+        result[definition.symbol] = MarketAssetQuote(
+            symbol=definition.symbol,
+            price=price,
+            pre_close=_market_asset_number(fields, 4),
+            open=_market_asset_number(fields, 5),
+            high=_market_asset_number(fields, 33),
+            low=_market_asset_number(fields, 34),
+            change_pct=_market_asset_number(fields, 32),
+            volume=_market_asset_number(fields, 36) if definition.has_volume else None,
+            amount=(
+                (_market_asset_number(fields, 37) or 0.0) * 10_000
+                if definition.has_volume
+                else None
+            ),
+            quoted_at=quoted_at,
+            source="tencent",
+            price_unit=definition.price_unit,
+        )
+    if not result:
+        raise RuntimeError("腾讯跨资产报价返回空结果或格式已变化")
+    return result
+
+
+def parse_tencent_market_asset_minute(
+    payload: dict, symbol: str
+) -> list[MarketAssetBar]:
+    """解析腾讯 A 股分时累计字段为逐分钟增量。"""
+    definition = resolve_market_asset(symbol)
+    node = payload.get("data", {}).get(definition.provider_symbol, {}).get("data", {})
+    rows = node.get("data") or []
+    raw_date = str(node.get("date") or "")
+    if len(raw_date) != 8 or not raw_date.isdigit():
+        raise RuntimeError(f"腾讯 {symbol} 分时缺少有效交易日: {raw_date!r}")
+    session_date = date.fromisoformat(f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}")
+    bars: list[MarketAssetBar] = []
+    previous_volume = 0.0
+    previous_amount = 0.0
+    for row in rows:
+        if not isinstance(row, str):
+            continue
+        parts = row.split()
+        if len(parts) < 4 or not re.fullmatch(r"\d{4}", parts[0]):
+            continue
+        clock, price_text, volume_text, amount_text = parts[:4]
+        price = float(price_text)
+        cumulative_volume = float(volume_text)
+        cumulative_amount = float(amount_text)
+        hour, minute = int(clock[:2]), int(clock[2:])
+        bars.append(
+            MarketAssetBar(
+                symbol=definition.symbol,
+                session_date=session_date,
+                bucket_start=datetime.combine(
+                    session_date,
+                    datetime_time(hour=hour, minute=minute),
+                    tzinfo=MARKET_TZ,
+                ),
+                open=price,
+                high=price,
+                low=price,
+                close=price,
+                volume=max(0.0, cumulative_volume - previous_volume),
+                amount=max(0.0, cumulative_amount - previous_amount),
+                source="tencent",
+            )
+        )
+        previous_volume = cumulative_volume
+        previous_amount = cumulative_amount
+    if not bars:
+        raise RuntimeError(f"腾讯 {symbol} 分时返回空结果")
+    return bars
 
 
 def _tick_num(raw: str, label: str) -> float:
@@ -98,7 +253,16 @@ def _tick_page(symbol: str, page: int) -> list[dict] | None:
 
 class TencentProvider(MarketProvider):
     name = "tencent"
-    capabilities = frozenset({"quote", "kline", "transaction"})
+    capabilities = frozenset(
+        {
+            "quote",
+            "kline",
+            "transaction",
+            CAPABILITY_MARKET_ASSET_QUOTE,
+            CAPABILITY_MARKET_ASSET_MINUTE,
+            CAPABILITY_MARKET_ASSET_DAILY,
+        }
+    )
 
     def quote(self, symbols: list[str]) -> dict[str, Quote]:
         # 前缀路由 + 原样键映射，保证返回键与入参一一对应
@@ -163,6 +327,90 @@ class TencentProvider(MarketProvider):
                     q.stale_reason = "成交量为 0（停牌 / 未开盘 / 废码），报价非当日真实成交"
             result[code] = q
         return result
+
+    def market_asset_quote(
+        self, symbols: list[str]
+    ) -> dict[str, MarketAssetQuote]:
+        provider_symbols = [
+            resolve_market_asset(symbol).provider_symbol for symbol in symbols
+        ]
+        url = "https://qt.gtimg.cn/q=" + ",".join(provider_symbols)
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            text = resp.read().decode("gbk", "replace")
+        return parse_tencent_market_asset_quotes(text, symbols)
+
+    def market_asset_minute(
+        self,
+        symbol: str,
+        tf: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[MarketAssetBar]:
+        definition = resolve_market_asset(symbol)
+        if definition.session != "a_share":
+            raise ValueError(f"腾讯 market_asset_minute 仅支持 A 股资产，收到 {symbol}")
+        if tf != "1m":
+            raise ValueError(f"腾讯 A 股分时只支持 tf=1m，收到 {tf}")
+        url = f"{_MINUTE_URL}?code={definition.provider_symbol}"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": UA, "Referer": "https://gu.qq.com/"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        bars = parse_tencent_market_asset_minute(payload, symbol)
+        start_date = norm_date(start)
+        end_date = norm_date(end)
+        if start_date or end_date:
+            bars = [
+                bar
+                for bar in bars
+                if (not start_date or bar.session_date.isoformat() >= start_date)
+                and (not end_date or bar.session_date.isoformat() <= end_date)
+            ]
+        return bars[-limit:]
+
+    def market_asset_daily(
+        self,
+        symbol: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[MarketAssetBar]:
+        definition = resolve_market_asset(symbol)
+        if definition.session != "a_share":
+            raise ValueError(f"腾讯 market_asset_daily 仅支持 A 股资产，收到 {symbol}")
+        bars = self.kline(
+            symbol,
+            tf="1d",
+            limit=limit,
+            start=start,
+            end=end,
+            adjust="none",
+        )
+        if not bars:
+            raise RuntimeError(f"腾讯 {symbol} 日线返回空结果")
+        return [
+            MarketAssetBar(
+                symbol=definition.symbol,
+                session_date=date.fromisoformat(bar.time[:10]),
+                bucket_start=datetime.combine(
+                    date.fromisoformat(bar.time[:10]),
+                    datetime_time.min,
+                    tzinfo=MARKET_TZ,
+                ),
+                open=bar.open,
+                high=bar.high,
+                low=bar.low,
+                close=bar.close,
+                volume=bar.volume,
+                amount=bar.amount,
+                source="tencent",
+            )
+            for bar in bars
+        ]
 
     def kline(
         self,

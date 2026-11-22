@@ -59,6 +59,7 @@ from .providers import (
     SinaProvider,
     TencentProvider,
     ThsProvider,
+    YahooProvider,
 )
 
 # 全部数据源实例（惰性创建，避免未安装依赖时 import 即崩）
@@ -71,6 +72,7 @@ _PROVIDER_CLASSES: dict[str, type[MarketProvider]] = {
     "eastmoney": EastmoneyProvider,
     "cninfo": CninfoProvider,
     "baostock": BaostockProvider,
+    "yahoo": YahooProvider,
 }
 
 _instances: dict[str, MarketProvider] = {}
