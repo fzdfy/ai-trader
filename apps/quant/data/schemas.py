@@ -13,6 +13,8 @@
 """
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -67,6 +69,38 @@ class Quote(BaseModel):
     stale_reason: str | None = None
     # 长尾字段兜底（量比 / 振幅 / 流通市值 / 总市值 / 静态PE 等）
     extra: dict = Field(default_factory=dict)
+
+
+class MarketAssetQuote(BaseModel):
+    """固定跨资产标的的最新报价。"""
+
+    symbol: str
+    price: float
+    pre_close: float | None = None
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    change_pct: float | None = None
+    volume: float | None = None
+    amount: float | None = None
+    quoted_at: datetime
+    source: str
+    price_unit: str
+
+
+class MarketAssetBar(BaseModel):
+    """固定跨资产标的的分钟线或日线。"""
+
+    symbol: str
+    session_date: date
+    bucket_start: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float | None = None
+    amount: float | None = None
+    source: str
 
 
 class TradeTick(BaseModel):

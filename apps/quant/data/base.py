@@ -48,6 +48,8 @@ from .schemas import (
     LimitUpPoolItem,
     LockupExpiry,
     MarginTradingItem,
+    MarketAssetBar,
+    MarketAssetQuote,
     AnnouncementItem,
     NewsItem,
     NorthboundPoint,
@@ -61,6 +63,9 @@ CAPABILITY_KLINE = "kline"
 CAPABILITY_QUOTE = "quote"
 CAPABILITY_TRANSACTION = "transaction"
 CAPABILITY_ADJUST_FACTOR = "adjust_factor"
+CAPABILITY_MARKET_ASSET_QUOTE = "market_asset_quote"
+CAPABILITY_MARKET_ASSET_MINUTE = "market_asset_minute"
+CAPABILITY_MARKET_ASSET_DAILY = "market_asset_daily"
 
 # 信号层（Layer 3）
 CAPABILITY_HOT_REASON = "hot_reason"
@@ -143,6 +148,33 @@ class MarketProvider(ABC):
     def adjust_factor(self, symbol: str, kind: str = "qfq") -> list[AdjustFactor]:
         """复权因子。kind ∈ {qfq, hfq}。"""
         raise NotImplementedError(f"{self.name} 不支持 adjust_factor")
+
+    def market_asset_quote(
+        self, symbols: list[str]
+    ) -> dict[str, MarketAssetQuote]:
+        """固定跨资产标的报价。"""
+        raise NotImplementedError(f"{self.name} 不支持 market_asset_quote")
+
+    def market_asset_minute(
+        self,
+        symbol: str,
+        tf: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[MarketAssetBar]:
+        """固定跨资产标的分钟线。"""
+        raise NotImplementedError(f"{self.name} 不支持 market_asset_minute")
+
+    def market_asset_daily(
+        self,
+        symbol: str,
+        limit: int = 500,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> list[MarketAssetBar]:
+        """固定跨资产标的日线。"""
+        raise NotImplementedError(f"{self.name} 不支持 market_asset_daily")
 
     # ── 信号层（Layer 3）────────────────────────────────────────────
 

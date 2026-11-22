@@ -38,6 +38,9 @@ from .base import (
     CAPABILITY_KLINE,
     CAPABILITY_LIMIT_UP_POOL,
     CAPABILITY_LOCKUP_EXPIRY,
+    CAPABILITY_MARKET_ASSET_DAILY,
+    CAPABILITY_MARKET_ASSET_MINUTE,
+    CAPABILITY_MARKET_ASSET_QUOTE,
     CAPABILITY_MARKET_NEWS,
     CAPABILITY_MARGIN_TRADING,
     CAPABILITY_NORTHBOUND,
@@ -83,6 +86,10 @@ _CAPABILITY_PRIORITY: dict[str, list[str]] = {
     # （自 2026-09 起 transaction 返回空，且腾讯逐笔不支持北交所 / 历史日时由其兜底）。
     CAPABILITY_TRANSACTION: ["tencent", "mootdx"],
     CAPABILITY_ADJUST_FACTOR: ["sina"],
+    # 固定跨资产报价与时序：腾讯负责报价及 A 股时序，新浪和 Yahoo 分别补 XAU/IXIC。
+    CAPABILITY_MARKET_ASSET_QUOTE: ["tencent"],
+    CAPABILITY_MARKET_ASSET_MINUTE: ["tencent", "sina", "yahoo"],
+    CAPABILITY_MARKET_ASSET_DAILY: ["tencent", "sina", "yahoo"],
     # 信号层（Layer 3）
     CAPABILITY_HOT_REASON: ["ths"],
     CAPABILITY_NORTHBOUND: ["ths"],
@@ -129,6 +136,8 @@ def providers_for(capability: str) -> list[MarketProvider]:
     """返回支持某能力的 provider 列表（按降级优先级排序）。"""
     out: list[MarketProvider] = []
     for name in _CAPABILITY_PRIORITY.get(capability, []):
+        if name not in _PROVIDER_CLASSES:
+            continue
         provider = get_provider(name)
         if capability in provider.capabilities:
             out.append(provider)
