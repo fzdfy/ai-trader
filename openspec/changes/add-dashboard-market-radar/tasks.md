@@ -36,7 +36,7 @@
 - [x] 3.2 增加可访问价格趋势图组件，支持成交量、十字线、键盘和 reduced motion；验证缺失数据不绘制空坐标。
 - [x] 3.3 拆出 `AShareMarketBoard`、`AShareSignalPanel`、`ETFContextCard`、`GlobalContextCard`，实现 Tab 与独立区间；验证 ETF 不改变 SIGNAL。
 - [x] 3.4 增加今日执行查询和 `TodayExecutionSection`，并列展示今日行动与今日工作流；验证排序、空态、错误态和点击入口相互独立。
-- [ ] 3.5 集成 `DailyDashboard`，桌面右侧两卡与左侧同高、移动端单列，并保留全部旧模块；验证 feature flag 回退。
+- [x] 3.5 集成 `DailyDashboard`，桌面右侧两卡与左侧同高、移动端单列，并保留全部旧模块；验证 feature flag 回退。
 - [ ] 3.6 使用真实浏览器完成桌面/移动端、浅色/深色、键盘、缺失/陈旧/部分成功/错误截图；验证无溢出、控制台错误和小字问题。
 
 ## 4. Integration and verification
