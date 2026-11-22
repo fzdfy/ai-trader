@@ -53,6 +53,7 @@ import {
   marketAssetDailyJobRun,
   marketAssetMinuteJobRun,
 } from "./pipes/market-asset-jobs";
+import { marketAssetRetentionRun } from "./pipes/market-asset-retention";
 
 export type PipeName =
   | "kline-1m"
@@ -80,6 +81,7 @@ export type PipeName =
   | "market-asset-minute"
   | "market-asset-daily"
   | "market-asset-daily-backfill"
+  | "market-asset-retention"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -127,6 +129,7 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
       `[market-asset-daily-backfill] quotes=${result.quotesUpserted} bars=${result.barsUpserted} failed=${result.failed.length}`,
     );
   },
+  "market-asset-retention": () => marketAssetRetentionRun(),
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),

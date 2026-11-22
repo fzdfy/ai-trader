@@ -16,7 +16,7 @@
 - [x] 1.3 新增 `market_asset_quote`、`market_asset_minute_bar`、`market_asset_daily_bar` schema 与 additive migration；验证迁移、唯一键和索引。
 - [x] 1.4 实现 server market-asset storage adapter 与幂等 upsert，隔离股票复权/回测表；验证单资产失败不影响其他资产。
 - [x] 1.5 增加 minute、daily 与 daily-backfill Worker 管道和 cron；验证 A 股交易时段、XAU 跨午夜、IXIC 5 分钟桶和单资产部分成功。
-- [ ] 1.6 增加 13 个月分钟保留任务、运行观测与数据质量检查；验证保留边界只删除分钟线。
+- [x] 1.6 增加 13 个月分钟保留任务、运行观测与数据质量检查；验证保留边界只删除分钟线。
 
 ## 2. Market Brief API
 
