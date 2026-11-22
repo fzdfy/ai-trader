@@ -82,7 +82,8 @@ export function ETFContextCard({
           </div>
           <p className="mt-1 font-mono text-2xl font-bold tracking-[-0.04em]">
             {formatMarketPrice(ticker?.price ?? null, ticker?.priceUnit ?? "元")}
-            <span className={`ml-2 text-[11px] ${Number(ticker?.changePct ?? 0) >= 0 ? "text-chart-up" : "text-chart-down"}`}>
+            <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-app-ink">
+              <span className={`size-1.5 rounded-full ${Number(ticker?.changePct ?? 0) >= 0 ? "bg-chart-up" : "bg-chart-down"}`} />
               {ticker?.changePct == null ? "—" : `${ticker.changePct >= 0 ? "+" : ""}${ticker.changePct.toFixed(2)}%`}
             </span>
           </p>

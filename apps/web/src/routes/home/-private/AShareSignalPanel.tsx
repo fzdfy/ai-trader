@@ -17,7 +17,7 @@ export function AShareSignalPanel({ signal }: { signal: MarketSignal }) {
           className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
             low
               ? "bg-app-surface-2 text-app-muted"
-              : "bg-app-warning text-app-warning-foreground"
+              : "bg-app-warning-soft text-app-ink ring-1 ring-app-warning/30"
           }`}
         >
           <Sparkles className="size-3.5" />
@@ -28,7 +28,7 @@ export function AShareSignalPanel({ signal }: { signal: MarketSignal }) {
           数据质量 · 非预测准确率
         </span>
       </div>
-      <p className={`mt-3 font-mono text-[10px] tracking-[0.12em] ${low ? "text-app-muted" : "text-primary-foreground/65"}`}>
+      <p className={`mt-3 font-mono text-[11px] tracking-[0.12em] ${low ? "text-app-muted" : "text-primary-foreground/80"}`}>
         TODAY&apos;S MARKET REGIME
       </p>
       <h2 className="mt-1.5 max-w-2xl text-xl font-bold tracking-[-0.035em]">
@@ -42,7 +42,7 @@ export function AShareSignalPanel({ signal }: { signal: MarketSignal }) {
           <span
             key={factor.key}
             className={`rounded-full px-2.5 py-1 text-[11px] ${
-              low ? "bg-app-surface-2 text-app-muted" : "bg-primary-foreground/10 text-primary-foreground/85"
+              low ? "bg-app-surface-2 text-app-muted" : "bg-primary-foreground/10 text-primary-foreground"
             }`}
             title={factor.evidence}
           >
@@ -50,7 +50,7 @@ export function AShareSignalPanel({ signal }: { signal: MarketSignal }) {
           </span>
         ))}
       </div>
-      <div className={`mt-2 text-[11px] ${low ? "text-app-muted" : "text-primary-foreground/65"}`}>
+      <div className={`mt-2 text-[11px] ${low ? "text-app-muted" : "text-primary-foreground/80"}`}>
         输入 · 上证趋势 / 创业板广度 / 行业资金与涨停
       </div>
     </section>

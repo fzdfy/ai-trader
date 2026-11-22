@@ -19,6 +19,13 @@
 - `details/execution-light/`、`details/execution-mobile-light/`、`details/execution-dark/`：今日行动与今日工作流的浅色、深色、桌面并列和移动端单列。
 - `states/execution-light/`：今日行动空态与错误态。
 
+## 生产页面验收（Mock API）
+
+- `production-mock/light/`、`production-mock/dark/`：生产 React 页面桌面与移动端；仅 `/api` 使用临时 mock 数据，组件、样式和交互均来自正式代码。
+- `production-mock/interactions/`：ETF Tab 键盘切换。
+- `production-mock/details/execution/`：今日行动与今日工作流生产组件。
+- 实测生产组件桌面左右高度均为 `775.5px`，底边差值 `0px`。
+
 ## 检查结果
 
 标准桌面与移动端、浅色与深色截图均无控制台错误、横向溢出、图片加载失败和小字提示。桌面首屏仍保留一项页面级“多卡片分组”启发式提示，来自 A 股主控台、跨市场、ETF 和固定导航卡同时出现在首屏；右侧两张观察卡内部没有该提示。

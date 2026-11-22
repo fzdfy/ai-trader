@@ -30,7 +30,7 @@ export function GlobalContextCard({
     <Card className="overflow-hidden rounded-2xl border-app-warning/30 bg-app-warning-soft/25 shadow-sm">
       <header className="flex items-start justify-between gap-2 px-3.5 py-2.5">
         <div>
-          <p className="font-mono text-[10px] font-semibold tracking-[0.1em] text-app-warning">
+          <p className="font-mono text-[11px] font-semibold tracking-[0.1em] text-app-ink-secondary">
             GLOBAL · CONTEXT
           </p>
           <div className="mt-1.5 flex gap-1">
@@ -52,7 +52,8 @@ export function GlobalContextCard({
           </div>
           <p className="mt-1 font-mono text-2xl font-bold tracking-[-0.04em]">
             {formatMarketPrice(ticker?.price ?? null, ticker?.priceUnit ?? "点")}
-            <span className={`ml-2 text-[11px] ${Number(ticker?.changePct ?? 0) >= 0 ? "text-chart-up" : "text-chart-down"}`}>
+            <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-app-ink">
+              <span className={`size-1.5 rounded-full ${Number(ticker?.changePct ?? 0) >= 0 ? "bg-chart-up" : "bg-chart-down"}`} />
               {ticker?.changePct == null ? "—" : `${ticker.changePct >= 0 ? "+" : ""}${ticker.changePct.toFixed(2)}%`}
             </span>
           </p>
@@ -74,7 +75,7 @@ export function GlobalContextCard({
       <MarketAssetChart chart={chart} subjectName={chart.name} compact />
       <footer className="flex items-center justify-between gap-2 border-t border-app-warning/20 px-3.5 py-2 pr-16 text-[11px] text-app-muted">
         <span>{selectedSymbol === "XAUUSD" ? "USD/oz · 不显示成交量" : "指数点 · 美股收盘"}</span>
-        <span className="font-semibold text-app-warning">仅作背景，不进入 A 股信号</span>
+        <span className="font-semibold text-app-ink-secondary">仅作背景，不进入 A 股信号</span>
       </footer>
     </Card>
   );

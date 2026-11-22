@@ -34,7 +34,7 @@ export function AShareMarketBoard({
     ["399006.SZ", "创业板指"],
   ] as const;
   return (
-    <Card className="flex min-h-0 flex-col overflow-hidden rounded-3xl border-app-line shadow-sm">
+    <Card className="market-radar-a-board flex min-h-0 flex-col overflow-hidden rounded-3xl border-app-line shadow-sm">
       <header className="flex flex-col gap-3 border-b border-app-line px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-primary shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-primary)_10%,transparent)]" />
@@ -69,7 +69,7 @@ export function AShareMarketBoard({
         <div className="px-4 pt-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.08em] text-app-muted">
+              <p className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.08em] text-app-muted">
                 <BarChart3 className="size-3 text-primary" />
                 A 股趋势 · LAST CLOSE
               </p>
@@ -80,7 +80,8 @@ export function AShareMarketBoard({
               </div>
               <p className="mt-1 font-mono text-3xl font-bold tracking-[-0.05em]">
                 {formatMarketPrice(ticker?.price ?? null, ticker?.priceUnit ?? "点")}
-                <span className={`ml-2 text-xs ${Number(ticker?.changePct ?? 0) >= 0 ? "text-chart-up" : "text-chart-down"}`}>
+                <span className="ml-2 inline-flex items-center gap-1 text-xs text-app-ink">
+                  <span className={`size-1.5 rounded-full ${Number(ticker?.changePct ?? 0) >= 0 ? "bg-chart-up" : "bg-chart-down"}`} />
                   {ticker?.changePct == null ? "—" : `${ticker.changePct >= 0 ? "+" : ""}${ticker.changePct.toFixed(2)}%`}
                 </span>
               </p>

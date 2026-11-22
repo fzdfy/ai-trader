@@ -30,7 +30,7 @@ export function TodayExecutionSection() {
     workflows.data?.items.filter((workflow) => workflow.enabled && !workflow.archivedAt)
       .length ?? 0;
   return (
-    <section className="grid gap-3 lg:grid-cols-[minmax(0,1.22fr)_minmax(0,.9fr)]" aria-label="今日执行">
+    <section className="today-execution-section grid gap-3 lg:grid-cols-[minmax(0,1.22fr)_minmax(0,.9fr)]" aria-label="今日执行">
       <Card className="overflow-hidden">
         <header className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3">
           <div>
@@ -111,7 +111,7 @@ export function TodayExecutionSection() {
                     <span className="block truncate text-xs font-semibold text-app-ink">{run.workflowName}</span>
                     <span className="mt-0.5 block text-[11px] text-app-muted">{run.createdAt.slice(5, 16).replace("T", " ")}</span>
                   </span>
-                  <span className={`rounded-full px-2 py-1 text-[10px] ${status.className}`}>{status.label}</span>
+                  <span className={`rounded-full px-2 py-1 text-[11px] ${status.className}`}>{status.label}</span>
                 </Link>
               );
             })}
