@@ -17,7 +17,7 @@
 - Preserve the Apollo Quant brand, sidebar, page-level navigation, routes, authentication, API contracts, and database behavior.
 - Use Preline semantic CSS variables and Tailwind utilities; do not add raw hex colors to dashboard business components.
 - Do not copy v6 sample prices, sample confidence, sample tasks, or any static market data.
-- Do not restore the confirmed-removed “追问 AI” control.
+- The “追问 AI” control opens the existing assistant; it must not be a static placeholder.
 - Keep the existing `DASHBOARD_MARKET_RADAR_ENABLED` rollback.
 - Desktop reference: `1440×900`; wide content cap: about `1500px`; mobile reference: `390×844`.
 - Motion must remain disabled or reduced according to existing accessibility behavior.

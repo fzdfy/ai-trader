@@ -4,7 +4,7 @@
 
 - [x] 0.1 确认 `quant-workbench-dashboard-market-radar-v6.html` 为每日看板视觉基准，并保留 Apollo Quant 品牌、侧栏和页面级导航；证据为 `dashboard-market-radar-v6` 截图目录。
 - [x] 0.2 确认页面结构、图表语义、ETF 三行报价、SIGNAL 格式、今日执行摘要、模块级色彩、语义 token、`1440×900` 基准和约 `1500px` 宽屏上限。
-- [x] 0.3 确认 v6 中的“追问 AI”入口不进入生产实现，不复制 v6 静态数值，不使用示例数据替代真实数据。
+- [x] 0.3 初始门禁曾排除“追问 AI”；用户后续明确要求恢复，最终实现以 10.2 为准。不复制 v6 静态数值，不使用示例数据替代真实数据。
 - [x] 0.4 用户已同意上述全部视觉决策；差异对照记录在 `/private/tmp/dashboard-ui-detail-review/stitch.png`。
 
 ## 1. Dashboard tokens and formatting helpers
