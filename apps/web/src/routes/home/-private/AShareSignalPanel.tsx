@@ -12,7 +12,7 @@ export function AShareSignalPanel({
   const low = signal.quality !== "available";
   return (
     <section
-      className={`relative overflow-hidden px-[18px] py-4 ${
+      className={`relative overflow-hidden px-[18px] py-4 lg:h-[176px] lg:py-[15px] ${
         low ? "bg-app-surface text-app-ink" : "dashboard-signal-surface text-white"
       }`}
       aria-label="A 股确定性市场信号"
@@ -41,26 +41,27 @@ export function AShareSignalPanel({
           数据质量 · 非预测准确率
         </span>
       </div>
-      <div className="relative z-10 mt-2.5 grid gap-x-5 gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <div className="relative z-10 mt-2 grid gap-x-5 gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
           <p
-            className={`font-mono text-[11px] font-semibold tracking-[0.13em] ${low ? "text-app-muted" : "text-white/65"}`}
+            className={`font-mono text-[11px] font-semibold leading-none tracking-[0.13em] ${low ? "text-app-muted" : "text-white/65"}`}
           >
             TODAY&apos;S MARKET REGIME
           </p>
-          <h2 className="mt-1.5 max-w-[620px] text-[23px] font-bold leading-[1.24] tracking-[-0.04em]">
+          <h2 className="mt-1.5 max-w-[620px] text-[22px] font-bold leading-[1.2] tracking-[-0.04em]">
             {signal.headline}
           </h2>
           <p
-            className={`mt-2 max-w-[650px] text-xs leading-[1.65] ${low ? "text-app-muted" : "text-white/80"}`}
+            className={`mt-1.5 line-clamp-2 max-w-[650px] text-xs leading-[1.55] ${low ? "text-app-muted" : "text-white/80"}`}
+            title={signal.body}
           >
             {signal.body}
           </p>
-          <div className={`mt-2 text-[11px] ${low ? "text-app-muted" : "text-white/70"}`}>
+          <div className={`mt-1 text-[11px] ${low ? "text-app-muted" : "text-white/70"}`}>
             输入 · {trendName}趋势 / 行业广度 / 行业资金与涨停
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex flex-col items-start gap-2.5 lg:items-end">
           <div className="flex flex-wrap gap-1.5" aria-label="信号因子">
             {signal.factors.map((factor) => (
               <span

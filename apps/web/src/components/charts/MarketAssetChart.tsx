@@ -44,7 +44,9 @@ export function MarketAssetChart({
   const { mode, preset } = useAppTheme();
   const renderable = canRenderMarketChart(chart);
   const heightClass = fill
-    ? "h-full min-h-[180px] w-full flex-1"
+    ? dense
+      ? "h-full min-h-[90px] w-full flex-1"
+      : "h-full min-h-[180px] w-full flex-1"
     : dense
       ? "h-[104px] w-full"
       : compact
@@ -163,7 +165,7 @@ export function MarketAssetChart({
           data: chart.points.map((point) => point.price),
           showSymbol: false,
           smooth: 0.12,
-          lineStyle: { color: lineColor, width: 2.1 },
+          lineStyle: { color: lineColor, width: 2.4 },
           areaStyle: {
             color: new graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: hexToRgba(lineColor, 0.2) },

@@ -2,32 +2,32 @@
   "lightDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2289.63,
-      "height": 2202.63,
+      "bottom": 2272.72,
+      "height": 2185.72,
       "width": 1154
     },
     "left": {
       "top": 180.69,
-      "bottom": 896.34,
-      "height": 715.66,
+      "bottom": 879.44,
+      "height": 698.75,
       "width": 785.69
     },
     "right": {
       "top": 180.69,
-      "bottom": 896.34,
-      "height": 715.66,
+      "bottom": 879.44,
+      "height": 698.75,
       "width": 356.3
     },
     "executionCards": [
       {
-        "top": 920.34,
-        "bottom": 1190.34,
+        "top": 903.44,
+        "bottom": 1173.44,
         "height": 270,
         "width": 657.19
       },
       {
-        "top": 920.34,
-        "bottom": 1190.34,
+        "top": 903.44,
+        "bottom": 1173.44,
         "height": 270,
         "width": 484.81
       }
@@ -39,32 +39,32 @@
   "darkDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2289.63,
-      "height": 2202.63,
+      "bottom": 2272.72,
+      "height": 2185.72,
       "width": 1154
     },
     "left": {
       "top": 180.69,
-      "bottom": 896.34,
-      "height": 715.66,
+      "bottom": 879.44,
+      "height": 698.75,
       "width": 785.69
     },
     "right": {
       "top": 180.69,
-      "bottom": 896.34,
-      "height": 715.66,
+      "bottom": 879.44,
+      "height": 698.75,
       "width": 356.3
     },
     "executionCards": [
       {
-        "top": 920.34,
-        "bottom": 1190.34,
+        "top": 903.44,
+        "bottom": 1173.44,
         "height": 270,
         "width": 657.19
       },
       {
-        "top": 920.34,
-        "bottom": 1190.34,
+        "top": 903.44,
+        "bottom": 1173.44,
         "height": 270,
         "width": 484.81
       }
@@ -76,32 +76,32 @@
   "wideDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2289.83,
-      "height": 2202.83,
+      "bottom": 2272.72,
+      "height": 2185.72,
       "width": 1480
     },
     "left": {
       "top": 180.69,
-      "bottom": 896.55,
-      "height": 715.86,
+      "bottom": 879.44,
+      "height": 698.75,
       "width": 1009.97
     },
     "right": {
       "top": 180.69,
-      "bottom": 896.55,
-      "height": 715.86,
+      "bottom": 879.44,
+      "height": 698.75,
       "width": 458.03
     },
     "executionCards": [
       {
-        "top": 920.55,
-        "bottom": 1190.55,
+        "top": 903.44,
+        "bottom": 1173.44,
         "height": 270,
         "width": 844.78
       },
       {
-        "top": 920.55,
-        "bottom": 1190.55,
+        "top": 903.44,
+        "bottom": 1173.44,
         "height": 270,
         "width": 623.22
       }
@@ -113,32 +113,32 @@
   "lightMobile": {
     "page": {
       "top": 79,
-      "bottom": 4726.63,
-      "height": 4647.63,
+      "bottom": 4696.55,
+      "height": 4617.55,
       "width": 358
     },
     "left": {
       "top": 207.5,
-      "bottom": 1000.91,
-      "height": 793.41,
+      "bottom": 997.83,
+      "height": 790.33,
       "width": 358
     },
     "right": {
-      "top": 1012.91,
-      "bottom": 1728.41,
-      "height": 715.5,
+      "top": 1009.83,
+      "bottom": 1698.33,
+      "height": 688.5,
       "width": 358
     },
     "executionCards": [
       {
-        "top": 1752.41,
-        "bottom": 2022.41,
+        "top": 1722.33,
+        "bottom": 1992.33,
         "height": 270,
         "width": 358
       },
       {
-        "top": 2034.41,
-        "bottom": 2304.41,
+        "top": 2004.33,
+        "bottom": 2274.33,
         "height": 270,
         "width": 358
       }
@@ -150,32 +150,32 @@
   "darkMobile": {
     "page": {
       "top": 79,
-      "bottom": 4726.63,
-      "height": 4647.63,
+      "bottom": 4696.55,
+      "height": 4617.55,
       "width": 358
     },
     "left": {
       "top": 207.5,
-      "bottom": 1000.91,
-      "height": 793.41,
+      "bottom": 997.83,
+      "height": 790.33,
       "width": 358
     },
     "right": {
-      "top": 1012.91,
-      "bottom": 1728.41,
-      "height": 715.5,
+      "top": 1009.83,
+      "bottom": 1698.33,
+      "height": 688.5,
       "width": 358
     },
     "executionCards": [
       {
-        "top": 1752.41,
-        "bottom": 2022.41,
+        "top": 1722.33,
+        "bottom": 1992.33,
         "height": 270,
         "width": 358
       },
       {
-        "top": 2034.41,
-        "bottom": 2304.41,
+        "top": 2004.33,
+        "bottom": 2274.33,
         "height": 270,
         "width": 358
       }

@@ -1,9 +1,6 @@
 import type { Dispatch } from "react";
 import type { MarketBriefResponse } from "../../../lib/market-brief";
-import type {
-  MarketSelectionAction,
-  MarketSelectionState,
-} from "../../../lib/market-selection";
+import type { MarketSelectionAction, MarketSelectionState } from "../../../lib/market-selection";
 import { AShareMarketBoard } from "./AShareMarketBoard";
 import { ETFContextCard } from "./ETFContextCard";
 import { GlobalContextCard } from "./GlobalContextCard";
@@ -18,7 +15,10 @@ export function MarketRadarHero({
   dispatch: Dispatch<MarketSelectionAction>;
 }) {
   return (
-    <section className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]" aria-label="A 股与跨资产市场雷达">
+    <section
+      className="grid items-stretch gap-3 xl:min-h-[698px] xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]"
+      aria-label="A 股与跨资产市场雷达"
+    >
       <AShareMarketBoard
         data={data}
         selectedSymbol={selection.symbol}

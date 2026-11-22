@@ -59,10 +59,10 @@ export function AShareMarketBoard({
       <header className="flex flex-col gap-3 border-b border-primary/10 px-[18px] py-[15px] lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
           <span className="size-[7px] rounded-full bg-primary shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-primary)_11%,transparent)]" />
-          <Heading level={2} className="text-[15px] font-bold">
+          <Heading level={2} className="text-[15px] font-bold leading-tight">
             A 股市场
           </Heading>
-          <Text type="supporting" className="text-[11px]">
+          <Text type="supporting" className="text-[11px] leading-tight">
             风险判断主视图
           </Text>
         </div>

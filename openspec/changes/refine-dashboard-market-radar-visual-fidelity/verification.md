@@ -43,7 +43,7 @@ The real authenticated page was exercised at:
 
 Measured desktop geometry:
 
-- A-share board and right context stack: both `715.66px` at `1440×900`, same top and bottom
+- A-share board and right context stack: both `698.75px` at `1440×900`, same top and bottom
 - Today action and Today workflow cards: both `270px`, same top and bottom
 - Daily picks and news cards: both `199.84px`, same top and bottom
 - Recent review card: `223.59px` full-width row
@@ -55,11 +55,23 @@ ETF keyboard navigation selected `科创50ETF / 588000.SH`, updated `aria-active
 
 Specific interaction checks:
 
-- Price line: `2.1px`; grid/reference lines: `1px`.
+- Price line: `2.4px`; grid/reference lines: `1px`.
 - `1D` labels: time such as `09:30`; `5D/1M`: dates such as `11/20`; `YTD`: month labels such as `11月`.
 - Price and volume X axes use the same category positions.
-- London gold, Nasdaq, and Nasdaq missing state keep the global card at exactly `358px`.
+- London gold, Nasdaq, and Nasdaq missing state keep the global card at exactly `344px`.
 - A-share SIGNAL uses the v6 blue gradient and the `追问 AI` button opens the assistant drawer.
+
+Source comparison at `1440×900`:
+
+| Region | v6 source | Production |
+|---|---:|---:|
+| A-share board | 697.88px | 698.75px |
+| A-share chart | 298.30px | 298px |
+| SIGNAL | 176.05px | 176px |
+| Global card | 343.73px | 344px |
+| Global chart | 178px | 178px |
+| ETF card | 342.14px | 342.75px |
+| ETF chart | 99.36px | 100.25px |
 
 ## Evidence
 

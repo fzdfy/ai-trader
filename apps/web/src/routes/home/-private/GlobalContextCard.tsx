@@ -33,13 +33,13 @@ export function GlobalContextCard({
   const displayName = selectedSymbol === "IXIC" ? "纳斯达克综指" : chart.name;
   return (
     <Card
-      className={`dashboard-panel-global flex h-[358px] min-h-[358px] flex-col overflow-hidden rounded-[18px] border-app-warning/25 shadow-dashboard ${
+      className={`dashboard-panel-global flex h-[344px] min-h-[344px] flex-col overflow-hidden rounded-[18px] border-app-warning/25 shadow-dashboard ${
         selectedSymbol === "IXIC" ? "is-nasdaq border-assistant/25" : ""
       }`}
     >
       <header className="flex items-start justify-between gap-2.5 px-[15px] pt-3.5">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] font-semibold tracking-[0.1em] text-app-ink-secondary">
+          <p className="font-mono text-[11px] font-semibold leading-none tracking-[0.1em] text-app-ink-secondary">
             GLOBAL · CONTEXT
           </p>
           <div className="mt-2 flex gap-1" role="group" aria-label="切换跨市场背景">
@@ -65,7 +65,7 @@ export function GlobalContextCard({
             <Heading
               level={2}
               title={chart.name}
-              className="truncate whitespace-nowrap text-sm font-semibold"
+              className="truncate whitespace-nowrap text-sm font-semibold leading-none"
             >
               {displayName}
             </Heading>
@@ -73,7 +73,7 @@ export function GlobalContextCard({
               {selectedSymbol}
             </Text>
           </div>
-          <p className="mt-1.5 flex items-baseline gap-2 whitespace-nowrap font-mono text-2xl font-bold tracking-[-0.055em]">
+          <p className="mt-1.5 flex items-baseline gap-2 whitespace-nowrap font-mono text-2xl font-bold leading-none tracking-[-0.055em]">
             <span>
               {formatMarketNumber(ticker?.price ?? null)}
               {ticker?.price != null ? (
@@ -140,7 +140,7 @@ export function GlobalContextCard({
           </span>
         </div>
       </header>
-      <div className="px-1 pt-1">
+      <div className="px-1 pt-0.5">
         {unavailable ? (
           <div className="grid h-44 place-items-center px-4 text-center">
             <div>
@@ -160,7 +160,7 @@ export function GlobalContextCard({
           />
         )}
       </div>
-      <footer className="mx-[15px] mt-auto flex items-center justify-between gap-2 whitespace-nowrap border-t border-app-warning/20 py-[9px] text-[11px] text-app-ink-secondary">
+      <footer className="mx-[15px] mt-auto flex items-center justify-between gap-2 whitespace-nowrap border-t border-app-warning/20 py-2.5 text-[11px] text-app-ink-secondary">
         <span>{selectedSymbol === "XAUUSD" ? "USD/oz · 无成交量" : "指数点 · 美股收盘"}</span>
         <span
           className={`inline-flex items-center gap-1.5 font-semibold ${selectedSymbol === "IXIC" ? "text-assistant" : "text-app-warning"}`}

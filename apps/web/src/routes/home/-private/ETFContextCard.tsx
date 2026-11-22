@@ -70,7 +70,7 @@ export function ETFContextCard({
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-2 px-[15px] pb-[13px] pt-[9px]">
         <div
-          className="focus-ring grid grid-cols-3 gap-1 rounded-xl bg-app-panel/65 p-1"
+          className="focus-ring grid grid-cols-3 gap-2 rounded-none border-b border-app-line bg-transparent p-0"
           role="tablist"
           aria-label="切换主流 ETF"
           aria-activedescendant={`etf-tab-${selectedSymbol}`}
@@ -95,10 +95,10 @@ export function ETFContextCard({
                 aria-controls="etf-chart-panel"
                 tabIndex={-1}
                 onClick={() => onSelectSymbol(symbol)}
-                className={`grid min-w-0 content-start gap-0.5 rounded-lg px-2 py-1.5 text-left transition ${
+                className={`grid min-w-0 content-start gap-0.5 rounded-none border-b-2 px-1 pb-2 text-left transition ${
                   selectedSymbol === symbol
-                    ? "bg-app-panel text-app-ink shadow-sm"
-                    : "text-app-muted hover:bg-app-panel/65 hover:text-app-ink"
+                    ? "border-primary text-app-ink"
+                    : "border-transparent text-app-muted hover:text-app-ink"
                 }`}
               >
                 <strong className="truncate text-[10px] font-semibold">{ETF_LABELS[symbol]}</strong>
@@ -146,7 +146,7 @@ export function ETFContextCard({
           })}
         </div>
         <div id="etf-chart-panel" className="flex min-h-0 flex-1 flex-col" role="tabpanel">
-          <div className="flex items-end justify-between gap-2 px-0.5">
+          <div className="flex items-end justify-between gap-2 px-0.5 pb-2">
             <div className="min-w-0">
               <div className="flex min-w-0 items-baseline gap-1.5">
                 <strong className="truncate text-[13px] font-semibold text-app-ink">
@@ -189,14 +189,14 @@ export function ETFContextCard({
             <MarketAssetChart
               chart={chart}
               subjectName={chart.name}
-              compact
+              fill
               dense
               referencePrice={range === "1D" ? (ticker?.preClose ?? null) : null}
             />
           </div>
         </div>
       </div>
-      <footer className="flex items-center justify-between gap-2 border-t border-primary/10 px-[15px] py-[9px] pr-16 text-[11px] text-app-ink-secondary">
+      <footer className="flex items-center justify-between gap-2 border-t border-primary/10 px-[15px] py-2.5 pr-16 text-[11px] text-app-ink-secondary">
         <span>真实分钟 · CNY</span>
         <span className="inline-flex items-center gap-1.5 font-semibold text-primary">
           <span className="size-1.5 rounded-full bg-primary" />

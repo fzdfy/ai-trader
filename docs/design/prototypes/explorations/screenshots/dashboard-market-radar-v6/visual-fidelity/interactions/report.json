@@ -1,4 +1,114 @@
 {
+  "layout": {
+    "a": {
+      "top": 180.69,
+      "bottom": 879.44,
+      "width": 785.69,
+      "height": 698.75
+    },
+    "aHeader": {
+      "top": 181.69,
+      "bottom": 276.44,
+      "width": 783.69,
+      "height": 94.75
+    },
+    "aChartHead": {
+      "top": 276.44,
+      "bottom": 368.94,
+      "width": 783.69,
+      "height": 92.5
+    },
+    "aChart": {
+      "top": 368.94,
+      "bottom": 666.94,
+      "width": 783.69,
+      "height": 298
+    },
+    "aFoot": {
+      "top": 666.94,
+      "bottom": 702.44,
+      "width": 747.69,
+      "height": 35.5
+    },
+    "signal": {
+      "top": 702.44,
+      "bottom": 878.44,
+      "width": 783.69,
+      "height": 176
+    },
+    "global": {
+      "top": 180.69,
+      "bottom": 524.69,
+      "width": 356.3,
+      "height": 344
+    },
+    "globalHead": {
+      "top": 181.69,
+      "bottom": 302.34,
+      "width": 354.3,
+      "height": 120.66
+    },
+    "globalChart": {
+      "top": 302.34,
+      "bottom": 480.34,
+      "width": 354.3,
+      "height": 178
+    },
+    "globalFoot": {
+      "top": 486.19,
+      "bottom": 523.69,
+      "width": 324.3,
+      "height": 37.5
+    },
+    "etf": {
+      "top": 536.69,
+      "bottom": 879.44,
+      "width": 356.3,
+      "height": 342.75
+    },
+    "etfHead": {
+      "top": 537.69,
+      "bottom": 592.69,
+      "width": 354.3,
+      "height": 55
+    },
+    "etfBody": {
+      "top": 592.69,
+      "bottom": 840.94,
+      "width": 354.3,
+      "height": 248.25
+    },
+    "etfTabs": {
+      "top": 601.69,
+      "bottom": 663.69,
+      "width": 324.3,
+      "height": 62
+    },
+    "etfQuote": {
+      "top": 671.69,
+      "bottom": 723.69,
+      "width": 324.3,
+      "height": 52
+    },
+    "etfChart": {
+      "top": 727.69,
+      "bottom": 827.94,
+      "width": 324.3,
+      "height": 100.25
+    },
+    "etfFoot": {
+      "top": 840.94,
+      "bottom": 878.44,
+      "width": 354.3,
+      "height": 37.5
+    },
+    "stack": {
+      "top": 180.69,
+      "bottom": 879.44,
+      "width": 356.3,
+      "height": 698.75
+    }
+  },
   "labelsByRange": {
     "1D": [
       "09:30",
@@ -38,15 +148,20 @@
   "lineStyle": [
     "rgb(219, 222, 228)|1px|none",
     "rgb(84, 85, 90)|1px|none",
-    "rgb(49, 87, 232)|2.1px|none"
+    "rgb(49, 87, 232)|2.4px|none"
   ],
   "globalBefore": {
-    "height": 358,
+    "height": 344,
     "width": 356.3
   },
   "globalAfter": {
-    "height": 358,
+    "height": 344,
     "width": 356.3,
+    "headerHeight": 120.66,
+    "chartHeight": 178,
+    "footerHeight": 37.5,
+    "etfHeight": 342.75,
+    "stackHeight": 698.75,
     "text": "GLOBAL · CONTEXT伦敦金纳指纳斯达克综指IXIC22,617.73点-5.28%1D5D1MYTD暂不可用历史行情不足no valid bars指数点 · 美股收盘仅作背景，不进入 A 股信号"
   },
   "globalHeightDelta": 0,
