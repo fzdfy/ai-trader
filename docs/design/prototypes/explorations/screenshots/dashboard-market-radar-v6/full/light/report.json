@@ -1,0 +1,12 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [],
+    "note": "--full：页面本身不滚动，内容在内部滚动区里，整页图和视口图相同；这类页面按视口图取证"
+  }
+]
