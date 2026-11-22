@@ -16,7 +16,7 @@ export function MarketRadarHero({
 }) {
   return (
     <section
-      className="grid items-stretch gap-3 xl:min-h-[698px] xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]"
+      className="grid items-stretch gap-3 xl:min-h-[718px] xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]"
       aria-label="A 股与跨资产市场雷达"
     >
       <AShareMarketBoard

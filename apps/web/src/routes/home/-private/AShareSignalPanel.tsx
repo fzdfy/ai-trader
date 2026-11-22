@@ -12,7 +12,7 @@ export function AShareSignalPanel({
   const low = signal.quality !== "available";
   return (
     <section
-      className={`relative overflow-hidden px-[18px] py-4 lg:h-[176px] lg:py-[15px] ${
+      className={`relative overflow-hidden px-[18px] py-4 lg:h-[196px] lg:py-[15px] ${
         low ? "bg-app-surface text-app-ink" : "dashboard-signal-surface text-white"
       }`}
       aria-label="A 股确定性市场信号"

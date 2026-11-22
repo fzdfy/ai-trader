@@ -2,9 +2,9 @@
   "layout": {
     "a": {
       "top": 180.69,
-      "bottom": 879.44,
+      "bottom": 899.44,
       "width": 785.69,
-      "height": 698.75
+      "height": 718.75
     },
     "aHeader": {
       "top": 181.69,
@@ -44,9 +44,9 @@
     },
     "signal": {
       "top": 702.44,
-      "bottom": 878.44,
+      "bottom": 898.44,
       "width": 783.69,
-      "height": 176
+      "height": 196
     },
     "global": {
       "top": 180.69,
@@ -74,9 +74,9 @@
     },
     "etf": {
       "top": 536.69,
-      "bottom": 879.44,
+      "bottom": 899.44,
       "width": 356.3,
-      "height": 342.75
+      "height": 362.75
     },
     "etfHead": {
       "top": 537.69,
@@ -86,9 +86,9 @@
     },
     "etfBody": {
       "top": 592.69,
-      "bottom": 840.94,
+      "bottom": 860.94,
       "width": 354.3,
-      "height": 248.25
+      "height": 268.25
     },
     "etfTabs": {
       "top": 601.69,
@@ -104,21 +104,21 @@
     },
     "etfChart": {
       "top": 727.69,
-      "bottom": 827.94,
+      "bottom": 847.94,
       "width": 324.3,
-      "height": 100.25
+      "height": 120.25
     },
     "etfFoot": {
-      "top": 840.94,
-      "bottom": 878.44,
+      "top": 860.94,
+      "bottom": 898.44,
       "width": 354.3,
       "height": 37.5
     },
     "stack": {
       "top": 180.69,
-      "bottom": 879.44,
+      "bottom": 899.44,
       "width": 356.3,
-      "height": 698.75
+      "height": 718.75
     }
   },
   "labelsByRange": {
@@ -184,8 +184,8 @@
     "headerHeight": 120.66,
     "chartHeight": 178,
     "footerHeight": 37.5,
-    "etfHeight": 342.75,
-    "stackHeight": 698.75,
+    "etfHeight": 362.75,
+    "stackHeight": 718.75,
     "text": "GLOBAL · CONTEXT伦敦金纳指纳斯达克综指IXIC22,617.73点-5.28%1D5D1MYTD暂不可用历史行情不足no valid bars指数点 · 美股收盘仅作背景，不进入 A 股信号"
   },
   "globalHeightDelta": 0,

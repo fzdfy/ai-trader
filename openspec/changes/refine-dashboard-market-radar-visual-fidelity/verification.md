@@ -65,13 +65,15 @@ Source comparison at `1440×900`:
 
 | Region | v6 source | Production |
 |---|---:|---:|
-| A-share board | 697.88px | 698.75px |
+| A-share board | 697.88px | 718.75px |
 | A-share chart | 298.30px | 298px |
-| SIGNAL | 176.05px | 176px |
+| SIGNAL | 176.05px | 196px |
 | Global card | 343.73px | 344px |
 | Global chart | 178px | 178px |
-| ETF card | 342.14px | 342.75px |
-| ETF chart | 99.36px | 100.25px |
+| ETF card | 342.14px | 362.75px |
+| ETF chart | 99.36px | 120.25px |
+
+The A-share/right stack is intentionally `20px` taller than the source because the production SIGNAL contains a longer real-data explanation. The extra height preserves the source chart height and adds bottom breathing room instead of clipping the evidence or action row.
 
 ## Evidence
 
