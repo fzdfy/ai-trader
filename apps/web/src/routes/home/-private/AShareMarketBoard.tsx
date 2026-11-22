@@ -1,4 +1,3 @@
-import { BarChart3 } from "lucide-react";
 import { Card } from "@preline-ui/Card";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
@@ -17,6 +16,17 @@ import { AShareSignalPanel } from "./AShareSignalPanel";
 
 const RANGES: MarketRange[] = ["1D", "5D", "1M", "YTD"];
 
+function shortMarketDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value.includes("T") ? value : `${value}T00:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 export function AShareMarketBoard({
   data,
   selectedSymbol,
@@ -32,18 +42,17 @@ export function AShareMarketBoard({
 }) {
   const chart = data.aShareChart;
   const ticker = data.tickers.find((item) => item.symbol === selectedSymbol);
+  const qualityDate = shortMarketDate(chart.sessionDate ?? ticker?.asOf ?? null);
   const change = ticker?.changePct ?? null;
   const delta =
-    ticker?.price != null && ticker.preClose != null
-      ? ticker.price - ticker.preClose
-      : null;
+    ticker?.price != null && ticker.preClose != null ? ticker.price - ticker.preClose : null;
   const changeClass =
     change == null
       ? "text-app-muted"
       : change > 0
-        ? "text-chart-up"
+        ? "text-chart-up-strong"
         : change < 0
-          ? "text-chart-down"
+          ? "text-chart-down-strong"
           : "text-app-ink-secondary";
   return (
     <Card className="market-radar-a-board dashboard-panel-a flex min-h-0 flex-col overflow-hidden rounded-3xl border-primary/10 shadow-dashboard">
@@ -68,13 +77,11 @@ export function AShareMarketBoard({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[0.14em] text-app-ink-secondary">
-                <BarChart3 className="size-3 text-primary" />
+                <span className="size-1.5 rounded-full bg-app-warning shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-app-warning)_12%,transparent)]" />
                 A 股趋势 · LAST CLOSE
               </p>
               <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
-                <strong className="text-[15px] font-bold tracking-[-0.02em]">
-                  {chart.name}
-                </strong>
+                <strong className="text-[15px] font-bold tracking-[-0.02em]">{chart.name}</strong>
                 <span className="font-mono text-[11px] text-app-ink-secondary">
                   {selectedSymbol}
                 </span>
@@ -110,6 +117,7 @@ export function AShareMarketBoard({
                   }`}
                 />
                 {marketQualityLabel(chart.quality, chart.staleReason)}
+                {qualityDate ? ` · ${qualityDate}` : ""}
               </span>
               <div
                 className="flex gap-0.5 rounded-[9px] border border-app-line bg-app-surface/75 p-[3px] shadow-[inset_0_1px_0_color-mix(in_srgb,white_60%,transparent)]"
@@ -139,7 +147,7 @@ export function AShareMarketBoard({
           chart={chart}
           subjectName={chart.name}
           fill
-          referencePrice={range === "1D" ? ticker?.preClose ?? null : null}
+          referencePrice={range === "1D" ? (ticker?.preClose ?? null) : null}
         />
         <footer className="mx-[18px] mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-app-line/60 py-[9px] text-[11px] text-app-ink-secondary">
           <div className="flex flex-wrap items-center gap-4">

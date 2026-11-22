@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useReducer } from "react";
+import { useReducer, type ReactNode } from "react";
 import {
   ChartNoAxesCombined,
   CircleAlert,
@@ -10,29 +10,23 @@ import {
   TrendingUp,
   Workflow,
 } from "lucide-react";
-import { Badge } from "@preline-ui/Badge";
 import { Button } from "@preline-ui/Button";
 import { Card } from "@preline-ui/Card";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
-import { useDashboardQuery, type DashboardFundFlowItem } from "../../../hooks/useDashboard";
+import {
+  useDashboardQuery,
+  type DashboardData,
+  type DashboardFundFlowItem,
+} from "../../../hooks/useDashboard";
 import { useSyncModules } from "../../../hooks/useDataSync";
 import { useCurrentUser } from "../../../hooks/useCurrentUser";
 import { useMarketBriefQuery } from "../../../hooks/useMarketBrief";
 import { useSystemFeaturesQuery } from "../../../hooks/useSystemFeatures";
-import {
-  useTodayWorkflowRunsQuery,
-  useWorkflowsQuery,
-} from "../../../hooks/useWorkflows";
+import { useTodayWorkflowRunsQuery, useWorkflowsQuery } from "../../../hooks/useWorkflows";
 import { WORKFLOW_STATUS_META, type WorkflowRunSummary } from "../../../lib/workflows";
-import {
-  formatMarketBriefDate,
-  shouldLoadMarketRadar,
-} from "../../../lib/market-brief";
-import {
-  initialMarketSelection,
-  reduceMarketSelection,
-} from "../../../lib/market-selection";
+import { formatMarketBriefDate, shouldLoadMarketRadar } from "../../../lib/market-brief";
+import { initialMarketSelection, reduceMarketSelection } from "../../../lib/market-selection";
 import { MarketRadarHero } from "./MarketRadarHero";
 import { TodayExecutionSection } from "./TodayExecutionSection";
 
@@ -40,6 +34,12 @@ const SOURCE_LABELS: Record<string, string> = {
   cls: "财联社",
   eastmoney_global: "东财全球",
   eastmoney_stock: "东财个股",
+};
+
+const SOURCE_BADGES: Record<string, string> = {
+  cls: "CLS",
+  eastmoney_global: "全球",
+  eastmoney_stock: "个股",
 };
 
 function formatDate(value: string | null | undefined): string {
@@ -102,28 +102,36 @@ function compactSummary(value: string, maxLength = 260): string {
   return plain.length > maxLength ? `${plain.slice(0, maxLength)}…` : plain;
 }
 
+function splitReviewSummary(value: string): { headline: string; body: string } {
+  const text = compactSummary(value, 720);
+  const splitAt = text.search(/[。！？]/);
+  if (splitAt < 0) return { headline: text, body: "" };
+  return {
+    headline: text.slice(0, splitAt + 1),
+    body: text.slice(splitAt + 1).trim(),
+  };
+}
+
 function latestWorkflowRun(runs: WorkflowRunSummary[]): WorkflowRunSummary | null {
-  return runs.toSorted(
-    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
-  )[0] ?? null;
+  return (
+    runs.toSorted(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    )[0] ?? null
+  );
 }
 
 function statusMeta(status: string) {
   return WORKFLOW_STATUS_META[status] ?? WORKFLOW_STATUS_META.pending!;
 }
 
-function FundFlowColumn({
-  title,
-  items,
-}: {
-  title: string;
-  items: DashboardFundFlowItem[];
-}) {
+function FundFlowColumn({ title, items }: { title: string; items: DashboardFundFlowItem[] }) {
   return (
-    <section className="min-w-0 p-4">
+    <section className="min-w-0 px-[15px] py-[13px]">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-app-muted">{title}</span>
-        <span className="font-mono text-[9px] text-app-faint">TOP 5</span>
+        <span className="font-mono text-[11px] font-semibold tracking-[0.1em] text-app-muted">
+          {title}
+        </span>
+        <span className="font-mono text-[10px] text-app-faint">TOP 5</span>
       </div>
       {items.length > 0 ? (
         <div className="divide-y divide-app-line/60">
@@ -132,17 +140,17 @@ function FundFlowColumn({
               key={`${item.code}-${item.rank}`}
               className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 py-2.5"
             >
-              <span className="text-center font-mono text-[9px] text-app-faint">
+              <span className="text-center font-mono text-[10px] text-app-faint">
                 {String(index + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-[12px] font-medium text-app-ink">{item.name}</p>
+                <p className="truncate text-[11px] font-semibold text-app-ink">{item.name}</p>
                 <p className="mt-0.5 truncate text-[10px] text-app-muted">
-                  {item.topStockName ? `代表 ${item.topStockName}` : "暂无代表个股"}
+                  {item.topStockName ? `领涨 ${item.topStockName}` : "暂无代表个股"}
                 </p>
               </div>
               <div className="text-right">
-                <p className="font-mono text-[11px] font-semibold text-chart-up">
+                <p className="font-mono text-[11px] font-semibold text-chart-up-strong">
                   {formatSignedMoney(item.mainNetInflow)}
                 </p>
                 <p className="mt-0.5 font-mono text-[9px] text-app-muted">
@@ -156,6 +164,186 @@ function FundFlowColumn({
         <p className="py-8 text-center text-xs text-app-muted">暂无资金流数据</p>
       )}
     </section>
+  );
+}
+
+function DashboardCardHeader({
+  title,
+  kicker,
+  asOf,
+  action,
+}: {
+  title: string;
+  kicker: string;
+  asOf?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <header className="flex items-start justify-between gap-3 border-b border-app-line px-[16px] py-[14px]">
+      <div>
+        <Heading level={2} className="text-[13px] font-bold tracking-[-0.015em]">
+          {title}
+        </Heading>
+        <Text type="supporting" as="p" className="mt-1 text-[11px]">
+          {kicker}
+        </Text>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {asOf ? (
+          <span className="whitespace-nowrap rounded-[5px] bg-app-line/45 px-1.5 py-1 font-mono text-[10px] text-app-muted">
+            {asOf}
+          </span>
+        ) : null}
+        {action}
+      </div>
+    </header>
+  );
+}
+
+function DailyPicksCard({
+  stockPool,
+  fallbackDate,
+}: {
+  stockPool: DashboardData["stockPool"];
+  fallbackDate: string | null;
+}) {
+  const snapshotDate = formatDate(stockPool.date ?? fallbackDate);
+  return (
+    <Card className="overflow-hidden">
+      <DashboardCardHeader
+        title="每日选股"
+        kicker="当前股票池中的最高评分候选"
+        asOf={snapshotDate === "暂无" ? "暂无快照" : `${snapshotDate} 快照`}
+        action={
+          <Link
+            to="/home/screens"
+            className="focus-ring inline-flex items-center gap-1 rounded text-[11px] font-semibold text-primary hover:underline"
+          >
+            全部候选 <span aria-hidden="true">→</span>
+          </Link>
+        }
+      />
+      <div className="px-[15px] pb-1 pt-1">
+        {stockPool.items.length > 0 ? (
+          stockPool.items.slice(0, 5).map((item, index) => (
+            <div
+              key={item.symbol}
+              className="grid grid-cols-[22px_minmax(0,1fr)_46px] items-center gap-2 border-b border-app-line/70 py-2.5 last:border-b-0 sm:grid-cols-[22px_minmax(0,1fr)_minmax(72px,.35fr)_46px]"
+            >
+              <span className="text-center font-mono text-[10px] text-app-faint">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-semibold text-app-ink">{item.name}</p>
+                <p className="mt-0.5 font-mono text-[10px] text-app-muted">{item.symbol}</p>
+              </div>
+              <span className="hidden truncate text-right text-[10px] text-app-muted sm:block">
+                {item.source ?? "未标注来源"}
+              </span>
+              <span className="rounded-[7px] bg-primary/10 py-1.5 text-center font-mono text-[11px] font-bold text-primary">
+                {formatScore(item.score)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <p className="py-10 text-center text-xs text-app-muted">当前股票池暂无标的</p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function NewsCard({ data }: { data: DashboardData }) {
+  return (
+    <Card className="overflow-hidden">
+      <DashboardCardHeader
+        title="资讯增量"
+        kicker={`${SOURCE_LABELS[data.news[0]?.source ?? ""] ?? "最新来源"} · 当前仅展示最新快照`}
+        asOf={`${formatDate(data.asOf.news)} 更新`}
+        action={
+          <Link
+            to="/home/research"
+            className="focus-ring inline-flex items-center gap-1 rounded text-[11px] font-semibold text-primary hover:underline"
+          >
+            全部 <span aria-hidden="true">→</span>
+          </Link>
+        }
+      />
+      <div className="px-[15px] pb-1.5 pt-1">
+        {data.news.length > 0 ? (
+          data.news.slice(0, 3).map((article) => (
+            <a
+              key={article.id}
+              href={article.url}
+              target="_blank"
+              rel="noreferrer"
+              className="group grid grid-cols-[36px_minmax(0,1fr)] items-center gap-2 border-b border-app-line/70 py-2.5 last:border-b-0 sm:grid-cols-[40px_minmax(0,1fr)_auto]"
+            >
+              <span className="grid h-5 place-items-center rounded-md bg-primary/10 font-mono text-[9px] font-semibold text-primary">
+                {SOURCE_BADGES[article.source] ?? article.source.slice(0, 2)}
+              </span>
+              <span className="truncate text-[11px] font-medium text-app-ink-secondary transition group-hover:text-primary">
+                {article.title}
+              </span>
+              <time className="hidden font-mono text-[10px] text-app-faint sm:block">
+                {formatDateTime(article.publishedAt)}
+              </time>
+            </a>
+          ))
+        ) : (
+          <p className="py-8 text-center text-xs text-app-muted">暂无资讯数据</p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ReviewCard({
+  review,
+  hasDataGap,
+  compact = false,
+}: {
+  review: DashboardData["review"];
+  hasDataGap: boolean;
+  compact?: boolean;
+}) {
+  const summary = review ? splitReviewSummary(review.summary) : null;
+  return (
+    <Card className="overflow-hidden">
+      <DashboardCardHeader
+        title="最近复盘"
+        kicker="保留数据缺口说明，不以空数据推导结论"
+        action={
+          <Link
+            to="/home/reviews/history"
+            className="focus-ring inline-flex items-center gap-1 rounded text-[11px] font-semibold text-primary hover:underline"
+          >
+            历史复盘 <span aria-hidden="true">→</span>
+          </Link>
+        }
+      />
+      {review && summary ? (
+        <div className={`px-[16px] pb-[15px] pt-[14px] ${compact ? "" : "max-w-[980px]"}`}>
+          <p className="flex items-center gap-2 font-mono text-[10px] text-app-muted">
+            <span className="size-1.5 rounded-full bg-app-warning" />
+            {review.date} · 最近更新 {formatDateTime(review.updatedAt)}
+          </p>
+          <h3 className="mt-2.5 text-[15px] font-bold leading-[1.45] tracking-[-0.02em] text-app-ink">
+            {summary.headline}
+          </h3>
+          {summary.body ? (
+            <p className="mt-2 line-clamp-3 text-[12px] leading-6 text-app-muted">{summary.body}</p>
+          ) : null}
+          {hasDataGap ? (
+            <p className="mt-3 rounded-lg bg-app-warning-soft px-2.5 py-2 text-[11px] leading-5 text-app-warning">
+              该复盘包含数据缺口说明；市场模块按各自最新完整快照展示，请勿将空数据解读为真实市场状态。
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="px-4 py-10 text-center text-xs text-app-muted">暂无复盘记录</p>
+      )}
+    </Card>
   );
 }
 
@@ -177,8 +365,9 @@ export function DailyDashboard() {
   const todayWorkflowRunsQuery = useTodayWorkflowRunsQuery();
   const data = dashboardQuery.data;
   const allWorkflowRuns =
-    workflowsQuery.data?.items.flatMap((workflow) => (workflow.latestRun ? [workflow.latestRun] : [])) ??
-    [];
+    workflowsQuery.data?.items.flatMap((workflow) =>
+      workflow.latestRun ? [workflow.latestRun] : [],
+    ) ?? [];
   const latestRun = latestWorkflowRun(allWorkflowRuns);
   const todayRuns = todayWorkflowRunsQuery.data?.items ?? [];
   const failedModules =
@@ -233,9 +422,7 @@ export function DailyDashboard() {
   const inflowRatio = fundBreadth.total > 0 ? (fundBreadth.positive / fundBreadth.total) * 100 : 0;
   const topPick = data.stockPool.items[0];
   const latestRunStatus = latestRun ? statusMeta(latestRun.status) : null;
-  const briefDate = formatMarketBriefDate(
-    marketBriefQuery.data?.asOf ?? data.asOf.market,
-  );
+  const briefDate = formatMarketBriefDate(marketBriefQuery.data?.asOf ?? data.asOf.market);
   const reviewHasDataGap = Boolean(
     data.review && /数据提示|缺失|空档|空数据/.test(data.review.summary),
   );
@@ -247,10 +434,7 @@ export function DailyDashboard() {
           <p className="flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[0.12em] text-primary before:h-0.5 before:w-[18px] before:rounded-full before:bg-current">
             {briefDate.weekday} {briefDate.date} · MARKET RADAR
           </p>
-          <Heading
-            level={1}
-            className="mt-1.5 text-3xl tracking-[-0.055em] md:text-[46px]"
-          >
+          <Heading level={1} className="mt-1.5 text-3xl tracking-[-0.055em] md:text-[46px]">
             每日看板
           </Heading>
         </div>
@@ -272,7 +456,10 @@ export function DailyDashboard() {
       {marketRadarEnabled ? (
         <div className="space-y-6">
           {marketBriefQuery.isLoading ? (
-            <div className="grid min-h-[536px] gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]" aria-label="行情雷达加载中">
+            <div
+              className="grid min-h-[536px] gap-3 xl:grid-cols-[minmax(0,1.72fr)_minmax(300px,.78fr)]"
+              aria-label="行情雷达加载中"
+            >
               <div className="h-[536px] animate-pulse rounded-3xl bg-app-surface" />
               <div className="grid grid-rows-2 gap-3">
                 <div className="animate-pulse rounded-2xl bg-app-surface" />
@@ -287,7 +474,8 @@ export function DailyDashboard() {
                 </span>
                 <p className="mt-3 text-lg font-semibold text-app-ink">行情雷达暂不可用</p>
                 <p className="mt-2 text-xs leading-6 text-app-muted">
-                  Market Brief 聚合请求失败。页面不会使用静态样例替代真实数据；今日任务可从独立接口继续加载。
+                  Market Brief
+                  聚合请求失败。页面不会使用静态样例替代真实数据；今日任务可从独立接口继续加载。
                 </p>
                 <Button
                   className="mt-4"
@@ -308,19 +496,19 @@ export function DailyDashboard() {
         </div>
       ) : null}
 
-      <Card className="grid gap-4 border-app-warning/20 bg-app-warning-soft/45 p-4 md:grid-cols-[minmax(240px,.9fr)_minmax(0,1.5fr)] md:items-center">
+      <Card className="grid gap-4 rounded-[14px] border-app-warning/20 bg-app-warning-soft/45 px-4 py-3.5 md:grid-cols-[minmax(260px,.9fr)_minmax(0,1.5fr)] md:items-center">
         <div>
-          <p className="font-mono text-[9px] font-semibold tracking-[0.12em] text-app-warning">
+          <p className="font-mono text-[11px] font-semibold tracking-[0.12em] text-app-ink-secondary">
             DATA STATUS
           </p>
-          <p className="mt-1 text-sm font-semibold text-app-ink">
+          <p className="mt-1 text-[12px] font-semibold text-app-ink">
             {marketLag == null
               ? "暂无市场快照"
               : marketLag === 0
                 ? "市场快照更新至今日"
                 : `行情快照滞后 ${marketLag} 天`}
           </p>
-          <p className="mt-1 text-xs text-app-muted">
+          <p className="mt-1 text-[11px] leading-5 text-app-muted">
             {failedModules > 0
               ? `${failedModules} 个同步模块异常；市场模块使用各自最新完整快照。`
               : "市场模块使用各自最新完整快照，不与当前日历日期混用。"}
@@ -333,9 +521,12 @@ export function DailyDashboard() {
             ["每日复盘", formatDate(data.asOf.review), Boolean(data.review)],
             ["工作流", formatDate(latestRun?.createdAt), Boolean(latestRun)],
           ].map(([label, value, current]) => (
-            <div key={String(label)} className="rounded-lg border border-app-line bg-app-panel/70 px-2.5 py-2">
+            <div
+              key={String(label)}
+              className="rounded-[9px] border border-app-line bg-app-panel/65 px-2.5 py-2"
+            >
               <p className="text-[10px] text-app-muted">{label}</p>
-              <p className="mt-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold text-app-ink">
+              <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] font-semibold text-app-ink">
                 <span
                   className={`size-1.5 rounded-full ${current ? "bg-app-success" : "bg-app-warning"}`}
                 />
@@ -346,7 +537,7 @@ export function DailyDashboard() {
         </div>
       </Card>
 
-      <section className="grid overflow-hidden rounded-2xl border border-app-line bg-app-panel sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid overflow-hidden rounded-[18px] border border-app-line bg-app-surface shadow-dashboard sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
             label: "行业广度",
@@ -385,20 +576,20 @@ export function DailyDashboard() {
         ].map(({ label, value, suffix, note, progress, icon: Icon }, index) => (
           <article
             key={label}
-            className={`p-4 ${index < 3 ? "border-b border-app-line sm:border-r xl:border-b-0" : ""}`}
+            className={`px-4 py-3.5 ${index < 3 ? "border-b border-app-line sm:border-r xl:border-b-0" : ""}`}
           >
             <div className="flex items-center justify-between text-[11px] text-app-muted">
               <span>{label}</span>
               <Icon className="size-3.5 text-primary" />
             </div>
-            <p className="mt-2 flex items-baseline gap-1.5 font-mono text-2xl font-bold tracking-tight text-app-ink">
+            <p className="mt-2 flex items-baseline gap-1.5 font-mono text-[24px] font-bold leading-none tracking-[-0.055em] text-app-ink">
               {value}
               <span className="font-sans text-[10px] font-normal text-app-muted">{suffix}</span>
             </p>
             <p className="mt-1.5 text-[10px] text-app-muted">{note}</p>
             <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-app-surface">
               <div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70"
                 style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }}
               />
             </div>
@@ -406,24 +597,21 @@ export function DailyDashboard() {
         ))}
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,.78fr)]">
+      <div className="grid gap-3.5 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,.78fr)]">
         <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2} className="text-sm">
-                市场主线
-              </Heading>
-              <Text type="supporting" size="sm" as="p" className="mt-0.5">
-                资金净流入与板块强度交叉观察
-              </Text>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="soft">{formatDate(data.asOf.fundFlow)} 收盘</Badge>
-              <Link to="/home/market" className="text-[11px] font-medium text-primary hover:underline">
-                资金流明细
+          <DashboardCardHeader
+            title="市场主线"
+            kicker="资金净流入与板块强度交叉观察"
+            asOf={`${formatDate(data.asOf.fundFlow)} 收盘`}
+            action={
+              <Link
+                to="/home/market"
+                className="focus-ring inline-flex items-center gap-1 rounded text-[11px] font-semibold text-primary hover:underline"
+              >
+                资金流明细 <span aria-hidden="true">→</span>
               </Link>
-            </div>
-          </div>
+            }
+          />
           <div className="grid md:grid-cols-2 md:divide-x md:divide-app-line">
             <FundFlowColumn title="行业资金" items={data.fundFlow.industry} />
             <FundFlowColumn title="概念资金" items={data.fundFlow.concept} />
@@ -431,18 +619,12 @@ export function DailyDashboard() {
         </Card>
 
         <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2} className="text-sm">
-                市场温度
-              </Heading>
-              <Text type="supporting" size="sm" as="p" className="mt-0.5">
-                涨停池与连板梯队
-              </Text>
-            </div>
-            <Badge variant="soft">{formatDate(data.asOf.limitUp)} 收盘</Badge>
-          </div>
-          <div className="p-4">
+          <DashboardCardHeader
+            title="市场温度"
+            kicker="涨停池与连板梯队"
+            asOf={`${formatDate(data.asOf.limitUp)} 收盘`}
+          />
+          <div className="px-4 py-[14px]">
             <div className="flex items-end justify-between gap-3">
               <p className="font-mono text-[48px] font-bold leading-none tracking-[-0.08em] text-app-ink">
                 {data.limitUp.total}
@@ -450,7 +632,9 @@ export function DailyDashboard() {
                   涨停
                 </span>
               </p>
-              <Badge variant="destructive">最高 {data.limitUp.maxBoard} 板</Badge>
+              <span className="rounded-[7px] bg-destructive/10 px-2 py-1.5 text-[10px] font-semibold text-chart-up-strong">
+                最高 {data.limitUp.maxBoard} 板
+              </span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {[
@@ -458,8 +642,8 @@ export function DailyDashboard() {
                 ["平均换手", `${data.limitUp.avgTurnover.toFixed(2)}%`],
                 ["开板样本", `${data.limitUp.openedCount} 只`],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-lg bg-app-surface px-2 py-2">
-                  <p className="text-[9px] text-app-muted">{label}</p>
+                <div key={label} className="rounded-lg bg-app-line/35 px-2 py-2">
+                  <p className="text-[10px] text-app-muted">{label}</p>
                   <p className="mt-1 font-mono text-[12px] font-semibold text-app-ink">{value}</p>
                 </div>
               ))}
@@ -471,7 +655,7 @@ export function DailyDashboard() {
                     key={item.count}
                     className="grid grid-cols-[42px_minmax(0,1fr)] items-center gap-2 py-1"
                   >
-                    <span className="grid h-5 place-items-center rounded-md bg-destructive/10 font-mono text-[9px] font-semibold text-chart-up">
+                    <span className="grid h-5 place-items-center rounded-md bg-destructive/10 font-mono text-[9px] font-semibold text-chart-up-strong">
                       {item.count} 板
                     </span>
                     <span className="truncate text-[11px] text-app-ink-secondary">
@@ -487,216 +671,108 @@ export function DailyDashboard() {
         </Card>
       </div>
 
-      <div
-        className={`grid gap-4 ${
-          marketRadarEnabled
-            ? "xl:grid-cols-1"
-            : "xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]"
-        }`}
-      >
-        <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2} className="text-sm">
-                每日选股
-              </Heading>
-              <Text type="supporting" size="sm" as="p" className="mt-0.5">
-                当前股票池中的最高评分候选
-              </Text>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="soft">{formatDate(data.stockPool.date)} 快照</Badge>
-              <Link to="/home/screens" className="text-[11px] font-medium text-primary hover:underline">
-                全部候选
-              </Link>
-            </div>
-          </div>
-          <div className="divide-y divide-app-line/70 px-4 pb-1">
-            {data.stockPool.items.length > 0 ? (
-              data.stockPool.items.map((item, index) => (
-                <div
-                  key={item.symbol}
-                  className="grid grid-cols-[24px_minmax(0,1fr)_auto_48px] items-center gap-2 py-2.5"
-                >
-                  <span className="text-center font-mono text-[9px] text-app-faint">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[12px] font-medium text-app-ink">{item.name}</p>
-                    <p className="font-mono text-[9px] text-app-muted">{item.symbol}</p>
+      {marketRadarEnabled ? (
+        <>
+          <section className="grid gap-3.5 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
+            <DailyPicksCard
+              stockPool={data.stockPool}
+              fallbackDate={data.asOf.stockPool ?? data.asOf.market}
+            />
+            <NewsCard data={data} />
+          </section>
+          <ReviewCard review={data.review} hasDataGap={reviewHasDataGap} />
+        </>
+      ) : (
+        <>
+          <section className="grid gap-3.5 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
+            <DailyPicksCard
+              stockPool={data.stockPool}
+              fallbackDate={data.asOf.stockPool ?? data.asOf.market}
+            />
+            <Card className="overflow-hidden">
+              <DashboardCardHeader
+                title="今日工作流"
+                kicker="自动运行与最近状态"
+                action={
+                  <Link
+                    to="/home/workflows"
+                    className="focus-ring inline-flex items-center gap-1 rounded text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    全部流程 <span aria-hidden="true">→</span>
+                  </Link>
+                }
+              />
+              <div className="p-4">
+                {todayRuns.length > 0 ? (
+                  <div className="divide-y divide-app-line/70">
+                    {todayRuns.slice(0, 3).map((run) => {
+                      const status = statusMeta(run.status);
+                      return (
+                        <Link
+                          key={run.id}
+                          to="/home/workflows/runs/$runId"
+                          params={{ runId: String(run.id) }}
+                          className="flex items-center gap-3 py-2.5"
+                        >
+                          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                            <Workflow className="size-3.5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12px] font-medium text-app-ink">
+                              {run.workflowName}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[10px] text-app-muted">
+                              {formatDateTime(run.createdAt)}
+                            </span>
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] ${status.className}`}
+                          >
+                            {status.label}
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
-                  <span className="text-[10px] text-app-muted">{item.source ?? "未标注来源"}</span>
-                  <span className="rounded-md bg-primary/10 py-1 text-center font-mono text-[11px] font-bold text-primary">
-                    {formatScore(item.score)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="py-10 text-center text-xs text-app-muted">当前股票池暂无标的</p>
-            )}
-          </div>
-        </Card>
-
-        {!marketRadarEnabled ? (
-        <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2} className="text-sm">
-                今日工作流
-              </Heading>
-              <Text type="supporting" size="sm" as="p" className="mt-0.5">
-                自动运行与最近状态
-              </Text>
-            </div>
-            <Link to="/home/workflows" className="text-[11px] font-medium text-primary hover:underline">
-              全部流程
-            </Link>
-          </div>
-          <div className="p-4">
-            {todayRuns.length > 0 ? (
-              <div className="divide-y divide-app-line/70">
-                {todayRuns.slice(0, 3).map((run) => {
-                  const status = statusMeta(run.status);
-                  return (
-                    <Link
-                      key={run.id}
-                      to="/home/workflows/runs/$runId"
-                      params={{ runId: String(run.id) }}
-                      className="flex items-center gap-3 py-2.5"
-                    >
-                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                        <Workflow className="size-3.5" />
+                ) : (
+                  <div className="flex items-center gap-3 rounded-xl bg-app-surface p-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                      <Workflow className="size-4" />
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-medium text-app-ink">今天还没有运行</p>
+                      <p className="mt-0.5 text-[10px] text-app-muted">
+                        {workflowsQuery.data?.items.length ?? 0} 条工作流暂无今日触发记录。
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {latestRun ? (
+                  <div className="mt-3 flex items-center gap-2 border-t border-app-line pt-3 text-[10px] text-app-muted">
+                    <Clock3 className="size-3.5 shrink-0" />
+                    <span>最近记录</span>
+                    <strong className="min-w-0 truncate text-[11px] text-app-ink">
+                      {latestRun.workflowName}
+                    </strong>
+                    <span className="ml-auto shrink-0">{formatDateTime(latestRun.createdAt)}</span>
+                    {latestRunStatus ? (
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[9px] ${latestRunStatus.className}`}
+                      >
+                        {latestRunStatus.label}
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-medium text-app-ink">
-                          {run.workflowName}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[10px] text-app-muted">
-                          {formatDateTime(run.createdAt)}
-                        </span>
-                      </span>
-                      <span className={`rounded-full px-2 py-1 text-[10px] ${status.className}`}>
-                        {status.label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 rounded-xl bg-app-surface p-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                  <Workflow className="size-4" />
-                </span>
-                <div>
-                  <p className="text-[12px] font-medium text-app-ink">今天还没有运行</p>
-                  <p className="mt-0.5 text-[10px] text-app-muted">
-                    {workflowsQuery.data?.items.length ?? 0} 条工作流暂无今日触发记录。
-                  </p>
-                </div>
-              </div>
-            )}
-            {latestRun ? (
-              <div className="mt-3 flex items-center gap-2 border-t border-app-line pt-3 text-[10px] text-app-muted">
-                <Clock3 className="size-3.5 shrink-0" />
-                <span>最近记录</span>
-                <strong className="min-w-0 truncate text-[11px] text-app-ink">
-                  {latestRun.workflowName}
-                </strong>
-                <span className="ml-auto shrink-0">{formatDateTime(latestRun.createdAt)}</span>
-                {latestRunStatus ? (
-                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] ${latestRunStatus.className}`}>
-                    {latestRunStatus.label}
-                  </span>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
-            ) : null}
-          </div>
-        </Card>
-        ) : null}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2} className="text-sm">
-                资讯增量
-              </Heading>
-              <Text type="supporting" size="sm" as="p" className="mt-0.5">
-                当前仅展示最新快照
-              </Text>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="soft">{formatDate(data.asOf.news)} 更新</Badge>
-              <Link to="/home/research" className="text-[11px] font-medium text-primary hover:underline">
-                全部
-              </Link>
-            </div>
-          </div>
-          <div className="divide-y divide-app-line/70 px-4">
-            {data.news.length > 0 ? (
-              data.news.map((article) => (
-                <a
-                  key={article.id}
-                  href={article.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-2 py-2.5"
-                >
-                  <span className="grid h-5 place-items-center rounded-md bg-primary/10 font-mono text-[9px] font-semibold text-primary">
-                    {SOURCE_LABELS[article.source] ?? article.source}
-                  </span>
-                  <span className="truncate text-[11px] text-app-ink-secondary group-hover:text-primary">
-                    {article.title}
-                  </span>
-                  <time className="font-mono text-[9px] text-app-faint">
-                    {formatDateTime(article.publishedAt)}
-                  </time>
-                </a>
-              ))
-            ) : (
-              <p className="py-8 text-center text-xs text-app-muted">暂无资讯数据</p>
-            )}
-          </div>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2} className="text-sm">
-                最近复盘
-              </Heading>
-              <Text type="supporting" size="sm" as="p" className="mt-0.5">
-                保留数据缺口说明，不以空数据推导结论
-              </Text>
-            </div>
-            <Link
-              to="/home/reviews/history"
-              className="text-[11px] font-medium text-primary hover:underline"
-            >
-              历史复盘
-            </Link>
-          </div>
-          {data.review ? (
-            <div className="p-4">
-              <p className="flex items-center gap-2 font-mono text-[10px] text-app-muted">
-                <span className="size-1.5 rounded-full bg-app-warning" />
-                {data.review.date} · 最近更新 {formatDateTime(data.review.updatedAt)}
-              </p>
-              <Text as="p" className="mt-3 line-clamp-6 text-[13px] leading-6 text-app-ink">
-                {compactSummary(data.review.summary)}
-              </Text>
-              {reviewHasDataGap ? (
-                <p className="mt-3 rounded-lg bg-app-warning-soft px-3 py-2 text-[10px] leading-5 text-app-warning">
-                  该复盘包含数据缺口说明；市场模块按各自最新完整快照展示，请勿将空数据解读为真实市场状态。
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="p-8 text-center text-xs text-app-muted">暂无复盘记录</p>
-          )}
-        </Card>
-      </div>
+            </Card>
+          </section>
+          <section className="grid gap-3.5 lg:grid-cols-2">
+            <NewsCard data={data} />
+            <ReviewCard review={data.review} hasDataGap={reviewHasDataGap} compact />
+          </section>
+        </>
+      )}
     </div>
   );
 }

@@ -60,8 +60,12 @@ export function GlobalContextCard({
             ))}
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <Heading level={2} className="text-sm font-semibold">{chart.name}</Heading>
-            <Text type="supporting" className="font-mono text-[11px]">{selectedSymbol}</Text>
+            <Heading level={2} className="text-sm font-semibold">
+              {chart.name}
+            </Heading>
+            <Text type="supporting" className="font-mono text-[11px]">
+              {selectedSymbol}
+            </Text>
           </div>
           <p className="mt-1.5 flex items-baseline gap-2 whitespace-nowrap font-mono text-2xl font-bold tracking-[-0.055em]">
             <span>
@@ -77,9 +81,9 @@ export function GlobalContextCard({
                 change == null
                   ? "text-app-muted"
                   : change > 0
-                    ? "text-chart-up"
+                    ? "text-chart-up-strong"
                     : change < 0
-                      ? "text-chart-down"
+                      ? "text-chart-down-strong"
                       : "text-app-ink-secondary"
               }`}
             >
@@ -99,7 +103,11 @@ export function GlobalContextCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <div className="flex gap-0.5 rounded-[9px] border border-app-line bg-app-surface/75 p-[3px]" role="group" aria-label="跨市场图表区间">
+          <div
+            className="flex gap-0.5 rounded-[9px] border border-app-line bg-app-surface/75 p-[3px]"
+            role="group"
+            aria-label="跨市场图表区间"
+          >
             {RANGES.map((item) => (
               <button
                 key={item}
@@ -132,13 +140,17 @@ export function GlobalContextCard({
           subjectName={chart.name}
           compact
           tone={selectedSymbol === "IXIC" ? "cyan" : "warning"}
-          referencePrice={range === "1D" ? ticker?.preClose ?? null : null}
+          referencePrice={range === "1D" ? (ticker?.preClose ?? null) : null}
         />
       </div>
       <footer className="mx-[15px] flex items-center justify-between gap-2 whitespace-nowrap border-t border-app-warning/20 py-[9px] text-[11px] text-app-ink-secondary">
         <span>{selectedSymbol === "XAUUSD" ? "USD/oz · 无成交量" : "指数点 · 美股收盘"}</span>
-        <span className={`inline-flex items-center gap-1.5 font-semibold ${selectedSymbol === "IXIC" ? "text-assistant" : "text-app-warning"}`}>
-          <span className={`size-1.5 rounded-full ${selectedSymbol === "IXIC" ? "bg-assistant" : "bg-app-warning"}`} />
+        <span
+          className={`inline-flex items-center gap-1.5 font-semibold ${selectedSymbol === "IXIC" ? "text-assistant" : "text-app-warning"}`}
+        >
+          <span
+            className={`size-1.5 rounded-full ${selectedSymbol === "IXIC" ? "bg-assistant" : "bg-app-warning"}`}
+          />
           仅作背景，不进入 A 股信号
         </span>
       </footer>

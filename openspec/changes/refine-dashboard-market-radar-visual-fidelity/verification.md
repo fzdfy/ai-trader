@@ -43,13 +43,15 @@ The real authenticated page was exercised at:
 
 Measured desktop geometry:
 
-- A-share board and right context stack: both `715px`, same top and bottom
+- A-share board and right context stack: both `715.86px`, same top and bottom
 - Today action and Today workflow cards: both `270px`, same top and bottom
+- Daily picks and news cards: both `199.84px`, same top and bottom
+- Recent review card: `223.59px` full-width row
 - Desktop document width: `1440px`; no horizontal overflow
 - Mobile document width: `390px`; no horizontal overflow
 - Console errors: 0
 
-ETF keyboard navigation selected `科创50ETF / 588000.SH`, updated `aria-activedescendant`, and changed only the ETF chart. A-share chart arrow navigation exposed the live data-point text while preserving focus. The cross-market and ETF selections did not change the A-share SIGNAL.
+ETF keyboard navigation selected `科创50ETF / 588000.SH`, updated `aria-activedescendant`, and changed only the ETF chart. A-share chart arrow navigation exposed the live data-point text while preserving focus. The cross-market and ETF selections did not change the A-share SIGNAL. Follow-up source parity reduced the chart to six visible time labels and four value splits, restored the market-quality date, and moved daily picks and news into the same lower grid.
 
 ## Evidence
 

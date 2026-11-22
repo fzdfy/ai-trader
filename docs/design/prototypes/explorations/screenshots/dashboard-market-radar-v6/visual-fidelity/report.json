@@ -2,32 +2,32 @@
   "lightDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2354.69,
-      "height": 2267.69,
+      "bottom": 2289.83,
+      "height": 2202.83,
       "width": 1154
     },
     "left": {
       "top": 180.69,
-      "bottom": 895.69,
-      "height": 715,
+      "bottom": 896.55,
+      "height": 715.86,
       "width": 785.69
     },
     "right": {
       "top": 180.69,
-      "bottom": 895.69,
-      "height": 715,
+      "bottom": 896.55,
+      "height": 715.86,
       "width": 356.3
     },
     "executionCards": [
       {
-        "top": 919.69,
-        "bottom": 1189.69,
+        "top": 920.55,
+        "bottom": 1190.55,
         "height": 270,
         "width": 657.19
       },
       {
-        "top": 919.69,
-        "bottom": 1189.69,
+        "top": 920.55,
+        "bottom": 1190.55,
         "height": 270,
         "width": 484.81
       }
@@ -39,32 +39,32 @@
   "darkDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2354.69,
-      "height": 2267.69,
+      "bottom": 2289.83,
+      "height": 2202.83,
       "width": 1154
     },
     "left": {
       "top": 180.69,
-      "bottom": 895.69,
-      "height": 715,
+      "bottom": 896.55,
+      "height": 715.86,
       "width": 785.69
     },
     "right": {
       "top": 180.69,
-      "bottom": 895.69,
-      "height": 715,
+      "bottom": 896.55,
+      "height": 715.86,
       "width": 356.3
     },
     "executionCards": [
       {
-        "top": 919.69,
-        "bottom": 1189.69,
+        "top": 920.55,
+        "bottom": 1190.55,
         "height": 270,
         "width": 657.19
       },
       {
-        "top": 919.69,
-        "bottom": 1189.69,
+        "top": 920.55,
+        "bottom": 1190.55,
         "height": 270,
         "width": 484.81
       }
@@ -76,32 +76,32 @@
   "wideDesktop": {
     "page": {
       "top": 87,
-      "bottom": 2330.69,
-      "height": 2243.69,
+      "bottom": 2289.83,
+      "height": 2202.83,
       "width": 1480
     },
     "left": {
       "top": 180.69,
-      "bottom": 895.69,
-      "height": 715,
+      "bottom": 896.55,
+      "height": 715.86,
       "width": 1009.97
     },
     "right": {
       "top": 180.69,
-      "bottom": 895.69,
-      "height": 715,
+      "bottom": 896.55,
+      "height": 715.86,
       "width": 458.03
     },
     "executionCards": [
       {
-        "top": 919.69,
-        "bottom": 1189.69,
+        "top": 920.55,
+        "bottom": 1190.55,
         "height": 270,
         "width": 844.78
       },
       {
-        "top": 919.69,
-        "bottom": 1189.69,
+        "top": 920.55,
+        "bottom": 1190.55,
         "height": 270,
         "width": 623.22
       }
@@ -113,8 +113,8 @@
   "lightMobile": {
     "page": {
       "top": 79,
-      "bottom": 4858.91,
-      "height": 4779.91,
+      "bottom": 4721.63,
+      "height": 4642.63,
       "width": 358
     },
     "left": {
@@ -125,20 +125,20 @@
     },
     "right": {
       "top": 1007.91,
-      "bottom": 1722.91,
-      "height": 715,
+      "bottom": 1723.41,
+      "height": 715.5,
       "width": 358
     },
     "executionCards": [
       {
-        "top": 1746.91,
-        "bottom": 2016.91,
+        "top": 1747.41,
+        "bottom": 2017.41,
         "height": 270,
         "width": 358
       },
       {
-        "top": 2028.91,
-        "bottom": 2298.91,
+        "top": 2029.41,
+        "bottom": 2299.41,
         "height": 270,
         "width": 358
       }
@@ -150,8 +150,8 @@
   "darkMobile": {
     "page": {
       "top": 79,
-      "bottom": 4858.91,
-      "height": 4779.91,
+      "bottom": 4721.63,
+      "height": 4642.63,
       "width": 358
     },
     "left": {
@@ -162,20 +162,20 @@
     },
     "right": {
       "top": 1007.91,
-      "bottom": 1722.91,
-      "height": 715,
+      "bottom": 1723.41,
+      "height": 715.5,
       "width": 358
     },
     "executionCards": [
       {
-        "top": 1746.91,
-        "bottom": 2016.91,
+        "top": 1747.41,
+        "bottom": 2017.41,
         "height": 270,
         "width": 358
       },
       {
-        "top": 2028.91,
-        "bottom": 2298.91,
+        "top": 2029.41,
+        "bottom": 2299.41,
         "height": 270,
         "width": 358
       }
@@ -187,7 +187,7 @@
   "etfKeyboard": {
     "selected": "科创50ETF588000.SH1.30元-3.27%",
     "activeDescendant": "etf-tab-588000.SH",
-    "chart": "ETF 走势1D · 独立行情可用11/20 15:30，价格 1.30"
+    "chart": "科创50ETF588000.SHETF 走势1D · 独立行情1.30-3.27%可用11/20 15:30，价格 1.30"
   },
   "chartKeyboard": {
     "role": "group",

@@ -64,6 +64,10 @@ export function MarketAssetChart({
   const option = useMemo(() => {
     const labels = chart.points.map((point) => axisTime(point.time));
     const hasVolume = chart.hasVolume && chart.points.some((point) => point.volume != null);
+    const labelInterval = Math.max(
+      0,
+      Math.ceil(chart.points.length / (dense ? 4 : compact ? 4 : 6)) - 1,
+    );
     const lineColor =
       tone === "warning"
         ? cssVar("--warning", "#c08321")
@@ -96,9 +100,7 @@ export function MarketAssetChart({
           const point = chart.points[params[0].dataIndex];
           if (!point) return "";
           const volume =
-            point.volume == null
-              ? ""
-              : `<br/>成交量：${point.volume.toLocaleString("zh-CN")}`;
+            point.volume == null ? "" : `<br/>成交量：${point.volume.toLocaleString("zh-CN")}`;
           return `<strong>${subjectName}</strong><br/>${labels[params[0].dataIndex]}<br/>价格：${point.price.toFixed(2)}${volume}`;
         },
       },
@@ -114,6 +116,9 @@ export function MarketAssetChart({
             fontSize: compact ? 10 : 11,
             hideOverlap: true,
             show: !dense,
+            interval: labelInterval,
+            showMinLabel: true,
+            showMaxLabel: true,
           },
           ...(dense ? {} : axisLineStyle()),
         },
@@ -135,6 +140,7 @@ export function MarketAssetChart({
         {
           type: "value" as const,
           scale: true,
+          splitNumber: dense ? 3 : 4,
           axisLabel: {
             color: chartAxisText(),
             fontSize: compact ? 10 : 11,
@@ -235,7 +241,7 @@ export function MarketAssetChart({
         fill
           ? "h-full min-h-[180px] w-full flex-1"
           : dense
-            ? "h-[130px] w-full"
+            ? "h-[104px] w-full"
             : compact
               ? "h-44 w-full"
               : "h-64 w-full"

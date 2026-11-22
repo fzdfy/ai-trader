@@ -39,8 +39,12 @@ export function ETFContextCard({
     <Card className="dashboard-panel-etf flex min-h-0 flex-col overflow-hidden rounded-[18px] border-primary/15 shadow-dashboard">
       <header className="flex items-center justify-between gap-2 border-b border-app-line px-[15px] py-[11px]">
         <div className="flex items-baseline gap-2">
-          <Heading level={2} className="text-sm font-bold">主流 ETF</Heading>
-          <Text type="supporting" className="text-[11px]">A 股</Text>
+          <Heading level={2} className="text-sm font-bold">
+            主流 ETF
+          </Heading>
+          <Text type="supporting" className="text-[11px]">
+            A 股
+          </Text>
         </div>
         <div
           className="flex gap-0.5 rounded-[9px] border border-app-line bg-app-surface/75 p-[3px]"
@@ -97,9 +101,7 @@ export function ETFContextCard({
                     : "text-app-muted hover:bg-app-panel/65 hover:text-app-ink"
                 }`}
               >
-                <strong className="truncate text-[10px] font-semibold">
-                  {ETF_LABELS[symbol]}
-                </strong>
+                <strong className="truncate text-[10px] font-semibold">{ETF_LABELS[symbol]}</strong>
                 <span className="truncate font-mono text-[9px] text-app-ink-secondary">
                   {symbol}
                 </span>
@@ -114,13 +116,13 @@ export function ETFContextCard({
                   </strong>
                   <span
                     className={`inline-flex items-center gap-1 font-mono text-[10px] font-semibold ${
-                    change == null
-                      ? "text-app-muted"
-                      : change > 0
-                        ? "text-chart-up"
-                        : change < 0
-                          ? "text-chart-down"
-                          : "text-app-ink-secondary"
+                      change == null
+                        ? "text-app-muted"
+                        : change > 0
+                          ? "text-chart-up-strong"
+                          : change < 0
+                            ? "text-chart-down-strong"
+                            : "text-app-ink-secondary"
                     }`}
                   >
                     <span
@@ -144,16 +146,44 @@ export function ETFContextCard({
           })}
         </div>
         <div id="etf-chart-panel" className="flex min-h-0 flex-1 flex-col" role="tabpanel">
-          <div className="flex items-center justify-between gap-2 px-0.5">
-            <div className="flex min-w-0 items-baseline gap-2">
-              <strong className="truncate text-[11px] font-semibold">ETF 走势</strong>
-              <span className="font-mono text-[11px] text-app-ink-secondary">
-                {range} · 独立行情
-              </span>
+          <div className="flex items-end justify-between gap-2 px-0.5">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <strong className="truncate text-[13px] font-semibold text-app-ink">
+                  {ETF_LABELS[selectedSymbol]}
+                </strong>
+                <span className="font-mono text-[10px] text-app-ink-secondary">
+                  {selectedSymbol}
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="font-mono text-[11px] font-semibold text-app-ink-secondary">
+                  ETF 走势
+                </span>
+                <span className="font-mono text-[10px] text-app-muted">{range} · 独立行情</span>
+              </div>
             </div>
-            <span className="truncate text-[10px] text-app-ink-secondary">
-              {marketQualityLabel(chart.quality, chart.staleReason)}
-            </span>
+            <div className="shrink-0 text-right">
+              <div className="flex items-baseline justify-end gap-1.5">
+                <strong className="font-mono text-[18px] font-bold tracking-[-0.05em] text-app-ink">
+                  {formatMarketNumber(ticker?.price ?? null)}
+                </strong>
+                <span
+                  className={`font-mono text-[10px] font-semibold ${
+                    (ticker?.changePct ?? 0) > 0
+                      ? "text-chart-up-strong"
+                      : (ticker?.changePct ?? 0) < 0
+                        ? "text-chart-down-strong"
+                        : "text-app-ink-secondary"
+                  }`}
+                >
+                  {formatChangePct(ticker?.changePct ?? null)}
+                </span>
+              </div>
+              <div className="mt-0.5 text-[10px] text-app-ink-secondary">
+                {marketQualityLabel(chart.quality, chart.staleReason)}
+              </div>
+            </div>
           </div>
           <div className="mt-1 flex min-h-0 flex-1 flex-col">
             <MarketAssetChart
@@ -161,7 +191,7 @@ export function ETFContextCard({
               subjectName={chart.name}
               compact
               dense
-              referencePrice={range === "1D" ? ticker?.preClose ?? null : null}
+              referencePrice={range === "1D" ? (ticker?.preClose ?? null) : null}
             />
           </div>
         </div>

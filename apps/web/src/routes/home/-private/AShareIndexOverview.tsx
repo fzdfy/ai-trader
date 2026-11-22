@@ -58,9 +58,9 @@ export function AShareIndexOverview({
                   change == null
                     ? "text-app-muted"
                     : change > 0
-                      ? "text-chart-up"
+                      ? "text-chart-up-strong"
                       : change < 0
-                        ? "text-chart-down"
+                        ? "text-chart-down-strong"
                         : "text-app-ink-secondary"
                 }`}
               >
