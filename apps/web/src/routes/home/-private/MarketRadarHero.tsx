@@ -26,7 +26,7 @@ export function MarketRadarHero({
         onSelectSymbol={(symbol) => dispatch({ type: "index", symbol })}
         onSelectRange={(range) => dispatch({ type: "range", domain: "index", range })}
       />
-      <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
+      <aside className="market-radar-context-stack grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
         <GlobalContextCard
           data={data}
           selectedSymbol={selection.globalSymbol}

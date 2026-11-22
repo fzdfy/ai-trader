@@ -42,8 +42,10 @@
 ## 4. Integration and verification
 
 - [ ] 4.1 使用真实资产样例走通采集、入库、Market Brief、ETF Tab、跨市场、今日行动和今日工作流；记录缺失区间与来源时间。
-- [ ] 4.2 运行 quant、server、web 的目标测试和全量类型/ lint/ build 检查，写入 `verification.md`。
-- [ ] 4.3 对照 v6 复验桌面 `1440×900`、移动端 `390×844`、浅色、深色，并确认左右高度与底边差值为 `0px`。
+- [x] 4.2 运行 quant、server、web 的目标测试和全量类型/ lint/ build 检查，写入 `verification.md`。
+- [x] 4.3 对照 v6 复验桌面 `1440×900`、移动端 `390×844`、浅色、深色，并确认左右高度与底边差值为 `0px`。
+
+环境阻塞说明：当前环境没有 Docker/PostgreSQL，`5432/5532` 均未监听；因此 `4.1` 的真实采集→入库→API→页面链路未能执行，不能标记完成。生产 React 页面已通过临时 mock API 完成组件与布局验收。
 
 ## Workflow follow-up
 

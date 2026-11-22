@@ -6,6 +6,10 @@ import {
   marketAssetQuote,
 } from "../../db/schema";
 import { quant, type MarketAssetBar, type MarketAssetQuote } from "../quant";
+import {
+  resolveMarketAsset,
+  type MarketAssetSession,
+} from "./catalog";
 
 export interface MarketAssetQuoteValue extends Omit<MarketAssetQuote, "quoted_at"> {
   quotedAt: Date;
@@ -39,6 +43,24 @@ export interface StoredMarketAssetBar {
 }
 
 const decimal = (value: number | null) => (value == null ? null : String(value));
+
+const SESSION_TIMEZONE: Record<MarketAssetSession, string> = {
+  a_share: "Asia/Shanghai",
+  global_gold: "Asia/Shanghai",
+  us_equity: "America/New_York",
+};
+
+export function marketAssetDateKey(date: Date, session: MarketAssetSession): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SESSION_TIMEZONE[session],
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
 
 export function dedupeMarketAssetBars<T extends { symbol: string; bucketStart: string }>(
   values: T[],
@@ -245,6 +267,7 @@ export async function readStoredMarketAssetBars(
   options: { start?: Date; end?: Date; limit?: number } = {},
 ): Promise<StoredMarketAssetBar[]> {
   const limit = Math.max(1, Math.min(options.limit ?? 1000, 5000));
+  const definition = resolveMarketAsset(symbol);
   if (kind === "minute") {
     let query = db
       .select()
@@ -272,14 +295,20 @@ export async function readStoredMarketAssetBars(
       observedAt: row.observedAt,
     }));
   }
+  const startDate = options.start
+    ? marketAssetDateKey(options.start, definition.session)
+    : undefined;
+  const endDate = options.end
+    ? marketAssetDateKey(options.end, definition.session)
+    : undefined;
   let query = db
     .select()
     .from(marketAssetDailyBar)
     .where(
       and(
         eq(marketAssetDailyBar.symbol, symbol),
-        options.start ? gte(marketAssetDailyBar.tradeDate, options.start.toISOString().slice(0, 10)) : undefined,
-        options.end ? lte(marketAssetDailyBar.tradeDate, options.end.toISOString().slice(0, 10)) : undefined,
+        startDate ? gte(marketAssetDailyBar.tradeDate, startDate) : undefined,
+        endDate ? lte(marketAssetDailyBar.tradeDate, endDate) : undefined,
       ),
     )
     .$dynamic();

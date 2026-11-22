@@ -125,3 +125,25 @@ test("response contains no user task or workflow data", async () => {
   assert.equal("workflows" in brief, false);
   assert.equal("userId" in brief, false);
 });
+
+test("snapshot failure degrades SIGNAL without failing market charts", async () => {
+  const fixture = dependencies({
+    loadSnapshot: async () => {
+      throw new Error("breadth unavailable");
+    },
+  });
+  const brief = await loadMarketBrief(
+    {
+      symbol: "000001.SH",
+      range: "1D",
+      etfSymbol: "510300.SH",
+      etfRange: "1D",
+      globalSymbol: "XAUUSD",
+      globalRange: "1D",
+    },
+    fixture.deps,
+  );
+  assert.equal(brief.aShareChart.quality, "available");
+  assert.equal(brief.signal.quality, "missing");
+  assert.equal(brief.signal.stance, "neutral");
+});

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   dedupeMarketAssetBars,
   ingestMarketAssetSymbols,
+  marketAssetDateKey,
   type MarketAssetBarValue,
 } from "./store.ts";
 
@@ -78,4 +79,15 @@ test("empty asset reads are skipped rather than sent as empty success batches", 
   );
   assert.equal(upserts, 0);
   assert.equal(result.skipped, 1);
+});
+
+test("daily range keys use the asset local date instead of UTC date", () => {
+  assert.equal(
+    marketAssetDateKey(new Date("2025-12-31T16:00:00.000Z"), "a_share"),
+    "2026-01-01",
+  );
+  assert.equal(
+    marketAssetDateKey(new Date("2026-01-01T05:00:00.000Z"), "us_equity"),
+    "2026-01-01",
+  );
 });

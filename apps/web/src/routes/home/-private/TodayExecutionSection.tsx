@@ -10,6 +10,7 @@ import {
   useWorkflowsQuery,
 } from "../../../hooks/useWorkflows";
 import {
+  WORK_TASK_CATEGORY_LABELS,
   formatTaskDue,
   localDateContext,
 } from "../../../lib/work-tasks";
@@ -58,7 +59,7 @@ export function TodayExecutionSection() {
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-semibold text-app-ink">{task.title}</span>
                     <span className={`mt-0.5 block truncate text-[11px] ${due.overdue ? "text-destructive" : "text-app-muted"}`}>
-                      {task.category} · {due.label}
+                      {WORK_TASK_CATEGORY_LABELS[task.category]} · {due.label}
                     </span>
                   </span>
                   <span className={`grid size-5 place-items-center rounded-full ${task.status === "completed" ? "bg-chart-down/10 text-chart-down" : "bg-app-surface text-app-muted"}`}>

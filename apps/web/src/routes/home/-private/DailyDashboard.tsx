@@ -237,7 +237,7 @@ export function DailyDashboard() {
     <div className="mx-auto max-w-[1500px] space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">
+          <p className="font-mono text-[11px] font-semibold tracking-[0.12em] text-primary">
             {briefDate} · DAILY BRIEF
           </p>
           <Heading

@@ -208,6 +208,23 @@ async function safeChart(
   }
 }
 
+async function safeSnapshot(
+  dependencies: MarketBriefDependencies,
+): Promise<
+  | {
+      breadth: { industry: { total: number; rising: number } };
+      fundFlow: { breadth: { industry: { total: number; positive: number } } };
+      limitUp: { total: number; maxBoard: number; avgTurnover: number };
+    }
+  | null
+> {
+  try {
+    return await dependencies.loadSnapshot();
+  } catch {
+    return null;
+  }
+}
+
 function toTick(read: MarketAssetQuoteRead): MarketTick {
   return {
     symbol: read.symbol,
@@ -232,7 +249,7 @@ export async function loadMarketBrief(
     safeChart(query.symbol, query.range, now, dependencies),
     safeChart(query.etfSymbol, query.etfRange, now, dependencies),
     safeChart(query.globalSymbol, query.globalRange, now, dependencies),
-    dependencies.loadSnapshot(),
+    safeSnapshot(dependencies),
   ]);
   const selected = quotes.find((item) => item.symbol === query.symbol) ?? missingQuote(query.symbol);
   const points = aShareChart.points;
@@ -242,8 +259,8 @@ export async function loadMarketBrief(
       ? closes.slice(-20).reduce((sum, value) => sum + value, 0) / 20
       : null;
   const close20Ago = closes.length >= 21 ? closes[closes.length - 21]! : null;
-  const industry = snapshot.breadth.industry;
-  const fundBreadth = snapshot.fundFlow.breadth.industry;
+  const industry = snapshot?.breadth.industry;
+  const fundBreadth = snapshot?.fundFlow.breadth.industry;
   const signal = computeMarketSignal({
     aShare: {
       price: selected.price ?? points.at(-1)?.price ?? null,
@@ -253,14 +270,14 @@ export async function loadMarketBrief(
     },
     breadth: {
       risingIndustryRatio:
-        industry.total > 0 ? industry.rising / industry.total : null,
+        industry && industry.total > 0 ? industry.rising / industry.total : null,
       positiveFundFlowRatio:
-        fundBreadth.total > 0 ? fundBreadth.positive / fundBreadth.total : null,
+        fundBreadth && fundBreadth.total > 0 ? fundBreadth.positive / fundBreadth.total : null,
     },
     heat: {
-      limitUpTotal: snapshot.limitUp.total,
-      maxBoard: snapshot.limitUp.maxBoard,
-      avgTurnover: snapshot.limitUp.avgTurnover,
+      limitUpTotal: snapshot?.limitUp.total ?? null,
+      maxBoard: snapshot?.limitUp.maxBoard ?? null,
+      avgTurnover: snapshot?.limitUp.avgTurnover ?? null,
     },
     asOf: selected.asOf,
   });

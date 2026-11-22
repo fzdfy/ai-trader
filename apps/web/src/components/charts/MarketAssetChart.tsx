@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ECharts, TooltipComponentFormatterCallbackParams } from "echarts";
 import { EmptyState } from "@preline-ui/EmptyState";
+import { useAppTheme } from "../AppThemeProvider";
 import { echarts } from "../../lib/echarts";
 import {
   axisLabelStyle,
@@ -40,6 +41,7 @@ export function MarketAssetChart({
 }: MarketAssetChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
+  const { mode, preset } = useAppTheme();
   const renderable = canRenderMarketChart(chart);
   const option = useMemo(() => {
     const labels = chart.points.map((point) => axisTime(point.time));
@@ -142,7 +144,7 @@ export function MarketAssetChart({
           : []),
       ],
     };
-  }, [chart, compact, subjectName]);
+  }, [chart, compact, mode, preset.accent, subjectName]);
 
   useEffect(() => {
     if (!containerRef.current || !renderable) return;
