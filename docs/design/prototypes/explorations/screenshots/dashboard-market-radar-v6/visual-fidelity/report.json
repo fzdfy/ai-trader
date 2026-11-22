@@ -1,0 +1,198 @@
+{
+  "lightDesktop": {
+    "page": {
+      "top": 87,
+      "bottom": 2354.69,
+      "height": 2267.69,
+      "width": 1154
+    },
+    "left": {
+      "top": 180.69,
+      "bottom": 895.69,
+      "height": 715,
+      "width": 785.69
+    },
+    "right": {
+      "top": 180.69,
+      "bottom": 895.69,
+      "height": 715,
+      "width": 356.3
+    },
+    "executionCards": [
+      {
+        "top": 919.69,
+        "bottom": 1189.69,
+        "height": 270,
+        "width": 657.19
+      },
+      {
+        "top": 919.69,
+        "bottom": 1189.69,
+        "height": 270,
+        "width": 484.81
+      }
+    ],
+    "documentWidth": 1440,
+    "viewportWidth": 1440,
+    "dark": false
+  },
+  "darkDesktop": {
+    "page": {
+      "top": 87,
+      "bottom": 2354.69,
+      "height": 2267.69,
+      "width": 1154
+    },
+    "left": {
+      "top": 180.69,
+      "bottom": 895.69,
+      "height": 715,
+      "width": 785.69
+    },
+    "right": {
+      "top": 180.69,
+      "bottom": 895.69,
+      "height": 715,
+      "width": 356.3
+    },
+    "executionCards": [
+      {
+        "top": 919.69,
+        "bottom": 1189.69,
+        "height": 270,
+        "width": 657.19
+      },
+      {
+        "top": 919.69,
+        "bottom": 1189.69,
+        "height": 270,
+        "width": 484.81
+      }
+    ],
+    "documentWidth": 1440,
+    "viewportWidth": 1440,
+    "dark": true
+  },
+  "wideDesktop": {
+    "page": {
+      "top": 87,
+      "bottom": 2330.69,
+      "height": 2243.69,
+      "width": 1480
+    },
+    "left": {
+      "top": 180.69,
+      "bottom": 895.69,
+      "height": 715,
+      "width": 1009.97
+    },
+    "right": {
+      "top": 180.69,
+      "bottom": 895.69,
+      "height": 715,
+      "width": 458.03
+    },
+    "executionCards": [
+      {
+        "top": 919.69,
+        "bottom": 1189.69,
+        "height": 270,
+        "width": 844.78
+      },
+      {
+        "top": 919.69,
+        "bottom": 1189.69,
+        "height": 270,
+        "width": 623.22
+      }
+    ],
+    "documentWidth": 1920,
+    "viewportWidth": 1920,
+    "dark": false
+  },
+  "lightMobile": {
+    "page": {
+      "top": 79,
+      "bottom": 4858.91,
+      "height": 4779.91,
+      "width": 358
+    },
+    "left": {
+      "top": 207.5,
+      "bottom": 995.91,
+      "height": 788.41,
+      "width": 358
+    },
+    "right": {
+      "top": 1007.91,
+      "bottom": 1722.91,
+      "height": 715,
+      "width": 358
+    },
+    "executionCards": [
+      {
+        "top": 1746.91,
+        "bottom": 2016.91,
+        "height": 270,
+        "width": 358
+      },
+      {
+        "top": 2028.91,
+        "bottom": 2298.91,
+        "height": 270,
+        "width": 358
+      }
+    ],
+    "documentWidth": 390,
+    "viewportWidth": 390,
+    "dark": false
+  },
+  "darkMobile": {
+    "page": {
+      "top": 79,
+      "bottom": 4858.91,
+      "height": 4779.91,
+      "width": 358
+    },
+    "left": {
+      "top": 207.5,
+      "bottom": 995.91,
+      "height": 788.41,
+      "width": 358
+    },
+    "right": {
+      "top": 1007.91,
+      "bottom": 1722.91,
+      "height": 715,
+      "width": 358
+    },
+    "executionCards": [
+      {
+        "top": 1746.91,
+        "bottom": 2016.91,
+        "height": 270,
+        "width": 358
+      },
+      {
+        "top": 2028.91,
+        "bottom": 2298.91,
+        "height": 270,
+        "width": 358
+      }
+    ],
+    "documentWidth": 390,
+    "viewportWidth": 390,
+    "dark": true
+  },
+  "etfKeyboard": {
+    "selected": "科创50ETF588000.SH1.30元-3.27%",
+    "activeDescendant": "etf-tab-588000.SH",
+    "chart": "ETF 走势1D · 独立行情可用11/20 15:30，价格 1.30"
+  },
+  "chartKeyboard": {
+    "role": "group",
+    "label": "上证指数1D价格走势和成交量，使用左右方向键查看数据点",
+    "live": "11/20 14:59，价格 3531.12"
+  },
+  "consoleErrors": []
+}

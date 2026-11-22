@@ -152,7 +152,7 @@ git commit -m "feat: align a-share market radar header"
 - Preserve `chart`, `subjectName`, and `compact`.
 - Produce ECharts markLine and legend without changing chart data contracts.
 
-- [ ] **Step 1: Write failing chart-format tests**
+- [x] **Step 1: Write failing chart-format tests**
 
 Add assertions for axis number formatting:
 
@@ -161,23 +161,23 @@ assert.equal(formatChartAxisValue(3533.79), "3,534");
 assert.equal(formatChartAxisValue(4.018), "4.02");
 ```
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts`
 
 Expected: FAIL because `formatChartAxisValue` is missing.
 
-- [ ] **Step 3: Implement `formatChartAxisValue` and chart presentation**
+- [x] **Step 3: Implement `formatChartAxisValue` and chart presentation**
 
 Pass the selected ticker's `preClose` to the chart. Add a dashed reference line when available, a series legend, a subtle gradient area, stronger volume bars, and theme-aware axes. Keep the existing keyboard live region, tooltip and reduced-motion behavior.
 
-- [ ] **Step 4: Run focused checks**
+- [x] **Step 4: Run focused checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/components/charts/MarketAssetChart.tsx apps/web/src/lib/market-brief.ts apps/web/src/lib/market-brief.test.ts apps/web/src/routes/home/-private/AShareMarketBoard.tsx apps/web/src/routes/home/-private/ETFContextCard.tsx apps/web/src/routes/home/-private/GlobalContextCard.tsx
@@ -198,7 +198,7 @@ git commit -m "feat: unify market radar chart grammar"
 - ETF keyboard navigation continues to consume `onTabKeyDown`.
 - Range buttons remain scoped to the active ETF.
 
-- [ ] **Step 1: Add failing regression assertions**
+- [x] **Step 1: Add failing regression assertions**
 
 Extend the existing ETF keyboard test to assert that changing ETF does not change the index or global symbol:
 
@@ -207,23 +207,23 @@ assert.equal(after.symbol, before.symbol);
 assert.equal(after.globalSymbol, before.globalSymbol);
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-selection.test.ts`
 
 Expected: PASS if existing reducer isolation is correct; retain the assertions.
 
-- [ ] **Step 3: Implement the v6 ETF and cross-market composition**
+- [x] **Step 3: Implement the v6 ETF and cross-market composition**
 
 Render all three ETF quote rows with name, code, price and change above the selected chart. Add the `ETF 走势` and `独立行情` labels, use the ETF semantic wash, and align the cross-market header/chart/footer to the same surface grammar.
 
-- [ ] **Step 4: Run focused checks**
+- [x] **Step 4: Run focused checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-selection.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/routes/home/-private/ETFContextCard.tsx apps/web/src/routes/home/-private/GlobalContextCard.tsx apps/web/src/lib/market-selection.test.ts
@@ -238,7 +238,7 @@ git commit -m "feat: align etf and cross-market observation cards"
 - Modify: `apps/web/src/routes/home/-private/AShareMarketBoard.tsx`
 - Modify: `apps/web/src/lib/market-brief.test.ts`
 
-- [ ] **Step 1: Add failing score-display assertions**
+- [x] **Step 1: Add failing score-display assertions**
 
 Add tests that verify long factor scores are formatted without float tails:
 
@@ -247,23 +247,23 @@ assert.equal(formatFactorScore(26.516202596626652), "27");
 assert.equal(formatFactorScore(null), "缺失");
 ```
 
-- [ ] **Step 2: Run the tests**
+- [x] **Step 2: Run the tests**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts`
 
 Expected: FAIL because `formatFactorScore` is missing.
 
-- [ ] **Step 3: Implement `formatFactorScore` and recompose the panel**
+- [x] **Step 3: Implement `formatFactorScore` and recompose the panel**
 
 Round finite scores to integers and render missing scores as `缺失`. Use the v6 signal gradient, place confidence at top right, make the evidence body readable, render compact integer factor pills and retain the selected-index trend caption. Keep low-quality panels on a neutral semantic surface.
 
-- [ ] **Step 4: Run focused checks**
+- [x] **Step 4: Run focused checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/routes/home/-private/AShareSignalPanel.tsx apps/web/src/routes/home/-private/AShareMarketBoard.tsx apps/web/src/lib/market-brief.test.ts
@@ -283,7 +283,7 @@ git commit -m "feat: align dashboard signal presentation"
 - Consumes: current `useWorkTasks`, `useTodayWorkflowRunsQuery`, and `useWorkflowsQuery`.
 - Produces: `formatWorkflowSuccessRate(runs: readonly { status: string }[]): string`.
 
-- [ ] **Step 1: Add failing workflow-summary tests**
+- [x] **Step 1: Add failing workflow-summary tests**
 
 Cover:
 
@@ -293,23 +293,23 @@ assert.equal(formatWorkflowSuccessRate([{ status: "success" }, { status: "failed
 assert.equal(formatWorkflowSuccessRate([{ status: "running" }]), "—");
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/work-tasks.test.ts`
 
 Expected: FAIL because `formatWorkflowSuccessRate` is missing.
 
-- [ ] **Step 3: Implement `formatWorkflowSuccessRate` and the v6 today execution layout**
+- [x] **Step 3: Implement `formatWorkflowSuccessRate` and the v6 today execution layout**
 
 Exclude non-terminal runs from the success-rate denominator and return `—` for an empty denominator. Add three workflow metrics above the recent list, preserve the list/empty/error states inside the same card geometry, align both cards to equal minimum height, and keep task-detail links and retry buttons.
 
-- [ ] **Step 4: Run focused checks**
+- [x] **Step 4: Run focused checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/work-tasks.test.ts src/lib/market-brief.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/routes/home/-private/TodayExecutionSection.tsx apps/web/src/lib/work-tasks.ts apps/web/src/lib/work-tasks.test.ts
@@ -325,7 +325,7 @@ git commit -m "feat: align today execution cards"
 - Modify: `apps/web/src/lib/market-brief.ts`
 - Modify: `apps/web/src/lib/market-brief.test.ts`
 
-- [ ] **Step 1: Add failing header-date tests**
+- [x] **Step 1: Add failing header-date tests**
 
 Verify the v6-style header derives from the latest market snapshot rather than the browser calendar:
 
@@ -336,23 +336,23 @@ assert.deepEqual(
 );
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts`
 
 Expected: FAIL because `formatMarketBriefDate` is missing.
 
-- [ ] **Step 3: Implement `formatMarketBriefDate` and apply page-level fidelity changes**
+- [x] **Step 3: Implement `formatMarketBriefDate` and apply page-level fidelity changes**
 
 Use `Asia/Shanghai` to derive weekday and month/day from the market snapshot. Use that date in the eyebrow, reduce the visual prominence of the snapshot/review actions, keep the `1500px` max width, preserve stable loading skeletons, and ensure missing data does not change the grid structure.
 
-- [ ] **Step 4: Run focused checks**
+- [x] **Step 4: Run focused checks**
 
 Run: `cd apps/web && node --test --experimental-strip-types src/lib/market-brief.test.ts && pnpm check-types && pnpm lint`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/routes/home/-private/DailyDashboard.tsx apps/web/src/routes/home/-private/MarketRadarHero.tsx apps/web/src/lib/market-brief.ts apps/web/src/lib/market-brief.test.ts
@@ -366,7 +366,7 @@ git commit -m "feat: align dashboard page composition"
 - Create: `openspec/changes/refine-dashboard-market-radar-visual-fidelity/verification.md`
 - Create: `docs/design/prototypes/explorations/screenshots/dashboard-market-radar-v6/visual-fidelity/` evidence files.
 
-- [ ] **Step 1: Run automated checks**
+- [x] **Step 1: Run automated checks**
 
 Run:
 
@@ -376,11 +376,11 @@ cd apps/web && pnpm test && pnpm check-types && pnpm lint && pnpm build
 
 Expected: tests pass, types pass, lint has 0 errors, production build succeeds.
 
-- [ ] **Step 2: Run the real Docker stack**
+- [x] **Step 2: Run the real Docker stack**
 
 Use the current public compose stack with real PostgreSQL data and `DASHBOARD_MARKET_RADAR_ENABLED=true`. Verify `/api/v1/dashboard/market-brief` returns three charts and real data.
 
-- [ ] **Step 3: Capture required screenshots**
+- [x] **Step 3: Capture required screenshots**
 
 Capture:
 
@@ -391,11 +391,11 @@ Capture:
 - Chart keyboard focus.
 - Loading, missing, stale, partial-success and error states.
 
-- [ ] **Step 4: Measure and inspect**
+- [x] **Step 4: Measure and inspect**
 
 Verify no horizontal overflow, no console errors, no failed images, keyboard focus visibility, and A-share/right-stack height alignment. Record actual measurements and any residual `oil-ui` lint findings in `verification.md`.
 
-- [ ] **Step 5: Commit verification**
+- [x] **Step 5: Commit verification**
 
 ```bash
 git add openspec/changes/refine-dashboard-market-radar-visual-fidelity/verification.md docs/design/prototypes/explorations/screenshots/dashboard-market-radar-v6/visual-fidelity
