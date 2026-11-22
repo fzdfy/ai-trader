@@ -23,7 +23,7 @@
 对应计划：`docs/superpowers/plans/2026-11-22-dashboard-market-radar-api.md`
 
 - [x] 2.1 增加 server 固定资产目录和 Market Asset Reader，查询 quote/minute/daily 并返回质量与 stale reason；验证缺失和过期降级。
-- [ ] 2.2 实现 A 股、ETF、跨市场三个独立 range resolver 与图表响应；验证 1D/5D/1M/YTD 不互相影响。
+- [x] 2.2 实现 A 股、ETF、跨市场三个独立 range resolver 与图表响应；验证 1D/5D/1M/YTD 不互相影响。
 - [ ] 2.3 实现 `dashboard-signal-v1` 确定性信号及证据模板；验证阈值、两项缺失、低置信度和 ETF 不参与分数。
 - [ ] 2.4 实现 `GET /api/v1/dashboard/market-brief` 参数校验、并行查询和响应契约；验证 allowlist、400、部分成功和缓存无用户数据。
 - [ ] 2.5 增加 feature flag 与旧看板回退契约；验证关闭时前端可继续读取原 `/api/v1/dashboard`。
