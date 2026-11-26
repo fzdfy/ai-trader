@@ -1,5 +1,0 @@
-services:
-  server:
-    environment:
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:?BETTER_AUTH_URL is required for public deployment}
-      - AUTH_TRUSTED_ORIGINS=${AUTH_TRUSTED_ORIGINS:?AUTH_TRUSTED_ORIGINS is required for public deployment}

@@ -51,39 +51,21 @@ docker compose up -d
 ### 本地与公网环境
 
 本地开发继续使用 9080/3001/3002/5432。Docker 部署默认使用
-9180/3101/3102/5532，可同时运行；Docker 本地认证 Origin 默认为
-`http://localhost:9180`：
+9180/3101/3102/5532，可同时运行。根目录 `docker-compose.yml` 使用同一套认证
+配置同时支持本机和当前 zrok 地址：
+
+```dotenv
+BETTER_AUTH_URL=http://localhost:9180
+AUTH_TRUSTED_ORIGINS=https://whtefvmqpezr.shares.zrok.io,http://localhost
+```
 
 ```bash
 docker compose up -d
 ```
 
-通过 zrok 等反向代理提供公网访问时，使用独立的 `.env.public`，不要修改
-`.env.local`：
-
-```bash
-cp .env.public.example .env.public
-# 编辑 BETTER_AUTH_URL 和 AUTH_TRUSTED_ORIGINS
-
-./deploy/setup-public.sh
-```
-
-`setup.sh` 仅用于本地 Docker 环境。它不会加载
-`docker-compose.public.yml`；公网完整部署必须使用
-`setup-public.sh`，否则 Better Auth 会回退到 localhost 并拒绝公网登录。
-
-公网地址变化时只修改 `.env.public` 中两个精确 Origin，然后重新创建 server：
-
-```bash
-docker compose \
-  --env-file .env.public \
-  -f docker-compose.yml \
-  -f docker-compose.public.yml \
-  up -d --no-deps --force-recreate server
-```
-
-不要使用 `*.shares.zrok.io` 通配 Origin。需要长期稳定地址时，优先为 zrok
-配置保留子域或自有域名。
+公网 zrok 地址变化时，更新 `docker-compose.yml` 中的精确
+`AUTH_TRUSTED_ORIGINS`，然后重新创建 server。不要使用
+`*.shares.zrok.io` 通配 Origin，也不要通过单独的 public overlay 或环境文件覆盖。
 
 ### 容器管理
 
@@ -125,8 +107,8 @@ docker compose restart server # 重启单个服务
 |------|------|------|
 | `DATABASE_URL` | PostgreSQL 连接串（Docker 自动覆盖） | 是 |
 | `BETTER_AUTH_SECRET` | 认证加密密钥 | 是 |
-| `BETTER_AUTH_URL` | 当前环境的唯一认证 Origin；Docker 本地默认 `http://localhost:9180`，公网必须使用 HTTPS Origin | 是 |
-| `AUTH_TRUSTED_ORIGINS` | Better Auth 与 CORS 共用的逗号分隔精确 Origin allowlist；公网 overlay 必填 | 公网必填 |
+| `BETTER_AUTH_URL` | Docker 部署固定为 `http://localhost:9180` | 是 |
+| `AUTH_TRUSTED_ORIGINS` | Better Auth 与 CORS 共用的精确 Origin allowlist；当前为 zrok 域名和 localhost | 是 |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key（AI Agent） | 是 |
 | `QUANT_URL` | 回测服务地址（Docker 自动覆盖） | 否 |
 

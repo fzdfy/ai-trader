@@ -28,11 +28,6 @@ if [ ! -f .env.local ]; then
   cp apps/server/.env.example .env.local
   warn "已从模板创建 .env.local，请填入 DEEPSEEK_API_KEY 和 BETTER_AUTH_SECRET"
 fi
-if [ -f .env.public ]; then
-  warn "检测到 .env.public；本脚本仍按本地 compose 部署，不会加载公网 overlay"
-  warn "公网部署请使用：./deploy/setup-public.sh"
-fi
-
 # ---- 3. 构建并启动所有容器 ----
 log "构建 Docker 镜像..."
 docker compose build
@@ -68,7 +63,6 @@ echo ""
 echo "  访问地址："
 echo "    http://localhost:9180       前端页面"
 echo "    http://localhost:9180/signup 注册账号"
-echo "    公网部署：./deploy/setup-public.sh"
 echo ""
 echo "  容器管理："
 echo "    docker compose logs -f  查看日志"
