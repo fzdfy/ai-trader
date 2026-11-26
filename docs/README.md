@@ -91,11 +91,12 @@ flowchart LR
 | [runbooks.md](./runbooks.md) | 排障手册：僵尸任务 / 东财熔断 / 回测超时 | 线上出问题时 |
 | [decisions.md](./decisions.md) | 决策记录（已决·勿翻案） | 想重复论证某个结论前 |
 | [issues.md](./issues.md) | 已知缺陷 & 技术债 | 遇到怪现象时先查这里 |
-| [standards/development-workflow.md](./standards/development-workflow.md) | AI 开发流程、文档职责和完成条件 | 开始需求、规划、实施或归档时 |
+| [standards/sdd/](./standards/sdd/README.md) | 当前 SDD v2、历史 v1、Skill 矩阵与迁移 | 开始需求、规划、实施或归档时 |
+| [standards/development-workflow.md](./standards/development-workflow.md) | v2 短入口、风险路由和硬门禁 | 需要快速回忆流程时 |
 | [standards/rag.md](./standards/rag.md) | 研报、新闻和 Agent 的 Evidence Search / RAG 边界 | 设计内容检索、向量或 Agent 引用时 |
 | [glossary.md](./glossary.md) | 业务、设计与领域术语 | 需要确认产品语言时 |
 | [technical-glossary.md](./technical-glossary.md) | 架构、平台和实现术语索引 | 需要定位代码概念时 |
-| [superpowers/specs/](./superpowers/specs/) | 已确认或进行中的技术方案设计 | 查看需求背后的完整方案时 |
+| [superpowers/specs/](./superpowers/specs/) | L2 补充设计或历史技术方案 | 当前 change 明确引用完整方案时 |
 | [OpenSpec changes](../openspec/changes/) | 单个需求当前有效的 proposal、specs、design 和 tasks | 实施或追踪需求时 |
 | [roadmap.md](./roadmap.md) | 路线图（已完成 / 进行中 / 待办） | 想知道下一步做什么 |
 | [workflow-guide.md](./workflow-guide.md) | 工作流列表、画布、发布、运行和归档 | 使用或介绍自定义工作流 |
@@ -103,6 +104,6 @@ flowchart LR
 ## 3. 建议阅读路径
 
 - **第一次接触项目** → 「1. 三分钟全局图」→ architecture.md → data-pipeline.md。
-- **要改代码** → invariants.md（先看约束）→ corresponding 主题文档 → runbooks.md（避坑）。
+- **要改代码** → invariants.md（先看约束）→ [SDD v2](./standards/sdd/v2.md)（分类与流程）→ corresponding 主题文档 → runbooks.md（避坑）。
 - **排障** → runbooks.md → issues.md → decisions.md。
-- **接手规划** → roadmap.md → issues.md。
+- **接手规划** → roadmap.md → issues.md → [SDD v2](./standards/sdd/v2.md)。

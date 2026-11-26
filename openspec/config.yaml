@@ -4,6 +4,17 @@ context: |
   Language: zh-CN
   All artifacts must be written in zh-CN.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  SDD authority:
+  - `docs/standards/sdd/v2.md` is the current complete workflow.
+  - `docs/standards/sdd/v1.md` is a frozen historical baseline.
+  - New changes use v2 metadata: type, risk, baseline and visual impact.
+  - L0 changes do not create OpenSpec by default unless they affect a visible, API, data, security or shared constraint.
+  - L1 changes use a compact proposal, capability delta, design, tasks and verification.
+  - L2 changes require complete design reasoning and independent review.
+  - PRD-lite is required for new user features, multi-page flows, permissions or data-semantic changes.
+  - `writing-plans` and `executing-plans` are optional L2 tools, not default L1 stages.
+  - Planning approval may authorize continuous low-risk implementation; stop at hard risk or scope boundaries.
+  - Final acceptance and archive are separate user confirmations.
   Visual design gate:
   - Any change that adds or modifies a page, component, visible state, interaction, information hierarchy, loading/empty/error/partial-success behavior, data presentation, copy that changes an action, or responsive/light/dark behavior MUST require visual design.
   - Reusing an existing visual direction does NOT exempt a change from visual design.
@@ -12,13 +23,21 @@ context: |
 
 rules:
   proposal:
+    - "Declare `type`, `risk`, `baseline` and `visual` using the SDD v2 values."
+    - "Required fields are `type: feature | bug | ui | refactor | hotfix`, `risk: L0 | L1 | L2`, `baseline: spec | invariant | issue | confirmed-visual | none`, and `visual: not-applicable | regression | new-design`."
+    - "Use stable `AC-*` IDs for observable acceptance criteria."
     - "Always include a `## Visual Design Impact` section."
     - "The section MUST declare `Visual design: required` or `Visual design: not applicable`; not-applicable MUST include a concrete no-visible-UI reason."
     - "State the affected screen, interaction, states, reference prototype and required review targets when visual design is required."
   design:
+    - "For L1 without new technical decisions, record that conclusion and the implementation boundary instead of copying proposal goals or acceptance criteria."
+    - "For L2, include alternatives, failure modes, compatibility and rollback, and record independent review in `## Review Result`."
     - "When visual design is required, include a Visual Design section linking the exploration prototype and screenshot directory."
     - "Describe loading, empty, error, partial-success and success states plus desktop/mobile and light/dark coverage."
   tasks:
+    - "`tasks.md` is the only implementation progress checklist; conditional Superpowers plans and ledgers MUST reference it rather than replace it."
+    - "Behavior tasks MUST name the failing test, test file or command, and verification command."
+    - "L1 tasks may be executed continuously after planning approval; stop only at SDD v2 hard boundaries."
     - "When visual design is required, create `## 0. Visual Design Gate` before every implementation group."
     - "Before user approval, tasks.md may contain only the visual design gate; do not add implementation tasks until the approved exploration and screenshots exist."
     - "The gate MUST require an exploration prototype, desktop/mobile light/dark screenshots, tool checks, and explicit user confirmation."
@@ -27,7 +46,12 @@ rules:
 operations:
   apply:
     guidance:
+      - "Follow the current SDD v2 change type, risk level and hard stops before applying tasks."
+      - "Continue low-risk tasks after plan approval unless scope, risk, interfaces, data boundaries or visual direction change."
+      - "Use TDD for behavior changes and run the latest complete verification before completion claims."
       - "Before changing production code, verify the visual design gate is confirmed whenever UI behavior is in scope."
   archive:
     guidance:
+      - "Require user acceptance before archive and a separate explicit user confirmation to archive."
+      - "Verify `verification.md` maps acceptance criteria to current command and visual evidence."
       - "Verify verification.md records the approved visual design and screenshot evidence when visual design was required."
