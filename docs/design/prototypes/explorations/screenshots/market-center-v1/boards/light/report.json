@@ -1,0 +1,42 @@
+[
+  {
+    "file": "page-行业板块-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "行业板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-概念板块-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "概念板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-行业板块-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "行业板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-概念板块-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "概念板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

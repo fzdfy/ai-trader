@@ -7,6 +7,9 @@ export type BoardItem = Record<string, unknown> & {
   rank: string;
   changePercent: string | null;
   popularity: string | null;
+  totalMarketCap: string | null;
+  leader: string | null;
+  leaderChange: string | null;
   updatedAt: string;
 };
 

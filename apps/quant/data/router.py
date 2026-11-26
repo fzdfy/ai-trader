@@ -88,6 +88,7 @@ from .schemas import (
     ValuationDailyItem,
 )
 from .market_assets import resolve_market_asset
+from .index_rotation import fetch_growth_defense_history, fetch_main_index_history
 
 router = APIRouter(tags=["data"])
 
@@ -304,6 +305,24 @@ def get_market_asset_daily(
         start=start,
         end=end,
     )
+
+
+@router.get("/rotation-indices/daily")
+def get_rotation_indices_daily(
+    start: Annotated[str, Query(description="起始日期 YYYY-MM-DD")],
+    end: Annotated[str, Query(description="结束日期 YYYY-MM-DD")],
+):
+    """创业板50与红利低波100的固定指数日线，用于成长/防守轮动。"""
+    return fetch_growth_defense_history(start, end)
+
+
+@router.get("/main-indices/daily")
+def get_main_indices_daily(
+    start: Annotated[str, Query(description="起始日期 YYYY-MM-DD")],
+    end: Annotated[str, Query(description="结束日期 YYYY-MM-DD")],
+):
+    """七个固定 A 股主要指数的日线，用于行情与相对大盘。"""
+    return fetch_main_index_history(start, end)
 
 
 @router.get("/transaction", response_model=list[TradeTick])

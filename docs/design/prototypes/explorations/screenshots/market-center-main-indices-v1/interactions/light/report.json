@@ -1,0 +1,32 @@
+[
+  {
+    "file": "page-切换到相对大盘.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "切换到相对大盘",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-切换到60日.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "切换到60日",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-键盘焦点.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "键盘焦点",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

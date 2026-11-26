@@ -24,7 +24,8 @@ docs/design/prototypes/
 │   ├── quant-workbench-assistant-v2.html # 当前默认工作台参考原型
 │   ├── quant-workbench-stock-analysis-v1.html # 个股分析历史基准
 │   ├── quant-workbench-stock-analysis-v2.html # 当前个股分析基准（含价格趋势）
-│   └── quant-workbench-user-work-task-v1.html # 已确认的个人工作任务基准稿
+│   ├── quant-workbench-user-work-task-v1.html # 已确认的个人工作任务基准稿
+│   └── quant-workbench-market-center-v1.html # 已确认并落地的行情中心基准稿
 ├── explorations/
 │   ├── quant-workbench-preline.html    # 继承原始稿主题的独立 Preline 探索稿
 │   ├── quant-workbench-assistant-v2.html # V2 确认过程稿
@@ -36,6 +37,8 @@ docs/design/prototypes/
 │   ├── quant-workbench-user-work-task-v1.html # 个人工作任务历史设计稿
 │   ├── quant-workbench-user-work-task-v2.html # 已确认设计的过程稿
 │   ├── quant-workbench-dashboard-market-radar-v6.html # 已确认的 ETF Tab、独立观察卡与今日执行布局
+│   ├── quant-workbench-market-center-v1.html # 行情中心三模块信息架构与状态探索
+│   ├── quant-workbench-market-center-main-indices-v1.html # 七项主要指数、相对大盘与独立大类资产轮动探索
 │   ├── screenshots/data-governance-production/ # 数据治理生产页面验收截图
 │   └── screenshots/research-rag-production/ # 研报索引生产页面验收截图
 └── assets/                         # 预览所需的静态资源
@@ -71,6 +74,7 @@ python3 -m http.server 9090
 - `http://localhost:9090/initial/quant-workbench-assistant-v2.html`（默认参考）
 - `http://localhost:9090/initial/quant-workbench-stock-analysis-v2.html`（个股分析当前基准）
 - `http://localhost:9090/initial/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务确认基准）
+- `http://localhost:9090/initial/quant-workbench-market-center-v1.html?view=overview#market`（行情中心确认基准）
 - `http://localhost:9090/initial/quant-workbench-assistant.html`
 - `http://localhost:9090/explorations/quant-workbench-preline.html`
 - `http://localhost:9090/explorations/quant-workbench-daily-dashboard-v3.html`（每日看板设计稿）
@@ -82,6 +86,8 @@ python3 -m http.server 9090
 - `http://localhost:9090/explorations/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务历史稿）
 - `http://localhost:9090/explorations/quant-workbench-user-work-task-v2.html?page=daily&view=today`（个人工作任务确认过程稿）
 - `http://localhost:9090/explorations/quant-workbench-dashboard-market-radar-v6.html`（每日看板 v6 确认稿）
+- `http://localhost:9090/explorations/quant-workbench-market-center-v1.html?view=overview#market`（行情中心视觉探索）
+- `http://localhost:9090/explorations/quant-workbench-market-center-main-indices-v1.html?view=overview#market`（主要指数改版视觉探索）
 
 探索稿使用 Tailwind CSS 与 Preline CDN。正式应用使用 npm 包和 Vite 构建。
 
@@ -100,6 +106,10 @@ V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比�
 研报索引生产页面验收覆盖比亚迪真实待索引状态、证据检索空态、移动端和深色模式，截图与浏览器检查报告保存在 `explorations/screenshots/research-rag-production/`。
 
 每日看板 V6 确认稿以 A 股主控台为左侧主视图，右侧并列跨市场背景与主流 ETF 两张 Tab 观察卡，今日行动和今日工作流下沉为独立的今日执行区。桌面端左右总高度与底边严格对齐，移动端自然单列。截图证据保存在 `explorations/screenshots/dashboard-market-radar-v6/`。
+
+行情中心探索稿把每日看板保留为当日决策摘要，在行情中心内提供“总览、板块、个股”三个可深链模块。成长/防守和大类资产相对强弱位于总览；行业与概念板块页第一层展示当前排行和热力图，第二层直接展示轮动和异动。列表不内嵌主从详情，点击股票进入快速行情详情，点击行业或概念进入板块详情，资金结构放在详情内。总览覆盖成功、加载、空、错误和部分成功状态；其余模块覆盖桌面/移动端及浅色/深色。确认基准已保存为 `initial/quant-workbench-market-center-v1.html`，设计与生产截图保存在 `explorations/screenshots/market-center-v1/`。
+
+主要指数改版探索稿把上证指数设为独立全宽市场基准，沪深300、中证500、中证1000、创业板50、科创50和中证红利低波100按固定角色展示；相对大盘使用 5/20/60 日百分点超额收益和共同交易日。大类资产轮动移至独立区域，不与主要指数共用切换器。截图保存在 `explorations/screenshots/market-center-main-indices-v1/`，视觉方案已确认，等待生产落地后提升为 `initial/` 基准。
 
 个人工作任务设计稿覆盖今日三列看板、收件箱、未来、全部、详情面板、拖拽、空/加载/错误/部分成功，以及桌面/移动端和浅色/深色。生产页面验收截图保存在 `explorations/screenshots/user-work-task-production/`。
 

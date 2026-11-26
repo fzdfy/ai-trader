@@ -73,6 +73,7 @@ test("page titles use stable generic names for detail routes", () => {
   assert.equal(getWorkbenchPageTitle("/home/reviews/history"), "历史复盘");
   assert.equal(getWorkbenchPageTitle("/home/factors/momentum"), "因子");
   assert.equal(getWorkbenchPageTitle("/home/market/stock/600519"), "个股");
+  assert.equal(getWorkbenchPageTitle("/home/market/boards/BK1036"), "板块");
   assert.equal(getWorkbenchPageTitle("/home/strategies/42"), "策略");
   assert.equal(getWorkbenchPageTitle("/home/reviews/history/2026-11-17"), "历史复盘");
   assert.equal(getWorkbenchPageTitle("/home/workflows"), "工作流");
@@ -94,6 +95,7 @@ test("market navigation distinguishes stock analysis from market center", () => 
   assert.equal(isWorkbenchNavSelected("/home/market/analysis", "/home/market"), false);
   assert.equal(isWorkbenchNavSelected("/home/market/analysis", "/home/market/analysis"), true);
   assert.equal(isWorkbenchNavSelected("/home/market/stock/002594.SZ", "/home/market"), true);
+  assert.equal(isWorkbenchNavSelected("/home/market/boards/BK1036", "/home/market"), true);
   assert.equal(isWorkbenchNavSelected("/home", "/home"), true);
 });
 
@@ -110,6 +112,17 @@ test("breadcrumbs use a clickable root and deterministic parent", () => {
   assert.deepEqual(getWorkbenchBreadcrumbs("/home/market"), [
     { label: "Apollo Quant", href: "/home" },
     { label: "行情中心", href: null },
+  ]);
+  assert.deepEqual(getWorkbenchBreadcrumbs("/home/market/boards"), [
+    { label: "Apollo Quant", href: "/home" },
+    { label: "行情中心", href: "/home/market" },
+    { label: "板块", href: null },
+  ]);
+  assert.deepEqual(getWorkbenchBreadcrumbs("/home/market/boards/BK1036"), [
+    { label: "Apollo Quant", href: "/home" },
+    { label: "行情中心", href: "/home/market" },
+    { label: "板块", href: "/home/market/boards" },
+    { label: "板块详情", href: null },
   ]);
   assert.deepEqual(getWorkbenchBreadcrumbs("/home/market/analysis"), [
     { label: "Apollo Quant", href: "/home" },

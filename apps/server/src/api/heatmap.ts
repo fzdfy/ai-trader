@@ -15,7 +15,8 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { board, boardConstituent } from "../db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { numericTextAscending } from "../lib/board-order";
 import { ok, badRequest } from "../lib/response";
 
 const heatmapRoute = new Hono();
@@ -75,7 +76,7 @@ heatmapRoute.get("/", async (c) => {
     .select()
     .from(board)
     .where(eq(board.type, type))
-    .orderBy(asc(board.rank))
+    .orderBy(numericTextAscending(board.rank))
     .limit(top);
 
   if (boardRows.length === 0) {

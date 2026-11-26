@@ -1,12 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { VStack } from "@preline-ui/Stack";
 import { Heading } from "@preline-ui/Heading";
+import { legacyMarketRedirect } from "../../../lib/market-center";
 import { HeatmapTab } from "./-private/HeatmapTab";
 
 export const Route = createFileRoute("/home/signals/heatmap")({
   validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
     tab: (search.tab as string) ?? "industry",
   }),
+  beforeLoad: ({ location }) => {
+    const target = legacyMarketRedirect(location.pathname, location.search);
+    if (target) throw redirect(target);
+  },
   component: HeatmapPage,
 });
 

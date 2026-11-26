@@ -138,6 +138,36 @@ export function getWorkbenchBreadcrumbs(
 ): WorkbenchBreadcrumb[] {
   const currentLabel = getWorkbenchPageTitle(pathname);
   const root = { label: "Apollo Quant", href: "/home" };
+  if (pathname === "/home/market/boards") {
+    return [
+      root,
+      { label: "行情中心", href: "/home/market" },
+      { label: "板块", href: null },
+    ];
+  }
+  if (pathname.startsWith("/home/market/boards/")) {
+    return [
+      root,
+      { label: "行情中心", href: "/home/market" },
+      { label: "板块", href: "/home/market/boards" },
+      { label: "板块详情", href: null },
+    ];
+  }
+  if (pathname === "/home/market/stock") {
+    return [
+      root,
+      { label: "行情中心", href: "/home/market" },
+      { label: "个股", href: null },
+    ];
+  }
+  if (pathname.startsWith("/home/market/stock/")) {
+    return [
+      root,
+      { label: "行情中心", href: "/home/market" },
+      { label: "个股", href: "/home/market/stock" },
+      { label: options.stockName ?? "行情详情", href: null },
+    ];
+  }
   if (pathname === "/home/market/analysis") {
     return [root, { label: "个股分析", href: null }];
   }
@@ -180,6 +210,18 @@ export function getPageBackTarget(pathname: string): PageBackTarget | null {
   }
   if (pathname === "/home/market/analysis") {
     return null;
+  }
+  if (pathname === "/home/market/boards") {
+    return { href: "/home/market", label: "返回行情中心" };
+  }
+  if (pathname.startsWith("/home/market/boards/")) {
+    return { href: "/home/market/boards", label: "返回板块" };
+  }
+  if (pathname === "/home/market/stock") {
+    return { href: "/home/market", label: "返回行情中心" };
+  }
+  if (pathname.startsWith("/home/market/stock/")) {
+    return { href: "/home/market/stock", label: "返回个股" };
   }
   if (pathname.startsWith("/home/market/analysis/")) {
     return { href: "/home/market/analysis", label: "返回个股分析" };

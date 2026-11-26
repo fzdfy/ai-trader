@@ -556,7 +556,7 @@ function EditorContent({ workflow }: { workflow: WorkflowDetail }) {
   };
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 pb-8">
+    <div className="mx-auto space-y-4 pb-8">
       <header className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <div className="min-w-0 flex-1">

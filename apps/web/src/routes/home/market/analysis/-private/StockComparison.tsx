@@ -50,7 +50,7 @@ export function StockComparison({ symbols }: { symbols: readonly string[] }) {
 
   if (comparisonQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-[1500px] space-y-4">
+      <div className="mx-auto space-y-4">
         <div className="h-28 animate-pulse rounded-2xl bg-app-surface" />
         <div className="grid gap-4 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
@@ -79,7 +79,7 @@ export function StockComparison({ symbols }: { symbols: readonly string[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4">
+    <div className="mx-auto space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">

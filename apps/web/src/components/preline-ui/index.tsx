@@ -17,7 +17,7 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { marked } from "marked";
-import { Info, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, MoreHorizontal } from "lucide-react";
 import {
   badgeClassNames,
   buttonClassNames,
@@ -338,6 +338,92 @@ interface IconButtonProps extends Omit<ButtonProps, "children" | "label"> {
 
 export function IconButton({ label, ...props }: IconButtonProps) {
   return <Button {...props} label={label} isIconOnly />;
+}
+
+interface PaginationProps extends Omit<BaseProps<HTMLElement>, "onChange"> {
+  page: number;
+  pageCount: number;
+  total: number;
+  rangeStart: number;
+  rangeEnd: number;
+  tokens: Array<number | "ellipsis-left" | "ellipsis-right">;
+  label?: string;
+  onPageChange: (page: number) => void;
+}
+
+export function Pagination({
+  page,
+  pageCount,
+  total,
+  rangeStart,
+  rangeEnd,
+  tokens,
+  label = "分页",
+  onPageChange,
+  className,
+  ...props
+}: PaginationProps) {
+  return (
+    <nav
+      {...props}
+      aria-label={label}
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-2 border-t border-app-line px-3 py-2.5",
+        className,
+      )}
+    >
+      <span className="font-mono text-[10px] text-app-muted">
+        {rangeStart}–{rangeEnd} / {total}
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="focus-ring grid size-7 place-items-center rounded-md border border-app-line text-app-muted transition hover:bg-app-surface disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="上一页"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft className="size-3.5" />
+        </button>
+        {tokens.map((token) =>
+          typeof token === "number" ? (
+            <button
+              key={token}
+              type="button"
+              className={cn(
+                "focus-ring grid min-w-7 place-items-center rounded-md px-1.5 font-mono text-[10px] transition",
+                token === page
+                  ? "h-7 bg-primary text-primary-foreground"
+                  : "h-7 text-app-muted hover:bg-app-surface hover:text-app-ink",
+              )}
+              aria-label={`第 ${token} 页`}
+              aria-current={token === page ? "page" : undefined}
+              onClick={() => onPageChange(token)}
+            >
+              {token}
+            </button>
+          ) : (
+            <span
+              key={token}
+              className="grid size-7 place-items-center text-app-muted"
+              aria-hidden="true"
+            >
+              <MoreHorizontal className="size-3.5" />
+            </span>
+          ),
+        )}
+        <button
+          type="button"
+          className="focus-ring grid size-7 place-items-center rounded-md border border-app-line text-app-muted transition hover:bg-app-surface disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="下一页"
+          disabled={page >= pageCount}
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight className="size-3.5" />
+        </button>
+      </div>
+    </nav>
+  );
 }
 
 interface CardProps extends BaseProps {
@@ -920,7 +1006,7 @@ export function ToggleButton({ value, label }: { value: string; label: string })
         );
       }}
       className={cn(
-        "rounded-md px-2.5 py-1.5 text-xs transition",
+        "focus-ring rounded-md px-2.5 py-1.5 text-xs transition",
         selected ? "bg-primary text-primary-foreground" : "text-app-muted hover:bg-app-panel",
       )}
     >

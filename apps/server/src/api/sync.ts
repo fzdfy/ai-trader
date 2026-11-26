@@ -56,6 +56,7 @@ export const SYNC_MODULES: { jobType: string; name: string }[] = [
   { jobType: "stock-fundamentals", name: "自选股基本面" },
   { jobType: "kline-period", name: "周期 K 线" },
   { jobType: "features", name: "特征计算" },
+  { jobType: "rotation-indices", name: "轮动指数" },
   // 历史回补：与当日同步分离的独立任务（收盘后错峰运行，只补窗口内缺失的历史交易日）
   { jobType: "limit-up-pool-backfill", name: "涨停池回补" },
   { jobType: "dragon-tiger-backfill", name: "龙虎榜回补" },

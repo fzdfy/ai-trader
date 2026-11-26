@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db } from "../../../db";
 import { board } from "../../../db/schema/md";
 import { eq } from "drizzle-orm";
+import { numericTextAscending } from "../../../lib/board-order";
 
 export const boardTool = createTool({
   id: "getBoardRankings",
@@ -48,7 +49,7 @@ export const boardTool = createTool({
       })
       .from(board)
       .where(eq(board.type, type))
-      .orderBy(board.rank)
+      .orderBy(numericTextAscending(board.rank))
       .limit(limit);
 
     return {

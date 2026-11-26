@@ -20,12 +20,12 @@ test("authenticated users receive the dashboard feature flag", async () => {
       role: "user",
     }),
     async () => ({ updatedAt: null, availability: "unavailable", running: false }),
-    () => ({ dashboardMarketRadar: true }),
+  () => ({ dashboardMarketRadar: true, marketCenter: false }),
   );
   const response = await route.request("/features");
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     success: true,
-    data: { dashboardMarketRadar: true },
+    data: { dashboardMarketRadar: true, marketCenter: false },
   });
 });

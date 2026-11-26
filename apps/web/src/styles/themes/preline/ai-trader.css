@@ -71,6 +71,28 @@
   --chart-equity: light-dark(#202a42, #eef2f9);
   --assistant-accent: #25b7ff;
 
+  /* Quick Quote 固定白色数据画布：深色主题下保持同一组值 */
+  --quote-canvas: #ffffff;
+  --quote-canvas-surface: #f4f6fa;
+  --quote-canvas-ink: #202a42;
+  --quote-canvas-muted: #526077;
+  --quote-canvas-line: #dde3ec;
+  --quote-canvas-grid: #e5e9f0;
+  --quote-canvas-axis: #526077;
+  --quote-canvas-crosshair: #78869c;
+  --quote-canvas-tooltip-bg: #ffffff;
+  --quote-canvas-tooltip-border: #dde3ec;
+  --quote-canvas-up: #b42333;
+  --quote-canvas-down: #08715e;
+  --quote-canvas-flat: #778399;
+  --quote-canvas-ma-5: #1a1a1a;
+  --quote-canvas-ma-10: #d4a017;
+  --quote-canvas-ma-20: #9a4dff;
+  --quote-canvas-ma-30: #2e9e5b;
+  --quote-canvas-ma-60: #2f6fe0;
+  --quote-canvas-ma-120: #808080;
+  --quote-canvas-ma-250: #b42333;
+
   --dashboard-a-wash: color-mix(in srgb, var(--primary) 7%, var(--panel));
   --dashboard-global-wash: color-mix(in srgb, var(--warning) 10%, var(--panel));
   --dashboard-etf-wash: color-mix(in srgb, var(--primary) 5%, var(--surface));
@@ -96,6 +118,26 @@
   --chart-axis-text: #9aa7bd;
   --chart-ma-20: #e040fb;
   --chart-ma-60: #4c8dff;
+  --quote-canvas: #ffffff;
+  --quote-canvas-surface: #f4f6fa;
+  --quote-canvas-ink: #202a42;
+  --quote-canvas-muted: #526077;
+  --quote-canvas-line: #dde3ec;
+  --quote-canvas-grid: #e5e9f0;
+  --quote-canvas-axis: #526077;
+  --quote-canvas-crosshair: #78869c;
+  --quote-canvas-tooltip-bg: #ffffff;
+  --quote-canvas-tooltip-border: #dde3ec;
+  --quote-canvas-up: #b42333;
+  --quote-canvas-down: #08715e;
+  --quote-canvas-flat: #778399;
+  --quote-canvas-ma-5: #1a1a1a;
+  --quote-canvas-ma-10: #d4a017;
+  --quote-canvas-ma-20: #9a4dff;
+  --quote-canvas-ma-30: #2e9e5b;
+  --quote-canvas-ma-60: #2f6fe0;
+  --quote-canvas-ma-120: #808080;
+  --quote-canvas-ma-250: #b42333;
 
   --background: var(--canvas);
   --background-plain: var(--panel);
@@ -171,6 +213,19 @@
   --color-chart-down: var(--chart-down);
   --color-chart-up-strong: var(--chart-up-text);
   --color-chart-down-strong: var(--chart-down-text);
+  --color-quote-canvas: var(--quote-canvas);
+  --color-quote-surface: var(--quote-canvas-surface);
+  --color-quote-ink: var(--quote-canvas-ink);
+  --color-quote-muted: var(--quote-canvas-muted);
+  --color-quote-line: var(--quote-canvas-line);
+  --color-quote-grid: var(--quote-canvas-grid);
+  --color-quote-axis: var(--quote-canvas-axis);
+  --color-quote-crosshair: var(--quote-canvas-crosshair);
+  --color-quote-tooltip-bg: var(--quote-canvas-tooltip-bg);
+  --color-quote-tooltip-border: var(--quote-canvas-tooltip-border);
+  --color-quote-up: var(--quote-canvas-up);
+  --color-quote-down: var(--quote-canvas-down);
+  --color-quote-flat: var(--quote-canvas-flat);
   --color-dashboard-a: var(--dashboard-a-wash);
   --color-dashboard-global: var(--dashboard-global-wash);
   --color-dashboard-etf: var(--dashboard-etf-wash);

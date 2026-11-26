@@ -2,17 +2,21 @@ import { Hono } from "hono";
 import { db } from "../db";
 import { instrument } from "../db/schema";
 import { eq, like, or, and, count } from "drizzle-orm";
-import { ok, paginated, notFound } from "../lib/response";
+import { ok, badRequest, paginated, notFound } from "../lib/response";
+import {
+  parseInstrumentListQuery,
+  stockSymbolAscending,
+} from "../lib/stock-list-query";
 
 const instrumentsRoute = new Hono();
 
 // GET /api/v1/instruments — search/list instruments
 instrumentsRoute.get("/", async (c) => {
-  const q = c.req.query("q") ?? "";
+  const parsed = parseInstrumentListQuery(new URL(c.req.url).searchParams);
+  if (!parsed.ok) return badRequest(c, parsed.message);
+  const { page, limit, q } = parsed;
   const exchange = c.req.query("exchange");
   const status = c.req.query("status");
-  const page = Number(c.req.query("page") ?? "1");
-  const limit = Math.min(Number(c.req.query("limit") ?? "50"), 200);
   const offset = (page - 1) * limit;
 
   const conditions = [];
@@ -42,7 +46,10 @@ instrumentsRoute.get("/", async (c) => {
     dataQuery.where(whereClause);
     countQuery.where(whereClause);
   }
-  dataQuery.limit(limit).offset(offset);
+  dataQuery
+    .orderBy(stockSymbolAscending(instrument.symbol))
+    .limit(limit)
+    .offset(offset);
 
   const [rows, [countResult]] = await Promise.all([dataQuery, countQuery]);
   const total = countResult?.count ?? 0;

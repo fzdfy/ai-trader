@@ -7,6 +7,7 @@
  */
 import { createLogger } from "./logger";
 import { traceHeaders } from "./request-context";
+import type { RotationIndexSymbol } from "../db/schema/market-rotation";
 
 const log = createLogger("quant");
 
@@ -38,6 +39,23 @@ export interface MarketAssetBar {
   volume: number | null;
   amount: number | null;
   source: string;
+}
+
+export interface RotationIndexBarPayload {
+  symbol: RotationIndexSymbol;
+  trade_date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number | null;
+  amount: number | null;
+  source: string;
+}
+
+export interface RotationIndexDailyPayload {
+  bars: RotationIndexBarPayload[];
+  errors: Array<{ symbol: string; error: string }>;
 }
 
 /** 个股资金流日级一条（quant /fund-flow-120d 返回，单位：元） */
@@ -690,6 +708,18 @@ export const quant = {
     if (end) query.set("end", end);
     return getJson<MarketAssetBar[]>(`/api/v1/data/market-assets/daily?${query}`);
   },
+
+  rotationIndexDaily: (start: string, end: string) =>
+    getJson<RotationIndexDailyPayload>(
+      `/api/v1/data/rotation-indices/daily?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      120_000,
+    ),
+
+  mainIndexDaily: (start: string, end: string) =>
+    getJson<RotationIndexDailyPayload>(
+      `/api/v1/data/main-indices/daily?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      120_000,
+    ),
 
   stockNews: (symbol: string, pageSize = 20) =>
     getJson<NewsItem[]>(

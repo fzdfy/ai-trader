@@ -115,7 +115,7 @@ export function StockAnalysisLanding() {
   const compareSymbols = watchlist.slice(0, 3).map((item) => item.symbol);
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4">
+    <div className="mx-auto space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">
@@ -203,7 +203,7 @@ export function StockAnalysisLanding() {
             </div>
             <Link
               to="/home/market/stock"
-              search={{ tab: "watchlist" }}
+              search={{ tab: "watchlist", page: 1, q: "" }}
               className="text-[10px] text-primary"
             >
               全部 {watchlist.length} 只

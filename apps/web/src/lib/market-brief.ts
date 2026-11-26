@@ -92,6 +92,7 @@ export interface MarketBriefQueryParams {
 
 export interface SystemFeatures {
   dashboardMarketRadar: boolean;
+  marketCenter: boolean;
 }
 
 export const A_SHARE_INDEX_SYMBOLS = ["000001.SH", "399006.SZ"] as const;

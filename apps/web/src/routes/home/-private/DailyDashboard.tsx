@@ -375,7 +375,7 @@ export function DailyDashboard() {
 
   if (dashboardQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-[1480px] space-y-4" aria-label="正在加载每日看板">
+      <div className="mx-auto space-y-4" aria-label="正在加载每日看板">
         <div className="flex items-end justify-between gap-5">
           <div className="space-y-2">
             <div className="h-3 w-36 animate-pulse rounded bg-app-surface" />
@@ -428,7 +428,7 @@ export function DailyDashboard() {
   );
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-4">
+    <div className="mx-auto space-y-4">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[0.12em] text-primary before:h-0.5 before:w-[18px] before:rounded-full before:bg-current">

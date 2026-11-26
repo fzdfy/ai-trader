@@ -638,7 +638,12 @@
       { id:"screens", group:"工作空间", title:"每日选股", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"screens", supportsDark:false, description:"每日候选池、筛选条件、评分和因子解释。源原型未提供全局深色主题。" },
       { id:"screen-detail", group:"工作空间", title:"选股详情", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"screensDetail", supportsDark:false, description:"单只候选标的的入选理由、证据和后续研究入口。" },
 
-      { id:"market", group:"市场情报", title:"行情中心", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"market", supportsDark:false, description:"跨市场行情、异动和资金结构的统一观察面。" },
+      { id:"market", group:"市场情报", title:"行情中心", status:"生产对齐", statusTone:"pending", source:"../initial/quant-workbench-market-center-v1.html", hash:"market", supportsDark:true, description:"总览、板块、个股三模块；轮动与异动拆入对应上下文，列表进入独立详情。", evidence:[
+        ["浅色总览","../explorations/screenshots/market-center-v1/production/overview-light-1440x900.png","桌面 · 真实数据"],
+        ["深色总览","../explorations/screenshots/market-center-v1/production/overview-dark-1440x900.png","桌面 · 深色"],
+        ["板块工作区","../explorations/screenshots/market-center-v1/production/boards-industry-light-1440x900.png","排行、热力图、轮动、异动"],
+        ["移动端","../explorations/screenshots/market-center-v1/production/overview-light-390x844.png","390px · 单列"]
+      ]},
       { id:"stock-landing", group:"市场情报", title:"个股分析入口", status:"确认基准", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=landing", hash:"analysis", supportsDark:true, description:"搜索、自选、今日候选和最近分析记录的统一入口。" },
       { id:"stock-detail", group:"市场情报", title:"个股详情", status:"确认基准", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail", hash:"analysis", supportsDark:true, description:"行情事实、趋势、预测、研报、风险、财务和事件的完整研究链路。" },
       { id:"stock-compare", group:"市场情报", title:"个股对比", status:"确认基准", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=compare", hash:"analysis", supportsDark:true, description:"多只股票的同日指标、质量与缺失状态对照。" },

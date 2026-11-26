@@ -282,7 +282,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
 
   if (analysisQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-[1500px] space-y-4" aria-label="正在加载个股分析">
+      <div className="mx-auto space-y-4" aria-label="正在加载个股分析">
         <div className="h-28 animate-pulse rounded-2xl bg-app-surface" />
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
           <div className="h-80 animate-pulse rounded-2xl bg-app-surface" />
@@ -394,7 +394,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   ];
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4">
+    <div className="mx-auto space-y-4">
       <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
           <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">

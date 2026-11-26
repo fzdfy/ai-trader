@@ -31,6 +31,8 @@ interface HeatmapChartProps {
   onBoardClick?: (item: HeatmapItem) => void;
   /** 点击 2 级成分股格子回调（跳转个股详情） */
   onStockClick?: (item: HeatmapItem) => void;
+  /** 板块总览只展示一级板块时关闭成分股嵌套 */
+  showChildren?: boolean;
 }
 
 /** 涨跌幅 → 颜色（红涨绿跌，随幅度加深） */
@@ -105,7 +107,13 @@ function pressedItem(
  *   level="board"：点击板块格子任意位置 → onBoardClick（下钻成分股热力图）
  *   level="stock"：点击成分股格子 → onStockClick（跳转个股详情）
  */
-export function HeatmapChart({ data, level, onBoardClick, onStockClick }: HeatmapChartProps) {
+export function HeatmapChart({
+  data,
+  level,
+  onBoardClick,
+  onStockClick,
+  showChildren = true,
+}: HeatmapChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
   const levelRef = useRef(level);
@@ -236,20 +244,22 @@ export function HeatmapChart({ data, level, onBoardClick, onStockClick }: Heatma
               value: board.value,
               itemStyle: { color: pctColor(board.changePercent) },
               item: board, // 供 tooltip / 点击命中使用
-              children: (board.children ?? []).map((s) => ({
-                name: s.name,
-                value: s.value,
-                itemStyle: { color: pctColor(s.changePercent) },
-                // 成分股 item 挂 board 引用：board 层点击成分股时取回所属板块 node
-                item: { ...s, board },
-              })),
+              children: showChildren
+                ? (board.children ?? []).map((s) => ({
+                    name: s.name,
+                    value: s.value,
+                    itemStyle: { color: pctColor(s.changePercent) },
+                    // 成分股 item 挂 board 引用：board 层点击成分股时取回所属板块 node
+                    item: { ...s, board },
+                  }))
+                : [],
             })),
           },
         ],
       },
       { notMerge: true },
     );
-  }, [data]);
+  }, [data, showChildren]);
 
   return (
     <div

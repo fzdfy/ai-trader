@@ -54,6 +54,7 @@ import {
   marketAssetMinuteJobRun,
 } from "./pipes/market-asset-jobs";
 import { marketAssetRetentionRun } from "./pipes/market-asset-retention";
+import { rotationIndexDailyRun } from "./pipes/rotation-indices";
 
 export type PipeName =
   | "kline-1m"
@@ -82,6 +83,7 @@ export type PipeName =
   | "market-asset-daily"
   | "market-asset-daily-backfill"
   | "market-asset-retention"
+  | "rotation-indices"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -130,6 +132,12 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
     );
   },
   "market-asset-retention": () => marketAssetRetentionRun(),
+  "rotation-indices": async () => {
+    const result = await rotationIndexDailyRun();
+    console.log(
+      `[rotation-indices] upserted=${result.upserted} failed=${result.failed.length}`,
+    );
+  },
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
   "dragon-tiger-backfill": () => dragonTigerBackfillRun(),
   "hot-reason-backfill": () => hotReasonBackfillRun(),
@@ -398,6 +406,7 @@ export const MANUAL_SYNC_JOBS: { name: PipeName; dependsOn?: PipeName }[] = [
   { name: "board-fund-flow" },
   { name: "dragon-tiger" },
   { name: "hot-reason" },
+  { name: "rotation-indices" },
   { name: "stock-announcements" },
   { name: "stock-research-reports" },
   { name: "stock-fundamentals" },

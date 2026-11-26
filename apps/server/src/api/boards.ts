@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { db } from "../db";
 import { board, boardHistory } from "../db/schema";
 import { eq, desc, and, gte } from "drizzle-orm";
+import { numericTextAscending } from "../lib/board-order";
 import { ok, badRequest } from "../lib/response";
 
 const boardsRoute = new Hono();
@@ -14,7 +15,7 @@ boardsRoute.get("/", async (c) => {
     .select()
     .from(board)
     .where(eq(board.type, type))
-    .orderBy(board.rank);
+    .orderBy(numericTextAscending(board.rank));
 
   return ok(c, rows);
 });
@@ -49,7 +50,7 @@ boardsRoute.get("/history/top", async (c) => {
     .select()
     .from(boardHistory)
     .where(and(eq(boardHistory.type, type), gte(boardHistory.date, startDate)))
-    .orderBy(desc(boardHistory.date), boardHistory.rank);
+    .orderBy(desc(boardHistory.date), numericTextAscending(boardHistory.rank));
 
   // 按日期分组，取每日前 limit 名
   const byDate = new Map<string, typeof rows>();

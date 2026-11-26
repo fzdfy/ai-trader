@@ -31,6 +31,13 @@ export const CRON_JOBS: CronJobConfig[] = [
     enabled: process.env.MARKET_ASSET_INGEST_ENABLED === "true",
   },
   { name: "market-asset-retention", cron: "30 3 * * *", enabled: true },
+  {
+    name: "rotation-indices",
+    cron: "20 16 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    deadline: "18:00",
+  },
   // 分钟 K 线 / 缺口检测管道尚未实现（空壳），暂不调度，避免同步中心显示"成功"误导
   { name: "kline-1m", cron: "*/30 * * * * *", enabled: false },
   { name: "gap-detect", cron: "*/5 * * * *", enabled: false },

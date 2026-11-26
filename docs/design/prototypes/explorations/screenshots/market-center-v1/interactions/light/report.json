@@ -1,0 +1,22 @@
+[
+  {
+    "file": "page-点击板块.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "点击板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-键盘切换到个股.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "键盘切换到个股",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

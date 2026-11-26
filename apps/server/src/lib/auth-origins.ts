@@ -1,4 +1,9 @@
 const LOCAL_UI_ORIGIN = "http://localhost:9080";
+const LOOPBACK_ORIGIN_PATTERNS = [
+  "http://localhost:*",
+  "http://127.0.0.1:*",
+  "http://[::1]:*",
+] as const;
 
 function normalizeOrigin(value: string): string | null {
   const candidate = value.trim();
@@ -17,6 +22,14 @@ function normalizeOrigin(value: string): string | null {
   return url.origin;
 }
 
+function matchesOriginPattern(origin: string, pattern: string): boolean {
+  if (!pattern.includes("*")) return origin === pattern;
+  const source = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+    .replaceAll("*", ".*");
+  return new RegExp(`^${source}$`).test(origin);
+}
+
 export function parseTrustedOrigins(
   raw: string | undefined,
   baseUrl: string | undefined,
@@ -33,7 +46,7 @@ export function parseTrustedOrigins(
           (origin): origin is string => origin !== null,
         );
 
-  return [...new Set(candidates)];
+  return [...new Set([...candidates, ...LOOPBACK_ORIGIN_PATTERNS])];
 }
 
 export function resolveCorsOrigin(
@@ -44,7 +57,10 @@ export function resolveCorsOrigin(
 
   try {
     const normalized = normalizeOrigin(origin);
-    return normalized && allowedOrigins.has(normalized) ? normalized : null;
+    if (!normalized) return null;
+    return [...allowedOrigins].some((pattern) => matchesOriginPattern(normalized, pattern))
+      ? normalized
+      : null;
   } catch {
     return null;
   }
