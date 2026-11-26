@@ -55,6 +55,12 @@ import {
 } from "./pipes/market-asset-jobs";
 import { marketAssetRetentionRun } from "./pipes/market-asset-retention";
 import { rotationIndexDailyRun } from "./pipes/rotation-indices";
+import {
+  runTechnicalSignalsBoards,
+  runTechnicalSignalsMarket,
+  runTechnicalSignalsStocks,
+} from "./pipes/technical-signals";
+import { runTechnicalSignalRetention } from "./pipes/technical-signal-retention";
 
 export type PipeName =
   | "kline-1m"
@@ -84,6 +90,10 @@ export type PipeName =
   | "market-asset-daily-backfill"
   | "market-asset-retention"
   | "rotation-indices"
+  | "technical-signals-market"
+  | "technical-signals-boards"
+  | "technical-signals-stocks"
+  | "technical-signal-retention"
   // 历史回补（与当日同步分离的独立任务，各有独立 jobType / 幂等状态）
   | "limit-up-pool-backfill"
   | "dragon-tiger-backfill"
@@ -134,8 +144,45 @@ export const RUNNERS: Record<PipeName, () => Promise<void>> = {
   "market-asset-retention": () => marketAssetRetentionRun(),
   "rotation-indices": async () => {
     const result = await rotationIndexDailyRun();
+    console.log(`[rotation-indices] upserted=${result.upserted} failed=${result.failed.length}`);
+  },
+  "technical-signals-market": async () => {
+    const result = await runTechnicalSignalsMarket();
     console.log(
-      `[rotation-indices] upserted=${result.upserted} failed=${result.failed.length}`,
+      `[technical-signals-market] objects=${result.objects} succeeded=${result.succeeded} failed=${result.failed} low_quality=${result.lowQuality}`,
+    );
+    if (result.failed > 0) {
+      throw new Error(
+        `technical-signals-market partial failure: ${JSON.stringify(result.errors.slice(0, 5))}`,
+      );
+    }
+  },
+  "technical-signals-boards": async () => {
+    const result = await runTechnicalSignalsBoards();
+    console.log(
+      `[technical-signals-boards] objects=${result.objects} succeeded=${result.succeeded} failed=${result.failed} low_quality=${result.lowQuality}`,
+    );
+    if (result.failed > 0) {
+      throw new Error(
+        `technical-signals-boards partial failure: ${JSON.stringify(result.errors.slice(0, 5))}`,
+      );
+    }
+  },
+  "technical-signals-stocks": async () => {
+    const result = await runTechnicalSignalsStocks();
+    console.log(
+      `[technical-signals-stocks] objects=${result.objects} succeeded=${result.succeeded} failed=${result.failed} low_quality=${result.lowQuality}`,
+    );
+    if (result.failed > 0) {
+      throw new Error(
+        `technical-signals-stocks partial failure: ${JSON.stringify(result.errors.slice(0, 5))}`,
+      );
+    }
+  },
+  "technical-signal-retention": async () => {
+    const result = await runTechnicalSignalRetention();
+    console.log(
+      `[technical-signal-retention] cutoff=${result.cutoff} snapshots=${result.snapshots} triggers=${result.triggers}`,
     );
   },
   "limit-up-pool-backfill": () => limitUpPoolBackfillRun(),
@@ -172,7 +219,7 @@ function parseDeadline(hhmm: string): Date {
 }
 
 type WrapOpts = {
-  dependsOn?: string;
+  dependsOn?: string | string[];
   deadline?: string;
   retryIntervalMs?: number;
   /** 手动同步（sync-manual）进行中时，不直接跳过而是等待其结束（受 deadline 约束） */
@@ -217,12 +264,22 @@ async function executeWithRetry(
     }
 
     // 依赖等待：前置 jobType 今日未成功则继续等（不再依赖 cron 多次触发）
-    if (opts.dependsOn && !(await hasSuccessToday(opts.dependsOn))) {
-      if (Date.now() >= deadlineAt.getTime()) {
-        throw new Error(`依赖 ${opts.dependsOn} 今日未成功且已过 deadline ${opts.deadline}`);
+    if (opts.dependsOn) {
+      const dependencies = Array.isArray(opts.dependsOn) ? opts.dependsOn : [opts.dependsOn];
+      let missingDependency: string | null = null;
+      for (const dependency of dependencies) {
+        if (!(await hasSuccessToday(dependency))) {
+          missingDependency = dependency;
+          break;
+        }
       }
-      await sleep(interval);
-      continue;
+      if (missingDependency) {
+        if (Date.now() >= deadlineAt.getTime()) {
+          throw new Error(`依赖 ${missingDependency} 今日未成功且已过 deadline ${opts.deadline}`);
+        }
+        await sleep(interval);
+        continue;
+      }
     }
 
     try {

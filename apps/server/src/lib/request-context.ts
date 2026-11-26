@@ -61,5 +61,8 @@ export function traceHeaders(): Record<string, string> {
   if (ctx.jobName) headers["X-Job-Name"] = ctx.jobName;
   if (ctx.jobRunId) headers["X-Job-Run-Id"] = ctx.jobRunId;
   if (ctx.tradeDate) headers["X-Trade-Date"] = ctx.tradeDate;
+  if (process.env.QUANT_INTERNAL_TOKEN) {
+    headers["X-Quant-Internal-Token"] = process.env.QUANT_INTERNAL_TOKEN;
+  }
   return headers;
 }

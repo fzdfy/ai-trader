@@ -1,0 +1,1319 @@
+{
+  "catalog_version": "technical-signals-1.0.0",
+  "canonicalization": "sha256:utf8-json-sorted-keys-v1",
+  "catalog_hash": "ea11dc15f8e47c5c1a852cda1ab8fce22c300bdd26c5bff40c2d08359f98cadb",
+  "signal_count": 140,
+  "signals": [
+    {
+      "signal_id": "basic.market.price_vs_ma200",
+      "params": {
+        "ma_window": 200
+      },
+      "definition_hash": "f49da96121bfcfac065b34393b8550a519bf7e5fa96ccbe80036ecd97b02e182"
+    },
+    {
+      "signal_id": "basic.market.ma200_slope_20",
+      "params": {
+        "ma_window": 200,
+        "lookback": 20
+      },
+      "definition_hash": "4a06c3df5076a4758f7d6ed3135708ab72a44936b6b821e7033b4c889da9b1bf"
+    },
+    {
+      "signal_id": "basic.market.macd_zero_axis",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "definition_hash": "4568ec45d47c249137fca9f97b74f613fb4adf69098f2f35a9347d2a86331e3e"
+    },
+    {
+      "signal_id": "basic.market.macd_divergence",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9,
+        "pivot_span": 3,
+        "search_window": 60,
+        "min_atr_multiple": 0.5
+      },
+      "definition_hash": "573889a948aa253291f6dc47583b8304b9c0c345be1910e25057e18e878358f5"
+    },
+    {
+      "signal_id": "basic.market.rsi_state",
+      "params": {
+        "period": 14,
+        "oversold": 30,
+        "overbought": 70,
+        "pivot_span": 3,
+        "divergence_window": 60
+      },
+      "definition_hash": "4de6896d54c8f550eb8f78081aae6dd22f6469735b18cceec6872ed24e9b01ab"
+    },
+    {
+      "signal_id": "basic.market.bollinger_regime",
+      "params": {
+        "period": 20,
+        "std_dev": 2,
+        "percentile_window": 252,
+        "compression_percentile": 20,
+        "expansion_percentile": 80
+      },
+      "definition_hash": "d0d7cf9128b42fc8c7387a9482a78987793f1728e2f5ebe1049a8170e05afc5f"
+    },
+    {
+      "signal_id": "basic.market.rvol",
+      "params": {
+        "volume_window": 20,
+        "breakout_threshold": 1.5
+      },
+      "definition_hash": "1beacbfcc5a8aeefc0f1c79b166beff27aa548fabf8366c2fbaa9a6e10ceeedc"
+    },
+    {
+      "signal_id": "basic.market.adx_di",
+      "params": {
+        "period": 14,
+        "trend_threshold": 25
+      },
+      "definition_hash": "cd74370842735a1aba70179604d11041532005c973a5aff48caab926543b6fae"
+    },
+    {
+      "signal_id": "basic.market.obv_trend",
+      "params": {
+        "slope_window": 20,
+        "divergence_window": 60
+      },
+      "definition_hash": "669f5570a1cc2b210fa07aa68bd2b73300f9711c93b4c695381b81bb711f5ba3"
+    },
+    {
+      "signal_id": "basic.market.atr_regime",
+      "params": {
+        "period": 14,
+        "percentile_window": 252,
+        "low_percentile": 20,
+        "high_percentile": 80
+      },
+      "definition_hash": "de9ae60d362d16b37ad82798fa6ae4ea6665ddb64dc5d8305b032359b12ed5c8"
+    },
+    {
+      "signal_id": "basic.sector.price_vs_ma200",
+      "params": {
+        "ma_window": 200
+      },
+      "definition_hash": "ff7258346b95ec1afc98cbb90b1b02bf9ef5e6acc5bb41fa4481f92923b6f33e"
+    },
+    {
+      "signal_id": "basic.sector.ma200_slope_20",
+      "params": {
+        "ma_window": 200,
+        "lookback": 20
+      },
+      "definition_hash": "ad33cf701796a3fd5adbae0f5f25f08d1fd2449d2bc4fabca23bea80e9b5f442"
+    },
+    {
+      "signal_id": "basic.sector.macd_zero_axis",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "definition_hash": "fbfc33159dff06e5ee69a52de8331b40b70efb9b7b81a1d92e970600823a2b4d"
+    },
+    {
+      "signal_id": "basic.sector.macd_divergence",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9,
+        "pivot_span": 3,
+        "search_window": 60,
+        "min_atr_multiple": 0.5
+      },
+      "definition_hash": "142bee21386f1c731b356554bb4d45853cc5c6ce8bc10838f5bfbf08854f4b6f"
+    },
+    {
+      "signal_id": "basic.sector.rsi_state",
+      "params": {
+        "period": 14,
+        "oversold": 30,
+        "overbought": 70,
+        "pivot_span": 3,
+        "divergence_window": 60
+      },
+      "definition_hash": "736ffb935ba21524a6f3610176a50f5d4a9fb6db7ae5990974bec9d293bd286e"
+    },
+    {
+      "signal_id": "basic.sector.bollinger_regime",
+      "params": {
+        "period": 20,
+        "std_dev": 2,
+        "percentile_window": 252,
+        "compression_percentile": 20,
+        "expansion_percentile": 80
+      },
+      "definition_hash": "99c89c706a04026b4610e2c90d8263d6e3bd9b9e1ebd374508924fa35fe935d7"
+    },
+    {
+      "signal_id": "basic.sector.rvol",
+      "params": {
+        "volume_window": 20,
+        "breakout_threshold": 1.5
+      },
+      "definition_hash": "6c4c7e384e75121c81975ab869b8bc3dbeed43887d0ba082109be90d5f2be028"
+    },
+    {
+      "signal_id": "basic.sector.adx_di",
+      "params": {
+        "period": 14,
+        "trend_threshold": 25
+      },
+      "definition_hash": "abe352bad13a233b70bb524184f749ccf534a41906bcbd0f2e96443c4055c9c2"
+    },
+    {
+      "signal_id": "basic.sector.obv_trend",
+      "params": {
+        "slope_window": 20,
+        "divergence_window": 60
+      },
+      "definition_hash": "eecc0b9ffccee57ad9c0a7f5356213a0a243dfbd205c14b945114ae3a90c6e11"
+    },
+    {
+      "signal_id": "basic.sector.atr_regime",
+      "params": {
+        "period": 14,
+        "percentile_window": 252,
+        "low_percentile": 20,
+        "high_percentile": 80
+      },
+      "definition_hash": "68af0fa0c825cae74c1f55fea29863477fc433e774ba23b624c7a566a252f3ee"
+    },
+    {
+      "signal_id": "basic.stock.price_vs_ma200",
+      "params": {
+        "ma_window": 200
+      },
+      "definition_hash": "d6f86d5067e6fa11143c189c6f5f0346683a5dd3bf7d943316aad3a0ec1fd7b7"
+    },
+    {
+      "signal_id": "basic.stock.ma200_slope_20",
+      "params": {
+        "ma_window": 200,
+        "lookback": 20
+      },
+      "definition_hash": "445a2867bf04bff74bf10bef38697052a944b69d6aa79ea96d32ddd32ecc5f65"
+    },
+    {
+      "signal_id": "basic.stock.macd_zero_axis",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "definition_hash": "f9ae5c2463bbde15d5d893747366e073c8bc88acd37418fb01ee90032d4f3f40"
+    },
+    {
+      "signal_id": "basic.stock.macd_divergence",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9,
+        "pivot_span": 3,
+        "search_window": 60,
+        "min_atr_multiple": 0.5
+      },
+      "definition_hash": "2c192174d540e12910f61fead4a170c14f245d0b727803a1e0abb0a1862fd731"
+    },
+    {
+      "signal_id": "basic.stock.rsi_state",
+      "params": {
+        "period": 14,
+        "oversold": 30,
+        "overbought": 70,
+        "pivot_span": 3,
+        "divergence_window": 60
+      },
+      "definition_hash": "031a965a87e46139619ea1cba56c20e811a99556132c97ca3ef7c97505e3a40b"
+    },
+    {
+      "signal_id": "basic.stock.bollinger_regime",
+      "params": {
+        "period": 20,
+        "std_dev": 2,
+        "percentile_window": 252,
+        "compression_percentile": 20,
+        "expansion_percentile": 80
+      },
+      "definition_hash": "4e3e85390afb444f85d8d6b58e879289f3fbc2b850535e42d703b142937a6f1f"
+    },
+    {
+      "signal_id": "basic.stock.rvol",
+      "params": {
+        "volume_window": 20,
+        "breakout_threshold": 1.5
+      },
+      "definition_hash": "277b22ce0763014e215e4340364d4169d38b707c329e7076796f5bad0825ab85"
+    },
+    {
+      "signal_id": "basic.stock.adx_di",
+      "params": {
+        "period": 14,
+        "trend_threshold": 25
+      },
+      "definition_hash": "c42bf97057a65f44733bf7864c183773465fa65bc9e3b8ab4aa572cb71f6c1ec"
+    },
+    {
+      "signal_id": "basic.stock.obv_trend",
+      "params": {
+        "slope_window": 20,
+        "divergence_window": 60
+      },
+      "definition_hash": "d90a43927d2540f0ee65b627c97e552e6dc8882537cdad593ec00f1317f48e38"
+    },
+    {
+      "signal_id": "basic.stock.atr_regime",
+      "params": {
+        "period": 14,
+        "percentile_window": 252,
+        "low_percentile": 20,
+        "high_percentile": 80
+      },
+      "definition_hash": "433639d6424f374f30b88cbb62a12f96c374820a97bf5d920802fbd3728977af"
+    },
+    {
+      "signal_id": "basic.gold.price_vs_ma200",
+      "params": {
+        "ma_window": 200
+      },
+      "definition_hash": "d9ddd9ef121a11d8a8b24b3d699dcc23609aa5d55c56cf587e26acc678e6b4ba"
+    },
+    {
+      "signal_id": "basic.gold.ma200_slope_20",
+      "params": {
+        "ma_window": 200,
+        "lookback": 20
+      },
+      "definition_hash": "8388e1ef2790f44dd499d108848091ea27252ec8d6a035cd14daf554f82a5109"
+    },
+    {
+      "signal_id": "basic.gold.macd_zero_axis",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "definition_hash": "3226fedc38b0dd23c53c07e436c4c9193971b5a2b244bd25a4b42ed575842846"
+    },
+    {
+      "signal_id": "basic.gold.macd_divergence",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9,
+        "pivot_span": 3,
+        "search_window": 60,
+        "min_atr_multiple": 0.5
+      },
+      "definition_hash": "4425dbc5829029ac7e05bf172b71774f14628dac05ba673aeed92486632953eb"
+    },
+    {
+      "signal_id": "basic.gold.rsi_state",
+      "params": {
+        "period": 14,
+        "oversold": 30,
+        "overbought": 70,
+        "pivot_span": 3,
+        "divergence_window": 60
+      },
+      "definition_hash": "856593251149fcd1c6af9aeefac9e9a6a91225e9e54a0b02ceb722a401abdd61"
+    },
+    {
+      "signal_id": "basic.gold.bollinger_regime",
+      "params": {
+        "period": 20,
+        "std_dev": 2,
+        "percentile_window": 252,
+        "compression_percentile": 20,
+        "expansion_percentile": 80
+      },
+      "definition_hash": "9dcd88dcee1f3fd99389f0fc99e9ad50878d15012b923c26b310852633373729"
+    },
+    {
+      "signal_id": "basic.gold.rvol",
+      "params": {
+        "volume_window": 20,
+        "breakout_threshold": 1.5
+      },
+      "definition_hash": "c7b2327f72e78924290be17f6d22d576e44469552729b5bd5439c9c643f70c81"
+    },
+    {
+      "signal_id": "basic.gold.adx_di",
+      "params": {
+        "period": 14,
+        "trend_threshold": 25
+      },
+      "definition_hash": "8b37af42523f942072ff248de75470bd559f629b4bb031b1e32e50aaa49930ce"
+    },
+    {
+      "signal_id": "basic.gold.obv_trend",
+      "params": {
+        "slope_window": 20,
+        "divergence_window": 60
+      },
+      "definition_hash": "56b5cb853b48c0b63981c78cd9a19a11bcc142dd95f584d251faf63fdc03cc9a"
+    },
+    {
+      "signal_id": "basic.gold.atr_regime",
+      "params": {
+        "period": 14,
+        "percentile_window": 252,
+        "low_percentile": 20,
+        "high_percentile": 80
+      },
+      "definition_hash": "370a61765114c48de7b3fbf05f4a9bac3e00efe768d0555eb1562ed5e1fe11c5"
+    },
+    {
+      "signal_id": "pattern.market.range_accumulation",
+      "params": {
+        "min_window": 20,
+        "max_window": 60,
+        "max_width": 0.12,
+        "width_percentile": 30,
+        "upper_third": 0.67
+      },
+      "definition_hash": "bd84d256a5757abd76091b1f6d5109d1688a53b6873213e3eb7b953aecf4dbf4"
+    },
+    {
+      "signal_id": "pattern.market.volume_contraction_base",
+      "params": {
+        "range_window": 60,
+        "low_zone": 0.15,
+        "volume_window": 20,
+        "volume_recovery": 1.2
+      },
+      "definition_hash": "484ab098c00911a7d031ea8a5ef3f070e9de210f255b526ac80e1825628322a3"
+    },
+    {
+      "signal_id": "pattern.market.golden_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "e2ff24b836a47439ba448edb067c5168d6a8b5a65a06476874359b1391844b49"
+    },
+    {
+      "signal_id": "pattern.market.bullish_alignment",
+      "params": {
+        "short_ma": 20,
+        "medium_ma": 60,
+        "long_ma": 120,
+        "slope_window": 10
+      },
+      "definition_hash": "60f741f514785d904d3d7572b9fd3a1dc347b674f1b5574a01293b04ad4f6513"
+    },
+    {
+      "signal_id": "pattern.market.base_breakout",
+      "params": {
+        "base_window": 20,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "a9402b9cdf3ae992b64d504ebee57bb088569e6ccdda5fd8e167f7a2642fd043"
+    },
+    {
+      "signal_id": "pattern.market.platform_breakout",
+      "params": {
+        "platform_window": 60,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "92bfee0a5dcf81f6ec708c25c648cb6d0a4102dbbb89feab1eb64bca80405c22"
+    },
+    {
+      "signal_id": "pattern.market.pullback_confirmation",
+      "params": {
+        "breakout_lookback": 20,
+        "volume_ratio": 0.8,
+        "reclaim_buffer": 0.005
+      },
+      "definition_hash": "1f36b18d1482824f29fab13f2bf087b147ed2a1bff66d4ea48b76b1e9650681f"
+    },
+    {
+      "signal_id": "pattern.market.acceleration",
+      "params": {
+        "return_window": 20,
+        "percentile_window": 252,
+        "min_percentile": 80,
+        "max_drawdown": 0.08
+      },
+      "definition_hash": "f6915aab9efb50720e67c3e4961756ecc92b78203c2c93ca72a1317582d51c7d"
+    },
+    {
+      "signal_id": "pattern.market.high_level_stall",
+      "params": {
+        "range_window": 60,
+        "high_zone": 0.85,
+        "volume_window": 20,
+        "slope_decay": 0.5
+      },
+      "definition_hash": "c8f7aab3a33ddb81c5d79d3eddf22d47e68be21778dfcdebc993e30453a1851e"
+    },
+    {
+      "signal_id": "pattern.market.top_reversal",
+      "params": {
+        "pivot_span": 3,
+        "range_window": 20,
+        "confirmation_window": 3
+      },
+      "definition_hash": "b9d79f372fa83427c72724f0e4790deab0741f9789a9445edcc7d82b105cf738"
+    },
+    {
+      "signal_id": "pattern.market.death_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "744b3f2f973ce78168f5ebd79f383278e44fa20c8b88b01cbeb47b799805ef54"
+    },
+    {
+      "signal_id": "pattern.market.bearish_breakdown",
+      "params": {
+        "breakdown_window": 60,
+        "breakdown_buffer": 0.005,
+        "confirmation_window": 3
+      },
+      "definition_hash": "4942b5c07b1a0d3ffcee4b3425bf27cd6c577772a657fa601dc3083eb109653f"
+    },
+    {
+      "signal_id": "pattern.sector.range_accumulation",
+      "params": {
+        "min_window": 20,
+        "max_window": 60,
+        "max_width": 0.12,
+        "width_percentile": 30,
+        "upper_third": 0.67
+      },
+      "definition_hash": "651cf0496db1502befa7812cea3b553d4d13fe115bc2f3116915f3884037b04a"
+    },
+    {
+      "signal_id": "pattern.sector.volume_contraction_base",
+      "params": {
+        "range_window": 60,
+        "low_zone": 0.15,
+        "volume_window": 20,
+        "volume_recovery": 1.2
+      },
+      "definition_hash": "1df95c8fafefbd1f6257eb15689bcb11c9d828cae618b37321929e40045e2675"
+    },
+    {
+      "signal_id": "pattern.sector.golden_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "c88bfd84eb05921ff1b71011a16af24a12439479e72cebebd53b84d06fcda68c"
+    },
+    {
+      "signal_id": "pattern.sector.bullish_alignment",
+      "params": {
+        "short_ma": 20,
+        "medium_ma": 60,
+        "long_ma": 120,
+        "slope_window": 10
+      },
+      "definition_hash": "79a02a608df3dbddf00ef281b8ac67d38c83fb5c5370a068e8189f31a94b7490"
+    },
+    {
+      "signal_id": "pattern.sector.base_breakout",
+      "params": {
+        "base_window": 20,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "46d51b8e81e86927bc208719f2a14c7938b7006d778cde02aed35c3ceb86cad3"
+    },
+    {
+      "signal_id": "pattern.sector.platform_breakout",
+      "params": {
+        "platform_window": 60,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "ffac711d6d545a88bef4644f7cf5bb48fac3cb85f2aeaa626774cc403f5aa65b"
+    },
+    {
+      "signal_id": "pattern.sector.pullback_confirmation",
+      "params": {
+        "breakout_lookback": 20,
+        "volume_ratio": 0.8,
+        "reclaim_buffer": 0.005
+      },
+      "definition_hash": "86b341a486c94fde53c1d0e877d47c412f29bbfcb154fc9919cfa2916b35b914"
+    },
+    {
+      "signal_id": "pattern.sector.acceleration",
+      "params": {
+        "return_window": 20,
+        "percentile_window": 252,
+        "min_percentile": 80,
+        "max_drawdown": 0.08
+      },
+      "definition_hash": "e945a418f26b1fe85ceb2f164f00cede50a3c592260c4fc9a6caa2d8725d064a"
+    },
+    {
+      "signal_id": "pattern.sector.high_level_stall",
+      "params": {
+        "range_window": 60,
+        "high_zone": 0.85,
+        "volume_window": 20,
+        "slope_decay": 0.5
+      },
+      "definition_hash": "f28492021d7a583fb899617ef2eb3e76d4569815b7e7386c99652c8130334362"
+    },
+    {
+      "signal_id": "pattern.sector.top_reversal",
+      "params": {
+        "pivot_span": 3,
+        "range_window": 20,
+        "confirmation_window": 3
+      },
+      "definition_hash": "18f9c7b356f18aa0b97604ae3432294f8271603572d40adf7ba677d33e74747e"
+    },
+    {
+      "signal_id": "pattern.sector.death_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "91c000d414a137a12f013caa70df5acb19b5290d6f0a8c261aabd0af08553397"
+    },
+    {
+      "signal_id": "pattern.sector.bearish_breakdown",
+      "params": {
+        "breakdown_window": 60,
+        "breakdown_buffer": 0.005,
+        "confirmation_window": 3
+      },
+      "definition_hash": "42ef0b3d420ad90053b23b5ecf01a449f01aec6a87aa5546e9e955ccc8a6569a"
+    },
+    {
+      "signal_id": "pattern.stock.range_accumulation",
+      "params": {
+        "min_window": 20,
+        "max_window": 60,
+        "max_width": 0.12,
+        "width_percentile": 30,
+        "upper_third": 0.67
+      },
+      "definition_hash": "ffd34068c142c3228d9c473260327fcf78ceb0cae7bc8a6977471ccb0e0f1e6b"
+    },
+    {
+      "signal_id": "pattern.stock.volume_contraction_base",
+      "params": {
+        "range_window": 60,
+        "low_zone": 0.15,
+        "volume_window": 20,
+        "volume_recovery": 1.2
+      },
+      "definition_hash": "336fdf4f9d99c37954f9d439e5cc011ed275799db5095c7918fac65aebf2cdb9"
+    },
+    {
+      "signal_id": "pattern.stock.golden_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "ab7f09719ad408eab197b63d686b7dd28a59a782d68a586ecc1ff1f046b82ea0"
+    },
+    {
+      "signal_id": "pattern.stock.bullish_alignment",
+      "params": {
+        "short_ma": 20,
+        "medium_ma": 60,
+        "long_ma": 120,
+        "slope_window": 10
+      },
+      "definition_hash": "911ce97589b8a454853e3798c3b40db43ffdebda408b20b07daee47b71b531f0"
+    },
+    {
+      "signal_id": "pattern.stock.base_breakout",
+      "params": {
+        "base_window": 20,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "64c0f8bf637077cb2798e67218d214ef33d83f9dd7f9ea4fd5bfb5feef48bae8"
+    },
+    {
+      "signal_id": "pattern.stock.platform_breakout",
+      "params": {
+        "platform_window": 60,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "a23cdff3591c63c24f486afd883c2055d0cbe7c934881bb097c6b1307afedf8d"
+    },
+    {
+      "signal_id": "pattern.stock.pullback_confirmation",
+      "params": {
+        "breakout_lookback": 20,
+        "volume_ratio": 0.8,
+        "reclaim_buffer": 0.005
+      },
+      "definition_hash": "98951017300c15f94cbeb9098764b666d3e0565245479db5f2a7c59de502094d"
+    },
+    {
+      "signal_id": "pattern.stock.acceleration",
+      "params": {
+        "return_window": 20,
+        "percentile_window": 252,
+        "min_percentile": 80,
+        "max_drawdown": 0.08
+      },
+      "definition_hash": "d0dd62c65150b3182808fd4ae71e3e3ee27a4010f8d453f50279ad7bb1f2cba2"
+    },
+    {
+      "signal_id": "pattern.stock.high_level_stall",
+      "params": {
+        "range_window": 60,
+        "high_zone": 0.85,
+        "volume_window": 20,
+        "slope_decay": 0.5
+      },
+      "definition_hash": "c456703879a917ad7914ceac29950e44c81fb8b261f8154697c7b47cf702c9b7"
+    },
+    {
+      "signal_id": "pattern.stock.top_reversal",
+      "params": {
+        "pivot_span": 3,
+        "range_window": 20,
+        "confirmation_window": 3
+      },
+      "definition_hash": "3866d7d0e52bed183e08604b4cf4e116bbd957b0c0867d0194721fbde39076b6"
+    },
+    {
+      "signal_id": "pattern.stock.death_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "3a25259ebde194a766ab7e4ec3c2eed7dc6e6b49ecdb1ed57ffc4151acabfea9"
+    },
+    {
+      "signal_id": "pattern.stock.bearish_breakdown",
+      "params": {
+        "breakdown_window": 60,
+        "breakdown_buffer": 0.005,
+        "confirmation_window": 3
+      },
+      "definition_hash": "b8daa6849307ed5b6eab0127f9c8eba25da231daa00aaaa9a2fb8c7d1337b9a3"
+    },
+    {
+      "signal_id": "pattern.gold.range_accumulation",
+      "params": {
+        "min_window": 20,
+        "max_window": 60,
+        "max_width": 0.12,
+        "width_percentile": 30,
+        "upper_third": 0.67
+      },
+      "definition_hash": "523a37daf5b0e128894d024c107fc1e4c7c13dc44626c787c355b88e85a047ca"
+    },
+    {
+      "signal_id": "pattern.gold.volume_contraction_base",
+      "params": {
+        "range_window": 60,
+        "low_zone": 0.15,
+        "volume_window": 20,
+        "volume_recovery": 1.2
+      },
+      "definition_hash": "5c60e6b901c8e7779142a9d7c72e78c07dfb6fc3637f01bcede18afdd8d1ef58"
+    },
+    {
+      "signal_id": "pattern.gold.golden_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "df67d3c225d16d8f49bbfed99d3865d6fb9fb745b5ec9fca5d8b02508c250c5c"
+    },
+    {
+      "signal_id": "pattern.gold.bullish_alignment",
+      "params": {
+        "short_ma": 20,
+        "medium_ma": 60,
+        "long_ma": 120,
+        "slope_window": 10
+      },
+      "definition_hash": "09c242b165b5a815a38062fc1d70b0b8e88260b19397fee0d2560ac5067c85db"
+    },
+    {
+      "signal_id": "pattern.gold.base_breakout",
+      "params": {
+        "base_window": 20,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "73a8cd1d0960c7b087908a8e58d2b5cedc43d7e370c7a2ad2696f4e7f3519498"
+    },
+    {
+      "signal_id": "pattern.gold.platform_breakout",
+      "params": {
+        "platform_window": 60,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "definition_hash": "7b1ecc0832f2c32d4d72ee3a37c3e3ab99433c151ddeeeead0027c20ef3312cd"
+    },
+    {
+      "signal_id": "pattern.gold.pullback_confirmation",
+      "params": {
+        "breakout_lookback": 20,
+        "volume_ratio": 0.8,
+        "reclaim_buffer": 0.005
+      },
+      "definition_hash": "6ea91d1749bfff4b32d3970c18720a7be6f679ec982230c9cd621ad72fe88fa8"
+    },
+    {
+      "signal_id": "pattern.gold.acceleration",
+      "params": {
+        "return_window": 20,
+        "percentile_window": 252,
+        "min_percentile": 80,
+        "max_drawdown": 0.08
+      },
+      "definition_hash": "a24a391c363eb6a735e367a243d0d73058318a216f4821be9a99108ff312c534"
+    },
+    {
+      "signal_id": "pattern.gold.high_level_stall",
+      "params": {
+        "range_window": 60,
+        "high_zone": 0.85,
+        "volume_window": 20,
+        "slope_decay": 0.5
+      },
+      "definition_hash": "4c4512851d147578b5a4efcb479c72999fd66c784f4439039f8858b66d0207cc"
+    },
+    {
+      "signal_id": "pattern.gold.top_reversal",
+      "params": {
+        "pivot_span": 3,
+        "range_window": 20,
+        "confirmation_window": 3
+      },
+      "definition_hash": "e39285ac852b77dc82f829ba8ef90ff682750e1984dc47373de1984e6507303c"
+    },
+    {
+      "signal_id": "pattern.gold.death_cross",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "definition_hash": "1fbb8147f9412ce225ce4e6c28657f8a4653778789f8d5497588282687fdb3f3"
+    },
+    {
+      "signal_id": "pattern.gold.bearish_breakdown",
+      "params": {
+        "breakdown_window": 60,
+        "breakdown_buffer": 0.005,
+        "confirmation_window": 3
+      },
+      "definition_hash": "c7fc2175c628f9c725f6286b0e9e0dde2ff26b077eee339571ab3ec697874f80"
+    },
+    {
+      "signal_id": "advanced.market.risk_on_off",
+      "params": {
+        "windows": [20, 60],
+        "style_weight": 0.25,
+        "size_weight": 0.25,
+        "cycle_defensive_weight": 0.25,
+        "cross_asset_weight": 0.25
+      },
+      "definition_hash": "65c38ab7c4dec73021329441ad4a6cbecfb1e6bd918168516f74fb2b7fd68cf9"
+    },
+    {
+      "signal_id": "advanced.market.rates_valuation_cycle",
+      "params": {
+        "curve_window": 60,
+        "valuation_window": 252,
+        "rate_percentile_window": 756
+      },
+      "definition_hash": "a47a52f3a1542e1ced632d500a69c995c2c00ed1c314a9a539f7a0f16a4fa857"
+    },
+    {
+      "signal_id": "advanced.market.market_breadth_diffusion",
+      "params": {
+        "ma_window": 200,
+        "changes": [5, 10],
+        "diffusion_threshold": 0.55
+      },
+      "definition_hash": "07f5ac1bc463a6c171c00d1b13dfa398d2f4b7b75b87e4ceecb1ee866c16ec12"
+    },
+    {
+      "signal_id": "advanced.market.volatility_regime",
+      "params": {
+        "realized_window": 20,
+        "percentile_window": 252,
+        "low_threshold": 20,
+        "high_threshold": 80
+      },
+      "definition_hash": "017263aeb6e899e64b2ed827dc45f060a7387bd69a5c60fba0f8438f31aef4aa"
+    },
+    {
+      "signal_id": "advanced.market.cross_asset_correlation",
+      "params": {
+        "rolling_window": 60,
+        "min_common_observations": 40,
+        "regime_quantiles": [0.3, 0.7]
+      },
+      "definition_hash": "7f7cca32e3b5924d1ef0f2f8e219593773363ae61dde90533f4aee8a49b6ad69"
+    },
+    {
+      "signal_id": "advanced.market.economic_cycle_leading",
+      "params": {
+        "change_window": 3,
+        "zscore_window": 36,
+        "min_series": 3
+      },
+      "definition_hash": "7c7ea664d7f2bdbbb15502fa9255fd9c04e1d43087518c0d0d552d76e5bd6a45"
+    },
+    {
+      "signal_id": "advanced.market.factor_style_diffusion",
+      "params": {
+        "windows": [20, 60],
+        "min_style_coverage": 0.8,
+        "dispersion_window": 252
+      },
+      "definition_hash": "0e2ddf778ad487e2cede97aa445d00c43b6d8db431be0174117eb82155ac36dc"
+    },
+    {
+      "signal_id": "advanced.market.credit_cycle",
+      "params": {
+        "spread_window": 60,
+        "percentile_window": 756,
+        "min_direction_window": 20
+      },
+      "definition_hash": "4ebb89eb640dc5e41f545a54c2b1aa45f48fa6562dd019aa4d0aac7eea05d9de"
+    },
+    {
+      "signal_id": "advanced.market.market_liquidity_structure",
+      "params": {
+        "change_window": 20,
+        "percentile_window": 252,
+        "concentration_top_n": 100,
+        "min_domain_coverage": 0.8
+      },
+      "definition_hash": "596fb4fe052f342bbb44276a2c1b098c698b644ccdb4a35e0167a1c9034852eb"
+    },
+    {
+      "signal_id": "advanced.market.hmm_market_regime",
+      "params": {
+        "states": 3,
+        "feature_window": 20,
+        "training_window": 756,
+        "min_out_of_sample_months": 12
+      },
+      "definition_hash": "1303526d3fc3d0129332edcb801dc9670b53d1499821419b8e7326d129f18ae1"
+    },
+    {
+      "signal_id": "advanced.sector.growth_defensive_rotation",
+      "params": {
+        "market_reference": 1,
+        "window": 60
+      },
+      "definition_hash": "9873b30ac9625b895b607b35baa4f0fd051a789f0843ead13d01bbdbbd5e0818"
+    },
+    {
+      "signal_id": "advanced.sector.sector_momentum_diffusion",
+      "params": {
+        "windows": [20, 60, 120],
+        "min_coverage": 0.8,
+        "diffusion_threshold": 0.55
+      },
+      "definition_hash": "2673e7835284d81c4c987b95063adda2dfd233ccdd95dd5c1f45f83d56241507"
+    },
+    {
+      "signal_id": "advanced.sector.sector_relative_strength",
+      "params": {
+        "benchmark": "000001.SH",
+        "windows": [20, 60],
+        "breakout_window": 60,
+        "slope_window": 10
+      },
+      "definition_hash": "d05bc9b4ed1be171b233db867b0cbe4ea362464d388282cf598f152da436a196"
+    },
+    {
+      "signal_id": "advanced.sector.industry_fund_flow",
+      "params": {
+        "persistence_window": 5,
+        "normalization_window": 20,
+        "min_coverage": 0.8
+      },
+      "definition_hash": "869f22e99de2a51cc412af0a655be5ebb4694a521044adade3dcec3420c268d6"
+    },
+    {
+      "signal_id": "advanced.sector.earnings_cycle_revision",
+      "params": {
+        "growth_windows": [4, 8],
+        "revision_window": 60,
+        "min_coverage": 0.6
+      },
+      "definition_hash": "9cf4ddfe91f7d9d3ccded0ca0f9d9ed0661be37b82e75b7755f362c6671c8dec"
+    },
+    {
+      "signal_id": "advanced.sector.valuation_rotation",
+      "params": {
+        "valuation_windows": [252, 756],
+        "growth_window": 4,
+        "min_coverage": 0.6
+      },
+      "definition_hash": "f6ed9c43b26134929ae328114d85f0a2fe9272ec9d79b6127b3892aa0bde4786"
+    },
+    {
+      "signal_id": "advanced.sector.supply_chain_cycle",
+      "params": {
+        "change_window": 3,
+        "zscore_window": 36,
+        "min_chain_links": 3
+      },
+      "definition_hash": "9e0d867e30153793d082e050ca876a819c78a53eda851074e4a128190c3e8794"
+    },
+    {
+      "signal_id": "advanced.sector.leader_sector_resonance",
+      "params": {
+        "leader_count": 5,
+        "rs_window": 20,
+        "breadth_threshold": 0.55
+      },
+      "definition_hash": "5d3d1cf14fe7f389540846d054736ae082a6df708cd35817c970106859865b4a"
+    },
+    {
+      "signal_id": "advanced.sector.crowding_reversal",
+      "params": {
+        "percentile_window": 252,
+        "crowding_threshold": 85,
+        "min_signals": 2
+      },
+      "definition_hash": "25b4e8d5d3005a4c2453d39ba1cab038603f6730095eb8a60727baf67fe12e2f"
+    },
+    {
+      "signal_id": "advanced.sector.sector_multifactor_allocation",
+      "params": {
+        "momentum": 0.3,
+        "quality": 0.2,
+        "valuation": 0.2,
+        "volatility": 0.15,
+        "fundflow": 0.15,
+        "min_factor_coverage": 0.8
+      },
+      "definition_hash": "14e255ed95ec3d61fec795dc1d802a10d4e639d1bf764a56c0431356c29f4f01"
+    },
+    {
+      "signal_id": "advanced.stock.alpha_momentum",
+      "params": {
+        "windows": [20, 60, 120],
+        "benchmark": "industry_or_market",
+        "winsorize": [0.01, 0.99]
+      },
+      "definition_hash": "0b9d990005d832de7720f5954a2339e3a615c2fd83f2cfd0a8e041de4c5b8501"
+    },
+    {
+      "signal_id": "advanced.stock.fama_french",
+      "params": {
+        "value_fields": ["pb", "pe_ttm"],
+        "profitability_field": "roe",
+        "investment_field": "asset_growth",
+        "min_history": 4
+      },
+      "definition_hash": "4bbf25d955dc427349f49fa500a91b05b0d3147da609efc4b3d0f7face4efbbe"
+    },
+    {
+      "signal_id": "advanced.stock.quality_growth",
+      "params": {
+        "roe_weight": 0.25,
+        "roic_weight": 0.2,
+        "margin_weight": 0.2,
+        "cashflow_weight": 0.15,
+        "growth_weight": 0.2,
+        "min_coverage": 0.8
+      },
+      "definition_hash": "f49cc9d364f1979dfaabba48f6a853cf467f31bc7cdcdc7e7e76b34dfa894a18"
+    },
+    {
+      "signal_id": "advanced.stock.earnings_revision",
+      "params": {
+        "windows": [30, 60, 90],
+        "min_analysts": 3,
+        "stale_days": 90
+      },
+      "definition_hash": "588a88abb7e696ba1d3e7e1d8ff19438573c833b7255eb1f46a069aa0766a7ee"
+    },
+    {
+      "signal_id": "advanced.stock.accumulation_distribution",
+      "params": {
+        "obv_window": 20,
+        "correlation_window": 20,
+        "fundflow_window": 5,
+        "min_coverage": 0.8
+      },
+      "definition_hash": "c4310b3b8f70b4bca85a838b5eb6d271a97e1eb0148fa3cbb34b6312787db214"
+    },
+    {
+      "signal_id": "advanced.stock.volatility_squeeze_breakout",
+      "params": {
+        "atr_period": 14,
+        "bollinger_period": 20,
+        "percentile_window": 252,
+        "compression_percentile": 20
+      },
+      "definition_hash": "120e13075a9676663039110a26cbec650ee35307407f734b7e003e20957e0196"
+    },
+    {
+      "signal_id": "advanced.stock.chip_concentration",
+      "params": {
+        "holder_change_windows": [30, 90],
+        "turnover_window": 20,
+        "value_area": 0.7,
+        "min_history": 120
+      },
+      "definition_hash": "96d6ebaf148855577435262a36e860d3067e4a77ef5b1e5f03364a01e280b590"
+    },
+    {
+      "signal_id": "advanced.stock.industry_relative_strength",
+      "params": {
+        "windows": [20, 60],
+        "benchmark": "board_index",
+        "slope_window": 10
+      },
+      "definition_hash": "9b251c58c68ffeb468f5e87092722e5f5f83d311c7b42ffa09a497dcd1564189"
+    },
+    {
+      "signal_id": "advanced.stock.event_driven",
+      "params": {
+        "event_windows": ["T-20", "T+20"],
+        "min_event_confidence": 0.7,
+        "max_event_age_days": 30
+      },
+      "definition_hash": "f2a73984e63578c2f44f88789b295a8dfadd6af24332f7760e45adfc41cc2e84"
+    },
+    {
+      "signal_id": "advanced.stock.stock_multifactor_expected_return",
+      "params": {
+        "momentum": 0.25,
+        "quality": 0.2,
+        "valuation": 0.15,
+        "revision": 0.2,
+        "risk_liquidity": 0.2,
+        "min_factor_coverage": 0.8
+      },
+      "definition_hash": "29b626237f70cac71a6d7c3edb4006050eadfaf67b40d8d6821a5ecfb9e02770"
+    },
+    {
+      "signal_id": "advanced.gold.gold_real_yield",
+      "params": {
+        "rolling_window": 60,
+        "yield_window": 60,
+        "min_common_observations": 40
+      },
+      "definition_hash": "1ea137f5033a03afaeeb9a5b5f74bafa89dc2925bd05dff7c8f067e5e53cc93f"
+    },
+    {
+      "signal_id": "advanced.gold.gold_usd",
+      "params": {
+        "rolling_window": 60,
+        "slope_window": 10,
+        "min_common_observations": 40
+      },
+      "definition_hash": "bd1c64da6a5521cf91ce55e6b515bfe08831af5ec644969ef1bf6d41d6a677a4"
+    },
+    {
+      "signal_id": "advanced.gold.gold_silver_ratio",
+      "params": {
+        "percentile_window": 756,
+        "slope_window": 20,
+        "extreme_quantiles": [0.1, 0.9]
+      },
+      "definition_hash": "0867e18c58ea3836b4a0bb22775292a5c2b052accbb6535a191606a623fb461a"
+    },
+    {
+      "signal_id": "advanced.gold.cftc_positioning",
+      "params": {
+        "percentile_window": 156,
+        "change_windows": [1, 4],
+        "crowded_percentile": 85
+      },
+      "definition_hash": "df7312aa6f5ce9db1634f7ff6c5c5fe6a6c5fbbb4314fa038d52895477777dab"
+    },
+    {
+      "signal_id": "advanced.gold.gold_etf_flow",
+      "params": {
+        "flow_windows": [5, 20],
+        "min_common_observations": 60
+      },
+      "definition_hash": "dfec976a10c77b4df88f2e5a3fb635f6cb3b2c91503281afe8fa9d9cae0ea69b"
+    },
+    {
+      "signal_id": "advanced.gold.central_bank_gold",
+      "params": {
+        "change_windows": [3, 12],
+        "min_reporting_coverage": 0.7
+      },
+      "definition_hash": "03dd3072a0971a895ed4be07eab6f7bd5af06e27dc027b0a73265e1423ad95ea"
+    },
+    {
+      "signal_id": "advanced.gold.gold_commodity_ratio",
+      "params": {
+        "basket": ["copper", "crude_oil"],
+        "percentile_window": 756,
+        "slope_window": 20
+      },
+      "definition_hash": "8d9be3fc983011264d781c574c9baa8992f0c775248e16cb3100e413f9744e77"
+    },
+    {
+      "signal_id": "advanced.gold.futures_term_structure",
+      "params": {
+        "near_contract_days": 30,
+        "far_contract_days": 180,
+        "min_liquidity": 1000
+      },
+      "definition_hash": "7e571d2fcd718d76c1caf30e3d73d189787ee2e69f92fab269212961d92de710"
+    },
+    {
+      "signal_id": "advanced.gold.options_skew_iv",
+      "params": {
+        "delta": 25,
+        "tenor_days": 30,
+        "percentile_window": 252,
+        "min_open_interest": 100
+      },
+      "definition_hash": "1aabeae7bc71aa847067235ff15222e603feb8ee22d6e9be09b4cf4e15ee77a4"
+    },
+    {
+      "signal_id": "advanced.gold.gold_regime_switch",
+      "params": {
+        "states": 3,
+        "feature_window": 20,
+        "training_window": 756,
+        "min_domains": 3,
+        "min_out_of_sample_months": 12
+      },
+      "definition_hash": "9040f2debc3448e67a4e2141f9567701d49bbac5c7d41956d8f4ba1eff93e542"
+    },
+    {
+      "signal_id": "micro.stock.ofi",
+      "params": {
+        "levels": 5,
+        "rolling_window": 20,
+        "normalization": "depth"
+      },
+      "definition_hash": "9f3c72cb2842d6b9b8b00fdf0902c016084f0e7275905f11ea85f14104a2a413"
+    },
+    {
+      "signal_id": "micro.stock.cvd",
+      "params": {
+        "bucket_seconds": 3,
+        "rolling_window": 20,
+        "proxy_ttl_seconds": 30
+      },
+      "definition_hash": "015549304470cf47bdf69e4d6f6976c21034a2a9f7e230abde897712fbe6d1a1"
+    },
+    {
+      "signal_id": "micro.stock.vpin",
+      "params": {
+        "bucket_count": 50,
+        "min_bucket_volume": 10000,
+        "rolling_buckets": 20
+      },
+      "definition_hash": "bec2e7d36ffc5c2106631cfd36ad56417c068648c7f83fa63fc306b9c6711db3"
+    },
+    {
+      "signal_id": "micro.stock.kyle_lambda",
+      "params": {
+        "bucket_seconds": 30,
+        "min_observations": 30,
+        "proxy_ttl_seconds": 30
+      },
+      "definition_hash": "7bf028f0776f78537036f0a3d3ba58b90fa5185f68ab07284943ea2cf0ba4c01"
+    },
+    {
+      "signal_id": "micro.stock.obi",
+      "params": {
+        "levels": 5,
+        "proxy_ttl_seconds": 5,
+        "neutral_band": 0.1
+      },
+      "definition_hash": "326daca8c0505fa881671a7c1ba8344651d3a94cf63fb2789b023724b35929b8"
+    },
+    {
+      "signal_id": "micro.stock.absorption",
+      "params": {
+        "large_trade_multiple": 3,
+        "window_seconds": 60,
+        "min_observations": 20
+      },
+      "definition_hash": "d58343f27bbcfa667de01d9160d3eaa7a6d7b8dae5c81c858ca4d612ea113dc2"
+    },
+    {
+      "signal_id": "micro.stock.large_trade_imbalance",
+      "params": {
+        "amount_percentile": 95,
+        "rolling_window": 20,
+        "proxy_ttl_seconds": 30
+      },
+      "definition_hash": "91347ef633ab1c0ae98415ae24853b8e9c84dba7c9975c0d230e8b6407b87118"
+    },
+    {
+      "signal_id": "micro.stock.amihud",
+      "params": {
+        "window": 20,
+        "percentile_window": 252,
+        "proxy_ttl_seconds": 300
+      },
+      "definition_hash": "b6618441cb33956b4ce2e8388df69029b920717a98274e52ea6916d3c85e74db"
+    },
+    {
+      "signal_id": "micro.stock.volume_profile",
+      "params": {
+        "bins": 50,
+        "value_area": 0.7,
+        "lookback_sessions": 20
+      },
+      "definition_hash": "a1f1be2766b9180138dca9d2e0392b45315800c5f6358484b92db82df2e66044"
+    },
+    {
+      "signal_id": "micro.stock.replenishment_cancellation",
+      "params": {
+        "rolling_window": 20,
+        "min_depth_observations": 20,
+        "cancel_rate_threshold": 0.5
+      },
+      "definition_hash": "51a1a463f3fee8c8dbc3e42f0cac5d1c9516b227053baba40b094acf20b1ed6e"
+    },
+    {
+      "signal_id": "micro.stock.auction_imbalance",
+      "params": {
+        "auctions": ["open", "close"],
+        "normalization_window": 20,
+        "min_match_volume": 1000
+      },
+      "definition_hash": "70d416c03826c5c83fa95e6a3a3cd0f907cbd48db9a29962834bb0a8a7fdbe67"
+    },
+    {
+      "signal_id": "micro.stock.vwap_deviation",
+      "params": {
+        "vwap_window": "session",
+        "position_window": "session",
+        "proxy_ttl_seconds": 30
+      },
+      "definition_hash": "1e333c1b5af11b01739f7280f94158f9484f9437809bf5d9ff508bfe894acb60"
+    }
+  ]
+}

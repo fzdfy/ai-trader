@@ -1,0 +1,62 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 34,
+        "examples": [
+          "p.flex.items-center「MARKET CENTER」（3.17:1）",
+          "a.focus-ring.flex「板块」（3.07:1）",
+          "button.focus-ring.rounded-md「行业板块」（2.94:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 148,
+        "examples": [
+          "span.font-mono.text-[10px]「1–10 / 496」（10px）",
+          "button.focus-ring.grid「50」（10px）",
+          "span.rounded-full.bg-app-surface「20 板块」（10px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 3,
+        "examples": [
+          "p.flex.items-center「MARKET CENTER」（3.17:1）",
+          "a.focus-ring.flex「板块」（3.07:1）",
+          "button.focus-ring.rounded-md「行业板块」（2.94:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 148,
+        "examples": [
+          "span.font-mono.text-[10px]「1–10 / 496」（10px）",
+          "button.focus-ring.grid「50」（10px）",
+          "span.rounded-full.bg-app-surface「20 板块」（10px）"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "catalogVersion": "technical-signals-1.0.0",
+  "implementationHash": "6e2b071dc30a9bce00aa245f5c4f5aaacb6ff7375aaa76313259561c5e1d267f",
+  "files": {
+    "apps/quant/technical_signals/engine.py": "d358848bc7e3fcd010de7b6a54197690aaf092879eb1fa8539ea078a09144b83",
+    "apps/quant/technical_signals/patterns.py": "f0c4d4a6dcb1edaffe5d23f0a938955e073c5b4a293d2c1af895356fef2e0074",
+    "apps/quant/technical_signals/microstructure.py": "f0fc9408999382136dc70ad5942c9eba2a8a862c306b80caab2eaced25cf3795",
+    "apps/quant/technical_signals/snapshot.py": "47b8a2eb848400599de7588b0cfdab4fd5ede6393c112ba07312a3a1260edb11",
+    "apps/server/src/lib/technical-signals/advanced.ts": "ffeb650c0e7e04e7e45cc30698ce50c27589605430647ecf0a5bbb1a135f2a7d"
+  }
+}

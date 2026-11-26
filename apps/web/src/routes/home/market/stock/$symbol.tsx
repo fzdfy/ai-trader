@@ -16,10 +16,7 @@ import {
   type Period,
 } from "klinecharts";
 import type { KlineTf } from "../../../../hooks/useInstruments";
-import {
-  useFundFlowHistory,
-  useLatestQuotes,
-} from "../../../../hooks/useMarketCenter";
+import { useFundFlowHistory, useLatestQuotes } from "../../../../hooks/useMarketCenter";
 import {
   klineRequestSignal,
   resolveKlineStatus,
@@ -36,13 +33,12 @@ import {
   readQuoteCanvasColors,
   type QuoteCanvasColors,
 } from "../../../../lib/quote-canvas-theme";
-import {
-  toStockReturnSearch,
-  type StockListTab,
-} from "../../../../lib/stock-list-state";
+import { toStockReturnSearch, type StockListTab } from "../../../../lib/stock-list-state";
 import { FundStructure } from "../-private/FundStructure";
 import { MarketCenterShell } from "../-private/MarketCenterShell";
 import { KlineStatusOverlay } from "./-private/KlineStatusOverlay";
+import { useTechnicalSignalSnapshot } from "../../../../hooks/useTechnicalSignals";
+import { displaySignalName } from "../../../../components/signals/SignalDiagnosis";
 
 export const Route = createFileRoute("/home/market/stock/$symbol")({
   validateSearch: (
@@ -59,10 +55,16 @@ export const Route = createFileRoute("/home/market/stock/$symbol")({
     from: search.from as string | undefined,
     // 来源页（选股页）传入的股票列表，用于左右切换相邻标的
     list: search.list as string | undefined,
-    listTab: search.listTab === "watchlist" ? "watchlist" : search.listTab === "stock" ? "stock" : undefined,
-    listPage: Number.isInteger(Number(search.listPage)) && Number(search.listPage) > 0
-      ? Number(search.listPage)
-      : undefined,
+    listTab:
+      search.listTab === "watchlist"
+        ? "watchlist"
+        : search.listTab === "stock"
+          ? "stock"
+          : undefined,
+    listPage:
+      Number.isInteger(Number(search.listPage)) && Number(search.listPage) > 0
+        ? Number(search.listPage)
+        : undefined,
     listQ: typeof search.listQ === "string" ? search.listQ : undefined,
   }),
   component: StockDetailPage,
@@ -87,8 +89,7 @@ function macdFigures(colors: QuoteCanvasColors): IndicatorFigure[] {
       styles: ({ data }) => {
         const currentMacd =
           (data.current as MacdResult | null | undefined)?.macd ?? Number.MIN_SAFE_INTEGER;
-        const color =
-          currentMacd > 0 ? colors.up : currentMacd < 0 ? colors.down : colors.flat;
+        const color = currentMacd > 0 ? colors.up : currentMacd < 0 ? colors.down : colors.flat;
         return { style: "fill", color, borderColor: color } as unknown as IndicatorFigureStyle;
       },
     },
@@ -185,9 +186,7 @@ function klineBarsQueryOptions(symbol: string, tf: KlineTf) {
           close: Number.parseFloat(k.close as string),
           volume: Number.parseFloat(k.volume as string),
           turnover:
-            k.amount == null || !Number.isFinite(Number(k.amount))
-              ? undefined
-              : Number(k.amount),
+            k.amount == null || !Number.isFinite(Number(k.amount)) ? undefined : Number(k.amount),
         }))
         .toSorted((a, b) => a.timestamp - b.timestamp);
     },
@@ -223,14 +222,7 @@ function instrumentNameQueryOptions(symbol: string) {
 
 function StockDetailPage() {
   const { symbol } = useParams({ from: "/home/market/stock/$symbol" });
-  const {
-    tf: tfParam,
-    from,
-    list,
-    listTab,
-    listPage,
-    listQ,
-  } = Route.useSearch();
+  const { tf: tfParam, from, list, listTab, listPage, listQ } = Route.useSearch();
   const tf = tfParam ?? "1d";
   const returnSearch = toStockReturnSearch({ listTab, listPage, listQ });
   const navigate = useNavigate();
@@ -265,11 +257,11 @@ function StockDetailPage() {
   const currentTf = isScreenViewer ? screenTf : tf;
   const quotes = useLatestQuotes([currentSymbol], true, true);
   const fundFlow = useFundFlowHistory(currentSymbol, 5);
+  const technical = useTechnicalSignalSnapshot("stock", currentSymbol);
   const quote = quotes.data?.[0];
   const latestFund = fundFlow.data?.at(-1);
   const quoteChange = quote?.changePct == null ? null : Number(quote.changePct);
-  const periodLabel =
-    PERIOD_OPTIONS.find((option) => option.value === currentTf)?.label ?? "日";
+  const periodLabel = PERIOD_OPTIONS.find((option) => option.value === currentTf)?.label ?? "日";
 
   // 图表标题展示的名称：优先中文名，未收录时回退为代码（klinecharts 缺失键会原样回显 "{name}"）
   const { data: instrumentName } = useQuery(instrumentNameQueryOptions(currentSymbol));
@@ -376,9 +368,10 @@ function StockDetailPage() {
       const bars = klineBarsRef.current;
       if (bars.length === 0) return;
       const crosshair = data as Crosshair | null | undefined;
-      const converted = crosshair?.x == null || crosshair.y == null
-        ? null
-        : chart.convertFromPixel([{ x: crosshair.x, y: crosshair.y }]);
+      const converted =
+        crosshair?.x == null || crosshair.y == null
+          ? null
+          : chart.convertFromPixel([{ x: crosshair.x, y: crosshair.y }]);
       const point = Array.isArray(converted) ? converted[0] : converted;
       const requestedIndex = point?.dataIndex;
       const index =
@@ -522,180 +515,197 @@ function StockDetailPage() {
 
   return (
     <MarketCenterShell>
-    <VStack gap={3} style={{ height: "100%" }}>
-      <HStack gap={2} align="center">
-        {from === "screens" ? (
-          // 回到选股页：走浏览器历史回退，保留选股页原先的 URL search（策略/范围/返回数量等），
-          // 否则直接 Link 到 /home/screens 会丢失这些条件、页面回到默认状态
-          <Button label="← 返回" variant="ghost" size="sm" onClick={() => router.history.back()} />
-        ) : (
-          <Link
-            to="/home/market/stock"
-            search={returnSearch}
-            style={{ textDecoration: "none" }}
+      <VStack gap={3} style={{ height: "100%" }}>
+        <HStack gap={2} align="center">
+          {from === "screens" ? (
+            // 回到选股页：走浏览器历史回退，保留选股页原先的 URL search（策略/范围/返回数量等），
+            // 否则直接 Link 到 /home/screens 会丢失这些条件、页面回到默认状态
+            <Button
+              label="← 返回"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.history.back()}
+            />
+          ) : (
+            <Link to="/home/market/stock" search={returnSearch} style={{ textDecoration: "none" }}>
+              <Button label="← 返回" variant="ghost" size="sm" />
+            </Link>
+          )}
+          {canSwitch && (
+            <HStack gap={1} align="center">
+              <Button
+                label="上一只"
+                variant="secondary"
+                size="sm"
+                isDisabled={!prevSymbol}
+                onClick={() => {
+                  if (prevSymbol) goToSymbol(prevSymbol);
+                }}
+              />
+              <Text size="sm" type="supporting" hasTabularNumbers>
+                {index + 1} / {symbols.length}
+              </Text>
+              <Button
+                label="下一只"
+                variant="secondary"
+                size="sm"
+                isDisabled={!nextSymbol}
+                onClick={() => {
+                  if (nextSymbol) goToSymbol(nextSymbol);
+                }}
+              />
+            </HStack>
+          )}
+          <TabList
+            value={currentTf}
+            onChange={(v) => {
+              // 选股入口：周期同样内部切换，不写回 URL
+              if (isScreenViewer) {
+                setScreenTf(v as KlineTf);
+                return;
+              }
+              navigate({
+                to: "/home/market/stock/$symbol",
+                params: { symbol },
+                search: { tf: v as KlineTf, from, list, listTab, listPage, listQ },
+                replace: true,
+              });
+            }}
           >
-            <Button label="← 返回" variant="ghost" size="sm" />
+            {PERIOD_OPTIONS.map((p) => (
+              <Tab key={p.value} value={p.value} label={p.label} />
+            ))}
+          </TabList>
+          <Link
+            to="/home/market/analysis/$symbol"
+            params={{ symbol: currentSymbol }}
+            style={{ marginLeft: "auto", textDecoration: "none" }}
+          >
+            <Button label="深度分析" variant="secondary" size="sm" />
           </Link>
-        )}
-        {canSwitch && (
-          <HStack gap={1} align="center">
-            <Button
-              label="上一只"
-              variant="secondary"
-              size="sm"
-              isDisabled={!prevSymbol}
-              onClick={() => {
-                if (prevSymbol) goToSymbol(prevSymbol);
-              }}
-            />
-            <Text size="sm" type="supporting" hasTabularNumbers>
-              {index + 1} / {symbols.length}
-            </Text>
-            <Button
-              label="下一只"
-              variant="secondary"
-              size="sm"
-              isDisabled={!nextSymbol}
-              onClick={() => {
-                if (nextSymbol) goToSymbol(nextSymbol);
-              }}
-            />
-          </HStack>
-        )}
-        <TabList
-          value={currentTf}
-          onChange={(v) => {
-            // 选股入口：周期同样内部切换，不写回 URL
-            if (isScreenViewer) {
-              setScreenTf(v as KlineTf);
-              return;
-            }
-            navigate({
-              to: "/home/market/stock/$symbol",
-              params: { symbol },
-              search: { tf: v as KlineTf, from, list, listTab, listPage, listQ },
-              replace: true,
-            });
-          }}
+        </HStack>
+        <section
+          className="overflow-hidden rounded-2xl border border-app-line bg-app-panel"
+          aria-label="快速行情详情"
         >
-          {PERIOD_OPTIONS.map((p) => (
-            <Tab key={p.value} value={p.value} label={p.label} />
-          ))}
-        </TabList>
-        <Link
-          to="/home/market/analysis/$symbol"
-          params={{ symbol: currentSymbol }}
-          style={{ marginLeft: "auto", textDecoration: "none" }}
-        >
-          <Button label="深度分析" variant="secondary" size="sm" />
-        </Link>
-      </HStack>
-      <section
-        className="overflow-hidden rounded-2xl border border-app-line bg-app-panel"
-        aria-label="快速行情详情"
-      >
-        <div className="p-3.5" aria-label="个股行情摘要">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="flex min-w-0 items-baseline gap-2">
-              <strong className="truncate text-base font-bold text-app-ink">
-                {displayName}
-              </strong>
-              <span className="shrink-0 font-mono text-xs text-app-muted">
-                · {currentSymbol}
-              </span>
+          <div className="p-3.5" aria-label="个股行情摘要">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <strong className="truncate text-base font-bold text-app-ink">{displayName}</strong>
+                <span className="shrink-0 font-mono text-xs text-app-muted">· {currentSymbol}</span>
+              </div>
+              {quote ? (
+                <div
+                  className={`flex items-baseline gap-2 font-mono font-semibold ${
+                    quoteChange != null && quoteChange < 0
+                      ? "text-chart-down-strong"
+                      : "text-chart-up-strong"
+                  }`}
+                >
+                  <strong className="text-base">{quote.last ?? "—"}</strong>
+                  <span className="text-xs">
+                    {quoteChange == null
+                      ? "—"
+                      : `${quoteChange > 0 ? "+" : ""}${quoteChange.toFixed(2)}%`}
+                  </span>
+                </div>
+              ) : null}
             </div>
             {quote ? (
-              <div
-                className={`flex items-baseline gap-2 font-mono font-semibold ${
-                  quoteChange != null && quoteChange < 0
-                    ? "text-chart-down-strong"
-                    : "text-chart-up-strong"
-                }`}
-              >
-                <strong className="text-base">{quote.last ?? "—"}</strong>
-                <span className="text-xs">
-                  {quoteChange == null
-                    ? "—"
-                    : `${quoteChange > 0 ? "+" : ""}${quoteChange.toFixed(2)}%`}
-                </span>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-app-muted">
+                <span>成交额 {formatQuoteAmount(quote.amount)}</span>
+                <span>PE {quote.pe ?? "—"}</span>
+                <span>PE-TTM {quote.peTtm ?? "—"}</span>
+                <span>PB {quote.pb ?? "—"}</span>
               </div>
             ) : null}
-          </div>
-          {quote ? (
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-app-muted">
-              <span>成交额 {formatQuoteAmount(quote.amount)}</span>
-              <span>PE {quote.pe ?? "—"}</span>
-              <span>PE-TTM {quote.peTtm ?? "—"}</span>
-              <span>PB {quote.pb ?? "—"}</span>
-            </div>
-          ) : null}
-        </div>
-        <section
-          className="border-t border-quote-line bg-quote-canvas text-quote-ink"
-          aria-label={`${periodLabel} K 线与资金结构`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-1 pt-3.5">
-            <strong className="text-xs">K 线 · {periodLabel}</strong>
-            <span className="font-mono text-[11px] text-quote-axis">
-              MA5 / 10 / 20 / 30 / 60 / 120 / 250 · VOL · MACD
-            </span>
-          </div>
-          {displayedKline ? (
-            <div className="space-y-1 px-4 pb-2 font-mono text-[11px] text-quote-axis">
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                <span>时间: {formatKlineDate(displayedKline.bar.timestamp)}</span>
-                <span>开: {displayedKline.bar.open.toFixed(2)}</span>
-                <span>高: {displayedKline.bar.high.toFixed(2)}</span>
-                <span>低: {displayedKline.bar.low.toFixed(2)}</span>
-                <span>收: {displayedKline.bar.close.toFixed(2)}</span>
-                <span>成交量: {formatKlineVolume(displayedKline.bar.volume)}</span>
-                <span>成交额: {formatKlineAmount(displayedKline.bar.turnover)}</span>
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                <span>MA(5,10,20,30,60,120,250)</span>
-                {KLINE_MA_PERIODS.map((period) => (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {(technical.data?.signals ?? [])
+                .filter(
+                  (signal) => signal.status === "triggered" || signal.status === "low-confidence",
+                )
+                .slice(0, 4)
+                .map((signal) => (
                   <span
-                    key={period}
-                    style={{ color: `var(--quote-canvas-ma-${period})` }}
+                    key={signal.signalId}
+                    className="rounded-full border border-app-line bg-app-surface px-2 py-1 text-[10px] text-app-muted"
                   >
-                    MA{period}: {displayedKline.ma[period]?.toFixed(2) ?? "—"}
+                    {displaySignalName(signal.signalId)}
                   </span>
                 ))}
-              </div>
+              {technical.isLoading ? (
+                <span className="text-[10px] text-app-muted">技术标签读取中</span>
+              ) : technical.isError ? (
+                <span className="text-[10px] text-app-muted">技术标签暂不可用</span>
+              ) : (technical.data?.signals.length ?? 0) === 0 ? (
+                <span className="text-[10px] text-app-muted">暂无技术快照</span>
+              ) : null}
+              <Link
+                to="/home/market/analysis/$symbol"
+                params={{ symbol: currentSymbol }}
+                className="focus-ring ml-auto text-[10px] font-semibold text-primary"
+              >
+                查看 44 项证据
+              </Link>
             </div>
-          ) : null}
-          <div className="relative">
-            <div
-              ref={setChartContainer}
-              className="min-h-[480px] w-full bg-quote-canvas"
-            />
-            <KlineStatusOverlay status={klineStatus} onRetry={retryKline} />
           </div>
           <section
-            className="border-t border-quote-line px-4 py-3.5"
-            aria-label="个股资金结构"
+            className="border-t border-quote-line bg-quote-canvas text-quote-ink"
+            aria-label={`${periodLabel} K 线与资金结构`}
           >
-            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <strong className="text-xs">资金结构</strong>
-                <Text as="p" className="mt-1 text-[11px] text-quote-axis">
-                  {latestFund?.date ?? "暂无资金快照"} · 主力净流入不等同于全部资金
-                </Text>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-1 pt-3.5">
+              <strong className="text-xs">K 线 · {periodLabel}</strong>
               <span className="font-mono text-[11px] text-quote-axis">
-                {quote?.ts.slice(0, 10) ?? "待读取"} · {quote?.source ?? "腾讯"}
+                MA5 / 10 / 20 / 30 / 60 / 120 / 250 · VOL · MACD
               </span>
             </div>
-            <FundStructure
-              row={latestFund}
-              isLoading={fundFlow.isLoading}
-              isError={fundFlow.isError}
-              tone="quoteCanvas"
-            />
+            {displayedKline ? (
+              <div className="space-y-1 px-4 pb-2 font-mono text-[11px] text-quote-axis">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <span>时间: {formatKlineDate(displayedKline.bar.timestamp)}</span>
+                  <span>开: {displayedKline.bar.open.toFixed(2)}</span>
+                  <span>高: {displayedKline.bar.high.toFixed(2)}</span>
+                  <span>低: {displayedKline.bar.low.toFixed(2)}</span>
+                  <span>收: {displayedKline.bar.close.toFixed(2)}</span>
+                  <span>成交量: {formatKlineVolume(displayedKline.bar.volume)}</span>
+                  <span>成交额: {formatKlineAmount(displayedKline.bar.turnover)}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span>MA(5,10,20,30,60,120,250)</span>
+                  {KLINE_MA_PERIODS.map((period) => (
+                    <span key={period} style={{ color: `var(--quote-canvas-ma-${period})` }}>
+                      MA{period}: {displayedKline.ma[period]?.toFixed(2) ?? "—"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="relative">
+              <div ref={setChartContainer} className="min-h-[480px] w-full bg-quote-canvas" />
+              <KlineStatusOverlay status={klineStatus} onRetry={retryKline} />
+            </div>
+            <section className="border-t border-quote-line px-4 py-3.5" aria-label="个股资金结构">
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <strong className="text-xs">资金结构</strong>
+                  <Text as="p" className="mt-1 text-[11px] text-quote-axis">
+                    {latestFund?.date ?? "暂无资金快照"} · 主力净流入不等同于全部资金
+                  </Text>
+                </div>
+                <span className="font-mono text-[11px] text-quote-axis">
+                  {quote?.ts.slice(0, 10) ?? "待读取"} · {quote?.source ?? "腾讯"}
+                </span>
+              </div>
+              <FundStructure
+                row={latestFund}
+                isLoading={fundFlow.isLoading}
+                isError={fundFlow.isError}
+                tone="quoteCanvas"
+              />
+            </section>
           </section>
         </section>
-      </section>
-    </VStack>
+      </VStack>
     </MarketCenterShell>
   );
 }

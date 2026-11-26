@@ -1,0 +1,1659 @@
+{
+  "catalog_version": "technical-signals-1.0.0",
+  "layer_order": ["basic", "pattern", "advanced", "micro"],
+  "scope_order": ["market", "sector", "stock", "gold"],
+  "shared": {
+    "basic": [
+      {
+        "name": "price_vs_ma200",
+        "display_name": "价格相对 MA200",
+        "availability": "available",
+        "rule": "close / MA(close, 200) - 1",
+        "params": { "ma_window": 200 },
+        "confirmation": "收盘相对 MA200 为正且 MA200 斜率不为负",
+        "invalidation": "收盘跌破 MA200 或长均线斜率转负",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 200,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "ma200_slope_20",
+        "display_name": "MA200 斜率",
+        "availability": "available",
+        "rule": "MA(close, 200)t / MA(close, 200)t-20 - 1",
+        "params": { "ma_window": 200, "lookback": 20 },
+        "confirmation": "20 日 MA200 斜率为正并高于噪声阈值",
+        "invalidation": "20 日 MA200 斜率转负",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 220,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "macd_zero_axis",
+        "display_name": "MACD 零轴状态",
+        "availability": "available",
+        "rule": "DIF = EMA(close, 12) - EMA(close, 26); DEA = EMA(DIF, 9); HIST = 2 * (DIF - DEA)",
+        "params": { "fast": 12, "slow": 26, "signal": 9 },
+        "confirmation": "DIF 与 DEA 位于零轴上方并保持同向",
+        "invalidation": "DIF 下穿零轴或 DEA 后快速转负",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 35,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "macd_divergence",
+        "display_name": "MACD 背离",
+        "availability": "available",
+        "rule": "比较最近两个显著价格摆动点与对应 DIF/HIST 的摆动幅度",
+        "params": {
+          "fast": 12,
+          "slow": 26,
+          "signal": 9,
+          "pivot_span": 3,
+          "search_window": 60,
+          "min_atr_multiple": 0.5
+        },
+        "confirmation": "价格创新高/低而 DIF 或柱值未创新高/低，且摆动点距离达到 ATR 阈值",
+        "invalidation": "价格与 MACD 同步创新高/低，或摆动结构失效",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "rsi_state",
+        "display_name": "RSI 超买超卖与背离",
+        "availability": "available",
+        "rule": "RSI(close, 14) 与 30/70 阈值；检查最近两次摆动的价格-MACD 背离",
+        "params": {
+          "period": 14,
+          "oversold": 30,
+          "overbought": 70,
+          "pivot_span": 3,
+          "divergence_window": 60
+        },
+        "confirmation": "RSI 脱离超卖区向上，或强势状态未跌破中性阈值",
+        "invalidation": "RSI 跌破 30 或升破 70 后无法维持",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 30,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "bollinger_regime",
+        "display_name": "布林带压缩扩张",
+        "availability": "available",
+        "rule": "(upper - lower) / middle 的 252 日历史分位，并区分压缩、常态与带外突破",
+        "params": {
+          "period": 20,
+          "std_dev": 2,
+          "percentile_window": 252,
+          "compression_percentile": 20,
+          "expansion_percentile": 80
+        },
+        "confirmation": "带宽自低位回升且收盘突破带边界",
+        "invalidation": "价格回带内且宽度继续收缩",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 252,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "rvol",
+        "display_name": "相对成交量 RVOL",
+        "availability": "available",
+        "rule": "volume / mean(volume, 20)",
+        "params": { "volume_window": 20, "breakout_threshold": 1.5 },
+        "confirmation": "RVOL 高于突破阈值且价格保持在关键边界之外",
+        "invalidation": "量能回落至均值以下且价格失去边界",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["volume"],
+            "min_history": 20,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": ["gold"]
+      },
+      {
+        "name": "adx_di",
+        "display_name": "ADX / DI 趋势强度",
+        "availability": "available",
+        "rule": "Wilder ADX(14)、DI+ 与 DI-",
+        "params": { "period": 14, "trend_threshold": 25 },
+        "confirmation": "ADX 高于 25 且 DI+ 高于 DI-",
+        "invalidation": "ADX 跌破 20 或 DI+ 下穿 DI-",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close"],
+            "min_history": 30,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "obv_trend",
+        "display_name": "OBV 趋势",
+        "availability": "available",
+        "rule": "OBV 20 日斜率，并检查价格与 OBV 背离",
+        "params": { "slope_window": 20, "divergence_window": 60 },
+        "confirmation": "OBV 斜率为正并与价格趋势同向",
+        "invalidation": "OBV 斜率转负或形成有效负背离",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close", "volume"],
+            "min_history": 20,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": ["gold"]
+      },
+      {
+        "name": "atr_regime",
+        "display_name": "ATR 波动率状态",
+        "availability": "available",
+        "rule": "ATR(14) / close 的 252 日历史分位",
+        "params": {
+          "period": 14,
+          "percentile_window": 252,
+          "low_percentile": 20,
+          "high_percentile": 80
+        },
+        "confirmation": "波动率离开低位并保持有序扩张",
+        "invalidation": "波动率快速冲高后反向收缩或价格结构失效",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close"],
+            "min_history": 252,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ],
+    "pattern": [
+      {
+        "name": "range_accumulation",
+        "display_name": "震荡待涨",
+        "availability": "available",
+        "rule": "20–60 日箱体且振幅收敛，收盘位于箱体上 1/3，并用 MA20 与量能变化确认",
+        "params": {
+          "min_window": 20,
+          "max_window": 60,
+          "max_width": 0.12,
+          "width_percentile": 30,
+          "upper_third": 0.67
+        },
+        "confirmation": "缩量后量能回升，MA20 走平或向上，收盘保持在箱体上沿附近",
+        "invalidation": "跌破箱体下沿或放量向下突破",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 90,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "volume_contraction_base",
+        "display_name": "缩量筑底",
+        "availability": "available",
+        "rule": "接近 60 日低位并出现更高低点，量能低于均值后回升，RSI 脱离弱势",
+        "params": {
+          "range_window": 60,
+          "low_zone": 0.15,
+          "volume_window": 20,
+          "volume_recovery": 1.2
+        },
+        "confirmation": "更高低点成立，成交量由收缩转为回升，RSI 回到 30 上方",
+        "invalidation": "创新低且无法收回，或 RSI 再次跌破弱势区",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "golden_cross",
+        "display_name": "黄金交叉",
+        "availability": "available",
+        "rule": "MA20 上穿 MA60，并用 MACD 转强或价格站上 MA60 确认",
+        "params": { "fast_ma": 20, "slow_ma": 60, "confirmation_window": 5 },
+        "confirmation": "交叉后价格站上 MA60，或 MACD 柱值转正",
+        "invalidation": "价格快速收回交叉区下方或均线重新死叉",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 65,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "bullish_alignment",
+        "display_name": "多头排列",
+        "availability": "available",
+        "rule": "MA20 > MA60 > MA120 且长均线斜率向上",
+        "params": { "short_ma": 20, "medium_ma": 60, "long_ma": 120, "slope_window": 10 },
+        "confirmation": "价格不破 MA20，宽度或相对强弱保持为正",
+        "invalidation": "MA20 下穿 MA60",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 120,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "base_breakout",
+        "display_name": "底部起涨",
+        "availability": "available",
+        "rule": "更高低点后突破 20 日高点，并以 RVOL 与资产级宽度改善确认",
+        "params": { "base_window": 20, "breakout_buffer": 0.005, "rvol_threshold": 1.5 },
+        "confirmation": "RVOL 高于阈值；大盘或板块另需宽度改善",
+        "invalidation": "价格跌回突破起点或宽度恶化",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "platform_breakout",
+        "display_name": "平台突破",
+        "availability": "available",
+        "rule": "平台区间收窄后收盘突破 60 日高点",
+        "params": { "platform_window": 60, "breakout_buffer": 0.005, "rvol_threshold": 1.5 },
+        "confirmation": "RVOL 高于阈值且收盘保持在突破区外",
+        "invalidation": "假突破回到平台箱体",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "pullback_confirmation",
+        "display_name": "回踩确认",
+        "availability": "available",
+        "rule": "已完成有效突破，缩量回踩原阻力区后重新放量站稳",
+        "params": { "breakout_lookback": 20, "volume_ratio": 0.8, "reclaim_buffer": 0.005 },
+        "confirmation": "回踩均量不高于突破日均量的 80%，随后重新站上阻力区",
+        "invalidation": "有效跌破突破区并无法收回",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "acceleration",
+        "display_name": "主升加速",
+        "availability": "available",
+        "rule": "多头排列上方运行，20 日收益处于自身 252 日高分位",
+        "params": {
+          "return_window": 20,
+          "percentile_window": 252,
+          "min_percentile": 80,
+          "max_drawdown": 0.08
+        },
+        "confirmation": "回撤受控且 MA20、MA60 斜率同步上升",
+        "invalidation": "跌破 MA20 或 MA60，或动量快速衰减",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close"],
+            "min_history": 252,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "high_level_stall",
+        "display_name": "高位滞涨",
+        "availability": "available",
+        "rule": "价格接近 60 日高位但收益斜率下降",
+        "params": {
+          "range_window": 60,
+          "high_zone": 0.85,
+          "volume_window": 20,
+          "slope_decay": 0.5
+        },
+        "confirmation": "量能偏高且收盘位置转弱，动量明显衰减",
+        "invalidation": "重新放量创新高",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "top_reversal",
+        "display_name": "顶部反转",
+        "availability": "available",
+        "rule": "形成更低高点并跌破短期颈线或 MA20",
+        "params": { "pivot_span": 3, "range_window": 20, "confirmation_window": 3 },
+        "confirmation": "出现背离、宽度恶化或放量下跌",
+        "invalidation": "重新站回颈线与 MA20 上方",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "death_cross",
+        "display_name": "死亡交叉",
+        "availability": "available",
+        "rule": "MA20 下穿 MA60，并用 MACD 零轴或价格失守 MA60 确认",
+        "params": { "fast_ma": 20, "slow_ma": 60, "confirmation_window": 5 },
+        "confirmation": "MACD 位于零轴下方或价格收于 MA60 下方",
+        "invalidation": "快速收回交叉区并重新站上 MA60",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 65,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "bearish_breakdown",
+        "display_name": "空头破位",
+        "availability": "available",
+        "rule": "跌破 60 日低点或平台下沿，并以 MA60、量能或宽度恶化确认",
+        "params": { "breakdown_window": 60, "breakdown_buffer": 0.005, "confirmation_window": 3 },
+        "confirmation": "价格位于 MA60 下方，且量能或宽度恶化",
+        "invalidation": "收回破位区并站稳",
+        "data_requirements": [
+          {
+            "dataset": "daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 60,
+            "required": true,
+            "source": "object_price_series"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ]
+  },
+  "advanced": {
+    "market": [
+      {
+        "name": "risk_on_off",
+        "display_name": "Risk-On / Risk-Off",
+        "availability": "available",
+        "rule": "20/60 日成长价值、大小盘、周期防御相对收益的横截面分位合成",
+        "params": {
+          "windows": [20, 60],
+          "style_weight": 0.25,
+          "size_weight": 0.25,
+          "cycle_defensive_weight": 0.25,
+          "cross_asset_weight": 0.25
+        },
+        "confirmation": "至少三类风格与跨资产证据同向，综合分位越过方向阈值",
+        "invalidation": "风格证据转弱或跨资产相关性方向冲突",
+        "data_requirements": [
+          {
+            "dataset": "market_style_indices",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "market_assets"
+          },
+          {
+            "dataset": "cross_asset_daily",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": false,
+            "source": "market_assets"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "rates_valuation_cycle",
+        "display_name": "利率曲线与估值周期",
+        "availability": "unavailable",
+        "rule": "10 年国债收益率曲线、信用利差与实际利率环境的估值周期合成",
+        "params": { "curve_window": 60, "valuation_window": 252, "rate_percentile_window": 756 },
+        "confirmation": "利率与估值分位共同改善且信用条件不恶化",
+        "invalidation": "利率快速上行或风险溢价显著收缩",
+        "data_requirements": [
+          {
+            "dataset": "china_yield_curve",
+            "fields": ["10y_yield", "2y_yield"],
+            "min_history": 252,
+            "required": true,
+            "source": "not_connected"
+          },
+          {
+            "dataset": "market_valuation",
+            "fields": ["pe", "pb"],
+            "min_history": 252,
+            "required": true,
+            "source": "market_assets"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "market_breadth_diffusion",
+        "display_name": "市场宽度扩散",
+        "availability": "available",
+        "rule": "上涨家数、站上 MA200 比例及 5/10 日变化",
+        "params": { "ma_window": 200, "changes": [5, 10], "diffusion_threshold": 0.55 },
+        "confirmation": "扩散比例与变化方向同时为正",
+        "invalidation": "站上 MA200 比例持续下降或上涨家数快速收窄",
+        "data_requirements": [
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["close", "change_pct"],
+            "min_history": 220,
+            "required": true,
+            "source": "bar1d_hfq"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "volatility_regime",
+        "display_name": "波动率状态",
+        "availability": "available",
+        "rule": "指数 20 日实现波动率、252 日分位与变化方向",
+        "params": {
+          "realized_window": 20,
+          "percentile_window": 252,
+          "low_threshold": 20,
+          "high_threshold": 80
+        },
+        "confirmation": "波动率低分位且变化平稳，或高分位后开始回落",
+        "invalidation": "波动率进入高分位并继续上升",
+        "data_requirements": [
+          {
+            "dataset": "index_daily_ohlcv",
+            "fields": ["close", "high", "low"],
+            "min_history": 252,
+            "required": true,
+            "source": "market_index"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "cross_asset_correlation",
+        "display_name": "跨资产相关性",
+        "availability": "partial",
+        "rule": "A 股、黄金、海外权益、美元等资产 60 日滚动相关",
+        "params": {
+          "rolling_window": 60,
+          "min_common_observations": 40,
+          "regime_quantiles": [0.3, 0.7]
+        },
+        "confirmation": "共同日期充足且相关性状态保持稳定",
+        "invalidation": "共同日期不足或相关性方向迅速反转",
+        "data_requirements": [
+          {
+            "dataset": "cross_asset_daily",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "market_assets"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "economic_cycle_leading",
+        "display_name": "经济周期领先指标",
+        "availability": "unavailable",
+        "rule": "PMI、社融、库存与盈利预期的周期领先合成",
+        "params": { "change_window": 3, "zscore_window": 36, "min_series": 3 },
+        "confirmation": "至少三项领先指标同向改善",
+        "invalidation": "主要领先指标拐头或数据修订破坏方向",
+        "data_requirements": [
+          {
+            "dataset": "china_macro_leading",
+            "fields": ["pmi", "social_financing", "inventory", "earnings_revision"],
+            "min_history": 36,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "factor_style_diffusion",
+        "display_name": "多因子风格扩散",
+        "availability": "available",
+        "rule": "六个风格指数相对上证 20/60 日超额收益及一致性",
+        "params": { "windows": [20, 60], "min_style_coverage": 0.8, "dispersion_window": 252 },
+        "confirmation": "多数风格超额为正且扩散度上升",
+        "invalidation": "超额广度下降或风格集中度上升",
+        "data_requirements": [
+          {
+            "dataset": "market_style_indices",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "market_assets"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "credit_cycle",
+        "display_name": "信用周期",
+        "availability": "unavailable",
+        "rule": "信用利差、融资条件与违约风险状态合成",
+        "params": { "spread_window": 60, "percentile_window": 756, "min_direction_window": 20 },
+        "confirmation": "信用利差收窄且融资条件改善",
+        "invalidation": "信用利差快速走阔或违约风险上升",
+        "data_requirements": [
+          {
+            "dataset": "china_credit_cycle",
+            "fields": ["credit_spread", "financing_conditions", "default_risk"],
+            "min_history": 252,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "market_liquidity_structure",
+        "display_name": "市场流动性与成交结构",
+        "availability": "available",
+        "rule": "全市场成交额、换手、成交集中度与融资活跃度组合",
+        "params": {
+          "change_window": 20,
+          "percentile_window": 252,
+          "concentration_top_n": 100,
+          "min_domain_coverage": 0.8
+        },
+        "confirmation": "成交与换手温和扩张，集中度未极端上升",
+        "invalidation": "成交快速萎缩或流动性高度集中",
+        "data_requirements": [
+          {
+            "dataset": "market_daily_ohlcv",
+            "fields": ["amount", "turnover_rate"],
+            "min_history": 252,
+            "required": true,
+            "source": "bar1d_hfq"
+          },
+          {
+            "dataset": "margin_trading",
+            "fields": ["balance", "buy_amount"],
+            "min_history": 60,
+            "required": false,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "hmm_market_regime",
+        "display_name": "HMM 市场状态",
+        "availability": "unavailable",
+        "rule": "以收益、波动、成交与相关性特征训练隐马尔可夫市场状态模型",
+        "params": {
+          "states": 3,
+          "feature_window": 20,
+          "training_window": 756,
+          "min_out_of_sample_months": 12
+        },
+        "confirmation": "模型完成样本外稳定性验证且状态后验概率达到阈值",
+        "invalidation": "模型未验证、状态后验不显著或训练窗口漂移",
+        "data_requirements": [
+          {
+            "dataset": "market_regime_features",
+            "fields": ["return", "volatility", "amount", "correlation"],
+            "min_history": 756,
+            "required": true,
+            "source": "derived"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ],
+    "sector": [
+      {
+        "name": "growth_defensive_rotation",
+        "display_name": "成长防守轮动",
+        "availability": "not-applicable",
+        "rule": "引用市场级成长与防守相对强弱背景，不伪造板块独立综合状态",
+        "params": { "market_reference": 1, "window": 60 },
+        "confirmation": "市场级成长防守状态有可用结果",
+        "invalidation": "市场级风格背景不可用",
+        "data_requirements": [
+          {
+            "dataset": "market_style_indices",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "market_assets"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "sector_momentum_diffusion",
+        "display_name": "行业动量扩散",
+        "availability": "available",
+        "rule": "成分股 20/60/120 日正收益比例与板块自身动量的扩散评分",
+        "params": { "windows": [20, 60, 120], "min_coverage": 0.8, "diffusion_threshold": 0.55 },
+        "confirmation": "多个窗口正收益覆盖提升且板块动量同向",
+        "invalidation": "覆盖下降或板块动量与成分广度背离",
+        "data_requirements": [
+          {
+            "dataset": "board_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 120,
+            "required": true,
+            "source": "board_kline"
+          },
+          {
+            "dataset": "board_constituents_daily",
+            "fields": ["symbol", "close"],
+            "min_history": 120,
+            "required": true,
+            "source": "bar1d_hfq"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "sector_relative_strength",
+        "display_name": "板块相对强弱趋势",
+        "availability": "available",
+        "rule": "板块 / 上证或沪深300比值、斜率与 60 日突破",
+        "params": {
+          "benchmark": "000001.SH",
+          "windows": [20, 60],
+          "breakout_window": 60,
+          "slope_window": 10
+        },
+        "confirmation": "相对强弱比值突破 60 日区间且斜率向上",
+        "invalidation": "相对强弱跌破突破区或斜率转负",
+        "data_requirements": [
+          {
+            "dataset": "board_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "board_kline"
+          },
+          {
+            "dataset": "benchmark_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "market_index"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "industry_fund_flow",
+        "display_name": "行业资金流",
+        "availability": "available",
+        "rule": "主力、超大、大、中、小单净流入及 5 日持续性",
+        "params": { "persistence_window": 5, "normalization_window": 20, "min_coverage": 0.8 },
+        "confirmation": "主力与超大单净流入同向且具有多日持续性",
+        "invalidation": "资金流入反转或覆盖不足",
+        "data_requirements": [
+          {
+            "dataset": "board_fundflow",
+            "fields": ["main_net", "xl_net", "l_net", "m_net", "s_net"],
+            "min_history": 20,
+            "required": true,
+            "source": "fundflow"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "earnings_cycle_revision",
+        "display_name": "盈利周期与预期修正",
+        "availability": "partial",
+        "rule": "成分股盈利增速、财务变化与一致预期修正覆盖",
+        "params": { "growth_windows": [4, 8], "revision_window": 60, "min_coverage": 0.6 },
+        "confirmation": "盈利增速与预期修正同向，覆盖率达到阈值",
+        "invalidation": "盈利修正转负或覆盖率跌破阈值",
+        "data_requirements": [
+          {
+            "dataset": "stock_financials",
+            "fields": ["net_profit_yoy", "revenue_yoy", "roe"],
+            "min_history": 8,
+            "required": true,
+            "source": "financials"
+          },
+          {
+            "dataset": "earnings_consensus",
+            "fields": ["eps_estimate_changes"],
+            "min_history": 60,
+            "required": false,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "valuation_rotation",
+        "display_name": "估值分位轮动",
+        "availability": "partial",
+        "rule": "板块或成分聚合 PE/PB 分位与盈利增速匹配",
+        "params": { "valuation_windows": [252, 756], "growth_window": 4, "min_coverage": 0.6 },
+        "confirmation": "估值分位处于相对低位且盈利增速稳定",
+        "invalidation": "估值扩张快于盈利或估值数据覆盖不足",
+        "data_requirements": [
+          {
+            "dataset": "stock_valuation",
+            "fields": ["pe_ttm", "pb"],
+            "min_history": 252,
+            "required": true,
+            "source": "valuations"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "supply_chain_cycle",
+        "display_name": "产业链景气传导",
+        "availability": "unavailable",
+        "rule": "上中下游价格、订单与景气数据的方向传导评分",
+        "params": { "change_window": 3, "zscore_window": 36, "min_chain_links": 3 },
+        "confirmation": "至少三个链节同向改善并形成传导",
+        "invalidation": "传导断点或景气指标反向",
+        "data_requirements": [
+          {
+            "dataset": "supply_chain_prosperity",
+            "fields": ["price", "orders", "prosperity_index"],
+            "min_history": 36,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "leader_sector_resonance",
+        "display_name": "龙头与板块共振",
+        "availability": "partial",
+        "rule": "龙头相对行业 RS、龙头上涨与成分广度组合",
+        "params": { "leader_count": 5, "rs_window": 20, "breadth_threshold": 0.55 },
+        "confirmation": "龙头与板块同时走强且带头上涨",
+        "invalidation": "龙头独涨但板块广度恶化",
+        "data_requirements": [
+          {
+            "dataset": "board_constituents_daily",
+            "fields": ["symbol", "close", "amount"],
+            "min_history": 60,
+            "required": true,
+            "source": "bar1d_hfq"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "crowding_reversal",
+        "display_name": "拥挤度反转",
+        "availability": "available",
+        "rule": "成交集中、波动分位、估值分位与涨幅拥挤的组合",
+        "params": { "percentile_window": 252, "crowding_threshold": 85, "min_signals": 2 },
+        "confirmation": "至少两个拥挤维度进入极端分位并开始回落",
+        "invalidation": "拥挤指标继续上升或拥挤迅速消散",
+        "data_requirements": [
+          {
+            "dataset": "board_daily_ohlcv",
+            "fields": ["close", "amount"],
+            "min_history": 252,
+            "required": true,
+            "source": "board_kline"
+          },
+          {
+            "dataset": "stock_valuation",
+            "fields": ["pe_ttm", "pb"],
+            "min_history": 252,
+            "required": false,
+            "source": "valuations"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "sector_multifactor_allocation",
+        "display_name": "多因子行业配置",
+        "availability": "partial",
+        "rule": "动量、质量、估值、波动和资金的可配置权重评分",
+        "params": {
+          "momentum": 0.3,
+          "quality": 0.2,
+          "valuation": 0.2,
+          "volatility": 0.15,
+          "fundflow": 0.15,
+          "min_factor_coverage": 0.8
+        },
+        "confirmation": "各因子覆盖率高于 80% 且综合分位达到阈值",
+        "invalidation": "任一分项覆盖不足或综合方向被主要因子反转",
+        "data_requirements": [
+          {
+            "dataset": "sector_factor_panel",
+            "fields": ["momentum", "quality", "valuation", "volatility", "fundflow"],
+            "min_history": 252,
+            "required": true,
+            "source": "derived"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ],
+    "stock": [
+      {
+        "name": "alpha_momentum",
+        "display_name": "Alpha 动量",
+        "availability": "available",
+        "rule": "个股 20/60/120 日收益减去行业与市场基准后的 Alpha 合成",
+        "params": {
+          "windows": [20, 60, 120],
+          "benchmark": "industry_or_market",
+          "winsorize": [0.01, 0.99]
+        },
+        "confirmation": "多个窗口 Alpha 同向为正且横截面分位抬升",
+        "invalidation": "短中期 Alpha 转负或基准数据失效",
+        "data_requirements": [
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 120,
+            "required": true,
+            "source": "bar1d_hfq"
+          },
+          {
+            "dataset": "benchmark_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 120,
+            "required": true,
+            "source": "board_kline_or_market_index"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "fama_french",
+        "display_name": "Fama-French 多因子",
+        "availability": "partial",
+        "rule": "输出规模、价值、盈利与投资四类暴露，不合成未经验证的预期收益",
+        "params": {
+          "value_fields": ["pb", "pe_ttm"],
+          "profitability_field": "roe",
+          "investment_field": "asset_growth",
+          "min_history": 4
+        },
+        "confirmation": "至少三类暴露覆盖完整且方向一致",
+        "invalidation": "暴露覆盖不足或财务口径不可比",
+        "data_requirements": [
+          {
+            "dataset": "stock_fundamentals",
+            "fields": ["market_cap", "pb", "pe_ttm", "roe", "asset_growth"],
+            "min_history": 4,
+            "required": true,
+            "source": "financials_and_valuations"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "quality_growth",
+        "display_name": "质量成长",
+        "availability": "partial",
+        "rule": "ROE/ROIC、毛利率、经营现金流与增长的横截面评分",
+        "params": {
+          "roe_weight": 0.25,
+          "roic_weight": 0.2,
+          "margin_weight": 0.2,
+          "cashflow_weight": 0.15,
+          "growth_weight": 0.2,
+          "min_coverage": 0.8
+        },
+        "confirmation": "质量与增长因子覆盖完整且处于有利分位",
+        "invalidation": "质量或现金流恶化，或覆盖率不足",
+        "data_requirements": [
+          {
+            "dataset": "stock_financials",
+            "fields": ["roe", "roic", "gross_margin", "operating_cash_flow", "growth"],
+            "min_history": 8,
+            "required": true,
+            "source": "financials"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "earnings_revision",
+        "display_name": "盈利预期修正",
+        "availability": "partial",
+        "rule": "一致预期 EPS 跨快照变化与研报修正方向",
+        "params": { "windows": [30, 60, 90], "min_analysts": 3, "stale_days": 90 },
+        "confirmation": "预期修正连续为正且样本分析师数量足够",
+        "invalidation": "预期下修、样本不足或数据过期",
+        "data_requirements": [
+          {
+            "dataset": "earnings_consensus",
+            "fields": ["eps_estimate", "analyst_count", "revision_direction"],
+            "min_history": 90,
+            "required": true,
+            "source": "research_and_not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "accumulation_distribution",
+        "display_name": "资金累积与派发",
+        "availability": "available",
+        "rule": "OBV、量价相关、资金流和价格冲击的组合",
+        "params": {
+          "obv_window": 20,
+          "correlation_window": 20,
+          "fundflow_window": 5,
+          "min_coverage": 0.8
+        },
+        "confirmation": "量价与资金流同向，价格冲击保持健康",
+        "invalidation": "OBV 或资金流转负，或量价背离",
+        "data_requirements": [
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["close", "volume", "amount"],
+            "min_history": 60,
+            "required": true,
+            "source": "bar1d_hfq"
+          },
+          {
+            "dataset": "stock_fundflow",
+            "fields": ["main_net"],
+            "min_history": 20,
+            "required": false,
+            "source": "fundflow"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "volatility_squeeze_breakout",
+        "display_name": "波动率压缩突破",
+        "availability": "available",
+        "rule": "ATR、布林带宽和真实波动分位的压缩后突破",
+        "params": {
+          "atr_period": 14,
+          "bollinger_period": 20,
+          "percentile_window": 252,
+          "compression_percentile": 20
+        },
+        "confirmation": "波动压缩后价格与量能同时突破",
+        "invalidation": "突破失败并重新进入压缩区间",
+        "data_requirements": [
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["high", "low", "close", "volume"],
+            "min_history": 252,
+            "required": true,
+            "source": "bar1d_hfq"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "chip_concentration",
+        "display_name": "筹码集中度",
+        "availability": "partial",
+        "rule": "股东户数、换手、分价成交量峰与成本区间组合",
+        "params": {
+          "holder_change_windows": [30, 90],
+          "turnover_window": 20,
+          "value_area": 0.7,
+          "min_history": 120
+        },
+        "confirmation": "股东集中、成本区支撑与换手结构同步改善",
+        "invalidation": "股东户数快速增加或支撑区失守",
+        "data_requirements": [
+          {
+            "dataset": "stock_holder_structure",
+            "fields": ["holder_count"],
+            "min_history": 4,
+            "required": true,
+            "source": "financials"
+          },
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["close", "volume", "amount"],
+            "min_history": 120,
+            "required": true,
+            "source": "bar1d_hfq"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "industry_relative_strength",
+        "display_name": "行业相对强弱",
+        "availability": "available",
+        "rule": "个股 / 所属行业指数相对强弱与行业内排名",
+        "params": { "windows": [20, 60], "benchmark": "board_index", "slope_window": 10 },
+        "confirmation": "相对强弱斜率向上且行业内排名改善",
+        "invalidation": "相对强弱斜率转负或行业映射缺失",
+        "data_requirements": [
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "bar1d_hfq"
+          },
+          {
+            "dataset": "board_daily_ohlcv",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "board_kline"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "event_driven",
+        "display_name": "事件驱动",
+        "availability": "partial",
+        "rule": "财报、回购、订单、政策和公告结构化事件的方向与影响窗口",
+        "params": {
+          "event_windows": ["T-20", "T+20"],
+          "min_event_confidence": 0.7,
+          "max_event_age_days": 30
+        },
+        "confirmation": "存在可结构化、可追溯且处于有效窗口内的事件",
+        "invalidation": "事件过期、来源冲突或无可靠结构化证据",
+        "data_requirements": [
+          {
+            "dataset": "structured_company_events",
+            "fields": ["event_type", "event_time", "source", "direction"],
+            "min_history": 1,
+            "required": true,
+            "source": "announcements_and_news"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "stock_multifactor_expected_return",
+        "display_name": "多因子预期收益",
+        "availability": "partial",
+        "rule": "动量、质量、估值、盈利修正、风险与流动性的标准化横截面合成",
+        "params": {
+          "momentum": 0.25,
+          "quality": 0.2,
+          "valuation": 0.15,
+          "revision": 0.2,
+          "risk_liquidity": 0.2,
+          "min_factor_coverage": 0.8
+        },
+        "confirmation": "各分项覆盖率达到阈值，综合分位与主要因子同向",
+        "invalidation": "覆盖不足或综合方向被主要因子反转",
+        "data_requirements": [
+          {
+            "dataset": "stock_factor_panel",
+            "fields": ["momentum", "quality", "valuation", "revision", "risk", "liquidity"],
+            "min_history": 252,
+            "required": true,
+            "source": "derived"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ],
+    "gold": [
+      {
+        "name": "gold_real_yield",
+        "display_name": "黄金与实际利率",
+        "availability": "unavailable",
+        "rule": "XAU/USD 与美国实际利率、通胀预期的条件相关和方向偏离",
+        "params": { "rolling_window": 60, "yield_window": 60, "min_common_observations": 40 },
+        "confirmation": "实际利率与黄金方向关系稳定并出现有效偏离",
+        "invalidation": "数据未接入或共同样本不足",
+        "data_requirements": [
+          {
+            "dataset": "us_real_yield",
+            "fields": ["real_yield", "inflation_expectation"],
+            "min_history": 60,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "gold_usd",
+        "display_name": "黄金与美元",
+        "availability": "unavailable",
+        "rule": "XAU/USD 与美元指数的滚动相关、相对强弱和背离",
+        "params": { "rolling_window": 60, "slope_window": 10, "min_common_observations": 40 },
+        "confirmation": "美元与黄金关系稳定并出现方向确认",
+        "invalidation": "DXY 未接入或共同样本不足",
+        "data_requirements": [
+          {
+            "dataset": "us_dollar_index",
+            "fields": ["close"],
+            "min_history": 60,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "gold_silver_ratio",
+        "display_name": "金银比",
+        "availability": "unavailable",
+        "rule": "黄金 / 白银价格比及其历史分位和趋势",
+        "params": { "percentile_window": 756, "slope_window": 20, "extreme_quantiles": [0.1, 0.9] },
+        "confirmation": "金银比出现极端分位后趋势反转",
+        "invalidation": "白银价格未接入或历史样本不足",
+        "data_requirements": [
+          {
+            "dataset": "silver_daily_price",
+            "fields": ["close"],
+            "min_history": 756,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "cftc_positioning",
+        "display_name": "CFTC 持仓拥挤度",
+        "availability": "unavailable",
+        "rule": "CFTC 黄金非商业净持仓、变化与历史拥挤分位",
+        "params": { "percentile_window": 156, "change_windows": [1, 4], "crowded_percentile": 85 },
+        "confirmation": "净持仓方向与变化一致且未达到反向极端",
+        "invalidation": "CFTC 数据未接入或发布滞后超过允许范围",
+        "data_requirements": [
+          {
+            "dataset": "cftc_gold_positions",
+            "fields": ["non_commercial_net", "open_interest"],
+            "min_history": 156,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "gold_etf_flow",
+        "display_name": "黄金 ETF 资金流",
+        "availability": "unavailable",
+        "rule": "主要黄金 ETF 持仓变化、资金流和价格确认",
+        "params": { "flow_windows": [5, 20], "min_common_observations": 60 },
+        "confirmation": "ETF 资金流与黄金价格同向且具有持续性",
+        "invalidation": "ETF 持仓数据未接入或流数据断档",
+        "data_requirements": [
+          {
+            "dataset": "gold_etf_flows",
+            "fields": ["holdings", "net_flow", "aum"],
+            "min_history": 60,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "central_bank_gold",
+        "display_name": "央行购金",
+        "availability": "unavailable",
+        "rule": "主要央行黄金储备变化与净购金趋势",
+        "params": { "change_windows": [3, 12], "min_reporting_coverage": 0.7 },
+        "confirmation": "央行净购金连续为正且覆盖充分",
+        "invalidation": "储备数据未接入、滞后或覆盖不足",
+        "data_requirements": [
+          {
+            "dataset": "central_bank_gold_reserves",
+            "fields": ["reserve_tonnes", "net_purchase"],
+            "min_history": 12,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "gold_commodity_ratio",
+        "display_name": "黄金与大宗商品比价",
+        "availability": "unavailable",
+        "rule": "黄金相对一篮子大宗商品的比价、历史分位和趋势",
+        "params": {
+          "basket": ["copper", "crude_oil"],
+          "percentile_window": 756,
+          "slope_window": 20
+        },
+        "confirmation": "比价处于极端分位后趋势反转",
+        "invalidation": "篮子价格未接入或共同日期不足",
+        "data_requirements": [
+          {
+            "dataset": "commodity_futures_daily",
+            "fields": ["close"],
+            "min_history": 756,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "futures_term_structure",
+        "display_name": "期货期限结构",
+        "availability": "unavailable",
+        "rule": "COMEX 黄金近远月价差、展期收益和期限结构状态",
+        "params": { "near_contract_days": 30, "far_contract_days": 180, "min_liquidity": 1000 },
+        "confirmation": "期限结构稳定且近远月价差方向确认",
+        "invalidation": "合约数据未接入或流动性不足",
+        "data_requirements": [
+          {
+            "dataset": "comex_gold_curve",
+            "fields": ["contract_month", "settle", "open_interest"],
+            "min_history": 60,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "options_skew_iv",
+        "display_name": "期权偏度与隐含波动率",
+        "availability": "unavailable",
+        "rule": "黄金期权 25-delta 偏度、平值隐含波动率及历史分位",
+        "params": {
+          "delta": 25,
+          "tenor_days": 30,
+          "percentile_window": 252,
+          "min_open_interest": 100
+        },
+        "confirmation": "偏度和隐含波动率形成一致的避险或风险偏好信号",
+        "invalidation": "期权数据未接入、流动性不足或期限不匹配",
+        "data_requirements": [
+          {
+            "dataset": "gold_options_surface",
+            "fields": ["iv", "delta", "open_interest"],
+            "min_history": 252,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "gold_regime_switch",
+        "display_name": "黄金宏观状态切换",
+        "availability": "unavailable",
+        "rule": "实际利率、美元、持仓、资金流与价格波动特征的宏观状态模型",
+        "params": {
+          "states": 3,
+          "feature_window": 20,
+          "training_window": 756,
+          "min_domains": 3,
+          "min_out_of_sample_months": 12
+        },
+        "confirmation": "至少三个宏观数据域可用且完成样本外状态验证",
+        "invalidation": "关键宏观域缺失或模型未通过验证",
+        "data_requirements": [
+          {
+            "dataset": "gold_macro_state_features",
+            "fields": ["real_yield", "dxy", "positioning", "etf_flow", "volatility"],
+            "min_history": 756,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ]
+  },
+  "micro": {
+    "stock": [
+      {
+        "name": "ofi",
+        "display_name": "订单流失衡 OFI",
+        "availability": "unavailable",
+        "rule": "买卖一档或五档订单流变化之和",
+        "params": { "levels": 5, "rolling_window": 20, "normalization": "depth" },
+        "confirmation": "连续窗口 OFI 同向且盘口深度可验证",
+        "invalidation": "仅有单时点报价或盘口历史缺失",
+        "data_requirements": [
+          {
+            "dataset": "level2_order_book_snapshots",
+            "fields": ["bid_price", "bid_size", "ask_price", "ask_size"],
+            "min_history": 20,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "cvd",
+        "display_name": "累计成交量差 CVD",
+        "availability": "partial",
+        "rule": "主动买入量减主动卖出量的累计值",
+        "params": { "bucket_seconds": 3, "rolling_window": 20, "proxy_ttl_seconds": 30 },
+        "confirmation": "CVD 与价格方向一致或形成可解释背离",
+        "invalidation": "分笔数据断档或仅存在低粒度代理",
+        "data_requirements": [
+          {
+            "dataset": "recent_intraday_ticks",
+            "fields": ["price", "volume", "direction_proxy"],
+            "min_history": 20,
+            "required": true,
+            "source": "tencent_tick_proxy"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "vpin",
+        "display_name": "成交量同步概率 VPIN",
+        "availability": "unavailable",
+        "rule": "等成交量桶内买卖不平衡的均值",
+        "params": { "bucket_count": 50, "min_bucket_volume": 10000, "rolling_buckets": 20 },
+        "confirmation": "连续桶的买卖不平衡进入高分位",
+        "invalidation": "逐笔分类不足或桶数不够",
+        "data_requirements": [
+          {
+            "dataset": "classified_trades",
+            "fields": ["price", "volume", "aggressor_side"],
+            "min_history": 1000,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "kyle_lambda",
+        "display_name": "Kyle Lambda 价格冲击",
+        "availability": "partial",
+        "rule": "价格变化对带方向净成交量的回归系数",
+        "params": { "bucket_seconds": 30, "min_observations": 30, "proxy_ttl_seconds": 30 },
+        "confirmation": "回归样本充足且价格冲击方向稳定",
+        "invalidation": "样本不足、拟合不稳定或分笔粒度不足",
+        "data_requirements": [
+          {
+            "dataset": "recent_intraday_ticks",
+            "fields": ["price", "volume", "direction_proxy"],
+            "min_history": 30,
+            "required": true,
+            "source": "tencent_tick_proxy"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "obi",
+        "display_name": "盘口失衡 OBI",
+        "availability": "partial",
+        "rule": "(bid_depth - ask_depth) / total_depth",
+        "params": { "levels": 5, "proxy_ttl_seconds": 5, "neutral_band": 0.1 },
+        "confirmation": "当前盘口深度持续偏向一侧",
+        "invalidation": "盘口过期或没有连续历史",
+        "data_requirements": [
+          {
+            "dataset": "current_level2_order_book",
+            "fields": ["bid_depth", "ask_depth", "timestamp"],
+            "min_history": 1,
+            "required": true,
+            "source": "current_quote_only"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "absorption",
+        "display_name": "主动成交吸收",
+        "availability": "unavailable",
+        "rule": "大方向主动成交与价格变化、盘口补充的联合判断",
+        "params": { "large_trade_multiple": 3, "window_seconds": 60, "min_observations": 20 },
+        "confirmation": "主动成交无法推动价格且盘口持续补单",
+        "invalidation": "缺少同步盘口或大单分类",
+        "data_requirements": [
+          {
+            "dataset": "classified_trades_and_order_book",
+            "fields": ["aggressor_volume", "price_change", "refill_volume"],
+            "min_history": 20,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "large_trade_imbalance",
+        "display_name": "大单主动交易失衡",
+        "availability": "partial",
+        "rule": "(large_buy - large_sell) / (large_buy + large_sell)，阈值按流动性动态调整",
+        "params": { "amount_percentile": 95, "rolling_window": 20, "proxy_ttl_seconds": 30 },
+        "confirmation": "大单净方向与价格同向且多窗口持续",
+        "invalidation": "分笔粒度不足或大单代理占比异常",
+        "data_requirements": [
+          {
+            "dataset": "recent_intraday_ticks",
+            "fields": ["price", "volume", "amount"],
+            "min_history": 20,
+            "required": true,
+            "source": "tencent_tick_proxy"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "amihud",
+        "display_name": "Amihud 非流动性",
+        "availability": "partial",
+        "rule": "mean(abs(return) / amount)",
+        "params": { "window": 20, "percentile_window": 252, "proxy_ttl_seconds": 300 },
+        "confirmation": "非流动性分位与价格冲击同步上升",
+        "invalidation": "成交额缺失或有效交易日不足",
+        "data_requirements": [
+          {
+            "dataset": "stock_daily_ohlcv",
+            "fields": ["close", "amount"],
+            "min_history": 252,
+            "required": true,
+            "source": "bar1d_hfq"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "volume_profile",
+        "display_name": "成交量分布 Volume Profile",
+        "availability": "unavailable",
+        "rule": "POC、HVN、LVN 与 70% Value Area",
+        "params": { "bins": 50, "value_area": 0.7, "lookback_sessions": 20 },
+        "confirmation": "价格在 POC 或 HVN 附近获得明确支撑/阻力",
+        "invalidation": "分价成交量历史不足",
+        "data_requirements": [
+          {
+            "dataset": "historical_intraday_trades",
+            "fields": ["price", "volume"],
+            "min_history": 20,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "replenishment_cancellation",
+        "display_name": "盘口补单与撤单",
+        "availability": "unavailable",
+        "rule": "refill_volume / executed_volume 与撤单率",
+        "params": {
+          "rolling_window": 20,
+          "min_depth_observations": 20,
+          "cancel_rate_threshold": 0.5
+        },
+        "confirmation": "补单或撤单行为与主动成交方向一致",
+        "invalidation": "没有连续委托或盘口快照",
+        "data_requirements": [
+          {
+            "dataset": "order_events_and_level2",
+            "fields": ["order_event", "cancel_volume", "refill_volume"],
+            "min_history": 100,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "auction_imbalance",
+        "display_name": "集合竞价失衡",
+        "availability": "unavailable",
+        "rule": "开盘/收盘竞价主动买入、卖出与未匹配量",
+        "params": {
+          "auctions": ["open", "close"],
+          "normalization_window": 20,
+          "min_match_volume": 1000
+        },
+        "confirmation": "竞价未匹配量与价格方向一致",
+        "invalidation": "竞价逐笔或盘口数据缺失",
+        "data_requirements": [
+          {
+            "dataset": "auction_order_flow",
+            "fields": ["auction_side", "matched_volume", "unmatched_volume"],
+            "min_history": 20,
+            "required": true,
+            "source": "not_connected"
+          }
+        ],
+        "unsupported_scopes": []
+      },
+      {
+        "name": "vwap_deviation",
+        "display_name": "VWAP 偏离",
+        "availability": "partial",
+        "rule": "(close - VWAP) / VWAP 及当前在日内区间的位置",
+        "params": {
+          "vwap_window": "session",
+          "position_window": "session",
+          "proxy_ttl_seconds": 30
+        },
+        "confirmation": "价格持续位于 VWAP 同侧且偏离收敛后再次扩张",
+        "invalidation": "分钟线或分笔数据不足，无法重建当日 VWAP",
+        "data_requirements": [
+          {
+            "dataset": "intraday_price_volume",
+            "fields": ["price", "volume", "amount"],
+            "min_history": 20,
+            "required": true,
+            "source": "minute_or_tick_proxy"
+          }
+        ],
+        "unsupported_scopes": []
+      }
+    ]
+  }
+}

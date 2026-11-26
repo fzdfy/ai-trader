@@ -1,0 +1,40 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 148,
+        "examples": [
+          "span.font-mono.text-[10px]「1–10 / 496」（10px）",
+          "button.focus-ring.grid「50」（10px）",
+          "span.rounded-full.bg-app-surface「20 板块」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 11,
+        "examples": [
+          "span.inline-block.max-w-full「加速」（4.41:1）",
+          "span.inline-block.max-w-full「加速」（4.41:1）",
+          "span.inline-block.max-w-full「加速」（4.41:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「a 研究员 量化研究 · Pro」（首屏 4 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

@@ -8,6 +8,10 @@
 import { createLogger } from "./logger";
 import { traceHeaders } from "./request-context";
 import type { RotationIndexSymbol } from "../db/schema/market-rotation";
+import type {
+  ObjectSubtype,
+  SignalResult,
+} from "../../../../packages/signal-catalog/src/contracts.ts";
 
 const log = createLogger("quant");
 
@@ -26,6 +30,53 @@ export interface MarketAssetQuote {
   quoted_at: string;
   source: string;
   price_unit: string;
+}
+
+export interface QuantTechnicalObjectInput {
+  object_type: "market" | "sector" | "stock" | "gold";
+  object_subtype: ObjectSubtype | null;
+  object_code: string;
+  as_of: string | null;
+  bars: Array<{
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number | null;
+    amount: number | null;
+  }>;
+  ticks?: Array<{
+    time: string;
+    price: number;
+    volume: number;
+    amount: number;
+    direction?: "buy" | "sell" | "neutral";
+  }>;
+  order_book?: { bid_depth: number; ask_depth: number } | null;
+}
+
+export interface QuantTechnicalEvaluation {
+  catalogVersion: string;
+  objectType: "market" | "sector" | "stock" | "gold";
+  objectSubtype: ObjectSubtype | null;
+  objectCode: string;
+  asOf: string;
+  computedAt: string;
+  inputHash: string;
+  technical: Record<string, unknown> | null;
+  signals: SignalResult[];
+}
+
+export interface QuantTechnicalEvaluationResponse {
+  catalogVersion: string;
+  computedAt: string;
+  items: QuantTechnicalEvaluation[];
+  errors: Array<{
+    object_code: string;
+    object_type: string;
+    error: string;
+  }>;
 }
 
 export interface MarketAssetBar {
@@ -697,12 +748,7 @@ export const quant = {
     return getJson<MarketAssetBar[]>(`/api/v1/data/market-assets/minute?${query}`);
   },
 
-  marketAssetDaily: (
-    symbol: string,
-    limit = 500,
-    start?: string,
-    end?: string,
-  ) => {
+  marketAssetDaily: (symbol: string, limit = 500, start?: string, end?: string) => {
     const query = new URLSearchParams({ symbol, limit: String(limit) });
     if (start) query.set("start", start);
     if (end) query.set("end", end);
@@ -927,4 +973,11 @@ export const quant = {
      */
     asOf?: string;
   }) => postJson<FactorEvaluation>("/api/v1/factors/evaluate", params, FACTOR_EVALUATE_TIMEOUT_MS),
+
+  evaluateTechnicalSignals: (params: {
+    catalog_version: "technical-signals-1.0.0";
+    computed_at: string;
+    timeout_ms?: number;
+    objects: QuantTechnicalObjectInput[];
+  }) => postJson<QuantTechnicalEvaluationResponse>("/api/v1/signals/evaluate", params, 35_000),
 };

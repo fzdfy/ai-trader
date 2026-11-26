@@ -14,6 +14,7 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "@ai-trader/signal-catalog": "workspace:*",
     "@ai-sdk/react": "^4.0.61",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",

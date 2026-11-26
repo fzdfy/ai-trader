@@ -1,0 +1,165 @@
+@import url("./technical-signal-matrix-v1.css");
+
+:root {
+  --bg: var(--background);
+  --surface-2: var(--surface-1);
+  --surface-3: var(--surface-2);
+  --ink-2: var(--ink-secondary);
+  --muted: var(--ink-muted);
+  --muted-2: var(--ink-faint);
+  --orange: var(--primary);
+  --orange-soft: color-mix(in srgb, var(--primary) 10%, transparent);
+  --lime: var(--warning);
+  --lime-soft: var(--warning-soft);
+  --up: var(--chart-up);
+  --up-soft: color-mix(in srgb, var(--chart-up) 12%, transparent);
+  --down: var(--chart-down);
+  --down-soft: color-mix(in srgb, var(--chart-down) 12%, transparent);
+  --amber: var(--warning);
+  --amber-soft: var(--warning-soft);
+  --sans: var(--font-sans);
+  --mono: var(--font-mono);
+  --shadow: 0 1px 2px rgb(17 24 39 / 0.03);
+}
+
+.sig-page.is-embedded,
+.sig-analysis-insert {
+  margin-top: 16px;
+}
+
+.sig-panel {
+  border-radius: 16px;
+}
+
+.sig-panel-head {
+  min-height: 62px;
+}
+
+.sig-analysis-intro {
+  border-radius: 16px;
+}
+
+.sig-signal-table .sig-matrix-row > td {
+  padding-block: 11px;
+}
+
+.sig-status.is-on {
+  color: color-mix(in srgb, var(--chart-up) 62%, var(--ink));
+  background: color-mix(in srgb, var(--chart-up) 10%, transparent);
+}
+
+.sig-status.is-risk {
+  color: color-mix(in srgb, var(--chart-down) 62%, var(--ink));
+  background: color-mix(in srgb, var(--chart-down) 10%, transparent);
+}
+
+.sig-status.is-low {
+  color: color-mix(in srgb, var(--warning) 62%, var(--ink));
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.sig-status.is-missing,
+.sig-status.is-neutral {
+  color: var(--ink-muted);
+  background: var(--surface);
+}
+
+.sig-na-note {
+  color: var(--ink-secondary);
+}
+
+.sig-panel-head p,
+.sig-matrix-name small,
+.sig-matrix-note,
+.sig-evidence p {
+  color: var(--ink-secondary) !important;
+}
+
+.sig-mini-chip {
+  font-size: 11px !important;
+  color: var(--ink-secondary);
+}
+
+.sig-layer-toolbar {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sig-layer-tabs,
+.sig-layer-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sig-layer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sig-layer-tab span {
+  color: var(--ink-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.sig-layer-tab.is-active {
+  color: var(--primary);
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.sig-layer-content {
+  display: none;
+}
+
+.sig-layer-content.is-active {
+  display: block;
+}
+
+.analysis-merged-card {
+  min-width: 0;
+}
+
+@media (min-width: 1280px) {
+  .analysis-merged-card {
+    grid-column: span 2;
+  }
+}
+
+html.dark .sig-layer-tab.is-active {
+  color: color-mix(in srgb, var(--primary) 42%, white);
+}
+
+.sig-price-up { color: var(--chart-up-text) !important; }
+.sig-price-down { color: var(--chart-down-text) !important; }
+
+html.dark .sig-filter.is-active {
+  color: color-mix(in srgb, var(--primary) 42%, white);
+}
+
+html.dark .sig-panel summary {
+  color: color-mix(in srgb, var(--primary) 42%, white) !important;
+}
+
+@media (max-width: 720px) {
+  .sig-analysis-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .sig-analysis-links {
+    justify-content: flex-start;
+  }
+  .sig-layer-toolbar,
+  .sig-layer-tabs,
+  .sig-layer-filters {
+    align-items: flex-start;
+  }
+}

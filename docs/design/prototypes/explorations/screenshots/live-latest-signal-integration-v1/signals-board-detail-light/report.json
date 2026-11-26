@@ -1,0 +1,22 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 9,
+        "examples": [
+          "span.block.text-[10px]「当前涨跌」（10px）",
+          "span.block.text-[10px]「20 日 相对」（10px）",
+          "span.block.text-[10px]「主力净流入」（10px）"
+        ]
+      }
+    ]
+  }
+]

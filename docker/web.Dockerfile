@@ -15,6 +15,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/server/package.json apps/server/package.json
+COPY packages/signal-catalog/package.json packages/signal-catalog/package.json
 
 # 安装依赖
 RUN pnpm install --frozen-lockfile

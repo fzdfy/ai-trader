@@ -34,6 +34,7 @@ from report_documents import (
     persist_report_pdf,
 )
 from screener import screen
+from technical_signals.router import signals_router
 
 _DEFAULT_REPORTS_DATA_DIR = Path(__file__).resolve().parents[2] / ".local" / "reports"
 from strategies import STRATEGIES
@@ -115,6 +116,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 # 统一数据获取 API（多平台数据源 + 降级策略，返回 snake_case）
 app.include_router(data_router, prefix="/api/v1/data")
+app.include_router(signals_router)
 
 
 def _get_strategy_cls(name: str) -> type:

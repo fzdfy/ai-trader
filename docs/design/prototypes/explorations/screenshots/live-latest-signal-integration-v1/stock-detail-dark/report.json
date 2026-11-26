@@ -1,0 +1,42 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 6,
+        "examples": [
+          "p.flex.items-center「MARKET CENTER」（3.17:1）",
+          "a.focus-ring.flex「个股」（3.07:1）",
+          "span「MA10: 78.98」（2.38:1）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 6,
+        "examples": [
+          "p.flex.items-center「MARKET CENTER」（3.17:1）",
+          "a.focus-ring.flex「个股」（3.07:1）",
+          "span「MA10: 78.98」（2.38:1）"
+        ]
+      }
+    ]
+  }
+]

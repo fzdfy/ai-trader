@@ -43,6 +43,7 @@ services:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=server
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9180}
       - QUANT_URL=http://quant:3002
+      - QUANT_INTERNAL_TOKEN=${QUANT_INTERNAL_TOKEN:-}
       - REPORTS_DATA_DIR=/data/reports
       # 日志
       - SERVICE_NAME=server
@@ -68,6 +69,7 @@ services:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=worker
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:9180}
       - QUANT_URL=http://quant:3002
+      - QUANT_INTERNAL_TOKEN=${QUANT_INTERNAL_TOKEN:-}
       # 日志
       - SERVICE_NAME=worker
       - LOG_FORMAT=json
@@ -137,9 +139,10 @@ services:
       dockerfile: docker/quant.Dockerfile
     container_name: aitrader-quant
     ports:
-      - "${DOCKER_QUANT_PORT:-3102}:3002"
+      - "127.0.0.1:${DOCKER_QUANT_PORT:-3102}:3002"
     environment:
       - DATABASE_URL=postgres://ai-trader:aitrader123@postgres:5432/aitrader?application_name=quant
+      - QUANT_INTERNAL_TOKEN=${QUANT_INTERNAL_TOKEN:-}
       # 日志
       - SERVICE_NAME=quant
       - LOG_FORMAT=json

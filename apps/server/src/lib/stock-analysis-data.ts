@@ -72,10 +72,6 @@ export function normalizeStockSymbol(input: string): string | null {
   return `${code}.${exchange}`;
 }
 
-function mean(values: number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
 function round(value: number): number {
   return Number(value.toFixed(4));
 }
@@ -86,59 +82,6 @@ function quantile(sorted: number[], p: number): number {
   const upper = Math.ceil(index);
   if (lower === upper) return sorted[lower]!;
   return sorted[lower]! + (sorted[upper]! - sorted[lower]!) * (index - lower);
-}
-
-export function calculateTechnicalSnapshot(bars: AnalysisBar[]): TechnicalSnapshot | null {
-  if (bars.length < 60) return null;
-  const closes = bars.map((bar) => bar.close);
-  const last = bars.at(-1)!;
-  const windowMean = (size: number) => mean(closes.slice(-size));
-  const changes = closes.slice(1).map((close, index) => close - closes[index]!);
-  const gains = changes.slice(-14).map((value) => Math.max(value, 0));
-  const losses = changes.slice(-14).map((value) => Math.max(-value, 0));
-  const avgGain = mean(gains);
-  const avgLoss = mean(losses);
-  const rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-  const trueRanges = bars.slice(-14).map((bar, index, window) => {
-    const previous = bars.at(-window.length + index - 1)?.close;
-    if (previous == null) return bar.high - bar.low;
-    return Math.max(
-      bar.high - bar.low,
-      Math.abs(bar.high - previous),
-      Math.abs(bar.low - previous),
-    );
-  });
-  const returns20 = closes
-    .slice(-21)
-    .slice(1)
-    .map((close, index) => close / closes.at(-21 + index)! - 1);
-  const volatility20 =
-    Math.sqrt(mean(returns20.map((value) => value ** 2)) - mean(returns20) ** 2) *
-    Math.sqrt(252) *
-    100;
-  let peak = closes.at(-60)!;
-  let maxDrawdown = 0;
-  for (const close of closes.slice(-60)) {
-    peak = Math.max(peak, close);
-    maxDrawdown = Math.min(maxDrawdown, close / peak - 1);
-  }
-
-  return {
-    asOf: last.time,
-    close: last.close,
-    ma5: round(windowMean(5)),
-    ma10: round(windowMean(10)),
-    ma20: round(windowMean(20)),
-    ma60: round(windowMean(60)),
-    rsi14: round(rsi),
-    atr14: round(mean(trueRanges)),
-    volatility20: round(volatility20),
-    support20: round(Math.min(...bars.slice(-20).map((bar) => bar.low))),
-    resistance60: round(Math.max(...bars.slice(-60).map((bar) => bar.high))),
-    change20: round((last.close / closes.at(-21)! - 1) * 100),
-    change60: round((last.close / closes.at(-61)! - 1) * 100),
-    maxDrawdown60: round(maxDrawdown * 100),
-  };
 }
 
 export function buildScenarioForecasts(bars: AnalysisBar[]): ScenarioForecast[] {

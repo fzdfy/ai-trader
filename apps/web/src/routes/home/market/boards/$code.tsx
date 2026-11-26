@@ -6,11 +6,11 @@ import { Heading } from "@preline-ui/Heading";
 import { Pagination } from "@preline-ui/Pagination";
 import { Text } from "@preline-ui/Text";
 import { useBoardsQuery } from "../../../../hooks/useBoards";
-import {
-  useBoardFundFlow,
-  useMarketRotation,
-} from "../../../../hooks/useMarketCenter";
+import { useBoardFundFlow, useMarketRotation } from "../../../../hooks/useMarketCenter";
 import { useHeatmapBoardQuery } from "../../../../hooks/useHeatmap";
+import { useTechnicalSignalSnapshot } from "../../../../hooks/useTechnicalSignals";
+import { SignalDiagnosis } from "../../../../components/signals/SignalDiagnosis";
+import { groupSignalsByLayer } from "../../../../components/signals/signal-utils";
 import {
   formatMoney,
   formatRotationValue,
@@ -49,6 +49,7 @@ function BoardDetailContent() {
   const rotation = useMarketRotation(type, rotationWindow);
   const constituents = useHeatmapBoardQuery(type, code, true);
   const funds = useBoardFundFlow(code, 5);
+  const technical = useTechnicalSignalSnapshot("sector", code, type);
   const board = boards.data?.find((item) => item.code === code);
   const rotationRow = rotation.data?.rows.find((item) => item.code === code);
   const latestFund = funds.data?.at(-1);
@@ -92,16 +93,27 @@ function BoardDetailContent() {
             <Text type="supporting" as="p" className="font-mono text-[11px] text-primary">
               {type === "industry" ? "INDUSTRY ROTATION" : "CONCEPT ROTATION"}
             </Text>
-            <Heading level={2} className="mt-1 text-2xl">{board.name}</Heading>
+            <Heading level={2} className="mt-1 text-2xl">
+              {board.name}
+            </Heading>
             <Text type="supporting" as="p" className="mt-1 text-[11px]">
               {code} · 排名 {rotationRow?.rank ?? board.rank}
             </Text>
             <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               {[
-                ["当前涨跌", board.changePercent ? `${Number(board.changePercent).toFixed(2)}%` : "—"],
-                [`${rotationWindow.replace("D", " 日")} 相对`, formatRotationValue(rotationRow?.relativeReturn ?? null)],
+                [
+                  "当前涨跌",
+                  board.changePercent ? `${Number(board.changePercent).toFixed(2)}%` : "—",
+                ],
+                [
+                  `${rotationWindow.replace("D", " 日")} 相对`,
+                  formatRotationValue(rotationRow?.relativeReturn ?? null),
+                ],
                 ["主力净流入", formatMoney(latestFund?.mainNetInflow ?? null)],
-                ["资金质量", funds.isError ? "缺失" : rotationQualityLabel(rotation.data?.status ?? "missing")],
+                [
+                  "资金质量",
+                  funds.isError ? "缺失" : rotationQualityLabel(rotation.data?.status ?? "missing"),
+                ],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-xl bg-app-panel/75 px-3 py-2.5">
                   <span className="block text-[10px] text-app-muted">{label}</span>
@@ -113,13 +125,11 @@ function BoardDetailContent() {
           <div className="border-t border-app-line px-4 py-3">
             <div className="mb-2 flex items-center justify-between">
               <strong className="text-xs text-app-ink">资金结构</strong>
-              <span className="text-[11px] text-app-muted">{latestFund?.date ?? "暂无资金快照"}</span>
+              <span className="text-[11px] text-app-muted">
+                {latestFund?.date ?? "暂无资金快照"}
+              </span>
             </div>
-            <FundStructure
-              row={latestFund}
-              isLoading={funds.isLoading}
-              isError={funds.isError}
-            />
+            <FundStructure row={latestFund} isLoading={funds.isLoading} isError={funds.isError} />
             <p className="mt-2 text-[11px] leading-5 text-app-muted">
               主力净流入按数据源的大单与超大单口径汇总，不等同于全部资金。
             </p>
@@ -128,8 +138,12 @@ function BoardDetailContent() {
 
         <Card className="overflow-hidden rounded-2xl">
           <div className="border-b border-app-line px-4 py-3">
-            <Heading level={2} className="text-sm">轮动位置</Heading>
-            <Text type="supporting" as="p" className="mt-1 text-[11px]">相对强弱 × 排名改善</Text>
+            <Heading level={2} className="text-sm">
+              轮动位置
+            </Heading>
+            <Text type="supporting" as="p" className="mt-1 text-[11px]">
+              相对强弱 × 排名改善
+            </Text>
           </div>
           <div className="grid grid-cols-2 gap-2 p-3">
             {[
@@ -147,13 +161,37 @@ function BoardDetailContent() {
         </Card>
       </div>
 
+      <SignalDiagnosis
+        title="板块技术诊断"
+        description="板块指数、成分广度与高级轮动证据统一在一张卡内查看。"
+        layers={groupSignalsByLayer(technical.data?.signals ?? [])}
+        asOf={technical.data?.asOf}
+        catalogVersion={technical.data?.catalogVersion}
+        isLoading={technical.isLoading}
+        error={
+          technical.isError
+            ? technical.error instanceof Error
+              ? technical.error.message
+              : "板块信号快照暂时不可用"
+            : null
+        }
+        partialMessage="形态触发必须获得成分股广度或龙头共振确认，单根板块指数 K 线不能独立完成判断。"
+        onRetry={() => void technical.refetch()}
+      />
+
       <Card className="overflow-hidden rounded-2xl">
         <div className="flex items-center justify-between border-b border-app-line px-4 py-3">
           <div>
-            <Heading level={2} className="text-sm">成分股</Heading>
-            <Text type="supporting" as="p" className="mt-1 text-[11px]">点击股票进入快速行情详情</Text>
+            <Heading level={2} className="text-sm">
+              成分股
+            </Heading>
+            <Text type="supporting" as="p" className="mt-1 text-[11px]">
+              点击股票进入快速行情详情
+            </Text>
           </div>
-          <span className="font-mono text-[11px] text-app-muted">{constituents.data?.length ?? 0} 只</span>
+          <span className="font-mono text-[11px] text-app-muted">
+            {constituents.data?.length ?? 0} 只
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-xs">
@@ -190,11 +228,17 @@ function BoardDetailContent() {
                 >
                   <td className="px-4 py-2.5">
                     <strong className="block text-xs text-app-ink">{item.name}</strong>
-                    <span className="mt-0.5 block font-mono text-[11px] text-app-muted">{item.code}</span>
+                    <span className="mt-0.5 block font-mono text-[11px] text-app-muted">
+                      {item.code}
+                    </span>
                   </td>
-                  <td className={`px-3 py-2.5 text-right font-mono font-semibold ${
-                    (item.changePercent ?? 0) >= 0 ? "text-chart-up-strong" : "text-chart-down-strong"
-                  }`}>
+                  <td
+                    className={`px-3 py-2.5 text-right font-mono font-semibold ${
+                      (item.changePercent ?? 0) >= 0
+                        ? "text-chart-up-strong"
+                        : "text-chart-down-strong"
+                    }`}
+                  >
                     {item.changePercent == null
                       ? "—"
                       : `${item.changePercent > 0 ? "+" : ""}${item.changePercent.toFixed(2)}%`}
@@ -202,7 +246,9 @@ function BoardDetailContent() {
                   <td className="px-3 py-2.5 text-right font-mono text-app-muted">
                     {item.turnoverRate == null ? "—" : `${item.turnoverRate.toFixed(2)}%`}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-[11px] font-semibold text-primary">行情</td>
+                  <td className="px-4 py-2.5 text-right text-[11px] font-semibold text-primary">
+                    行情
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -219,10 +265,7 @@ function BoardDetailContent() {
             total={constituents.data?.length ?? 0}
             rangeStart={pagedConstituents.rangeStart}
             rangeEnd={pagedConstituents.rangeEnd}
-            tokens={paginationTokens(
-              pagedConstituents.page,
-              pagedConstituents.totalPages,
-            )}
+            tokens={paginationTokens(pagedConstituents.page, pagedConstituents.totalPages)}
             onPageChange={setConstituentPage}
           />
         ) : null}

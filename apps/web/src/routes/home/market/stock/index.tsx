@@ -11,6 +11,8 @@ import {
   useWatchlistInstrumentPageQuery,
 } from "../../../../hooks/useInstruments";
 import { useLatestQuotes } from "../../../../hooks/useMarketCenter";
+import { useStockTechnicalSummaries } from "../../../../hooks/useTechnicalSignals";
+import { SignalCell } from "../../../../components/signals/SignalCell";
 import { paginationTokens } from "../../../../lib/market-center";
 import {
   normalizeStockPage,
@@ -49,7 +51,11 @@ function StocksContent() {
   const normalizedPage = normalizeStockPage(page, totalPages);
   const range = stockPageRange(normalizedPage, rows.length, total);
   const quotes = useLatestQuotes(rows.map((row) => row.symbol));
+  const technicalSummaries = useStockTechnicalSummaries(rows.map((row) => row.symbol));
   const quoteBySymbol = new Map((quotes.data ?? []).map((quote) => [quote.symbol, quote]));
+  const technicalBySymbol = new Map(
+    (technicalSummaries.data ?? []).map((summary) => [summary.symbol, summary]),
+  );
 
   useEffect(() => {
     setInputValue(q);
@@ -159,6 +165,7 @@ function StocksContent() {
                 <th className="px-3 py-2.5 text-right font-medium">最新价</th>
                 <th className="px-3 py-2.5 text-right font-medium">涨跌幅</th>
                 <th className="px-3 py-2.5 text-right font-medium">PE</th>
+                <th className="px-3 py-2.5 font-medium">技术状态</th>
                 <th className="px-4 py-2.5 text-right font-medium">查看</th>
               </tr>
             </thead>
@@ -199,13 +206,40 @@ function StocksContent() {
                     <td className="px-3 py-2.5 text-right font-mono text-app-ink">
                       {quote?.last ?? "—"}
                     </td>
-                    <td className={`px-3 py-2.5 text-right font-mono font-semibold ${
-                      change >= 0 ? "text-chart-up-strong" : "text-chart-down-strong"
-                    }`}>
-                      {quote?.changePct == null ? "—" : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}
+                    <td
+                      className={`px-3 py-2.5 text-right font-mono font-semibold ${
+                        change >= 0 ? "text-chart-up-strong" : "text-chart-down-strong"
+                      }`}
+                    >
+                      {quote?.changePct == null
+                        ? "—"
+                        : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-app-ink-secondary">
                       {quote?.pe ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {technicalBySymbol.get(row.symbol) &&
+                      technicalBySymbol.get(row.symbol)!.quality !== "missing" &&
+                      !technicalBySymbol.get(row.symbol)!.error ? (
+                        <SignalCell
+                          counts={technicalBySymbol.get(row.symbol)!.counts}
+                          statusLabel={
+                            technicalBySymbol.get(row.symbol)!.counts.triggered > 0
+                              ? "技术活跃"
+                              : "中性观察"
+                          }
+                          keyLabel={technicalBySymbol.get(row.symbol)!.keySignals[0]}
+                        />
+                      ) : (
+                        <span className="text-[10px] text-app-muted">
+                          {technicalSummaries.isLoading
+                            ? "读取中"
+                            : technicalBySymbol.get(row.symbol)?.error
+                              ? "读取失败"
+                              : "待生成"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-right text-[11px] font-semibold text-primary">
                       查看

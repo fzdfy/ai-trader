@@ -1,0 +1,19 @@
+{
+  "name": "@ai-trader/signal-catalog",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts",
+    "./hash": "./src/hash.ts",
+    "./versioning": "./src/versioning.ts"
+  },
+  "scripts": {
+    "test": "node --import @oxc-node/core/register --test \"test/**/*.test.ts\"",
+    "golden:write": "node --import @oxc-node/core/register scripts/write-golden.ts",
+    "baseline:write": "node --import @oxc-node/core/register scripts/write-version-baseline.ts",
+    "rule-hash:write": "node --import @oxc-node/core/register scripts/write-rule-implementation-baseline.ts",
+    "check-types": "tsgo -b --noEmit"
+  }
+}

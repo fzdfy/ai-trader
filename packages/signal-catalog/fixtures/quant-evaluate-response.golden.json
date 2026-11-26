@@ -1,0 +1,1790 @@
+{
+  "catalogVersion": "technical-signals-1.0.0",
+  "objectType": "stock",
+  "objectSubtype": null,
+  "objectCode": "600519.SH",
+  "asOf": "2026-06-29",
+  "computedAt": "2026-11-26T08:00:00.000Z",
+  "inputHash": "2c95d82a3aa766193ffcda2ba33bc39cadb9919ee00f5466522903d70e81cfa3",
+  "technical": {
+    "asOf": "2026-06-29",
+    "close": 82.2000716584,
+    "ma5": 81.2969,
+    "ma10": 80.2458,
+    "ma20": 80.0433,
+    "ma60": 79.4031,
+    "rsi14": 80.3906,
+    "atr14": 2.0,
+    "volatility20": 6.8145,
+    "support20": 77.5734,
+    "resistance60": 83.1001,
+    "change20": 0.8015,
+    "change60": 7.9334,
+    "maxDrawdown60": -3.7127
+  },
+  "signals": [
+    {
+      "signalId": "basic.stock.price_vs_ma200",
+      "displayName": "价格相对 MA200",
+      "rule": "close / MA(close, 200) - 1",
+      "params": {
+        "ma_window": 200
+      },
+      "confirmation": "收盘相对 MA200 为正且 MA200 斜率不为负",
+      "invalidation": "收盘跌破 MA200 或长均线斜率转负",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 200,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "至少需要 200 根有效日线"
+        ],
+        "missingFields": [
+          "daily_ohlcv"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "d6f86d5067e6fa11143c189c6f5f0346683a5dd3bf7d943316aad3a0ec1fd7b7"
+    },
+    {
+      "signalId": "basic.stock.ma200_slope_20",
+      "displayName": "MA200 斜率",
+      "rule": "MA(close, 200)t / MA(close, 200)t-20 - 1",
+      "params": {
+        "ma_window": 200,
+        "lookback": 20
+      },
+      "confirmation": "20 日 MA200 斜率为正并高于噪声阈值",
+      "invalidation": "20 日 MA200 斜率转负",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 220,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "至少需要 220 根有效日线"
+        ],
+        "missingFields": [
+          "daily_ohlcv"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "445a2867bf04bff74bf10bef38697052a944b69d6aa79ea96d32ddd32ecc5f65"
+    },
+    {
+      "signalId": "basic.stock.macd_zero_axis",
+      "displayName": "MACD 零轴状态",
+      "rule": "DIF = EMA(close, 12) - EMA(close, 26); DEA = EMA(DIF, 9); HIST = 2 * (DIF - DEA)",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "confirmation": "DIF 与 DEA 位于零轴上方并保持同向",
+      "invalidation": "DIF 下穿零轴或 DEA 后快速转负",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 35,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "triggered",
+      "direction": "bullish",
+      "value": 0.4548551076080116,
+      "unit": "price",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [
+          {
+            "signalId": "basic.stock.macd_zero_axis",
+            "status": "triggered",
+            "value": 0.17957199466086388
+          }
+        ],
+        "notes": [
+          "DIF=0.454855",
+          "DEA=0.179572",
+          "HIST=0.550566"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "f9ae5c2463bbde15d5d893747366e073c8bc88acd37418fb01ee90032d4f3f40"
+    },
+    {
+      "signalId": "basic.stock.macd_divergence",
+      "displayName": "MACD 背离",
+      "rule": "比较最近两个显著价格摆动点与对应 DIF/HIST 的摆动幅度",
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9,
+        "pivot_span": 3,
+        "search_window": 60,
+        "min_atr_multiple": 0.5
+      },
+      "confirmation": "价格创新高/低而 DIF 或柱值未创新高/低，且摆动点距离达到 ATR 阈值",
+      "invalidation": "价格与 MACD 同步创新高/低，或摆动结构失效",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "triggered",
+      "direction": "bearish",
+      "value": 0.8588679694999968,
+      "unit": "price",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "2c192174d540e12910f61fead4a170c14f245d0b727803a1e0abb0a1862fd731"
+    },
+    {
+      "signalId": "basic.stock.rsi_state",
+      "displayName": "RSI 超买超卖与背离",
+      "rule": "RSI(close, 14) 与 30/70 阈值；检查最近两次摆动的价格-MACD 背离",
+      "params": {
+        "period": 14,
+        "oversold": 30,
+        "overbought": 70,
+        "pivot_span": 3,
+        "divergence_window": 60
+      },
+      "confirmation": "RSI 脱离超卖区向上，或强势状态未跌破中性阈值",
+      "invalidation": "RSI 跌破 30 或升破 70 后无法维持",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 30,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "triggered",
+      "direction": "bearish",
+      "value": 80.3906,
+      "unit": "index",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "031a965a87e46139619ea1cba56c20e811a99556132c97ca3ef7c97505e3a40b"
+    },
+    {
+      "signalId": "basic.stock.bollinger_regime",
+      "displayName": "布林带压缩扩张",
+      "rule": "(upper - lower) / middle 的 252 日历史分位，并区分压缩、常态与带外突破",
+      "params": {
+        "period": 20,
+        "std_dev": 2,
+        "percentile_window": 252,
+        "compression_percentile": 20,
+        "expansion_percentile": 80
+      },
+      "confirmation": "带宽自低位回升且收盘突破带边界",
+      "invalidation": "价格回带内且宽度继续收缩",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 252,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 161,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "至少需要 271 根有效日线"
+        ],
+        "missingFields": [
+          "daily_ohlcv"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "4e3e85390afb444f85d8d6b58e879289f3fbc2b850535e42d703b142937a6f1f"
+    },
+    {
+      "signalId": "basic.stock.rvol",
+      "displayName": "相对成交量 RVOL",
+      "rule": "volume / mean(volume, 20)",
+      "params": {
+        "volume_window": 20,
+        "breakout_threshold": 1.5
+      },
+      "confirmation": "RVOL 高于突破阈值且价格保持在关键边界之外",
+      "invalidation": "量能回落至均值以下且价格失去边界",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "volume"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "bullish",
+      "value": 1.0081231295425395,
+      "unit": "ratio",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "277b22ce0763014e215e4340364d4169d38b707c329e7076796f5bad0825ab85"
+    },
+    {
+      "signalId": "basic.stock.adx_di",
+      "displayName": "ADX / DI 趋势强度",
+      "rule": "Wilder ADX(14)、DI+ 与 DI-",
+      "params": {
+        "period": 14,
+        "trend_threshold": 25
+      },
+      "confirmation": "ADX 高于 25 且 DI+ 高于 DI-",
+      "invalidation": "ADX 跌破 20 或 DI+ 下穿 DI-",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close"
+          ],
+          "minHistory": 30,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "triggered",
+      "direction": "bullish",
+      "value": 28.008057342110952,
+      "unit": "index",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [
+          {
+            "signalId": "basic.stock.adx_di",
+            "status": "triggered",
+            "value": 12.243638742416438
+          },
+          {
+            "signalId": "basic.stock.adx_di",
+            "status": "triggered",
+            "value": 4.18295964435252
+          }
+        ],
+        "notes": [],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "c42bf97057a65f44733bf7864c183773465fa65bc9e3b8ab4aa572cb71f6c1ec"
+    },
+    {
+      "signalId": "basic.stock.obv_trend",
+      "displayName": "OBV 趋势",
+      "rule": "OBV 20 日斜率，并检查价格与 OBV 背离",
+      "params": {
+        "slope_window": 20,
+        "divergence_window": 60
+      },
+      "confirmation": "OBV 斜率为正并与价格趋势同向",
+      "invalidation": "OBV 斜率转负或形成有效负背离",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close",
+            "volume"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "triggered",
+      "direction": "bullish",
+      "value": 0.08550662676357418,
+      "unit": "ratio",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "d90a43927d2540f0ee65b627c97e552e6dc8882537cdad593ec00f1317f48e38"
+    },
+    {
+      "signalId": "basic.stock.atr_regime",
+      "displayName": "ATR 波动率状态",
+      "rule": "ATR(14) / close 的 252 日历史分位",
+      "params": {
+        "period": 14,
+        "percentile_window": 252,
+        "low_percentile": 20,
+        "high_percentile": 80
+      },
+      "confirmation": "波动率离开低位并保持有序扩张",
+      "invalidation": "波动率快速冲高后反向收缩或价格结构失效",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close"
+          ],
+          "minHistory": 252,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 167,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "至少需要 265 根有效日线"
+        ],
+        "missingFields": [
+          "daily_ohlcv"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "433639d6424f374f30b88cbb62a12f96c374820a97bf5d920802fbd3728977af"
+    },
+    {
+      "signalId": "pattern.stock.range_accumulation",
+      "displayName": "震荡待涨",
+      "rule": "20–60 日箱体且振幅收敛，收盘位于箱体上 1/3，并用 MA20 与量能变化确认",
+      "params": {
+        "min_window": 20,
+        "max_window": 60,
+        "max_width": 0.12,
+        "width_percentile": 30,
+        "upper_third": 0.67
+      },
+      "confirmation": "缩量后量能回升，MA20 走平或向上，收盘保持在箱体上沿附近",
+      "invalidation": "跌破箱体下沿或放量向下突破",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 90,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [
+          {
+            "signalId": "basic.stock.rvol",
+            "status": "neutral",
+            "value": 1.0081231295425395
+          }
+        ],
+        "notes": [
+          "确认：缩量后量能回升，MA20 走平或向上，收盘保持在箱体上沿附近",
+          "失效：跌破箱体下沿或放量向下突破"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "ffd34068c142c3228d9c473260327fcf78ceb0cae7bc8a6977471ccb0e0f1e6b"
+    },
+    {
+      "signalId": "pattern.stock.volume_contraction_base",
+      "displayName": "缩量筑底",
+      "rule": "接近 60 日低位并出现更高低点，量能低于均值后回升，RSI 脱离弱势",
+      "params": {
+        "range_window": 60,
+        "low_zone": 0.15,
+        "volume_window": 20,
+        "volume_recovery": 1.2
+      },
+      "confirmation": "更高低点成立，成交量由收缩转为回升，RSI 回到 30 上方",
+      "invalidation": "创新低且无法收回，或 RSI 再次跌破弱势区",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：更高低点成立，成交量由收缩转为回升，RSI 回到 30 上方",
+          "失效：创新低且无法收回，或 RSI 再次跌破弱势区"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "336fdf4f9d99c37954f9d439e5cc011ed275799db5095c7918fac65aebf2cdb9"
+    },
+    {
+      "signalId": "pattern.stock.golden_cross",
+      "displayName": "黄金交叉",
+      "rule": "MA20 上穿 MA60，并用 MACD 转强或价格站上 MA60 确认",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "confirmation": "交叉后价格站上 MA60，或 MACD 柱值转正",
+      "invalidation": "价格快速收回交叉区下方或均线重新死叉",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 65,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：交叉后价格站上 MA60，或 MACD 柱值转正",
+          "失效：价格快速收回交叉区下方或均线重新死叉"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "ab7f09719ad408eab197b63d686b7dd28a59a782d68a586ecc1ff1f046b82ea0"
+    },
+    {
+      "signalId": "pattern.stock.bullish_alignment",
+      "displayName": "多头排列",
+      "rule": "MA20 > MA60 > MA120 且长均线斜率向上",
+      "params": {
+        "short_ma": 20,
+        "medium_ma": 60,
+        "long_ma": 120,
+        "slope_window": 10
+      },
+      "confirmation": "价格不破 MA20，宽度或相对强弱保持为正",
+      "invalidation": "MA20 下穿 MA60",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 120,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：价格不破 MA20，宽度或相对强弱保持为正",
+          "失效：MA20 下穿 MA60"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "911ce97589b8a454853e3798c3b40db43ffdebda408b20b07daee47b71b531f0"
+    },
+    {
+      "signalId": "pattern.stock.base_breakout",
+      "displayName": "底部起涨",
+      "rule": "更高低点后突破 20 日高点，并以 RVOL 与资产级宽度改善确认",
+      "params": {
+        "base_window": 20,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "confirmation": "RVOL 高于阈值；大盘或板块另需宽度改善",
+      "invalidation": "价格跌回突破起点或宽度恶化",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：RVOL 高于阈值；大盘或板块另需宽度改善",
+          "失效：价格跌回突破起点或宽度恶化"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "64c0f8bf637077cb2798e67218d214ef33d83f9dd7f9ea4fd5bfb5feef48bae8"
+    },
+    {
+      "signalId": "pattern.stock.platform_breakout",
+      "displayName": "平台突破",
+      "rule": "平台区间收窄后收盘突破 60 日高点",
+      "params": {
+        "platform_window": 60,
+        "breakout_buffer": 0.005,
+        "rvol_threshold": 1.5
+      },
+      "confirmation": "RVOL 高于阈值且收盘保持在突破区外",
+      "invalidation": "假突破回到平台箱体",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [
+          {
+            "signalId": "basic.stock.rvol",
+            "status": "neutral",
+            "value": 1.0081231295425395
+          }
+        ],
+        "notes": [
+          "确认：RVOL 高于阈值且收盘保持在突破区外",
+          "失效：假突破回到平台箱体"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "a23cdff3591c63c24f486afd883c2055d0cbe7c934881bb097c6b1307afedf8d"
+    },
+    {
+      "signalId": "pattern.stock.pullback_confirmation",
+      "displayName": "回踩确认",
+      "rule": "已完成有效突破，缩量回踩原阻力区后重新放量站稳",
+      "params": {
+        "breakout_lookback": 20,
+        "volume_ratio": 0.8,
+        "reclaim_buffer": 0.005
+      },
+      "confirmation": "回踩均量不高于突破日均量的 80%，随后重新站上阻力区",
+      "invalidation": "有效跌破突破区并无法收回",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：回踩均量不高于突破日均量的 80%，随后重新站上阻力区",
+          "失效：有效跌破突破区并无法收回"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "98951017300c15f94cbeb9098764b666d3e0565245479db5f2a7c59de502094d"
+    },
+    {
+      "signalId": "pattern.stock.acceleration",
+      "displayName": "主升加速",
+      "rule": "多头排列上方运行，20 日收益处于自身 252 日高分位",
+      "params": {
+        "return_window": 20,
+        "percentile_window": 252,
+        "min_percentile": 80,
+        "max_drawdown": 0.08
+      },
+      "confirmation": "回撤受控且 MA20、MA60 斜率同步上升",
+      "invalidation": "跌破 MA20 或 MA60，或动量快速衰减",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close"
+          ],
+          "minHistory": 252,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "至少需要 252 根日线"
+        ],
+        "missingFields": [
+          "daily_ohlcv"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "d0dd62c65150b3182808fd4ae71e3e3ee27a4010f8d453f50279ad7bb1f2cba2"
+    },
+    {
+      "signalId": "pattern.stock.high_level_stall",
+      "displayName": "高位滞涨",
+      "rule": "价格接近 60 日高位但收益斜率下降",
+      "params": {
+        "range_window": 60,
+        "high_zone": 0.85,
+        "volume_window": 20,
+        "slope_decay": 0.5
+      },
+      "confirmation": "量能偏高且收盘位置转弱，动量明显衰减",
+      "invalidation": "重新放量创新高",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：量能偏高且收盘位置转弱，动量明显衰减",
+          "失效：重新放量创新高"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "c456703879a917ad7914ceac29950e44c81fb8b261f8154697c7b47cf702c9b7"
+    },
+    {
+      "signalId": "pattern.stock.top_reversal",
+      "displayName": "顶部反转",
+      "rule": "形成更低高点并跌破短期颈线或 MA20",
+      "params": {
+        "pivot_span": 3,
+        "range_window": 20,
+        "confirmation_window": 3
+      },
+      "confirmation": "出现背离、宽度恶化或放量下跌",
+      "invalidation": "重新站回颈线与 MA20 上方",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：出现背离、宽度恶化或放量下跌",
+          "失效：重新站回颈线与 MA20 上方"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "3866d7d0e52bed183e08604b4cf4e116bbd957b0c0867d0194721fbde39076b6"
+    },
+    {
+      "signalId": "pattern.stock.death_cross",
+      "displayName": "死亡交叉",
+      "rule": "MA20 下穿 MA60，并用 MACD 零轴或价格失守 MA60 确认",
+      "params": {
+        "fast_ma": 20,
+        "slow_ma": 60,
+        "confirmation_window": 5
+      },
+      "confirmation": "MACD 位于零轴下方或价格收于 MA60 下方",
+      "invalidation": "快速收回交叉区并重新站上 MA60",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "close"
+          ],
+          "minHistory": 65,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "invalidated",
+      "direction": "bullish",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：MACD 位于零轴下方或价格收于 MA60 下方",
+          "失效：快速收回交叉区并重新站上 MA60"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "3a25259ebde194a766ab7e4ec3c2eed7dc6e6b49ecdb1ed57ffc4151acabfea9"
+    },
+    {
+      "signalId": "pattern.stock.bearish_breakdown",
+      "displayName": "空头破位",
+      "rule": "跌破 60 日低点或平台下沿，并以 MA60、量能或宽度恶化确认",
+      "params": {
+        "breakdown_window": 60,
+        "breakdown_buffer": 0.005,
+        "confirmation_window": 3
+      },
+      "confirmation": "价格位于 MA60 下方，且量能或宽度恶化",
+      "invalidation": "收回破位区并站稳",
+      "dataRequirements": [
+        {
+          "dataset": "daily_ohlcv",
+          "fields": [
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "minHistory": 60,
+          "required": true,
+          "source": "object_price_series"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "neutral",
+      "direction": "neutral",
+      "value": 0.07529337142812616,
+      "unit": "score",
+      "quality": "available",
+      "proxy": false,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "确认：价格位于 MA60 下方，且量能或宽度恶化",
+          "失效：收回破位区并站稳"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "b8daa6849307ed5b6eab0127f9c8eba25da231daa00aaaa9a2fb8c7d1337b9a3"
+    },
+    {
+      "signalId": "micro.stock.ofi",
+      "displayName": "订单流失衡 OFI",
+      "rule": "买卖一档或五档订单流变化之和",
+      "params": {
+        "levels": 5,
+        "rolling_window": 20,
+        "normalization": "depth"
+      },
+      "confirmation": "连续窗口 OFI 同向且盘口深度可验证",
+      "invalidation": "仅有单时点报价或盘口历史缺失",
+      "dataRequirements": [
+        {
+          "dataset": "level2_order_book_snapshots",
+          "fields": [
+            "bid_price",
+            "bid_size",
+            "ask_price",
+            "ask_size"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "not_connected"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 连续 Level 2 订单簿历史，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "连续 Level 2 订单簿历史"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "9f3c72cb2842d6b9b8b00fdf0902c016084f0e7275905f11ea85f14104a2a413"
+    },
+    {
+      "signalId": "micro.stock.cvd",
+      "displayName": "累计成交量差 CVD",
+      "rule": "主动买入量减主动卖出量的累计值",
+      "params": {
+        "bucket_seconds": 3,
+        "rolling_window": 20,
+        "proxy_ttl_seconds": 30
+      },
+      "confirmation": "CVD 与价格方向一致或形成可解释背离",
+      "invalidation": "分笔数据断档或仅存在低粒度代理",
+      "dataRequirements": [
+        {
+          "dataset": "recent_intraday_ticks",
+          "fields": [
+            "price",
+            "volume",
+            "direction_proxy"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "tencent_tick_proxy"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 最近交易日分笔，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "最近交易日分笔"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "015549304470cf47bdf69e4d6f6976c21034a2a9f7e230abde897712fbe6d1a1"
+    },
+    {
+      "signalId": "micro.stock.vpin",
+      "displayName": "成交量同步概率 VPIN",
+      "rule": "等成交量桶内买卖不平衡的均值",
+      "params": {
+        "bucket_count": 50,
+        "min_bucket_volume": 10000,
+        "rolling_buckets": 20
+      },
+      "confirmation": "连续桶的买卖不平衡进入高分位",
+      "invalidation": "逐笔分类不足或桶数不够",
+      "dataRequirements": [
+        {
+          "dataset": "classified_trades",
+          "fields": [
+            "price",
+            "volume",
+            "aggressor_side"
+          ],
+          "minHistory": 1000,
+          "required": true,
+          "source": "not_connected"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 带主动买卖方向的逐笔成交，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "带主动买卖方向的逐笔成交"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "bec2e7d36ffc5c2106631cfd36ad56417c068648c7f83fa63fc306b9c6711db3"
+    },
+    {
+      "signalId": "micro.stock.kyle_lambda",
+      "displayName": "Kyle Lambda 价格冲击",
+      "rule": "价格变化对带方向净成交量的回归系数",
+      "params": {
+        "bucket_seconds": 30,
+        "min_observations": 30,
+        "proxy_ttl_seconds": 30
+      },
+      "confirmation": "回归样本充足且价格冲击方向稳定",
+      "invalidation": "样本不足、拟合不稳定或分笔粒度不足",
+      "dataRequirements": [
+        {
+          "dataset": "recent_intraday_ticks",
+          "fields": [
+            "price",
+            "volume",
+            "direction_proxy"
+          ],
+          "minHistory": 30,
+          "required": true,
+          "source": "tencent_tick_proxy"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 最近交易日分笔，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "最近交易日分笔"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "7bf028f0776f78537036f0a3d3ba58b90fa5185f68ab07284943ea2cf0ba4c01"
+    },
+    {
+      "signalId": "micro.stock.obi",
+      "displayName": "盘口失衡 OBI",
+      "rule": "(bid_depth - ask_depth) / total_depth",
+      "params": {
+        "levels": 5,
+        "proxy_ttl_seconds": 5,
+        "neutral_band": 0.1
+      },
+      "confirmation": "当前盘口深度持续偏向一侧",
+      "invalidation": "盘口过期或没有连续历史",
+      "dataRequirements": [
+        {
+          "dataset": "current_level2_order_book",
+          "fields": [
+            "bid_depth",
+            "ask_depth",
+            "timestamp"
+          ],
+          "minHistory": 1,
+          "required": true,
+          "source": "current_quote_only"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 当前五档盘口，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "当前五档盘口"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "326daca8c0505fa881671a7c1ba8344651d3a94cf63fb2789b023724b35929b8"
+    },
+    {
+      "signalId": "micro.stock.absorption",
+      "displayName": "主动成交吸收",
+      "rule": "大方向主动成交与价格变化、盘口补充的联合判断",
+      "params": {
+        "large_trade_multiple": 3,
+        "window_seconds": 60,
+        "min_observations": 20
+      },
+      "confirmation": "主动成交无法推动价格且盘口持续补单",
+      "invalidation": "缺少同步盘口或大单分类",
+      "dataRequirements": [
+        {
+          "dataset": "classified_trades_and_order_book",
+          "fields": [
+            "aggressor_volume",
+            "price_change",
+            "refill_volume"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "not_connected"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 同步逐笔与盘口，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "同步逐笔与盘口"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "d58343f27bbcfa667de01d9160d3eaa7a6d7b8dae5c81c858ca4d612ea113dc2"
+    },
+    {
+      "signalId": "micro.stock.large_trade_imbalance",
+      "displayName": "大单主动交易失衡",
+      "rule": "(large_buy - large_sell) / (large_buy + large_sell)，阈值按流动性动态调整",
+      "params": {
+        "amount_percentile": 95,
+        "rolling_window": 20,
+        "proxy_ttl_seconds": 30
+      },
+      "confirmation": "大单净方向与价格同向且多窗口持续",
+      "invalidation": "分笔粒度不足或大单代理占比异常",
+      "dataRequirements": [
+        {
+          "dataset": "recent_intraday_ticks",
+          "fields": [
+            "price",
+            "volume",
+            "amount"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "tencent_tick_proxy"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 最近交易日分笔，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "最近交易日分笔"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "91347ef633ab1c0ae98415ae24853b8e9c84dba7c9975c0d230e8b6407b87118"
+    },
+    {
+      "signalId": "micro.stock.amihud",
+      "displayName": "Amihud 非流动性",
+      "rule": "mean(abs(return) / amount)",
+      "params": {
+        "window": 20,
+        "percentile_window": 252,
+        "proxy_ttl_seconds": 300
+      },
+      "confirmation": "非流动性分位与价格冲击同步上升",
+      "invalidation": "成交额缺失或有效交易日不足",
+      "dataRequirements": [
+        {
+          "dataset": "stock_daily_ohlcv",
+          "fields": [
+            "close",
+            "amount"
+          ],
+          "minHistory": 252,
+          "required": true,
+          "source": "bar1d_hfq"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "triggered",
+      "direction": "risk",
+      "value": 0.04506324797576677,
+      "unit": "impact_per_amount",
+      "quality": "low",
+      "proxy": true,
+      "sampleCount": 180,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "bar1d_hfq"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "日线非流动性代理，不代表逐笔冲击"
+        ],
+        "missingFields": []
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "b6618441cb33956b4ce2e8388df69029b920717a98274e52ea6916d3c85e74db"
+    },
+    {
+      "signalId": "micro.stock.volume_profile",
+      "displayName": "成交量分布 Volume Profile",
+      "rule": "POC、HVN、LVN 与 70% Value Area",
+      "params": {
+        "bins": 50,
+        "value_area": 0.7,
+        "lookback_sessions": 20
+      },
+      "confirmation": "价格在 POC 或 HVN 附近获得明确支撑/阻力",
+      "invalidation": "分价成交量历史不足",
+      "dataRequirements": [
+        {
+          "dataset": "historical_intraday_trades",
+          "fields": [
+            "price",
+            "volume"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "not_connected"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 历史分价成交量，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "历史分价成交量"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "a1f1be2766b9180138dca9d2e0392b45315800c5f6358484b92db82df2e66044"
+    },
+    {
+      "signalId": "micro.stock.replenishment_cancellation",
+      "displayName": "盘口补单与撤单",
+      "rule": "refill_volume / executed_volume 与撤单率",
+      "params": {
+        "rolling_window": 20,
+        "min_depth_observations": 20,
+        "cancel_rate_threshold": 0.5
+      },
+      "confirmation": "补单或撤单行为与主动成交方向一致",
+      "invalidation": "没有连续委托或盘口快照",
+      "dataRequirements": [
+        {
+          "dataset": "order_events_and_level2",
+          "fields": [
+            "order_event",
+            "cancel_volume",
+            "refill_volume"
+          ],
+          "minHistory": 100,
+          "required": true,
+          "source": "not_connected"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 逐笔委托与连续盘口，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "逐笔委托与连续盘口"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "51a1a463f3fee8c8dbc3e42f0cac5d1c9516b227053baba40b094acf20b1ed6e"
+    },
+    {
+      "signalId": "micro.stock.auction_imbalance",
+      "displayName": "集合竞价失衡",
+      "rule": "开盘/收盘竞价主动买入、卖出与未匹配量",
+      "params": {
+        "auctions": [
+          "open",
+          "close"
+        ],
+        "normalization_window": 20,
+        "min_match_volume": 1000
+      },
+      "confirmation": "竞价未匹配量与价格方向一致",
+      "invalidation": "竞价逐笔或盘口数据缺失",
+      "dataRequirements": [
+        {
+          "dataset": "auction_order_flow",
+          "fields": [
+            "auction_side",
+            "matched_volume",
+            "unmatched_volume"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "not_connected"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 集合竞价逐笔，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "集合竞价逐笔"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "70d416c03826c5c83fa95e6a3a3cd0f907cbd48db9a29962834bb0a8a7fdbe67"
+    },
+    {
+      "signalId": "micro.stock.vwap_deviation",
+      "displayName": "VWAP 偏离",
+      "rule": "(close - VWAP) / VWAP 及当前在日内区间的位置",
+      "params": {
+        "vwap_window": "session",
+        "position_window": "session",
+        "proxy_ttl_seconds": 30
+      },
+      "confirmation": "价格持续位于 VWAP 同侧且偏离收敛后再次扩张",
+      "invalidation": "分钟线或分笔数据不足，无法重建当日 VWAP",
+      "dataRequirements": [
+        {
+          "dataset": "intraday_price_volume",
+          "fields": [
+            "price",
+            "volume",
+            "amount"
+          ],
+          "minHistory": 20,
+          "required": true,
+          "source": "minute_or_tick_proxy"
+        }
+      ],
+      "scope": "stock",
+      "objectType": "stock",
+      "objectSubtype": null,
+      "objectCode": "600519.SH",
+      "status": "unavailable",
+      "direction": "neutral",
+      "value": null,
+      "unit": null,
+      "quality": "missing",
+      "proxy": false,
+      "sampleCount": 0,
+      "asOf": "2026-06-29",
+      "computedAt": "2026-11-26T08:00:00.000Z",
+      "dataSources": [
+        "not_connected"
+      ],
+      "evidence": {
+        "components": [],
+        "notes": [
+          "缺少 分钟线或分笔，不生成历史代理或胜率"
+        ],
+        "missingFields": [
+          "分钟线或分笔"
+        ]
+      },
+      "catalogVersion": "technical-signals-1.0.0",
+      "definitionHash": "1e333c1b5af11b01739f7280f94158f9484f9437809bf5d9ff508bfe894acb60"
+    }
+  ]
+}

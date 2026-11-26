@@ -4,7 +4,6 @@ import {
   buildRiskReferenceRange,
   buildScenarioForecasts,
   buildValuationRange,
-  calculateTechnicalSnapshot,
   normalizeStockSymbol,
 } from "./stock-analysis-data.ts";
 
@@ -29,17 +28,6 @@ test("normalizes supported A-share symbols", () => {
   assert.equal(normalizeStockSymbol("AAPL"), null);
 });
 
-test("calculates a technical snapshot from daily bars", () => {
-  const snapshot = calculateTechnicalSnapshot(bars);
-  assert.ok(snapshot);
-  assert.equal(snapshot.asOf, bars.at(-1)?.time);
-  assert.ok(snapshot.ma20 > 0);
-  assert.ok(snapshot.ma60 > 0);
-  assert.ok(snapshot.rsi14 >= 0 && snapshot.rsi14 <= 100);
-  assert.ok(snapshot.support20 <= bars.at(-1)!.close);
-  assert.ok(snapshot.resistance60 >= bars.at(-1)!.close);
-});
-
 test("builds ordered probability scenarios for all required horizons", () => {
   const forecasts = buildScenarioForecasts(bars);
   assert.deepEqual(
@@ -62,7 +50,22 @@ test("keeps forecast unavailable when history is insufficient", () => {
 });
 
 test("combines only available ranges into a risk reference range", () => {
-  const technical = calculateTechnicalSnapshot(bars)!;
+  const technical = {
+    asOf: bars.at(-1)!.time,
+    close: bars.at(-1)!.close,
+    ma5: 81,
+    ma10: 80,
+    ma20: 79,
+    ma60: 78,
+    rsi14: 55,
+    atr14: 2,
+    volatility20: 18,
+    support20: 77,
+    resistance60: 83,
+    change20: 1,
+    change60: 4,
+    maxDrawdown60: -3,
+  };
   const [forecast] = buildScenarioForecasts(bars);
   const valuation = buildValuationRange(4, [10, 12, 14, 16, 18, 20, 22, 24, 26, 28]);
   const range = buildRiskReferenceRange({

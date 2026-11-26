@@ -1,0 +1,230 @@
+[
+  {
+    "file": "loading-1440x900.png",
+    "state": "loading",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「a 研究员 量化研究 · Pro」（首屏 4 块各自加框）",
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "empty-1440x900.png",
+    "state": "empty",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「a 研究员 量化研究 · Pro」（首屏 5 块各自加框）",
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "error-1440x900.png",
+    "state": "error",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「a 研究员 量化研究 · Pro」（首屏 5 块各自加框）",
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "partial-1440x900.png",
+    "state": "partial",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 2,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「a 研究员 量化研究 · Pro」（首屏 5 块各自加框）",
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "loading-390x844.png",
+    "state": "loading",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "empty-390x844.png",
+    "state": "empty",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "error-390x844.png",
+    "state": "error",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "partial-390x844.png",
+    "state": "partial",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 73,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

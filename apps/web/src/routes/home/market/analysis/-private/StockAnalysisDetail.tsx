@@ -18,6 +18,8 @@ import { Text } from "@preline-ui/Text";
 import { TextInput } from "@preline-ui/TextInput";
 import { AddWorkTaskButton } from "../../../../../components/AddWorkTaskButton";
 import { PriceTrendChart } from "../../../../../components/charts/PriceTrendChart";
+import { SignalDiagnosis } from "../../../../../components/signals/SignalDiagnosis";
+import { groupSignalsByLayer } from "../../../../../components/signals/signal-utils";
 import {
   useAddWatchlist,
   useRemoveWatchlist,
@@ -227,6 +229,13 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
     [data],
   );
   const timelinePreview = useMemo(() => selectStockContentPreview(timeline), [timeline]);
+  const signalLayers = useMemo(
+    () =>
+      groupSignalsByLayer(data?.technicalSignals.data ?? [], {
+        includeMicro: true,
+      }),
+    [data?.technicalSignals.data],
+  );
   const refreshSummary: ContentRefreshSummary | null = refreshAnalysis.isError
     ? {
         tone: "error",
@@ -317,7 +326,6 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   const change = quote?.changePct ?? null;
   const reportQuality = qualityMeta(data.reports.quality);
   const fundQuality = qualityMeta(data.funds.quality);
-  const forecast20 = data.forecasts.data.find((item) => item.horizon === "20D");
   const risk = data.riskReferenceRange.data;
   const refreshModules = refreshAnalysis.data?.modules;
   const newsSource = compactSourceLabel(data.news.data[0]?.source ?? "");
@@ -557,31 +565,6 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             </Badge>
           </div>
           <div className="px-4 pb-4 pt-3">
-            <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-app-muted">
-              {technical ? (
-                <>
-                  <span>
-                    MA20 <b className="font-mono text-app-ink">{technical.ma20.toFixed(2)}</b>
-                  </span>
-                  <span>
-                    MA60 <b className="font-mono text-app-ink">{technical.ma60.toFixed(2)}</b>
-                  </span>
-                  <span>
-                    RSI14 <b className="font-mono text-app-ink">{technical.rsi14.toFixed(1)}</b>
-                  </span>
-                  <span>
-                    20日支撑{" "}
-                    <b className="font-mono text-app-ink">{technical.support20.toFixed(2)}</b>
-                  </span>
-                  <span>
-                    60日压力{" "}
-                    <b className="font-mono text-app-ink">{technical.resistance60.toFixed(2)}</b>
-                  </span>
-                </>
-              ) : (
-                <span>技术指标待生成</span>
-              )}
-            </div>
             <PriceTrendChart
               points={data.prices.data}
               subjectName={data.name}
@@ -635,77 +618,79 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
         </Card>
       </div>
 
+      <SignalDiagnosis
+        title="技术信号诊断"
+        description="基础、K 线形态、高级模型与微观结构在同一模块内分层查看；证据按需展开。"
+        layers={signalLayers}
+        asOf={data.technicalSignals.asOf}
+        catalogVersion={data.technicalSignalMeta.catalogVersion}
+        partialMessage={
+          data.technicalSignalMeta.counts.unavailable > 0
+            ? `${data.technicalSignalMeta.counts.unavailable} 项数据或模型尚未就绪，相关信号已明确标记，不影响其他可用证据。`
+            : null
+        }
+        onRetry={() => void analysisQuery.refetch()}
+      />
+
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card variant="detached" className="overflow-hidden">
+        <Card variant="detached" className="overflow-hidden xl:col-span-2">
           <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
             <div>
-              <Heading level={2}>情景预测</Heading>
+              <Heading level={2}>情景预测与风险参考区间</Heading>
               <Text as="p" type="supporting">
-                历史收益 bootstrap · 非目标价
+                5/20/60 日历史分布与技术、估值来源同卡展示；不生成目标价
               </Text>
             </div>
             <Badge variant={qualityMeta(data.forecasts.quality).variant}>
               {qualityMeta(data.forecasts.quality).label}
             </Badge>
           </div>
-          <div className="grid gap-2 p-3.5">
-            {data.forecasts.data.map((forecast) => (
-              <ForecastCard key={forecast.horizon} forecast={forecast} />
-            ))}
-          </div>
-        </Card>
-
-        <Card variant="detached" className="overflow-hidden">
-          <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
-            <div>
-              <Heading level={2}>风险参考区间</Heading>
-              <Text as="p" type="supporting">
-                技术、估值与情景分别解释
-              </Text>
+          <div className="grid gap-3 p-3.5 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,.7fr)]">
+            <div className="grid gap-2 md:grid-cols-3">
+              {data.forecasts.data.map((forecast) => (
+                <ForecastCard key={forecast.horizon} forecast={forecast} />
+              ))}
             </div>
-            <Badge variant={qualityMeta(data.riskReferenceRange.quality).variant}>20D</Badge>
-          </div>
-          <div className="p-4">
-            <div className="mt-2 grid h-8 grid-cols-3 overflow-hidden rounded-lg bg-app-surface text-center font-mono text-[9px]">
-              <span className="grid place-items-center bg-chart-down/10 text-chart-down">
-                {formatPrice(forecast20?.p10)}
-              </span>
-              <span className="grid place-items-center bg-primary/10 text-primary">
-                {formatPrice(forecast20?.p50)}
-              </span>
-              <span className="grid place-items-center bg-chart-up/10 text-chart-up">
-                {formatPrice(forecast20?.p90)}
-              </span>
+            <div className="rounded-xl border border-app-line bg-app-surface/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <strong className="text-xs text-app-ink">20D 风险来源</strong>
+                <Badge variant={qualityMeta(data.riskReferenceRange.quality).variant}>
+                  {qualityMeta(data.riskReferenceRange.quality).label}
+                </Badge>
+              </div>
+              <strong className="mt-3 block font-mono text-lg text-app-ink">
+                {formatPrice(risk.low)}–{formatPrice(risk.high)}
+              </strong>
+              <div className="mt-3 grid gap-2">
+                <Metric
+                  label="技术区间"
+                  value={
+                    risk.technical
+                      ? `${risk.technical.low.toFixed(2)}–${risk.technical.high.toFixed(2)}`
+                      : "待接入"
+                  }
+                />
+                <Metric
+                  label="估值区间"
+                  value={
+                    risk.valuation
+                      ? `${risk.valuation.low.toFixed(2)}–${risk.valuation.high.toFixed(2)}`
+                      : "待接入"
+                  }
+                />
+                <Metric
+                  label="情景区间"
+                  value={
+                    risk.scenario
+                      ? `${risk.scenario.low.toFixed(2)}–${risk.scenario.high.toFixed(2)}`
+                      : "待接入"
+                  }
+                />
+              </div>
+              <p className="mt-3 text-[9px] leading-relaxed text-app-muted">
+                风险参考区间不是保本价格。20D 情景与上方 P10/P50/P90 使用同一结果，不再重复展示。
+              </p>
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-              <Metric
-                label="技术区间"
-                value={
-                  risk.technical
-                    ? `${risk.technical.low.toFixed(2)}–${risk.technical.high.toFixed(2)}`
-                    : "待接入"
-                }
-              />
-              <Metric
-                label="估值区间"
-                value={
-                  risk.valuation
-                    ? `${risk.valuation.low.toFixed(2)}–${risk.valuation.high.toFixed(2)}`
-                    : "待接入"
-                }
-              />
-              <Metric
-                label="情景区间"
-                value={
-                  risk.scenario
-                    ? `${risk.scenario.low.toFixed(2)}–${risk.scenario.high.toFixed(2)}`
-                    : "待接入"
-                }
-              />
-            </div>
-            <p className="mt-3 text-[9px] leading-relaxed text-app-muted">
-              风险参考区间不是保本价格。估值区间需要一致预期 EPS 与历史 PE 分位。
-            </p>
           </div>
         </Card>
 

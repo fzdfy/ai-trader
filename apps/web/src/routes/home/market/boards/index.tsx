@@ -4,10 +4,7 @@ import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { useBoardsQuery } from "../../../../hooks/useBoards";
 import { useMarketRotation } from "../../../../hooks/useMarketCenter";
-import {
-  MARKET_CAP_HEATMAP_LIMIT,
-  type RotationWindow,
-} from "../../../../lib/market-center";
+import { MARKET_CAP_HEATMAP_LIMIT, type RotationWindow } from "../../../../lib/market-center";
 import { BoardHeatmap } from "../-private/BoardHeatmap";
 import { MarketBoardAnomaly } from "../-private/MarketBoardAnomaly";
 import { MarketBoardRanking } from "../-private/MarketBoardRanking";
@@ -109,13 +106,16 @@ function BoardsContent() {
             title={type === "industry" ? "行业板块" : "概念板块"}
             rows={boards.data}
             rotationRows={rotation.data?.rows ?? []}
+            subtype={type}
             onOpen={openBoard}
           />
         </Card>
         <Card className="flex flex-col overflow-hidden rounded-2xl">
           <div className="flex items-start justify-between border-b border-app-line px-4 py-3">
             <div>
-              <Heading level={2} className="text-sm">板块热力图</Heading>
+              <Heading level={2} className="text-sm">
+                板块热力图
+              </Heading>
               <Text type="supporting" as="p" className="mt-1 text-[11px]">
                 市值前 {MARKET_CAP_HEATMAP_LIMIT} · 面积按总市值 · 颜色按涨跌幅分档
               </Text>
@@ -143,7 +143,11 @@ function BoardsContent() {
                 相对强弱、排名变化与主力确认
               </Text>
             </div>
-            <div className="flex rounded-lg bg-app-surface p-0.5" role="group" aria-label="轮动窗口">
+            <div
+              className="flex rounded-lg bg-app-surface p-0.5"
+              role="group"
+              aria-label="轮动窗口"
+            >
               {[
                 ["5D", "5 日"],
                 ["20D", "20 日"],

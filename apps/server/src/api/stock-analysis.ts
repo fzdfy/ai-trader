@@ -20,7 +20,6 @@ import {
   buildRiskReferenceRange,
   buildScenarioForecasts,
   buildValuationRange,
-  calculateTechnicalSnapshot,
   normalizeStockSymbol,
 } from "../lib/stock-analysis-data";
 import { badRequest, notFound, ok, serverError } from "../lib/response";
@@ -32,6 +31,10 @@ import {
   type ResearchGateDecision,
 } from "../lib/data-governance/quality-gate";
 import { marketDataReader } from "../lib/market-data-read";
+import { technicalObjectAdapter } from "../lib/technical-signals/adapters";
+import { buildStockTechnicalSignalModule } from "../lib/technical-signals/stock-analysis";
+import type { StockTechnicalModule } from "../lib/technical-signals/stock-analysis";
+import { loadStockAdvancedContext } from "../lib/technical-signals/contexts";
 
 const stockAnalysisRoute = new Hono();
 
@@ -49,6 +52,51 @@ function isoDate(value: Date | string | null | undefined): string | null {
 
 function moduleData<T>(data: T, asOf: string | null, source: string, quality: string) {
   return { data, asOf, source, quality };
+}
+
+const emptyTechnicalSignalCounts = {
+  triggered: 0,
+  neutral: 0,
+  invalidated: 0,
+  "low-confidence": 0,
+  unavailable: 0,
+  "not-applicable": 0,
+} as const;
+
+async function loadStockTechnicalSignals({
+  symbol,
+  hfqBars,
+  qfqBars,
+  computedAt,
+  advancedContext,
+}: {
+  symbol: string;
+  hfqBars: Parameters<typeof buildStockTechnicalSignalModule>[0]["hfqBars"];
+  qfqBars: Parameters<typeof buildStockTechnicalSignalModule>[0]["qfqBars"];
+  computedAt: string;
+  advancedContext?: Awaited<ReturnType<typeof loadStockAdvancedContext>> | null;
+}): Promise<StockTechnicalModule> {
+  try {
+    return await buildStockTechnicalSignalModule({
+      symbol,
+      hfqBars,
+      qfqBars,
+      computedAt,
+      advancedContext,
+    });
+  } catch (error) {
+    console.error(`[stock-analysis] technical signals ${symbol} failed:`, error);
+    return {
+      catalogVersion: "technical-signals-1.0.0",
+      asOf: "",
+      computedAt,
+      inputHash: "",
+      quality: "missing",
+      counts: { ...emptyTechnicalSignalCounts },
+      technical: null,
+      signals: [],
+    };
+  }
 }
 
 function governanceNotice(decision: ResearchGateDecision) {
@@ -74,19 +122,45 @@ stockAnalysisRoute.get("/compare", async (c) => {
     const gate = await assertResearchDataReady("stock_analysis");
     const items = await Promise.all(
       symbols.map(async (symbol) => {
-        const [instrumentRows, quoteRead, barsRead, reportCountRows] = await Promise.all([
-          db.select().from(instrument).where(eq(instrument.symbol, symbol)).limit(1),
-          marketDataReader.readQuote(symbol),
-          marketDataReader.readDailyBars(symbol, 320),
-          db
-            .select({ total: count() })
-            .from(researchReport)
-            .where(eq(researchReport.symbol, symbol)),
-        ]);
+        const [instrumentRows, quoteRead, barsRead, technicalRead, reportCountRows] =
+          await Promise.all([
+            db.select().from(instrument).where(eq(instrument.symbol, symbol)).limit(1),
+            marketDataReader.readQuote(symbol),
+            marketDataReader.readDailyBars(symbol, 320),
+            technicalObjectAdapter.read("stock", symbol, null, 320).catch(() => null),
+            db
+              .select({ total: count() })
+              .from(researchReport)
+              .where(eq(researchReport.symbol, symbol)),
+          ]);
         const target = instrumentRows[0];
         const quote = quoteRead.quote;
         const bars = barsRead.bars;
-        const technical = calculateTechnicalSnapshot(bars);
+        const technicalSignals = await loadStockTechnicalSignals({
+          symbol,
+          hfqBars: technicalRead?.bars ?? [],
+          qfqBars: bars,
+          computedAt: new Date().toISOString(),
+          advancedContext:
+            (await loadStockAdvancedContext(
+              { objectCode: symbol },
+              technicalRead ?? {
+                identity: {
+                  objectType: "stock",
+                  objectSubtype: null,
+                  objectCode: symbol,
+                },
+                bars: [],
+                benchmark: null,
+                priceBasis: "hfq",
+                volumeApplicable: true,
+                dataSources: [],
+                quality: "missing",
+                asOf: null,
+              },
+            ).catch(() => null)) ?? null,
+        });
+        const technical = technicalSignals.technical;
         const forecasts = buildScenarioForecasts(bars);
         return {
           symbol,
@@ -105,6 +179,7 @@ stockAnalysisRoute.get("/compare", async (c) => {
           },
           reportCount: reportCountRows[0]?.total ?? 0,
           technical,
+          technicalSignals,
           forecasts,
           forecastQuality: forecasts.every((item) => item.quality === "available")
             ? "available"
@@ -157,6 +232,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       instrumentRows,
       quoteRead,
       barsRead,
+      technicalRead,
       reportCountRows,
       reportRows,
       fundFlowRow,
@@ -170,6 +246,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       db.select().from(instrument).where(eq(instrument.symbol, symbol)).limit(1),
       marketDataReader.readQuote(symbol),
       marketDataReader.readDailyBars(symbol, 320),
+      technicalObjectAdapter.read("stock", symbol, null, 320).catch(() => null),
       db
         .select({
           total: count(),
@@ -255,7 +332,31 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
 
     const quote = quoteRead.quote;
     const bars = barsRead.bars;
-    const technical = calculateTechnicalSnapshot(bars);
+    const technicalSignals = await loadStockTechnicalSignals({
+      symbol,
+      hfqBars: technicalRead?.bars ?? [],
+      qfqBars: bars,
+      computedAt: new Date().toISOString(),
+      advancedContext:
+        (await loadStockAdvancedContext(
+          { objectCode: symbol },
+          technicalRead ?? {
+            identity: {
+              objectType: "stock",
+              objectSubtype: null,
+              objectCode: symbol,
+            },
+            bars: [],
+            benchmark: null,
+            priceBasis: "hfq",
+            volumeApplicable: true,
+            dataSources: [],
+            quality: "missing",
+            asOf: null,
+          },
+        ).catch(() => null)) ?? null,
+    });
+    const technical = technicalSignals.technical;
     const forecasts = buildScenarioForecasts(bars);
     const totalMarketCap = quote?.totalMarketCap ?? null;
     const reportCount = reportCountRows[0]?.total ?? 0;
@@ -374,9 +475,21 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       technical: moduleData(
         technical,
         technical?.asOf ?? null,
-        barsRead.source,
-        technical ? barsRead.quality : "missing",
+        "quant-technical",
+        technical ? technicalSignals.quality : "missing",
       ),
+      technicalSignals: moduleData(
+        technicalSignals.signals,
+        technicalSignals.asOf || null,
+        "quant+server",
+        technicalSignals.quality,
+      ),
+      technicalSignalMeta: {
+        catalogVersion: technicalSignals.catalogVersion,
+        counts: technicalSignals.counts,
+        inputHash: technicalSignals.inputHash,
+        computedAt: technicalSignals.computedAt,
+      },
       forecasts: moduleData(
         forecasts,
         forecasts[0]?.asOf ?? null,

@@ -37,6 +37,7 @@
     "worker:kline": "node --import @oxc-node/core/register src/workers/kline-worker/index.ts"
   },
   "dependencies": {
+    "@ai-trader/signal-catalog": "workspace:*",
     "@hono/node-server": "^1.13.7",
     "@mastra/ai-sdk": "^1.7.2",
     "@mastra/core": "^1.57.0",

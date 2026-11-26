@@ -1,0 +1,30 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 2,
+        "examples": [
+          "span.font-mono.text-[10px]「1–10 / 5580」（10px）",
+          "button.focus-ring.grid「558」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 2,
+        "examples": [
+          "span.sig-status.is-risk「转弱」（4.39:1）",
+          "span.sig-status.is-risk「过热」（4.39:1）"
+        ]
+      }
+    ]
+  }
+]

@@ -1,18 +1,13 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { CircleAlert, Layers3, RefreshCw } from "lucide-react";
 import { Button } from "@preline-ui/Button";
 import { Card } from "@preline-ui/Card";
 import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
-import {
-  ToggleButton,
-  ToggleButtonGroup,
-} from "@preline-ui/ToggleButton";
+import { ToggleButton, ToggleButtonGroup } from "@preline-ui/ToggleButton";
 import { useMarketRotation } from "../../../../hooks/useMarketCenter";
-import {
-  formatRotationValue,
-  type RotationWindow,
-} from "../../../../lib/market-center";
+import { formatRotationValue, type RotationWindow } from "../../../../lib/market-center";
 
 const ASSET_ROLE: Record<string, string> = {
   "588000.SH": "成长资产领先",
@@ -35,7 +30,9 @@ export function CrossAssetRotationPanel() {
         <div>
           <div className="flex items-center gap-2">
             <Layers3 className="size-4 text-primary" />
-            <Heading level={2} className="text-sm">大类资产轮动</Heading>
+            <Heading level={2} className="text-sm">
+              大类资产轮动
+            </Heading>
           </div>
           <Text type="supporting" as="p" className="mt-1 text-[10px]">
             A 股宽基、A 股成长、黄金与海外权益 · 独立观察
@@ -54,16 +51,19 @@ export function CrossAssetRotationPanel() {
           <span className="rounded-full bg-app-surface px-2.5 py-1.5 font-mono text-[9px] text-app-muted">
             {rotation.data?.asOf ?? "暂无日期"}
           </span>
+          <Link
+            to="/home/market/gold"
+            className="focus-ring rounded-md px-2 py-1 text-[10px] font-semibold text-primary hover:bg-primary/5"
+          >
+            黄金分析
+          </Link>
         </div>
       </div>
 
       {rotation.isLoading ? (
         <div className="grid gap-px bg-app-line md:grid-cols-2">
           {Array.from({ length: 4 }, (_, index) => (
-            <div
-              key={`asset-skeleton-${index}`}
-              className="h-16 animate-pulse bg-app-surface"
-            />
+            <div key={`asset-skeleton-${index}`} className="h-16 animate-pulse bg-app-surface" />
           ))}
         </div>
       ) : rotation.isError || !rotation.data ? (
@@ -99,18 +99,15 @@ export function CrossAssetRotationPanel() {
                 <div
                   className="h-full rounded-full bg-primary"
                   style={{
-                    width: `${Math.max(
-                      6,
-                      (Math.abs(row.relativeReturn ?? 0) / maxAbs) * 100,
-                    )}%`,
+                    width: `${Math.max(6, (Math.abs(row.relativeReturn ?? 0) / maxAbs) * 100)}%`,
                   }}
                 />
               </div>
-              <span className={`text-right font-mono text-[11px] font-semibold ${
-                (row.relativeReturn ?? 0) >= 0
-                  ? "text-chart-up-strong"
-                  : "text-chart-down-strong"
-              }`}>
+              <span
+                className={`text-right font-mono text-[11px] font-semibold ${
+                  (row.relativeReturn ?? 0) >= 0 ? "text-chart-up-strong" : "text-chart-down-strong"
+                }`}
+              >
                 {formatRotationValue(row.relativeReturn, 1)}
               </span>
             </div>

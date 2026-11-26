@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SignalResult, SignalStatus } from "@ai-trader/signal-catalog/contracts";
 import {
   normalizeCompareSymbols,
   shouldPollResearchIndex,
@@ -83,6 +84,13 @@ export interface StockAnalysisResponse {
     }>
   >;
   technical: StockAnalysisModule<TechnicalSnapshot | null>;
+  technicalSignals: StockAnalysisModule<SignalResult[]>;
+  technicalSignalMeta: {
+    catalogVersion: string;
+    counts: Record<SignalStatus, number>;
+    inputHash: string;
+    computedAt: string;
+  };
   forecasts: StockAnalysisModule<ScenarioForecast[]>;
   riskReferenceRange: StockAnalysisModule<RiskReferenceRange>;
   reports: StockAnalysisModule<
@@ -181,6 +189,16 @@ export interface StockComparisonResponse {
     };
     reportCount: number;
     technical: TechnicalSnapshot | null;
+    technicalSignals: {
+      catalogVersion: string;
+      asOf: string;
+      computedAt: string;
+      inputHash: string;
+      quality: AnalysisQuality;
+      counts: Record<SignalStatus, number>;
+      technical: TechnicalSnapshot | null;
+      signals: SignalResult[];
+    };
     forecasts: ScenarioForecast[];
     forecastQuality: AnalysisQuality;
   }>;

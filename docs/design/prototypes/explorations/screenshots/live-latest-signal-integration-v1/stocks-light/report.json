@@ -1,0 +1,40 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 2,
+        "examples": [
+          "span.font-mono.text-[10px]「1–10 / 5580」（10px）",
+          "button.focus-ring.grid「558」（10px）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 2,
+        "examples": [
+          "span.font-mono.text-[10px]「1–10 / 5580」（10px）",
+          "button.focus-ring.grid「558」（10px）"
+        ]
+      }
+    ]
+  }
+]

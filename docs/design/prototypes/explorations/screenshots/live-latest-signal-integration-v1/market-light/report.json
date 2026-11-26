@@ -1,0 +1,77 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 56,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 7,
+        "examples": [
+          "span.rounded-md.px-1.5「+0.06%」（4.41:1）",
+          "span.rounded-md.px-1.5「-0.46%」（4.39:1）",
+          "span.rounded-md.px-1.5「-0.18%」（4.39:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 56,
+        "examples": [
+          "span.inline-flex.items-center「逐项日期」（9px）",
+          "span.inline-flex.rounded-md「市场基准」（10px）",
+          "p.mt-1.5.text-[10px]「腾讯 · 11/26」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 2,
+        "examples": [
+          "span.rounded-md.px-1.5「+0.06%」（4.41:1）",
+          "span.rounded-md.px-1.5「-0.46%」（4.39:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.rounded-xl.border「市场温度 涨停池与连板结构 11/26 收盘 6」（框里又有 2 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

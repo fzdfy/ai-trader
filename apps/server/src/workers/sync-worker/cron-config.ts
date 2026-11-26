@@ -6,8 +6,8 @@ export interface CronJobConfig {
   marketCloseOnly?: boolean;
   /** 仅交易日活跃时段执行（调度层用 isTradeDay + 时间窗守卫，如 news 避免深夜空转） */
   marketHoursOnly?: boolean;
-  /** 依赖的前置 jobType：今日该 job 成功后才会执行（如 features 依赖 kline-1d） */
-  dependsOn?: string;
+  /** 依赖的前置 jobType：全部今日成功后才会执行（如 features 依赖 kline-1d） */
+  dependsOn?: string | string[];
   /** 重试截止时间（本地 "HH:mm"）：收盘后任务在此时间前内部循环重试，超过则标 failed */
   deadline?: string;
   /** 重试间隔（毫秒），默认 5 分钟 */
@@ -31,6 +31,7 @@ export const CRON_JOBS: CronJobConfig[] = [
     enabled: process.env.MARKET_ASSET_INGEST_ENABLED === "true",
   },
   { name: "market-asset-retention", cron: "30 3 * * *", enabled: true },
+  { name: "technical-signal-retention", cron: "40 3 * * *", enabled: true },
   {
     name: "rotation-indices",
     cron: "20 16 * * 1-5",
@@ -139,6 +140,30 @@ export const CRON_JOBS: CronJobConfig[] = [
     marketCloseOnly: true,
     dependsOn: "adj-factor",
     deadline: "18:00",
+  },
+  {
+    name: "technical-signals-market",
+    cron: "0 17 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: ["kline-1d", "adj-factor", "market-asset-daily"],
+    deadline: "21:30",
+  },
+  {
+    name: "technical-signals-boards",
+    cron: "0 17 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: ["boards", "board-kline", "constituents", "fundflow"],
+    deadline: "21:30",
+  },
+  {
+    name: "technical-signals-stocks",
+    cron: "30 17 * * 1-5",
+    enabled: true,
+    marketCloseOnly: true,
+    dependsOn: ["technical-signals-market", "technical-signals-boards"],
+    deadline: "21:30",
   },
   { name: "governance-quality-scan", cron: "30 18 * * 1-5", enabled: true, marketCloseOnly: true },
   // 自选股内容：收盘后按 watchlist 串行刷新，禁止退化为全市场抓取

@@ -22,6 +22,7 @@ RUN cd apps/quant && uv sync --frozen --no-install-project
 
 # 再复制源码
 COPY apps/quant/ apps/quant/
+COPY packages/signal-catalog/catalog.json packages/signal-catalog/catalog.json
 
 # 安装项目自身（virtual 项目，几乎瞬时）
 RUN cd apps/quant && uv sync --frozen
