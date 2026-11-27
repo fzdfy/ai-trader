@@ -57,12 +57,18 @@ export function FundStructure({
     <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
       {entries.map(([label, value]) => (
         <div key={label} className={`rounded-xl px-3 py-2.5 ${tileClass}`}>
-          <span className={`block text-[10px] ${labelClass}`}>{label}</span>
-          <strong className={`mt-1 block font-mono text-xs ${
-            value >= 0
-              ? isQuoteCanvas ? "text-quote-up" : "text-chart-up-strong"
-              : isQuoteCanvas ? "text-quote-down" : "text-chart-down-strong"
-          }`}>
+          <span className={`block text-[11px] ${labelClass}`}>{label}</span>
+          <strong
+            className={`mt-1 block font-mono text-xs ${
+              value >= 0
+                ? isQuoteCanvas
+                  ? "text-quote-up"
+                  : "text-chart-up-strong"
+                : isQuoteCanvas
+                  ? "text-quote-down"
+                  : "text-chart-down-strong"
+            }`}
+          >
             {formatMoney(value)}
           </strong>
         </div>

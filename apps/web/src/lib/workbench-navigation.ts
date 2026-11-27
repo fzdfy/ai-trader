@@ -132,6 +132,13 @@ export interface WorkbenchBreadcrumbOptions {
   stockName?: string | null;
 }
 
+export function stockWorkspaceSymbolFromPath(pathname: string): string | null {
+  const prefix = "/home/market/stock/";
+  if (!pathname.startsWith(prefix)) return null;
+  const symbol = pathname.slice(prefix.length).replace(/\/+$/, "");
+  return symbol ? decodeURIComponent(symbol) : null;
+}
+
 export function getWorkbenchBreadcrumbs(
   pathname: string,
   options: WorkbenchBreadcrumbOptions = {},
@@ -139,11 +146,7 @@ export function getWorkbenchBreadcrumbs(
   const currentLabel = getWorkbenchPageTitle(pathname);
   const root = { label: "Apollo Quant", href: "/home" };
   if (pathname === "/home/market/boards") {
-    return [
-      root,
-      { label: "行情中心", href: "/home/market" },
-      { label: "板块", href: null },
-    ];
+    return [root, { label: "行情中心", href: "/home/market" }, { label: "板块", href: null }];
   }
   if (pathname.startsWith("/home/market/boards/")) {
     return [
@@ -154,11 +157,7 @@ export function getWorkbenchBreadcrumbs(
     ];
   }
   if (pathname === "/home/market/stock") {
-    return [
-      root,
-      { label: "行情中心", href: "/home/market" },
-      { label: "个股", href: null },
-    ];
+    return [root, { label: "行情中心", href: "/home/market" }, { label: "个股", href: null }];
   }
   if (pathname.startsWith("/home/market/stock/")) {
     return [

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate, useParams, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { VStack, HStack } from "@preline-ui/Stack";
 import { Button } from "@preline-ui/Button";
 import { Text } from "@preline-ui/Text";
@@ -9,14 +10,22 @@ import {
   init,
   dispose,
   type Chart,
+  type Coordinate,
   type Crosshair,
   type IndicatorFigure,
   type IndicatorFigureStyle,
   type KLineData,
+  type OverlayTemplate,
   type Period,
+  registerOverlay,
 } from "klinecharts";
 import type { KlineTf } from "../../../../hooks/useInstruments";
-import { useFundFlowHistory, useLatestQuotes } from "../../../../hooks/useMarketCenter";
+import {
+  useFundFlowHistory,
+  useLatestQuotes,
+  type FundFlowHistoryRow,
+  type LatestQuote,
+} from "../../../../hooks/useMarketCenter";
 import {
   klineRequestSignal,
   resolveKlineStatus,
@@ -33,40 +42,33 @@ import {
   readQuoteCanvasColors,
   type QuoteCanvasColors,
 } from "../../../../lib/quote-canvas-theme";
-import { toStockReturnSearch, type StockListTab } from "../../../../lib/stock-list-state";
+import { toStockReturnSearch } from "../../../../lib/stock-list-state";
 import { FundStructure } from "../-private/FundStructure";
 import { MarketCenterShell } from "../-private/MarketCenterShell";
 import { KlineStatusOverlay } from "./-private/KlineStatusOverlay";
-import { useTechnicalSignalSnapshot } from "../../../../hooks/useTechnicalSignals";
+import {
+  useTechnicalSignalSnapshot,
+  type StoredTechnicalSignalSnapshot,
+} from "../../../../hooks/useTechnicalSignals";
 import { displaySignalName } from "../../../../components/signals/SignalDiagnosis";
+import { buildStockForecastOverlay } from "../../../../lib/stock-forecast-overlay";
+import { useStockForecastQuery } from "../../../../hooks/useStockForecast";
+import {
+  parseStockWorkspaceSearch,
+  shouldLoadStockResearch,
+  stockWorkspaceSearch,
+  type StockWorkspaceSearch,
+  type StockWorkspaceMode,
+} from "../../../../lib/stock-workspace";
+import { StockResearchPanel } from "./-private/StockResearchPanel";
+import {
+  StockWorkspaceHeader,
+  type StockWorkspaceStatusItem,
+} from "./-private/StockWorkspaceHeader";
 
 export const Route = createFileRoute("/home/market/stock/$symbol")({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    tf?: KlineTf;
-    from?: string;
-    list?: string;
-    listTab?: StockListTab;
-    listPage?: number;
-    listQ?: string;
-  } => ({
-    tf: (search.tf as KlineTf) ?? "1d",
-    from: search.from as string | undefined,
-    // 来源页（选股页）传入的股票列表，用于左右切换相邻标的
-    list: search.list as string | undefined,
-    listTab:
-      search.listTab === "watchlist"
-        ? "watchlist"
-        : search.listTab === "stock"
-          ? "stock"
-          : undefined,
-    listPage:
-      Number.isInteger(Number(search.listPage)) && Number(search.listPage) > 0
-        ? Number(search.listPage)
-        : undefined,
-    listQ: typeof search.listQ === "string" ? search.listQ : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): StockWorkspaceSearch =>
+    parseStockWorkspaceSearch(search),
   component: StockDetailPage,
 });
 
@@ -106,6 +108,55 @@ const PERIOD_OPTIONS: { value: KlineTf; label: string; period: Period }[] = [
 ];
 
 const DEFAULT_PERIOD: Period = { span: 1, type: "day" };
+
+interface StockForecastOverlayExtendData {
+  size: number;
+  color: string;
+  bandColor: string;
+}
+
+const stockForecastOverlayTemplate: OverlayTemplate<StockForecastOverlayExtendData> = {
+  name: "stock-forecast-projection",
+  totalStep: 0,
+  createPointFigures: ({ coordinates, overlay }) => {
+    const { size, color, bandColor } = overlay.extendData;
+    const upper = coordinates.slice(0, size) as Coordinate[];
+    const lower = coordinates.slice(size, size * 2) as Coordinate[];
+    const median = coordinates.slice(size * 2) as Coordinate[];
+    return [
+      {
+        type: "polygon",
+        attrs: { coordinates: [...upper, ...lower.toReversed()] },
+        styles: {
+          style: "fill",
+          color: bandColor,
+          borderColor: color,
+          borderSize: 1,
+        },
+        ignoreEvent: true,
+      },
+      {
+        type: "line",
+        attrs: { coordinates: median },
+        styles: {
+          style: "solid",
+          color,
+          size: 2,
+          dashedValue: [],
+        },
+        ignoreEvent: true,
+      },
+      ...median.map((coordinate) => ({
+        type: "circle",
+        attrs: { x: coordinate.x, y: coordinate.y, r: 2.5 },
+        styles: { style: "fill", color },
+        ignoreEvent: true,
+      })),
+    ];
+  },
+};
+
+registerOverlay(stockForecastOverlayTemplate);
 
 function periodForTf(tf: KlineTf): Period {
   return PERIOD_OPTIONS.find((p) => p.value === tf)?.period ?? DEFAULT_PERIOD;
@@ -220,9 +271,118 @@ function instrumentNameQueryOptions(symbol: string) {
   };
 }
 
+function compactSparkline(bars: KLineData[], width = 168, height = 54): string {
+  if (bars.length < 2) return "";
+  const closes = bars.slice(-36).map((bar) => bar.close);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  return closes
+    .map((close, index) => {
+      const x = (index / (closes.length - 1)) * width;
+      const y = height - ((close - min) / range) * (height - 8) - 4;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function ResearchMarketContext({
+  bars,
+  quote,
+  fund,
+  technical,
+  isKlineLoading,
+  isKlineError,
+  onQuick,
+  onRefresh,
+}: {
+  bars: KLineData[];
+  quote: LatestQuote | undefined;
+  fund: FundFlowHistoryRow | undefined;
+  technical: StoredTechnicalSignalSnapshot | undefined;
+  isKlineLoading: boolean;
+  isKlineError: boolean;
+  onQuick: () => void;
+  onRefresh: () => void;
+}) {
+  const change = quote?.changePct == null ? null : Number(quote.changePct);
+  const activeSignals = (technical?.signals ?? [])
+    .filter((signal) => signal.status === "triggered" || signal.status === "low-confidence")
+    .slice(0, 3);
+  const sparkline = compactSparkline(bars);
+
+  return (
+    <section
+      className="grid gap-5 border-y border-app-line bg-app-surface/35 px-4 py-4 md:grid-cols-[190px_minmax(0,1fr)_auto] md:items-center"
+      aria-label="行情底稿"
+    >
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-app-muted">
+          <strong className="font-medium text-app-ink">行情底稿</strong>
+          <span className="font-mono">日 K · {quote?.ts.slice(5, 10) ?? "待读取"}</span>
+        </div>
+        {sparkline ? (
+          <svg
+            viewBox="0 0 168 54"
+            className="mt-2 h-14 w-full text-chart-up"
+            role="img"
+            aria-label="最近行情走势"
+          >
+            <path d={sparkline} fill="none" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        ) : (
+          <div className="mt-2 grid h-14 place-items-center border border-dashed border-app-line bg-app-panel text-[11px] text-app-muted">
+            {isKlineLoading ? "行情加载中" : isKlineError ? "行情暂不可用" : "暂无行情"}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <strong className="block text-sm text-app-ink">
+          {quote
+            ? `最新 ${quote.last ?? "—"} · ${change == null ? "—" : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}`
+            : "行情快照暂不可用"}
+        </strong>
+        <p className="mt-1 text-[11px] leading-5 text-app-muted">
+          研究请求独立加载；行情、资金和页面导航保持可用，不会因研究失败被清空。
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {activeSignals.length > 0 ? (
+            activeSignals.map((signal) => (
+              <span
+                key={signal.signalId}
+                className="border border-app-line bg-app-panel px-2 py-1 text-[11px] text-app-muted"
+              >
+                {displaySignalName(signal.signalId)}
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] text-app-muted">
+              {technical == null ? "技术摘要待读取" : "暂无触发信号"}
+            </span>
+          )}
+          <span className="border border-app-line bg-app-panel px-2 py-1 text-[11px] text-app-muted">
+            主力 {fund?.mainNetInflow == null ? "—" : formatQuoteAmount(String(fund.mainNetInflow))}
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 md:justify-end">
+        <Button label="展开快速看盘" variant="secondary" size="sm" onClick={onQuick} />
+        <Button
+          label="刷新行情"
+          variant="ghost"
+          size="sm"
+          icon={<RefreshCw className="size-3.5" />}
+          onClick={onRefresh}
+        />
+      </div>
+    </section>
+  );
+}
+
 function StockDetailPage() {
   const { symbol } = useParams({ from: "/home/market/stock/$symbol" });
-  const { tf: tfParam, from, list, listTab, listPage, listQ } = Route.useSearch();
+  const { mode: modeParam, tf: tfParam, from, list, listTab, listPage, listQ } = Route.useSearch();
+  const mode: StockWorkspaceMode = modeParam ?? "quick";
   const tf = tfParam ?? "1d";
   const returnSearch = toStockReturnSearch({ listTab, listPage, listQ });
   const navigate = useNavigate();
@@ -245,6 +405,7 @@ function StockDetailPage() {
   const [screenTf, setScreenTf] = useState<KlineTf>(tf);
   const [klineStatus, setKlineStatus] = useState<KlineLoadStatus>("loading");
   const [displayedKline, setDisplayedKline] = useState<LatestKlineSummary | null>(null);
+  const [klineLatestBar, setKlineLatestBar] = useState<KLineData | null>(null);
   // 从选股列表重新进入（URL 参数变化）时同步内部状态；内部切换不改 URL，故不会误触发
   useEffect(() => {
     if (!isScreenViewer) return;
@@ -262,6 +423,28 @@ function StockDetailPage() {
   const latestFund = fundFlow.data?.at(-1);
   const quoteChange = quote?.changePct == null ? null : Number(quote.changePct);
   const periodLabel = PERIOD_OPTIONS.find((option) => option.value === currentTf)?.label ?? "日";
+  const researchKline = useQuery({
+    ...klineBarsQueryOptions(currentSymbol, currentTf),
+    enabled: shouldLoadStockResearch(mode),
+  });
+  const forecastQuery = useStockForecastQuery(currentSymbol);
+  const fiveDayForecast = forecastQuery.data?.forecasts.find(
+    (forecast) => forecast.horizon === "5D",
+  );
+  const forecastOverlay = useMemo(
+    () =>
+      klineLatestBar && fiveDayForecast
+        ? buildStockForecastOverlay({
+            current: klineLatestBar.close,
+            p10: fiveDayForecast.p10,
+            p50: fiveDayForecast.p50,
+            p90: fiveDayForecast.p90,
+            startTimestamp: klineLatestBar.timestamp,
+            sessions: 5,
+          })
+        : null,
+    [fiveDayForecast, klineLatestBar],
+  );
 
   // 图表标题展示的名称：优先中文名，未收录时回退为代码（klinecharts 缺失键会原样回显 "{name}"）
   const { data: instrumentName } = useQuery(instrumentNameQueryOptions(currentSymbol));
@@ -306,6 +489,27 @@ function StockDetailPage() {
       });
     },
     [isScreenViewer, navigate, tf, from, list, listPage, listQ, listTab],
+  );
+
+  const goToMode = useCallback(
+    (nextMode: StockWorkspaceMode) => {
+      if (nextMode === mode) return;
+      navigate({
+        to: "/home/market/stock/$symbol",
+        params: { symbol: currentSymbol },
+        search: stockWorkspaceSearch({
+          mode: nextMode,
+          tf: currentTf,
+          from,
+          list,
+          listTab,
+          listPage,
+          listQ,
+        }),
+        resetScroll: false,
+      });
+    },
+    [currentSymbol, currentTf, from, list, listPage, listQ, listTab, mode, navigate],
   );
 
   // 初始化图表：仅挂载时执行一次。数据加载器与指标都只建一次，
@@ -357,6 +561,7 @@ function StockDetailPage() {
         }
         const loadedBars = bars ?? [];
         klineBarsRef.current = loadedBars;
+        setKlineLatestBar(loadedBars.at(-1) ?? null);
         setKlineStatus(resolveKlineStatus({ bars: loadedBars, error }));
         displayedIndexRef.current = loadedBars.length > 0 ? loadedBars.length - 1 : null;
         setDisplayedKline(summarizeLatestKline(loadedBars));
@@ -409,6 +614,7 @@ function StockDetailPage() {
       },
       true,
     );
+    chart.setOffsetRightDistance(132);
     chart.createIndicator(
       {
         name: "MACD",
@@ -466,6 +672,7 @@ function StockDetailPage() {
 
     setKlineStatus("loading");
     klineBarsRef.current = [];
+    setKlineLatestBar(null);
     displayedIndexRef.current = null;
     setDisplayedKline(null);
     if (prev.symbol !== currentSymbol || prev.name !== displayName) {
@@ -474,6 +681,49 @@ function StockDetailPage() {
     if (prev.tf !== currentTf) chart.setPeriod(periodForTf(currentTf));
     targetRef.current = { symbol: currentSymbol, tf: currentTf, name: displayName };
   }, [currentSymbol, currentTf, displayName]);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart) return;
+    chart.removeOverlay({ name: "stock-forecast-projection" });
+    if (mode !== "quick" || !forecastOverlay) return;
+
+    const colors = readQuoteCanvasColors();
+    const points = [
+      ...forecastOverlay.points.map((point) => ({
+        timestamp: point.timestamp,
+        value: point.p90,
+      })),
+      ...forecastOverlay.points.map((point) => ({
+        timestamp: point.timestamp,
+        value: point.p10,
+      })),
+      ...forecastOverlay.points.map((point) => ({
+        timestamp: point.timestamp,
+        value: point.p50,
+      })),
+    ];
+    const size = forecastOverlay.points.length;
+    chart.createOverlay({
+      name: "stock-forecast-projection",
+      paneId: "candle_pane",
+      lock: true,
+      visible: true,
+      zLevel: 20,
+      needDefaultPointFigure: false,
+      needDefaultXAxisFigure: false,
+      needDefaultYAxisFigure: false,
+      points,
+      extendData: {
+        size,
+        color: colors.forecast,
+        bandColor: colors.forecastBand,
+      },
+    });
+    return () => {
+      chart.removeOverlay({ name: "stock-forecast-projection" });
+    };
+  }, [chartContainerReady, forecastOverlay, mode]);
 
   // 键盘左右方向键切换相邻标的（焦点位于输入类元素内时忽略）
   useEffect(() => {
@@ -505,6 +755,7 @@ function StockDetailPage() {
   const retryKline = useCallback(async () => {
     setKlineStatus("loading");
     klineBarsRef.current = [];
+    setKlineLatestBar(null);
     displayedIndexRef.current = null;
     setDisplayedKline(null);
     await queryClient.invalidateQueries({
@@ -513,13 +764,70 @@ function StockDetailPage() {
     chartInstanceRef.current?.resetData();
   }, [currentSymbol, currentTf, queryClient]);
 
+  const workspaceStatusItems: StockWorkspaceStatusItem[] = [
+    {
+      label: "实时行情",
+      value: quote
+        ? `${quote.ts.slice(0, 16).replace("T", " ")} · ${quote.quality === "available" ? "可用" : "低置信"}`
+        : quotes.isLoading
+          ? "读取中"
+          : "暂不可用",
+      tone: quote ? "success" : quotes.isError ? "error" : "neutral",
+    },
+    {
+      label: `${periodLabel} K 线`,
+      value:
+        mode === "research"
+          ? researchKline.isLoading
+            ? "读取中"
+            : researchKline.data?.length
+              ? `${researchKline.data.length} 根 · 可用`
+              : "暂不可用"
+          : klineStatus === "ready"
+            ? `${klineBarsRef.current.length} 根 · 可用`
+            : klineStatus === "loading"
+              ? "读取中"
+              : "暂不可用",
+      tone:
+        mode === "research"
+          ? researchKline.data?.length
+            ? "success"
+            : researchKline.isError
+              ? "error"
+              : "neutral"
+          : klineStatus === "ready"
+            ? "success"
+            : klineStatus === "error"
+              ? "error"
+              : "neutral",
+    },
+    {
+      label: "资金结构",
+      value: latestFund?.date
+        ? `${latestFund.date.slice(5)} · 可用`
+        : fundFlow.isLoading
+          ? "读取中"
+          : "暂不可用",
+      tone: latestFund ? "success" : fundFlow.isError ? "error" : "neutral",
+    },
+    {
+      label: "技术摘要",
+      value: technical.data
+        ? `${technical.data.signals.length} 项 · ${
+            technical.data.quality === "available" ? "可用" : "部分"
+          }`
+        : technical.isLoading
+          ? "读取中"
+          : "暂不可用",
+      tone: technical.data ? "success" : technical.isError ? "warning" : "neutral",
+    },
+  ];
+
   return (
-    <MarketCenterShell>
+    <MarketCenterShell variant="stock">
       <VStack gap={3} style={{ height: "100%" }}>
-        <HStack gap={2} align="center">
+        <div className="flex flex-wrap items-center gap-2">
           {from === "screens" ? (
-            // 回到选股页：走浏览器历史回退，保留选股页原先的 URL search（策略/范围/返回数量等），
-            // 否则直接 Link 到 /home/screens 会丢失这些条件、页面回到默认状态
             <Button
               label="← 返回"
               variant="ghost"
@@ -531,7 +839,7 @@ function StockDetailPage() {
               <Button label="← 返回" variant="ghost" size="sm" />
             </Link>
           )}
-          {canSwitch && (
+          {canSwitch ? (
             <HStack gap={1} align="center">
               <Button
                 label="上一只"
@@ -555,156 +863,259 @@ function StockDetailPage() {
                 }}
               />
             </HStack>
-          )}
-          <TabList
-            value={currentTf}
-            onChange={(v) => {
-              // 选股入口：周期同样内部切换，不写回 URL
-              if (isScreenViewer) {
-                setScreenTf(v as KlineTf);
-                return;
-              }
-              navigate({
-                to: "/home/market/stock/$symbol",
-                params: { symbol },
-                search: { tf: v as KlineTf, from, list, listTab, listPage, listQ },
-                replace: true,
-              });
-            }}
-          >
-            {PERIOD_OPTIONS.map((p) => (
-              <Tab key={p.value} value={p.value} label={p.label} />
-            ))}
-          </TabList>
-          <Link
-            to="/home/market/analysis/$symbol"
-            params={{ symbol: currentSymbol }}
-            style={{ marginLeft: "auto", textDecoration: "none" }}
-          >
-            <Button label="深度分析" variant="secondary" size="sm" />
-          </Link>
-        </HStack>
-        <section
-          className="overflow-hidden rounded-2xl border border-app-line bg-app-panel"
-          aria-label="快速行情详情"
-        >
-          <div className="p-3.5" aria-label="个股行情摘要">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-              <div className="flex min-w-0 items-baseline gap-2">
-                <strong className="truncate text-base font-bold text-app-ink">{displayName}</strong>
-                <span className="shrink-0 font-mono text-xs text-app-muted">· {currentSymbol}</span>
-              </div>
-              {quote ? (
-                <div
-                  className={`flex items-baseline gap-2 font-mono font-semibold ${
-                    quoteChange != null && quoteChange < 0
-                      ? "text-chart-down-strong"
-                      : "text-chart-up-strong"
-                  }`}
-                >
-                  <strong className="text-base">{quote.last ?? "—"}</strong>
-                  <span className="text-xs">
-                    {quoteChange == null
-                      ? "—"
-                      : `${quoteChange > 0 ? "+" : ""}${quoteChange.toFixed(2)}%`}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-            {quote ? (
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-app-muted">
-                <span>成交额 {formatQuoteAmount(quote.amount)}</span>
-                <span>PE {quote.pe ?? "—"}</span>
-                <span>PE-TTM {quote.peTtm ?? "—"}</span>
-                <span>PB {quote.pb ?? "—"}</span>
-              </div>
-            ) : null}
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {(technical.data?.signals ?? [])
-                .filter(
-                  (signal) => signal.status === "triggered" || signal.status === "low-confidence",
-                )
-                .slice(0, 4)
-                .map((signal) => (
-                  <span
-                    key={signal.signalId}
-                    className="rounded-full border border-app-line bg-app-surface px-2 py-1 text-[10px] text-app-muted"
-                  >
-                    {displaySignalName(signal.signalId)}
-                  </span>
-                ))}
-              {technical.isLoading ? (
-                <span className="text-[10px] text-app-muted">技术标签读取中</span>
-              ) : technical.isError ? (
-                <span className="text-[10px] text-app-muted">技术标签暂不可用</span>
-              ) : (technical.data?.signals.length ?? 0) === 0 ? (
-                <span className="text-[10px] text-app-muted">暂无技术快照</span>
-              ) : null}
-              <Link
-                to="/home/market/analysis/$symbol"
-                params={{ symbol: currentSymbol }}
-                className="focus-ring ml-auto text-[10px] font-semibold text-primary"
-              >
-                查看 44 项证据
-              </Link>
-            </div>
+          ) : null}
+          <div className="ml-auto">
+            <TabList
+              value={currentTf}
+              onChange={(v) => {
+                if (isScreenViewer) {
+                  setScreenTf(v as KlineTf);
+                  return;
+                }
+                navigate({
+                  to: "/home/market/stock/$symbol",
+                  params: { symbol: currentSymbol },
+                  search: stockWorkspaceSearch({
+                    mode,
+                    tf: v as KlineTf,
+                    from,
+                    list,
+                    listTab,
+                    listPage,
+                    listQ,
+                  }),
+                  replace: true,
+                  resetScroll: false,
+                });
+              }}
+            >
+              {PERIOD_OPTIONS.map((periodOption) => (
+                <Tab
+                  key={periodOption.value}
+                  value={periodOption.value}
+                  label={periodOption.label}
+                />
+              ))}
+            </TabList>
           </div>
-          <section
-            className="border-t border-quote-line bg-quote-canvas text-quote-ink"
-            aria-label={`${periodLabel} K 线与资金结构`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-1 pt-3.5">
-              <strong className="text-xs">K 线 · {periodLabel}</strong>
-              <span className="font-mono text-[11px] text-quote-axis">
-                MA5 / 10 / 20 / 30 / 60 / 120 / 250 · VOL · MACD
-              </span>
-            </div>
-            {displayedKline ? (
-              <div className="space-y-1 px-4 pb-2 font-mono text-[11px] text-quote-axis">
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  <span>时间: {formatKlineDate(displayedKline.bar.timestamp)}</span>
-                  <span>开: {displayedKline.bar.open.toFixed(2)}</span>
-                  <span>高: {displayedKline.bar.high.toFixed(2)}</span>
-                  <span>低: {displayedKline.bar.low.toFixed(2)}</span>
-                  <span>收: {displayedKline.bar.close.toFixed(2)}</span>
-                  <span>成交量: {formatKlineVolume(displayedKline.bar.volume)}</span>
-                  <span>成交额: {formatKlineAmount(displayedKline.bar.turnover)}</span>
+        </div>
+
+        <StockWorkspaceHeader
+          symbol={currentSymbol}
+          displayName={displayName}
+          quote={quote}
+          quoteChange={quoteChange}
+          mode={mode}
+          statusItems={workspaceStatusItems}
+          signalCount={technical.data?.signals.length ?? 0}
+          isRefreshingQuotes={quotes.isFetching}
+          onRefreshQuotes={() => void quotes.refetch()}
+          onModeChange={goToMode}
+        />
+
+        {mode === "quick" ? (
+          <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]" aria-label="快速看盘">
+            <div className="overflow-hidden rounded-2xl border border-app-line bg-app-panel">
+              <section
+                className="border-quote-line bg-quote-canvas text-quote-ink"
+                aria-label={`${periodLabel} K 线与资金结构`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-1 pt-3.5">
+                  <div>
+                    <strong className="text-xs">{periodLabel} K 线与未来一周</strong>
+                    <p className="mt-0.5 text-[11px] text-quote-axis">
+                      历史行情来自当前 K 线接口；未来一周只绘制一条 P50 终点插值路径
+                    </p>
+                  </div>
+                  <span className="border border-primary bg-primary px-2.5 py-1 font-mono text-[11px] text-white">
+                    {forecastQuery.isLoading
+                      ? "未来 5D · 预测读取中"
+                      : fiveDayForecast?.p50 != null
+                        ? "未来 5D · 1 条 P50"
+                        : "未来 5D · 预测待接入"}
+                  </span>
                 </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <span>MA(5,10,20,30,60,120,250)</span>
-                  {KLINE_MA_PERIODS.map((period) => (
-                    <span key={period} style={{ color: `var(--quote-canvas-ma-${period})` }}>
-                      MA{period}: {displayedKline.ma[period]?.toFixed(2) ?? "—"}
+                {displayedKline ? (
+                  <div className="space-y-1 px-4 pb-2 font-mono text-[11px] text-quote-axis">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      <span>时间: {formatKlineDate(displayedKline.bar.timestamp)}</span>
+                      <span>开: {displayedKline.bar.open.toFixed(2)}</span>
+                      <span>高: {displayedKline.bar.high.toFixed(2)}</span>
+                      <span>低: {displayedKline.bar.low.toFixed(2)}</span>
+                      <span>收: {displayedKline.bar.close.toFixed(2)}</span>
+                      <span>成交量: {formatKlineVolume(displayedKline.bar.volume)}</span>
+                      <span>成交额: {formatKlineAmount(displayedKline.bar.turnover)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span>MA(5,10,20,30,60,120,250)</span>
+                      {KLINE_MA_PERIODS.map((maPeriod) => (
+                        <span
+                          key={maPeriod}
+                          style={{
+                            color: `color-mix(in srgb, var(--quote-canvas-ma-${maPeriod}) 50%, var(--quote-canvas-ink))`,
+                          }}
+                        >
+                          MA{maPeriod}: {displayedKline.ma[maPeriod]?.toFixed(2) ?? "—"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="relative">
+                  <div ref={setChartContainer} className="min-h-[480px] w-full bg-quote-canvas" />
+                  <KlineStatusOverlay status={klineStatus} onRetry={retryKline} />
+                </div>
+                <div
+                  className="grid gap-2 border-t border-quote-line px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                  aria-label="未来一周预测摘要"
+                >
+                  <div>
+                    <strong className="text-[11px] text-quote-ink">
+                      {fiveDayForecast?.p50 != null
+                        ? `今收 ${klineLatestBar?.close.toFixed(2) ?? "—"} → 五个交易日 P50 ${fiveDayForecast.p50.toFixed(2)}`
+                        : forecastQuery.isError
+                          ? "未来一周预测暂不可用"
+                          : fiveDayForecast?.quality === "missing"
+                            ? "历史样本不足，暂不生成预测路径"
+                            : "正在读取未来一周预测"}
+                    </strong>
+                    <p className="mt-1 text-[11px] leading-5 text-quote-axis">
+                      阴影为 P10–P90 概率区间，日节点由今收向 5D
+                      中位终点几何插值；预测不是目标价，也不是买卖建议。
+                    </p>
+                  </div>
+                  {fiveDayForecast?.p10 != null &&
+                  fiveDayForecast.p90 != null &&
+                  fiveDayForecast.upProbability != null ? (
+                    <div className="grid grid-cols-2 gap-px bg-quote-line font-mono text-[11px]">
+                      <span className="bg-quote-surface px-3 py-2 text-quote-axis">
+                        P10–P90
+                        <strong className="mt-1 block text-quote-ink">
+                          {fiveDayForecast.p10.toFixed(2)}–{fiveDayForecast.p90.toFixed(2)}
+                        </strong>
+                      </span>
+                      <span className="bg-quote-surface px-3 py-2 text-quote-axis">
+                        上涨概率
+                        <strong className="mt-1 block text-quote-ink">
+                          {(fiveDayForecast.upProbability * 100).toFixed(1)}%
+                        </strong>
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+                <section
+                  className="border-t border-quote-line px-4 py-3.5"
+                  aria-label="个股资金结构"
+                >
+                  <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <strong className="text-xs">资金结构</strong>
+                      <Text as="p" className="mt-1 text-[11px] text-quote-axis">
+                        {latestFund?.date ?? "暂无资金快照"} · 主力净流入不等同于全部资金
+                      </Text>
+                    </div>
+                    <span className="font-mono text-[11px] text-quote-axis">
+                      {quote?.ts.slice(0, 10) ?? "待读取"} · {quote?.source ?? "腾讯"}
                     </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <div className="relative">
-              <div ref={setChartContainer} className="min-h-[480px] w-full bg-quote-canvas" />
-              <KlineStatusOverlay status={klineStatus} onRetry={retryKline} />
+                  </div>
+                  <FundStructure
+                    row={latestFund}
+                    isLoading={fundFlow.isLoading}
+                    isError={fundFlow.isError}
+                    tone="quoteCanvas"
+                  />
+                </section>
+              </section>
             </div>
-            <section className="border-t border-quote-line px-4 py-3.5" aria-label="个股资金结构">
-              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <strong className="text-xs">资金结构</strong>
-                  <Text as="p" className="mt-1 text-[11px] text-quote-axis">
-                    {latestFund?.date ?? "暂无资金快照"} · 主力净流入不等同于全部资金
-                  </Text>
+
+            <aside className="space-y-3" aria-label="快速研判">
+              <section className="rounded-2xl border border-app-line bg-app-panel p-4">
+                <p className="font-mono text-[11px] font-semibold tracking-[0.11em] text-primary">
+                  QUICK READ · CURRENT EVIDENCE
+                </p>
+                <h2 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-app-ink">
+                  {technical.data?.summary?.overall.headline ?? "等待技术摘要形成结论"}
+                </h2>
+                <p className="mt-2 text-[11px] leading-6 text-app-muted">
+                  {technical.data?.summary?.overall.rationale ??
+                    "当前只展示可追溯的行情、资金和技术证据，不用缺失数据补成中性结论。"}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {(technical.data?.signals ?? [])
+                    .filter((signal) => signal.status === "triggered")
+                    .slice(0, 4)
+                    .map((signal) => (
+                      <span
+                        key={signal.signalId}
+                        className="rounded-full bg-app-surface px-2 py-1 text-[11px] text-app-muted"
+                      >
+                        {displaySignalName(signal.signalId)}
+                      </span>
+                    ))}
                 </div>
-                <span className="font-mono text-[11px] text-quote-axis">
-                  {quote?.ts.slice(0, 10) ?? "待读取"} · {quote?.source ?? "腾讯"}
-                </span>
-              </div>
-              <FundStructure
-                row={latestFund}
-                isLoading={fundFlow.isLoading}
-                isError={fundFlow.isError}
-                tone="quoteCanvas"
-              />
-            </section>
+                <button
+                  type="button"
+                  className="focus-ring mt-3 w-full bg-app-surface px-3 py-2 text-left text-[11px] font-semibold text-primary"
+                  onClick={() => goToMode("research")}
+                >
+                  进入深度研究 · {technical.data?.signals.length ?? 44} 项信号与风险 →
+                </button>
+              </section>
+
+              <section className="rounded-2xl border border-app-line bg-app-panel p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-semibold text-app-ink">盘面速览</h2>
+                  <span className="font-mono text-[11px] text-app-muted">
+                    {quote?.ts.slice(0, 10) ?? "待读取"}
+                  </span>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 font-mono text-[11px]">
+                  <div>
+                    <dt className="text-app-muted">最新 / 涨跌</dt>
+                    <dd className="mt-1 text-app-ink">
+                      {quote?.last ?? "—"} /{" "}
+                      {quoteChange == null ? "—" : `${quoteChange.toFixed(2)}%`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-app-muted">成交额</dt>
+                    <dd className="mt-1 text-app-ink">
+                      {formatQuoteAmount(quote?.amount ?? null)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-app-muted">PE / PE-TTM</dt>
+                    <dd className="mt-1 text-app-ink">
+                      {quote?.pe ?? "—"} / {quote?.peTtm ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-app-muted">PB</dt>
+                    <dd className="mt-1 text-app-ink">{quote?.pb ?? "—"}</dd>
+                  </div>
+                </dl>
+              </section>
+            </aside>
           </section>
-        </section>
+        ) : (
+          <section className="space-y-4" aria-label="深度研究工作区">
+            <ResearchMarketContext
+              bars={researchKline.data ?? []}
+              quote={quote}
+              fund={latestFund}
+              technical={technical.data}
+              isKlineLoading={researchKline.isLoading}
+              isKlineError={researchKline.isError}
+              onQuick={() => goToMode("quick")}
+              onRefresh={() => {
+                void quotes.refetch();
+                void fundFlow.refetch();
+                void researchKline.refetch();
+              }}
+            />
+            <StockResearchPanel symbol={currentSymbol} onQuick={() => goToMode("quick")} />
+          </section>
+        )}
       </VStack>
     </MarketCenterShell>
   );

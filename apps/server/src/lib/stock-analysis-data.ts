@@ -131,6 +131,25 @@ export function buildScenarioForecasts(bars: AnalysisBar[]): ScenarioForecast[] 
   });
 }
 
+export function buildForecastPreviewResponse(
+  symbol: string,
+  bars: AnalysisBar[],
+  fallbackAsOf: string | null = null,
+) {
+  const forecasts = buildScenarioForecasts(bars);
+  return {
+    symbol,
+    asOf: forecasts[0]?.asOf ?? fallbackAsOf,
+    source: "historical-bootstrap-v1",
+    quality: forecasts.every((item) => item.quality === "available")
+      ? ("available" as const)
+      : forecasts.some((item) => item.quality !== "missing")
+        ? ("low" as const)
+        : ("missing" as const),
+    forecasts,
+  };
+}
+
 function validateForecastWindow(
   closes: number[],
   sessions: number,

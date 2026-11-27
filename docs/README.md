@@ -91,8 +91,8 @@ flowchart LR
 | [runbooks.md](./runbooks.md) | 排障手册：僵尸任务 / 东财熔断 / 回测超时 | 线上出问题时 |
 | [decisions.md](./decisions.md) | 决策记录（已决·勿翻案） | 想重复论证某个结论前 |
 | [issues.md](./issues.md) | 已知缺陷 & 技术债 | 遇到怪现象时先查这里 |
-| [standards/sdd/](./standards/sdd/README.md) | 当前 SDD v2、历史 v1、Skill 矩阵与迁移 | 开始需求、规划、实施或归档时 |
-| [standards/development-workflow.md](./standards/development-workflow.md) | v2 短入口、风险路由和硬门禁 | 需要快速回忆流程时 |
+| [standards/sdd/](./standards/sdd/README.md) | 当前 SDD v3、历史 v1/v2、Skill 矩阵与迁移 | 开始需求、规划、实施或归档时 |
+| [standards/development-workflow.md](./standards/development-workflow.md) | v3 短入口、风险路由和硬门禁 | 需要快速回忆流程时 |
 | [standards/rag.md](./standards/rag.md) | 研报、新闻和 Agent 的 Evidence Search / RAG 边界 | 设计内容检索、向量或 Agent 引用时 |
 | [glossary.md](./glossary.md) | 业务、设计与领域术语 | 需要确认产品语言时 |
 | [technical-glossary.md](./technical-glossary.md) | 架构、平台和实现术语索引 | 需要定位代码概念时 |
@@ -104,6 +104,6 @@ flowchart LR
 ## 3. 建议阅读路径
 
 - **第一次接触项目** → 「1. 三分钟全局图」→ architecture.md → data-pipeline.md。
-- **要改代码** → invariants.md（先看约束）→ [SDD v2](./standards/sdd/v2.md)（分类与流程）→ corresponding 主题文档 → runbooks.md（避坑）。
+- **要改代码** → invariants.md（先看约束）→ [SDD v3](./standards/sdd/v3.md)（分类与流程）→ corresponding 主题文档 → runbooks.md（避坑）。
 - **排障** → runbooks.md → issues.md → decisions.md。
-- **接手规划** → roadmap.md → issues.md → [SDD v2](./standards/sdd/v2.md)。
+- **接手规划** → roadmap.md → issues.md → [SDD v3](./standards/sdd/v3.md)。

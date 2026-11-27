@@ -390,7 +390,6 @@
       align-items: center;
       padding: 3px;
       background: var(--surface);
-      border: 1px solid var(--line);
       border-radius: 8px;
     }
     .tab-button, .viewport-button {
@@ -557,7 +556,7 @@
         <span class="atlas-mark">AQ</span>
         <span class="atlas-brand-copy">
           <strong>Apollo Current Design Atlas</strong>
-          <span>CURRENT · 2026-11-22</span>
+          <span>CURRENT · 2026-11-27</span>
         </span>
       </div>
       <div class="atlas-sidebar-tools">
@@ -626,7 +625,12 @@
   </div>
   <script>
     const PAGES = [
-      { id:"dashboard", group:"工作空间", title:"每日看板", status:"生产对齐", statusTone:"pending", source:"../explorations/quant-workbench-daily-dashboard-v3.html", hash:"dashboard", supportsDark:true, description:"真实数据密度下的市场广度、资金主线、候选池、工作流和最近复盘。该稿已落地生产，但尚未单独提升为 initial 基准。" },
+      { id:"dashboard", group:"工作空间", title:"每日看板", status:"已确认落地", source:"../explorations/quant-workbench-dashboard-market-radar-v6.html", supportsDark:true, description:"A 股主控台、跨市场背景、主流 ETF、市场 SIGNAL 与今日执行区。来源变更：refine-dashboard-market-radar-visual-fidelity。", evidence:[
+        ["浅色桌面","../explorations/screenshots/dashboard-market-radar-v6/visual-fidelity/desktop-light.png","1440×900 · 真实数据"],
+        ["深色桌面","../explorations/screenshots/dashboard-market-radar-v6/visual-fidelity/desktop-dark.png","深色主题"],
+        ["移动端","../explorations/screenshots/dashboard-market-radar-v6/visual-fidelity/mobile-light.png","390×844 · 单列"],
+        ["今日执行","../explorations/screenshots/dashboard-market-radar-v6/visual-fidelity/desktop-today-light.png","今日行动与今日工作流"]
+      ]},
       { id:"tasks", group:"工作空间", title:"工作任务", status:"确认基准", source:"../initial/quant-workbench-user-work-task-v1.html", search:"page=daily&view=today", supportsDark:true, description:"今日三列看板、任务状态、拖拽排序和详情编辑的统一视觉基准。", evidence:[
         ["浅色看板","../explorations/screenshots/user-work-task-production/light-desktop/page-浅色看板.png","桌面 · 默认"],
         ["深色看板","../explorations/screenshots/user-work-task-production/dark-desktop/page-深色看板.png","桌面 · 深色"],
@@ -638,16 +642,46 @@
       { id:"screens", group:"工作空间", title:"每日选股", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"screens", supportsDark:false, description:"每日候选池、筛选条件、评分和因子解释。源原型未提供全局深色主题。" },
       { id:"screen-detail", group:"工作空间", title:"选股详情", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"screensDetail", supportsDark:false, description:"单只候选标的的入选理由、证据和后续研究入口。" },
 
-      { id:"market", group:"市场情报", title:"行情中心", status:"生产对齐", statusTone:"pending", source:"../initial/quant-workbench-market-center-v1.html", hash:"market", supportsDark:true, description:"总览、板块、个股三模块；轮动与异动拆入对应上下文，列表进入独立详情。", evidence:[
-        ["浅色总览","../explorations/screenshots/market-center-v1/production/overview-light-1440x900.png","桌面 · 真实数据"],
-        ["深色总览","../explorations/screenshots/market-center-v1/production/overview-dark-1440x900.png","桌面 · 深色"],
-        ["板块工作区","../explorations/screenshots/market-center-v1/production/boards-industry-light-1440x900.png","排行、热力图、轮动、异动"],
-        ["移动端","../explorations/screenshots/market-center-v1/production/overview-light-390x844.png","390px · 单列"]
+      { id:"market", group:"市场情报", title:"行情总览", status:"生产对齐", statusTone:"pending", source:"../explorations/live-market-signals-judgments-v1.html", supportsDark:true, description:"主要指数、市场温度、资金主线、行业广度与 32 项 A 股宏观技术判断。来源变更：add-market-technical-signal-matrix。", evidence:[
+        ["浅色总览","../explorations/screenshots/live-signal-judgments-production-v1/light/market-1440x900.jpg","1440×900 · 真实数据"],
+        ["深色总览","../explorations/screenshots/live-signal-judgments-production-v1/dark/market-1440x900.jpg","深色主题"],
+        ["移动端","../explorations/screenshots/live-signal-judgments-production-v1/light/market-390x844.jpg","390×844 · 单列"],
+        ["技术判断","../explorations/screenshots/live-signal-judgments-production-v1/light/market-signals-1440x900.jpg","对象总判断与分层证据"]
+      ]},
+      { id:"boards", group:"市场情报", title:"板块行情", status:"生产对齐", statusTone:"pending", source:"../explorations/live-market-boards-signals-v1.html", supportsDark:true, description:"行业与概念排行、热力图、资金流、轮动和技术摘要。来源变更：add-market-technical-signal-matrix。", evidence:[
+        ["浅色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/boards-light-desktop-1440x900.png","板块排行与热力图"],
+        ["深色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/boards-dark-desktop-1440x900.png","深色模式"],
+        ["移动端","../explorations/screenshots/live-latest-signal-integration-v1/production-final/boards-light-mobile-390x844.png","390×844 · 单列"]
+      ]},
+      { id:"board-detail", group:"市场情报", title:"板块详情", status:"生产对齐", statusTone:"pending", source:"../explorations/live-market-board-detail-signals-judgments-v1.html", supportsDark:true, description:"单个板块的行情、资金、轮动、成分股与 32 项技术判断。来源变更：add-market-technical-signal-matrix。", evidence:[
+        ["浅色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/board-detail-light-desktop-1440x900.png","板块概览与成分股"],
+        ["深色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/board-detail-dark-desktop-1440x900.png","深色模式"],
+        ["技术判断","../explorations/screenshots/live-latest-signal-integration-v1/production-final/board-detail-light-desktop-1440x900-signals.png","32 项诊断与分层判断"]
       ]},
       { id:"stock-landing", group:"市场情报", title:"个股分析入口", status:"确认基准", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=landing", hash:"analysis", supportsDark:true, description:"搜索、自选、今日候选和最近分析记录的统一入口。" },
-      { id:"stock-detail", group:"市场情报", title:"个股详情", status:"确认基准", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail", hash:"analysis", supportsDark:true, description:"行情事实、趋势、预测、研报、风险、财务和事件的完整研究链路。" },
+      { id:"stocks", group:"市场情报", title:"个股列表", status:"生产对齐", statusTone:"pending", source:"../explorations/live-market-stocks-signals-v1.html", supportsDark:true, description:"全市场分页、自选、搜索与技术摘要；点击行进入快速行情详情。来源变更：optimize-market-center-stocks、add-market-technical-signal-matrix。", evidence:[
+        ["浅色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/stocks-light-desktop-1440x900.png","全市场列表"],
+        ["深色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/stocks-dark-desktop-1440x900.png","深色模式"],
+        ["移动端","../explorations/screenshots/live-latest-signal-integration-v1/production-final/stocks-light-mobile-390x844.png","390×844 · 分页"]
+      ]},
+      { id:"stock-quick-detail", group:"市场情报", title:"快速行情详情", status:"生产对齐", statusTone:"pending", source:"../explorations/live-market-stock-detail-signals-v1.html", supportsDark:true, description:"股票身份、报价、日 K、资金结构、技术标签与 44 项个股证据入口。来源变更：optimize-market-center-stocks、add-market-technical-signal-matrix。", evidence:[
+        ["浅色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/stock-detail-light-desktop-1440x900.png","K 线与资金连续画布"],
+        ["深色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/stock-detail-dark-desktop-1440x900.png","深色模式"],
+        ["移动端","../explorations/screenshots/live-latest-signal-integration-v1/production-final/stock-detail-light-mobile-390x844.png","390×844 · 单列"]
+      ]},
+      { id:"stock-detail", group:"市场情报", title:"个股分析", status:"生产对齐", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, description:"行情事实、价格趋势、研究摘要、44 项技术判断、预测风险、财务、研报与事件。来源变更：add-market-technical-signal-matrix。", evidence:[
+        ["浅色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/analysis-light-desktop-1440x900.png","1440×900 · 真实数据"],
+        ["深色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/analysis-dark-desktop-1440x900.png","深色模式"],
+        ["移动端","../explorations/screenshots/live-latest-signal-integration-v1/production-final/analysis-light-mobile-390x844.png","390×844 · 单列"],
+        ["技术判断","../explorations/screenshots/live-latest-signal-integration-v1/production-final/analysis-light-desktop-1440x900-signals.png","44 项矩阵与总判断"]
+      ]},
+      { id:"gold", group:"市场情报", title:"黄金分析", status:"生产对齐", statusTone:"pending", source:"../explorations/live-market-gold-signals-judgments-v1.html", supportsDark:true, description:"XAU/USD 行情、跨市场背景与 32 项黄金技术诊断；量能明确标记为不适用。来源变更：add-market-technical-signal-matrix。", evidence:[
+        ["浅色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/gold-light-desktop-1440x900.png","XAU/USD 详情"],
+        ["深色桌面","../explorations/screenshots/live-latest-signal-integration-v1/production-final/gold-dark-desktop-1440x900.png","深色模式"],
+        ["移动端","../explorations/screenshots/live-latest-signal-integration-v1/production-final/gold-light-mobile-390x844.png","390×844 · 单列"]
+      ]},
       { id:"stock-compare", group:"市场情报", title:"个股对比", status:"确认基准", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=compare", hash:"analysis", supportsDark:true, description:"多只股票的同日指标、质量与缺失状态对照。" },
-      { id:"chart-states", group:"市场情报", title:"价格趋势交互状态", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail", hash:"analysis", supportsDark:true, defaultTab:"evidence", description:"前复权收盘价趋势的桌面、移动端、深浅色、悬停、选中、键盘、空态和部分成功态。", evidence:[
+      { id:"chart-states", group:"市场情报", title:"价格趋势交互状态", status:"状态证据", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"前复权收盘价趋势的桌面、移动端、深浅色、悬停、选中、键盘、空态和部分成功态。", evidence:[
         ["浅色桌面","../explorations/screenshots/stock-chart-v2/production-light-desktop-v2/page-进入个股分析.png","120 个交易日"],
         ["深色桌面","../explorations/screenshots/stock-chart-v2/production-dark-desktop/page-深色图表.png","显式深色 token"],
         ["指针悬停","../explorations/screenshots/stock-chart-v2/production-hover-light-desktop-v2/page-指针悬停.png","十字线与提示框"],
@@ -655,13 +689,34 @@
         ["历史不足","../explorations/screenshots/stock-chart-v2/production-empty-state/page.png","少于两个交易日"],
         ["技术指标缺失","../explorations/screenshots/stock-chart-v2/production-partial-state/page.png","保留收盘价，不画指标"]
       ]},
-      { id:"content-partial", group:"市场情报", title:"内容部分成功", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&content=partial", hash:"analysis", supportsDark:true, description:"新闻、公告和研报刷新时，部分来源失败仍保留旧数据与模块级提示。" },
-      { id:"content-error", group:"市场情报", title:"内容刷新失败", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&content=error", hash:"analysis", supportsDark:true, description:"单一刷新动作失败时，其他研究模块继续可用。" },
-      { id:"rag-empty", group:"市场情报", title:"研报全文缺失", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&index=empty", hash:"analysis", supportsDark:true, description:"没有可引用全文时明确显示空态，不伪装为已检索。" },
-      { id:"rag-pending", group:"市场情报", title:"研报待索引", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&index=pending", hash:"analysis", supportsDark:true, description:"元数据已同步但全文尚未进入检索。" },
-      { id:"rag-running", group:"市场情报", title:"研报索引中", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&index=running", hash:"analysis", supportsDark:true, description:"全文提取和向量索引进度可见，页面继续轮询。" },
-      { id:"rag-success", group:"市场情报", title:"研报索引完成", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&index=success", hash:"analysis", supportsDark:true, description:"全文证据与页码引用可检索。" },
-      { id:"rag-partial", group:"市场情报", title:"研报索引部分失败", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&index=partial", hash:"analysis", supportsDark:true, description:"部分研报失败但已索引内容仍可检索。" },
+      { id:"content-partial", group:"市场情报", title:"技术信号部分成功", status:"状态证据", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"部分宏观或模型数据未接入时，可用技术信号继续展示并保留模块级提示。证据来自最新生产对齐信号稿。", evidence:[
+        ["浅色部分成功","../explorations/screenshots/live-latest-signal-integration-v1/states-light/partial-1440x900.png","1440×900 · 部分数据不可用"],
+        ["深色部分成功","../explorations/screenshots/live-latest-signal-integration-v1/states-dark/partial-1440x900.png","深色主题"]
+      ]},
+      { id:"content-error", group:"市场情报", title:"技术信号失败", status:"状态证据", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"信号计算或快照读取失败时独立展示错误与重试，其他研究内容保持可用。证据来自最新生产对齐信号稿。", evidence:[
+        ["浅色失败","../explorations/screenshots/live-latest-signal-integration-v1/states-light/error-1440x900.png","1440×900 · 信号快照不可用"],
+        ["深色失败","../explorations/screenshots/live-latest-signal-integration-v1/states-dark/error-1440x900.png","深色主题"]
+      ]},
+      { id:"rag-empty", group:"市场情报", title:"研报全文缺失", status:"历史状态证据", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"没有可引用全文时明确显示空态，不伪装为已检索。状态截图来自信号整合前组件稿，当前主页面见个股分析。", evidence:[
+        ["浅色空态","../explorations/screenshots/research-rag-v1/light-desktop/empty.png","暂无全文"],
+        ["深色空态","../explorations/screenshots/research-rag-v1/dark-desktop/empty.png","深色主题"]
+      ]},
+      { id:"rag-pending", group:"市场情报", title:"研报待索引", status:"历史状态证据", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"元数据已同步但全文尚未进入检索。状态截图来自信号整合前组件稿，当前主页面见个股分析。", evidence:[
+        ["浅色待索引","../explorations/screenshots/research-rag-v1/light-desktop/pending.png","等待全文"],
+        ["深色待索引","../explorations/screenshots/research-rag-v1/dark-desktop/pending.png","深色主题"]
+      ]},
+      { id:"rag-running", group:"市场情报", title:"研报索引中", status:"历史状态证据", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"全文提取和向量索引进度可见，页面继续轮询。状态截图来自信号整合前组件稿，当前主页面见个股分析。", evidence:[
+        ["浅色索引中","../explorations/screenshots/research-rag-v1/light-desktop/running.png","处理进行中"],
+        ["深色索引中","../explorations/screenshots/research-rag-v1/dark-desktop/running.png","深色主题"]
+      ]},
+      { id:"rag-success", group:"市场情报", title:"研报索引完成", status:"历史状态证据", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"全文证据与页码引用可检索。状态截图来自信号整合前组件稿，当前主页面见个股分析。", evidence:[
+        ["浅色完成","../explorations/screenshots/research-rag-v1/light-desktop/success.png","全文可检索"],
+        ["深色完成","../explorations/screenshots/research-rag-v1/dark-desktop/success.png","深色主题"]
+      ]},
+      { id:"rag-partial", group:"市场情报", title:"研报索引部分失败", status:"历史状态证据", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"部分研报失败但已索引内容仍可检索。状态截图来自信号整合前组件稿，当前主页面见个股分析。", evidence:[
+        ["浅色部分失败","../explorations/screenshots/research-rag-v1/light-desktop/partial.png","保留可用证据"],
+        ["深色部分失败","../explorations/screenshots/research-rag-v1/dark-desktop/partial.png","深色主题"]
+      ]},
       { id:"research", group:"市场情报", title:"研报洞察", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"research", supportsDark:false, description:"跨股票、行业和主题的研报发现与观点比较。" },
 
       { id:"quant", group:"量化研究", title:"策略", status:"确认基准", source:"../initial/quant-workbench-assistant-v2.html", hash:"quant", supportsDark:false, description:"策略池、运行状态、组合表现和信号记录。" },
@@ -681,7 +736,7 @@
         ["深色桌面","../explorations/screenshots/data-governance-v1/design-dark-desktop.png","深色模式"],
         ["移动端","../explorations/screenshots/data-governance-v1/design-light-mobile.png","单列治理证据"]
       ]},
-      { id:"research-states", group:"状态证据", title:"研报 RAG 全套状态", status:"状态证据", source:"../initial/quant-workbench-stock-analysis-v2.html", search:"view=detail&content=success&index=running", hash:"analysis", supportsDark:true, defaultTab:"evidence", description:"暂无全文、待索引、索引中、成功、部分失败和证据不足的统一状态集合。", evidence:[
+      { id:"research-states", group:"状态证据", title:"研报 RAG 全套状态", status:"历史状态证据", statusTone:"pending", source:"../explorations/live-stock-analysis-signals-judgments-v1.html", supportsDark:true, defaultTab:"evidence", description:"暂无全文、待索引、索引中、成功、部分失败和证据不足的统一状态集合。状态截图来自信号整合前组件稿，当前主页面见个股分析。", evidence:[
         ["暂无全文","../explorations/screenshots/research-rag-v1/light-desktop/empty.png","空态"],
         ["待索引","../explorations/screenshots/research-rag-v1/light-desktop/pending.png","等待全文"],
         ["索引中","../explorations/screenshots/research-rag-v1/light-desktop/running.png","处理进行中"],
@@ -694,7 +749,8 @@
       activeId: null,
       viewport: "desktop",
       tab: "live",
-      theme: localStorage.getItem("apollo-design-atlas-theme") || "light",
+      theme: new URLSearchParams(location.search).get("theme") ||
+        localStorage.getItem("apollo-design-atlas-theme") || "light",
       query: ""
     };
     const $ = (selector, root = document) => root.querySelector(selector);
@@ -722,6 +778,7 @@
     function applyTheme() {
       document.documentElement.dataset.theme = state.theme;
       localStorage.setItem("apollo-design-atlas-theme", state.theme);
+      localStorage.setItem("apollo.theme.mode", state.theme);
       $("#themeButton").setAttribute("aria-label", state.theme === "dark" ? "切换浅色模式" : "切换深色模式");
       if (state.activeId) {
         const page = pageById(state.activeId);
@@ -775,6 +832,15 @@
         }
       } catch {}
     }
+    function syncFrameTheme(page) {
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+        const dark = state.theme === "dark" && page.supportsDark;
+        doc.documentElement.classList.toggle("dark", dark);
+        doc.documentElement.style.colorScheme = dark ? "dark" : "light";
+      } catch {}
+    }
     function renderEvidence(page) {
       const panel = $("#evidencePanel");
       const evidence = page.evidence || [];
@@ -812,7 +878,10 @@
       $("#sourceLabel").textContent = page.source.replace("../", "");
       $("#standaloneLink").href = buildSource(page);
       frame.src = buildSource(page);
-      frame.onload = () => applyInteraction(page);
+      frame.onload = () => {
+        syncFrameTheme(page);
+        applyInteraction(page);
+      };
       renderEvidence(page);
       setTab(state.tab);
       renderNav();
@@ -822,10 +891,12 @@
     }
     function init() {
       state.theme = state.theme === "dark" ? "dark" : "light";
+      state.viewport = matchMedia("(max-width: 900px)").matches ? "mobile" : "desktop";
       applyTheme();
       $("#atlasCount").textContent = `${PAGES.length} SCREENS · ${groups.length} GROUPS`;
       const requested = new URLSearchParams(location.search).get("page");
       selectPage(pageById(requested || "dashboard"));
+      setViewport(state.viewport);
       $("#atlasSearch").addEventListener("input", event => {
         state.query = event.target.value;
         renderNav();

@@ -1,0 +1,13 @@
+[
+  {
+    "file": "page-深色研究.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "深色研究",
+    "failed": true,
+    "issues": [
+      "第 7 步「click button:has-text(\"深度研究\")」：找不到元素 button:has-text(\"深度研究\")；线索：可见文字 \"研\"；可见文字 \"量化研究\"；可见文字 \"研究员\"；可见文字 \"深色\"；可见文字 \"工作空间\"；例如 click text=\"研\""
+    ]
+  }
+]

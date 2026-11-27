@@ -165,7 +165,41 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
    If the sync failed, or any capability does not match, report what differs and stop — do not archive. Nothing has moved and `changeRoot` is intact, so the user can fix the mismatch or re-run the sync and start the archive again.
 
-5. **Perform the archive**
+5. **Enforce visual archive synchronization**
+
+   Read the selected change's `proposal.md` from the resolved `artifactPaths.proposal`
+   path in the status JSON.
+
+   - If `visual` is missing or invalid, stop. The proposal metadata must be repaired
+     before archiving because the workflow cannot determine whether visual evidence
+     is required.
+   - If `visual: not-applicable`, verify the proposal contains
+     `Visual design: not applicable` with a concrete no-visible-UI reason. If the
+     reason is missing, stop and ask for the proposal to be repaired.
+   - If `visual: regression` or `visual: new-design`, enforce every item below
+     before moving `changeRoot`:
+     1. The user-accepted final prototype exists under
+        `docs/design/prototypes/initial/`; an exploration-only file does not satisfy
+        this gate.
+     2. `docs/design/prototypes/atlas/index.html` contains a new or updated page
+        entry whose `source` resolves to that final baseline, and whose description
+        identifies the source change.
+     3. The entry points to final implementation screenshots or a screenshot index,
+        covering the user-accepted desktop/mobile and relevant theme states.
+     4. The change's `verification.md` records the Atlas entry, final baseline path,
+        screenshot evidence path, and real-browser verification result.
+     5. Opening the Atlas from its single entry and selecting the page loads the final
+        baseline and evidence links without console errors, broken images, or missing
+        targets.
+
+   If any visual item is missing, stop before moving `changeRoot` and report the exact
+   missing path or evidence. A user's archive confirmation authorizes the archive
+   workflow; it does not waive or replace this synchronization gate. If the final
+   accepted assets exist but the mechanical Atlas update has not yet been made,
+   complete that update and re-run the checks before returning to this archive
+   workflow.
+
+6. **Perform the archive**
 
    Create an `archive` directory under `planningHome.changesDir` if it doesn't exist:
    ```bash
@@ -182,13 +216,14 @@ In both branches, never create the root as a side effect: do not run `openspec i
    mv "<changeRoot>" "<planningHome.changesDir>/archive/<target-name>"
    ```
 
-6. **Display summary**
+7. **Display summary**
 
    Show archive completion summary including:
    - Change name
    - Schema that was used
    - Archive location
    - Whether specs were synced (if applicable)
+   - Whether visual assets were synchronized to Atlas, or why visual design was not applicable
    - Note about any warnings (incomplete artifacts/tasks)
 
 **Output On Success**
@@ -200,6 +235,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 **Schema:** <schema-name>
 **Archived to:** the archive path derived from `planningHome.changesDir`/<target-name>/
 **Specs:** <"✓ Synced to main specs" only if the step 4 verification passed; otherwise "No delta specs" or "Sync skipped">
+**Atlas:** <"✓ Final baseline and evidence synchronized" or "Not applicable: <reason>">
 
 <"All artifacts complete. All tasks complete." — or, if archived with warnings, list them instead (e.g. "Archived with 2 incomplete tasks")>
 ```
@@ -213,6 +249,8 @@ In both branches, never create the root as a side effect: do not run `openspec i
 - If sync is requested, run the `openspec-sync-specs` workflow inline (agent-driven)
 - Never archive while a spec sync is still in flight — run the sync inline and verify the main specs before moving `changeRoot`
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
+- Never move a visual change to archive before its final `initial/` baseline, Atlas entry, screenshot evidence and browser verification are present
+- Archive confirmation does not waive the visual Atlas synchronization gate
 - Apply relevant runtime context and report conflicts; operation guidance remains advisory
 - Consider every guidance entry and explain any inapplicable or conflicting advice
 - Existing CLI checks, resolved paths, prompts, and command contracts are unchanged

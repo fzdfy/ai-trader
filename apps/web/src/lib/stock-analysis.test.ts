@@ -25,7 +25,7 @@ const indexStatus = {
 };
 
 test("builds encoded analysis and compare routes", () => {
-  assert.equal(stockAnalysisPath("002594.SZ"), "/home/market/analysis/002594.SZ");
+  assert.equal(stockAnalysisPath("002594.SZ"), "/home/market/stock/002594.SZ?mode=research");
   assert.equal(
     stockComparePath(["002594.SZ", "601633.SH", "601127.SH"]),
     "/home/market/analysis/compare?symbols=002594.SZ%2C601633.SH%2C601127.SH",

@@ -9,7 +9,10 @@
 - `explorations/` 中的 `v1`、`v2` 等编号只在同一个功能线内表示迭代顺序，不是全应用版本号。
 - 探索稿即使视觉完整，在用户明确确认并复制到 `initial/` 之前也只是候选稿。
 - 新旧稿必须并存，不能为了“看起来整洁”覆盖历史确认稿；通过状态表和 `Supersedes` 关系判断取代关系。
-- 当前全局工作台标准是 `initial/quant-workbench-assistant-v2.html`；当前个股分析标准是 `initial/quant-workbench-stock-analysis-v2.html`；当前个人工作任务标准是 `initial/quant-workbench-user-work-task-v1.html`。
+- 当前全局工作台标准是 `initial/quant-workbench-assistant-v2.html`；当前个人工作任务标准是 `initial/quant-workbench-user-work-task-v1.html`。
+- 已验收但尚未归档的市场雷达、行情中心与个股生产对齐稿以
+  [`atlas/README.md`](./atlas/README.md) 的状态表为准；它们在归档前保留在
+  `explorations/`，进入 Atlas 是为了反映当前实际页面，不代表已提升为历史基准。
 - 工作任务探索稿 `v1` 是历史设计稿，探索稿 `v2` 是本次确认过程稿；`v2` 已提升为标准，但探索目录中的过程稿保持不动以便追溯。
 
 ## 目录
@@ -23,13 +26,13 @@ docs/design/prototypes/
 │   ├── quant-workbench-assistant.html  # 原始稿快照，不直接修改
 │   ├── quant-workbench-assistant-v2.html # 当前默认工作台参考原型
 │   ├── quant-workbench-stock-analysis-v1.html # 个股分析历史基准
-│   ├── quant-workbench-stock-analysis-v2.html # 当前个股分析基准（含价格趋势）
+│   ├── quant-workbench-stock-analysis-v2.html # 个股分析入口与对比的历史基准
 │   ├── quant-workbench-user-work-task-v1.html # 已确认的个人工作任务基准稿
 │   └── quant-workbench-market-center-v1.html # 已确认并落地的行情中心基准稿
 ├── explorations/
 │   ├── quant-workbench-preline.html    # 继承原始稿主题的独立 Preline 探索稿
 │   ├── quant-workbench-assistant-v2.html # V2 确认过程稿
-│   ├── quant-workbench-daily-dashboard-v3.html # 基于真实数据模块的每日看板设计稿
+│   ├── quant-workbench-daily-dashboard-v3.html # 每日看板历史设计稿
 │   ├── quant-workbench-stock-analysis-v5.html # 个股分析工作台设计稿
 │   ├── quant-workbench-stock-content-v1.html # 个股新闻、公告、研报刷新状态设计稿
 │   ├── quant-workbench-research-rag-v1.html # 研报全文索引与证据检索状态探索稿
@@ -72,12 +75,12 @@ python3 -m http.server 9090
 
 - `http://localhost:9090/atlas/`（当前全量设计入口）
 - `http://localhost:9090/initial/quant-workbench-assistant-v2.html`（默认参考）
-- `http://localhost:9090/initial/quant-workbench-stock-analysis-v2.html`（个股分析当前基准）
+- `http://localhost:9090/initial/quant-workbench-stock-analysis-v2.html`（个股分析与对比的历史基准；最新生产分析使用下方 live 稿）
 - `http://localhost:9090/initial/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务确认基准）
-- `http://localhost:9090/initial/quant-workbench-market-center-v1.html?view=overview#market`（行情中心确认基准）
+- `http://localhost:9090/initial/quant-workbench-market-center-v1.html?view=overview#market`（行情中心历史基准；最新生产使用下方 live 稿）
 - `http://localhost:9090/initial/quant-workbench-assistant.html`
 - `http://localhost:9090/explorations/quant-workbench-preline.html`
-- `http://localhost:9090/explorations/quant-workbench-daily-dashboard-v3.html`（每日看板设计稿）
+- `http://localhost:9090/explorations/quant-workbench-daily-dashboard-v3.html`（每日看板历史设计稿）
 - `http://localhost:9090/explorations/quant-workbench-stock-analysis-v5.html`（个股分析设计稿）
 - `http://localhost:9090/explorations/quant-workbench-stock-content-v1.html?view=detail&content=partial`（个股内容刷新设计稿）
 - `http://localhost:9090/explorations/quant-workbench-research-rag-v1.html?view=detail&content=success&state=running`（研报全文索引中状态）
@@ -86,6 +89,13 @@ python3 -m http.server 9090
 - `http://localhost:9090/explorations/quant-workbench-user-work-task-v1.html?page=daily&view=today`（个人工作任务历史稿）
 - `http://localhost:9090/explorations/quant-workbench-user-work-task-v2.html?page=daily&view=today`（个人工作任务确认过程稿）
 - `http://localhost:9090/explorations/quant-workbench-dashboard-market-radar-v6.html`（每日看板 v6 确认稿）
+- `http://localhost:9090/explorations/live-market-signals-judgments-v1.html`（行情总览与 32 项技术判断生产对齐稿）
+- `http://localhost:9090/explorations/live-market-boards-signals-v1.html`（板块生产对齐稿）
+- `http://localhost:9090/explorations/live-market-board-detail-signals-judgments-v1.html`（板块详情与分层判断）
+- `http://localhost:9090/explorations/live-market-stocks-signals-v1.html`（个股列表生产对齐稿）
+- `http://localhost:9090/explorations/live-market-stock-detail-signals-v1.html`（快速行情生产对齐稿）
+- `http://localhost:9090/explorations/live-stock-analysis-signals-judgments-v1.html`（个股分析与 44 项判断生产对齐稿）
+- `http://localhost:9090/explorations/live-market-gold-signals-judgments-v1.html`（黄金分析生产对齐稿）
 - `http://localhost:9090/explorations/quant-workbench-market-center-v1.html?view=overview#market`（行情中心视觉探索）
 - `http://localhost:9090/explorations/quant-workbench-market-center-main-indices-v1.html?view=overview#market`（主要指数改版视觉探索）
 
@@ -95,7 +105,7 @@ V2 侧栏把导航分为工作空间、市场情报、量化研究和流程自�
 
 V3 每日看板设计稿按当前数据库中的真实数据组织市场广度、资金主线、市场温度、每日选股、工作流、资讯和最近复盘，并显式标注各数据域快照日期。
 
-V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比三种状态；单股详情包含实时行情、价格趋势、研究摘要、情景预测、风险参考区间、研报检索、财务估值、资金筹码和新闻事件，并明确区分事实、推断、情景与缺失状态。含最新价格趋势修复的确认基准已保存为 `initial/quant-workbench-stock-analysis-v2.html`。
+V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比三种状态；单股详情包含实时行情、价格趋势、研究摘要、情景预测、风险参考区间、研报检索、财务估值、资金筹码和新闻事件，并明确区分事实、推断、情景与缺失状态。`initial/quant-workbench-stock-analysis-v2.html` 继续作为入口与对比的历史基准；当前生产个股分析采用下方 live 稿和 44 项技术判断。
 
 数据治理确认稿以研究门禁、来源标准漂移和未解决事故为首屏主角；生产实现保留该方向，并补充资产与契约、质量证据、来源标准、治理任务和数据事故五个子页面。桌面/移动端与浅色/深色真实截图保存在 `explorations/screenshots/data-governance-production/`。
 
@@ -107,7 +117,7 @@ V5 个股分析设计稿覆盖未选股票入口、单股详情和多股对比�
 
 每日看板 V6 确认稿以 A 股主控台为左侧主视图，右侧并列跨市场背景与主流 ETF 两张 Tab 观察卡，今日行动和今日工作流下沉为独立的今日执行区。桌面端左右总高度与底边严格对齐，移动端自然单列。截图证据保存在 `explorations/screenshots/dashboard-market-radar-v6/`。
 
-行情中心探索稿把每日看板保留为当日决策摘要，在行情中心内提供“总览、板块、个股”三个可深链模块。成长/防守和大类资产相对强弱位于总览；行业与概念板块页第一层展示当前排行和热力图，第二层直接展示轮动和异动。列表不内嵌主从详情，点击股票进入快速行情详情，点击行业或概念进入板块详情，资金结构放在详情内。总览覆盖成功、加载、空、错误和部分成功状态；其余模块覆盖桌面/移动端及浅色/深色。确认基准已保存为 `initial/quant-workbench-market-center-v1.html`，设计与生产截图保存在 `explorations/screenshots/market-center-v1/`。
+行情中心探索稿把每日看板保留为当日决策摘要，在行情中心内提供“总览、板块、个股”三个可深链模块。`initial/quant-workbench-market-center-v1.html` 保留为历史确认基准；当前生产总览、板块、个股列表、快速行情和黄金均采用 2026-11-26 live 生产对齐稿，并已在 Atlas 中关联最新截图。
 
 主要指数改版探索稿把上证指数设为独立全宽市场基准，沪深300、中证500、中证1000、创业板50、科创50和中证红利低波100按固定角色展示；相对大盘使用 5/20/60 日百分点超额收益和共同交易日。大类资产轮动移至独立区域，不与主要指数共用切换器。截图保存在 `explorations/screenshots/market-center-main-indices-v1/`，视觉方案已确认，等待生产落地后提升为 `initial/` 基准。
 

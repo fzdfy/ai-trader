@@ -1,0 +1,20 @@
+[
+  {
+    "file": "model-1440x900.png",
+    "state": "model",
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "model-390x844.png",
+    "state": "model",
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

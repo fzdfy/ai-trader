@@ -163,8 +163,9 @@ export function StockComparison({ symbols }: { symbols: readonly string[] }) {
               className="inline-flex items-center gap-1.5 rounded-lg border border-app-line bg-app-panel px-2.5 py-1.5 text-[10px] text-app-ink"
             >
               <Link
-                to="/home/market/analysis/$symbol"
+                to="/home/market/stock/$symbol"
                 params={{ symbol: item.symbol }}
+                search={{ mode: "research" }}
                 className="hover:text-primary"
               >
                 {item.name}

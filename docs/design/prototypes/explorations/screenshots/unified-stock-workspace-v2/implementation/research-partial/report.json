@@ -1,0 +1,42 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 5,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「研 研究员 量化研究 · Pro」（首屏 9 块各自加框）",
+          "div.rounded-xl.border「20D 风险来源 可用 68.50–86.73 」（框里又有 3 个加框的块）",
+          "div.rounded-xl.border「机构预测 一致预期与研报样本 可用 2026 E」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 4,
+        "examples": [
+          "div.rounded-xl.border「20D 风险来源 可用 68.50–86.73 」（框里又有 3 个加框的块）",
+          "div.rounded-xl.border「机构预测 一致预期与研报样本 可用 2026 E」（框里又有 4 个加框的块）",
+          "div.rounded-xl.border「财务与估值 最新快照与历史分位 可用 PE TT」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

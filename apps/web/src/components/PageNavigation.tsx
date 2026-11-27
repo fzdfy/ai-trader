@@ -10,6 +10,7 @@ import {
   getWorkbenchPageTitle,
   isDrawerDismissKey,
   searchWorkbenchPages,
+  stockWorkspaceSymbolFromPath,
 } from "../lib/workbench-navigation";
 
 interface PageNavigationProps {
@@ -48,15 +49,11 @@ export function PageNavigation({
   const { data: currentUser } = useCurrentUser();
   const { data: syncInfo, isError: syncError, isLoading: syncLoading } = useLastUpdated();
   const pageTitle = getWorkbenchPageTitle(location.pathname);
-  const analysisPrefix = "/home/market/analysis/";
-  const analysisSymbol =
-    location.pathname.startsWith(analysisPrefix) && location.pathname !== `${analysisPrefix}compare`
-      ? decodeURIComponent(location.pathname.slice(analysisPrefix.length))
-      : null;
-  const { data: analysisStockName } = useQuery({
-    queryKey: ["instrument-name", analysisSymbol],
+  const stockSymbol = stockWorkspaceSymbolFromPath(location.pathname);
+  const { data: stockName } = useQuery({
+    queryKey: ["instrument-name", stockSymbol],
     queryFn: async () => {
-      const response = await fetch(`/api/v1/instruments/${encodeURIComponent(analysisSymbol!)}`);
+      const response = await fetch(`/api/v1/instruments/${encodeURIComponent(stockSymbol!)}`);
       if (!response.ok) return null;
       const payload = (await response.json()) as {
         success?: boolean;
@@ -65,10 +62,10 @@ export function PageNavigation({
       return payload.success ? (payload.data?.name ?? null) : null;
     },
     staleTime: 10 * 60_000,
-    enabled: Boolean(analysisSymbol),
+    enabled: Boolean(stockSymbol),
   });
   const breadcrumbs = getWorkbenchBreadcrumbs(location.pathname, {
-    stockName: analysisStockName,
+    stockName,
   });
   const showMobileMenu = location.pathname.startsWith("/home") && breadcrumbs.length === 2;
   const showMobileHistory = location.pathname.startsWith("/ai-chat");

@@ -208,8 +208,7 @@ export function Text({
   ...props
 }: TextProps) {
   const resolvedSize =
-    size ??
-    (type === "supporting" || type === "label" ? "sm" : type === "large" ? "lg" : "md");
+    size ?? (type === "supporting" || type === "label" ? "sm" : type === "large" ? "lg" : "md");
   const resolvedColor = color ?? (type === "supporting" ? "secondary" : "primary");
 
   return (
@@ -259,7 +258,8 @@ export function Heading({ level = 2, className, children, ...props }: HeadingPro
 }
 
 interface ButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick">,
+  extends
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick">,
     ButtonClassOptions {
   label?: string;
   children?: ReactNode;
@@ -320,13 +320,7 @@ export function Button({
   }
 
   return (
-    <button
-      {...props}
-      {...shared}
-      type={type}
-      disabled={isDisabled || isLoading}
-      onClick={onClick}
-    >
+    <button {...props} {...shared} type={type} disabled={isDisabled || isLoading} onClick={onClick}>
       {content}
     </button>
   );
@@ -496,8 +490,7 @@ interface FieldProps {
 }
 
 interface TextInputProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "size" | "value">,
-    FieldProps {
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "size" | "value">, FieldProps {
   value?: string;
   onChange?: (value: string) => void;
   isRequired?: boolean;
@@ -552,7 +545,7 @@ export function TextInput({
             if (event.key === "Enter" && !event.nativeEvent.isComposing) onEnter?.();
           }}
           className={cn(
-            "focus-ring h-9 w-full rounded-lg border border-app-line bg-app-panel pr-3 text-sm text-app-ink placeholder:text-app-faint disabled:cursor-not-allowed disabled:opacity-60",
+            "focus-ring h-9 w-full rounded-lg border border-app-line bg-app-panel pr-3 text-base text-app-ink placeholder:text-app-faint disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm",
             startIcon ? "pl-9" : "pl-3",
             hasClear && "pr-9",
           )}
@@ -569,7 +562,9 @@ export function TextInput({
           </button>
         ) : null}
       </span>
-      {description ? <span className="mt-1 block text-[11px] text-app-muted">{description}</span> : null}
+      {description ? (
+        <span className="mt-1 block text-[11px] text-app-muted">{description}</span>
+      ) : null}
       {isDisabled && disabledMessage ? (
         <span className="mt-1 block text-[11px] text-app-faint">{disabledMessage}</span>
       ) : null}
@@ -578,8 +573,7 @@ export function TextInput({
 }
 
 interface TextAreaProps
-  extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange" | "value">,
-    FieldProps {
+  extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange" | "value">, FieldProps {
   value?: string;
   onChange?: (value: string) => void;
   isDisabled?: boolean;
@@ -610,7 +604,9 @@ export function TextArea({
         onChange={(event) => onChange?.(event.currentTarget.value)}
         className="focus-ring min-h-24 w-full rounded-lg border border-app-line bg-app-panel px-3 py-2 text-sm text-app-ink placeholder:text-app-faint disabled:cursor-not-allowed disabled:opacity-60"
       />
-      {description ? <span className="mt-1 block text-[11px] text-app-muted">{description}</span> : null}
+      {description ? (
+        <span className="mt-1 block text-[11px] text-app-muted">{description}</span>
+      ) : null}
     </label>
   );
 }
@@ -723,7 +719,9 @@ export function Slider({
 }: SliderProps) {
   return (
     <label className={cn("block min-w-0", className)}>
-      {!isLabelHidden && label ? <span className="mb-1 block text-xs text-app-muted">{label}</span> : null}
+      {!isLabelHidden && label ? (
+        <span className="mb-1 block text-xs text-app-muted">{label}</span>
+      ) : null}
       <input
         {...props}
         type="range"
@@ -790,7 +788,9 @@ export function Tab({ value, label, isDisabled }: TabProps) {
       onClick={() => context?.onChange(value)}
       className={cn(
         "rounded-md px-2.5 py-1.5 text-xs transition",
-        selected ? "bg-primary text-primary-foreground" : "text-app-muted hover:bg-app-surface hover:text-app-ink",
+        selected
+          ? "bg-primary text-primary-foreground"
+          : "text-app-muted hover:bg-app-surface hover:text-app-ink",
       )}
     >
       {label}
@@ -818,7 +818,9 @@ export function SegmentedControl({
   ...props
 }: SegmentedControlProps) {
   return (
-    <SegmentContext.Provider value={isDisabled ? { value, onChange: () => undefined } : { value, onChange }}>
+    <SegmentContext.Provider
+      value={isDisabled ? { value, onChange: () => undefined } : { value, onChange }}
+    >
       <div
         {...props}
         role="radiogroup"
@@ -1000,9 +1002,7 @@ export function ToggleButton({ value, label }: { value: string; label: string })
       onClick={() => {
         if (!context) return;
         context.onChange(
-          selected
-            ? context.values.filter((item) => item !== value)
-            : [...context.values, value],
+          selected ? context.values.filter((item) => item !== value) : [...context.values, value],
         );
       }}
       className={cn(
@@ -1029,9 +1029,20 @@ export function Badge({
   return <span className={cn(badgeClassNames(variant), className)}>{children ?? label}</span>;
 }
 
-export function Spinner({ label, size, className }: { label?: string; size?: string; className?: string }) {
+export function Spinner({
+  label,
+  size,
+  className,
+}: {
+  label?: string;
+  size?: string;
+  className?: string;
+}) {
   return (
-    <span className={cn("inline-flex items-center gap-2 text-xs text-app-muted", className)} role="status">
+    <span
+      className={cn("inline-flex items-center gap-2 text-xs text-app-muted", className)}
+      role="status"
+    >
       <span
         className={cn(
           "animate-spin rounded-full border-2 border-app-line border-t-primary",
@@ -1054,13 +1065,14 @@ export function StatusDot({
   isPulsing?: boolean;
   tooltip?: string;
 }) {
-  const color = {
-    success: "bg-app-success",
-    warning: "bg-app-warning",
-    error: "bg-destructive",
-    accent: "bg-primary",
-    neutral: "bg-app-line-strong",
-  }[variant] ?? "bg-app-line-strong";
+  const color =
+    {
+      success: "bg-app-success",
+      warning: "bg-app-warning",
+      error: "bg-destructive",
+      accent: "bg-primary",
+      neutral: "bg-app-line-strong",
+    }[variant] ?? "bg-app-line-strong";
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-app-muted" title={tooltip}>
       <span className={cn("size-2 rounded-full", color, isPulsing && "animate-pulse")} />
@@ -1094,7 +1106,9 @@ export function ProgressBar({
       {!isLabelHidden && (label || hasValueLabel) ? (
         <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-app-muted">
           <span>{label}</span>
-          {hasValueLabel ? <span>{formatValueLabel?.(value, max) ?? `${Math.round(pct)}%`}</span> : null}
+          {hasValueLabel ? (
+            <span>{formatValueLabel?.(value, max) ?? `${Math.round(pct)}%`}</span>
+          ) : null}
         </div>
       ) : null}
       <div className="h-1.5 overflow-hidden rounded-full bg-app-surface" aria-label={label}>
@@ -1117,10 +1131,7 @@ export interface ColumnWidth {
   minWidth?: number;
 }
 
-export function proportional(
-  value: number,
-  options?: number | { minWidth?: number },
-): ColumnWidth {
+export function proportional(value: number, options?: number | { minWidth?: number }): ColumnWidth {
   return {
     type: "proportional",
     value,
@@ -1191,7 +1202,8 @@ export function Table<T extends Record<string, unknown>>({
                   aria-label="全选"
                   checked={plugins.selection.getIsAllSelected()}
                   ref={(input) => {
-                    if (input) input.indeterminate = plugins.selection?.getIsIndeterminate() ?? false;
+                    if (input)
+                      input.indeterminate = plugins.selection?.getIsIndeterminate() ?? false;
                   }}
                   onChange={(event) =>
                     plugins.selection?.onSelectAll({ isAllSelected: event.currentTarget.checked })
@@ -1296,7 +1308,9 @@ export function TableCell({ className, ...props }: HTMLAttributes<HTMLTableCellE
 }
 
 export function TableHeaderCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
-  return <th {...props} className={cn("px-3 py-2 text-xs font-medium text-app-muted", className)} />;
+  return (
+    <th {...props} className={cn("px-3 py-2 text-xs font-medium text-app-muted", className)} />
+  );
 }
 
 export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
@@ -1335,12 +1349,7 @@ export function useTableSortableState<T extends Record<string, unknown>>(config:
   });
   const sortedData = useMemo(() => {
     if (sort.key == null) return config.data;
-    return sortRowsByKey(
-      config.data,
-      sort.key,
-      sort.direction,
-      config.comparators?.[sort.key],
-    );
+    return sortRowsByKey(config.data, sort.key, sort.direction, config.comparators?.[sort.key]);
   }, [config.comparators, config.data, sort.direction, sort.key]);
 
   return {
@@ -1378,7 +1387,12 @@ export function useTableSelection<T extends Record<string, unknown>>(
 
 export function Code({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <code className={cn("rounded bg-app-surface px-1.5 py-0.5 font-mono text-[11px] text-app-ink", className)}>
+    <code
+      className={cn(
+        "rounded bg-app-surface px-1.5 py-0.5 font-mono text-[11px] text-app-ink",
+        className,
+      )}
+    >
       {children}
     </code>
   );
@@ -1396,7 +1410,12 @@ export function CodeBlock({
   className?: string;
 }) {
   return (
-    <pre className={cn("overflow-auto rounded-xl border border-app-line bg-app-surface p-4", className)}>
+    <pre
+      className={cn(
+        "overflow-auto rounded-xl border border-app-line bg-app-surface p-4",
+        className,
+      )}
+    >
       <code className="font-mono text-xs text-app-ink" data-language={language}>
         {code}
       </code>
@@ -1417,7 +1436,11 @@ export function FieldStatus({
     <p
       className={cn(
         "text-[11px]",
-        type === "error" ? "text-destructive" : type === "success" ? "text-app-success" : "text-app-muted",
+        type === "error"
+          ? "text-destructive"
+          : type === "success"
+            ? "text-app-success"
+            : "text-app-muted",
         variant === "detached" && "mt-1",
       )}
     >
@@ -1476,7 +1499,10 @@ export function Tooltip({
   className?: string;
 }) {
   return (
-    <span className={cn("group relative inline-flex", className)} title={typeof content === "string" ? content : undefined}>
+    <span
+      className={cn("group relative inline-flex", className)}
+      title={typeof content === "string" ? content : undefined}
+    >
       {children}
       {typeof content === "string" ? null : (
         <span className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 hidden min-w-40 rounded-lg border border-app-line bg-app-panel p-2 text-xs shadow-xl group-hover:block group-focus-within:block">
@@ -1649,8 +1675,10 @@ export function DropdownMenu({ button, items, children, menuWidth }: DropdownMen
           style={{ minWidth: typeof menuWidth === "number" ? `${menuWidth}px` : menuWidth }}
         >
           {items?.map((item, index) => {
-            if ("type" in item) return <div key={index} className="my-1 border-t border-app-line" />;
-            const IconComponent = typeof item.icon === "function" ? (item.icon as ElementType) : null;
+            if ("type" in item)
+              return <div key={index} className="my-1 border-t border-app-line" />;
+            const IconComponent =
+              typeof item.icon === "function" ? (item.icon as ElementType) : null;
             return (
               <button
                 key={item.label}
@@ -1685,9 +1713,15 @@ export function Avatar({
   name?: string;
   size?: number | "small" | "medium" | "large";
 }) {
-  const pixels = typeof size === "number" ? size : size === "small" ? 24 : size === "large" ? 48 : 32;
+  const pixels =
+    typeof size === "number" ? size : size === "small" ? 24 : size === "large" ? 48 : 32;
   return src ? (
-    <img src={src} alt={name ?? ""} className="rounded-full object-cover" style={{ width: pixels, height: pixels }} />
+    <img
+      src={src}
+      alt={name ?? ""}
+      className="rounded-full object-cover"
+      style={{ width: pixels, height: pixels }}
+    />
   ) : (
     <span
       className="grid shrink-0 place-items-center rounded-full bg-primary/10 font-medium text-primary"
@@ -1698,11 +1732,22 @@ export function Avatar({
   );
 }
 
-export function Timestamp({ value, format = "time" }: { value: Date | number | string; format?: "time" | "date" }) {
+export function Timestamp({
+  value,
+  format = "time",
+}: {
+  value: Date | number | string;
+  format?: "time" | "date";
+}) {
   const date = new Date(value);
   return (
     <time className="text-[11px] text-app-faint" dateTime={date.toISOString()}>
-      {new Intl.DateTimeFormat("zh-CN", format === "time" ? { hour: "2-digit", minute: "2-digit" } : { month: "2-digit", day: "2-digit" }).format(date)}
+      {new Intl.DateTimeFormat(
+        "zh-CN",
+        format === "time"
+          ? { hour: "2-digit", minute: "2-digit" }
+          : { month: "2-digit", day: "2-digit" },
+      ).format(date)}
     </time>
   );
 }
@@ -1719,7 +1764,8 @@ export function Icon({
   className?: string;
   style?: CSSProperties;
 }) {
-  const Component = typeof icon === "function" ? icon : icon === "moreHorizontal" ? MoreHorizontal : Info;
+  const Component =
+    typeof icon === "function" ? icon : icon === "moreHorizontal" ? MoreHorizontal : Info;
   return <Component className={cn(size === "lg" ? "size-5" : "size-4", className)} style={style} />;
 }
 
@@ -1743,7 +1789,9 @@ export function SelectableCard({
       onClick={onChange}
       className={cn(
         "rounded-xl border text-left transition",
-        isSelected ? "border-primary bg-primary/5" : "border-app-line bg-app-panel hover:border-app-line-strong",
+        isSelected
+          ? "border-primary bg-primary/5"
+          : "border-app-line bg-app-panel hover:border-app-line-strong",
       )}
       style={paddingStyle(padding)}
     >
@@ -1754,7 +1802,16 @@ export function SelectableCard({
 }
 
 export function List({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("divide-y divide-app-line overflow-hidden rounded-xl border border-app-line", className)}>{children}</div>;
+  return (
+    <div
+      className={cn(
+        "divide-y divide-app-line overflow-hidden rounded-xl border border-app-line",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function ListItem({
@@ -1774,11 +1831,15 @@ export function ListItem({
       onClick={onClick}
       className={cn(
         "block w-full px-3 py-2 text-left transition",
-        isSelected ? "bg-primary/10 text-primary" : "bg-app-panel text-app-ink hover:bg-app-surface",
+        isSelected
+          ? "bg-primary/10 text-primary"
+          : "bg-app-panel text-app-ink hover:bg-app-surface",
       )}
     >
       <span className="block text-sm font-medium">{label}</span>
-      {description ? <span className="mt-0.5 block truncate text-[11px] text-app-muted">{description}</span> : null}
+      {description ? (
+        <span className="mt-0.5 block truncate text-[11px] text-app-muted">{description}</span>
+      ) : null}
     </button>
   );
 }
@@ -1872,7 +1933,14 @@ export function useOutlineFromDOM(ref: React.RefObject<HTMLElement | null>): Out
   return items;
 }
 
-export function Outline({ items, label }: { items: OutlineItem[]; density?: string; label?: string }) {
+export function Outline({
+  items,
+  label,
+}: {
+  items: OutlineItem[];
+  density?: string;
+  label?: string;
+}) {
   return (
     <nav aria-label={label} className="border-l border-app-line">
       {items.map((item) => (
@@ -2004,7 +2072,13 @@ export function ChatComposer({
         }}
         className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-app-ink outline-none placeholder:text-app-muted"
       />
-      <Button label="发送" variant="primary" size="sm" isDisabled={!value.trim() || isDisabled} onClick={submit} />
+      <Button
+        label="发送"
+        variant="primary"
+        size="sm"
+        isDisabled={!value.trim() || isDisabled}
+        onClick={submit}
+      />
     </div>
   );
 }
@@ -2075,11 +2149,17 @@ export function ChatToolCalls({
   defaultIsExpanded?: boolean;
 }) {
   return (
-    <details open={defaultIsExpanded} className="mb-2 rounded-lg border border-app-line bg-app-panel px-3 py-2">
+    <details
+      open={defaultIsExpanded}
+      className="mb-2 rounded-lg border border-app-line bg-app-panel px-3 py-2"
+    >
       <summary className="cursor-pointer text-xs text-app-muted">工具调用 · {calls.length}</summary>
       <ul className="mt-2 space-y-1">
         {calls.map((call, index) => (
-          <li key={`${call.name}-${index}`} className="flex items-center justify-between gap-3 text-[11px] text-app-muted">
+          <li
+            key={`${call.name}-${index}`}
+            className="flex items-center justify-between gap-3 text-[11px] text-app-muted"
+          >
             <span>{call.name}</span>
             <span className="truncate text-app-faint">{call.target}</span>
           </li>

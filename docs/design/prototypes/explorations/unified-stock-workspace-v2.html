@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN" data-preline-theme="theme-blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#3157E8" />
+    <title>Apollo Quant · 统一个股工作台 V2</title>
+    <script>
+      (() => {
+        const params = new URLSearchParams(location.search);
+        const requestedTheme = params.get("theme");
+        const saved = localStorage.getItem("apollo.theme.mode") || "light";
+        const dark =
+          requestedTheme === "dark" ||
+          (requestedTheme !== "light" &&
+            (saved === "dark" ||
+              (saved === "system" &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches)));
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
+    <link rel="stylesheet" href="./live-latest-assets/live-apollo.css" />
+    <link rel="stylesheet" href="./unified-stock-workspace-v2.css" />
+  </head>
+  <body>
+    <div class="preline-app app-shell unified-workspace">
+      <aside class="workspace-sidebar" aria-label="业务导航">
+        <a class="brand" href="#" aria-label="Apollo Quant 工作台">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 100 100" width="32" height="32">
+              <path
+                fill="currentColor"
+                fill-rule="evenodd"
+                d="M 50 1 a 49 49 0 1 0 0.01 0 Z M 21 47 h 8.5 v 31 h -8.5 Z M 38 56 h 8.5 v 22 h -8.5 Z M 54 28 h 8.5 v 50 h -8.5 Z M 71 36 h 8.5 v 42 h -8.5 Z"
+              />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>Apollo Quant</strong>
+            <span>量化 AI 工作台</span>
+          </span>
+        </a>
+
+        <nav class="sidebar-nav" aria-label="工作台导航">
+          <section>
+            <p>工作空间</p>
+            <a href="#"><span class="nav-icon" data-nav-icon="dashboard"></span>每日看板</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="tasks"></span>工作任务</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="review"></span>每日复盘</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="screens"></span>每日选股</a>
+          </section>
+          <section>
+            <p>市场情报</p>
+            <a class="active" href="#" aria-current="page"><span class="nav-icon" data-nav-icon="market"></span>行情中心</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="analysis"></span>个股分析</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="research"></span>研报洞察</a>
+          </section>
+          <section>
+            <p>量化研究</p>
+            <a href="#"><span class="nav-icon" data-nav-icon="strategy"></span>策略</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="factors"></span>因子</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="backtest"></span>回测</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="decay"></span>衰退对比</a>
+            <a href="#"><span class="nav-icon" data-nav-icon="sparkles"></span>因子迭代</a>
+          </section>
+          <section>
+            <p>流程自动化</p>
+            <a href="#"><span class="nav-icon" data-nav-icon="workflow"></span>工作流</a>
+          </section>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="sync-state"><span></span>同步进行中</div>
+          <div class="sidebar-tools">
+            <button type="button" aria-label="数据管理">▦</button>
+            <button type="button" aria-label="主题设置">◐</button>
+          </div>
+          <button class="profile" type="button" aria-label="打开账户菜单">
+            <span class="avatar">研</span>
+            <span><strong>研究员</strong><small>量化研究 · Pro</small></span>
+            <span class="profile-more">•••</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace-main">
+        <header class="page-bar">
+          <nav class="breadcrumb" aria-label="页面导航">
+            <a href="#">Apollo Quant</a><span>/</span>
+            <a href="#">行情中心</a><span>/</span>
+            <a href="#">个股</a><span>/</span>
+            <strong aria-current="page">比亚迪</strong>
+          </nav>
+          <div class="page-bar-tools">
+            <span class="data-state"><i></i>11/26 15:00 · 收盘数据</span>
+            <button type="button" class="search-button" aria-label="搜索页面或操作">
+              <span aria-hidden="true">⌕</span><span class="search-label">搜索页面或操作</span><kbd>⌘ K</kbd>
+            </button>
+            <button type="button" class="mobile-menu" aria-label="打开导航">☰</button>
+          </div>
+        </header>
+
+        <div class="workspace-scroll" id="workspace-scroll">
+          <div class="workspace-root" id="workspace-root"></div>
+        </div>
+      </main>
+
+      <button class="assistant-button" type="button" aria-label="打开 AI 研究助手">
+        <span aria-hidden="true">✦</span>
+      </button>
+      <div id="signal-drawer-root"></div>
+    </div>
+    <script src="./unified-stock-workspace-v2.js"></script>
+  </body>
+</html>

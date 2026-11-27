@@ -26,6 +26,22 @@ _Avoid_: Technical design, Implementation plan
 面向跨团队或多阶段产品需求的完整需求文档，是目标、范围、用户价值和验收口径的产品事实源。
 _Avoid_: PRD-lite, Technical design
 
+**Risk Level**:
+变更对系统、安全、数据和用户影响强度的分级 `L0 | L1 | L2`，不描述具体审查时序或工作量。
+_Avoid_: Assurance level, task size
+
+**L2 Assurance Level**:
+L2 变更的审查保证档位 `bounded | systemic`，决定独立设计评审是否构成实施前门禁。
+_Avoid_: Risk level, priority
+
+**Bounded L2**:
+满足 SDD v3 的 bounded 五项条件的 L2 变更；保留完整设计，但独立代码与风险评审在实施后执行。
+_Avoid_: Low-risk L2, simplified L2
+
+**Systemic L2**:
+任一 bounded 条件不满足或分类存在争议的 L2 变更；同时要求实施前独立设计评审和实施后独立代码与风险评审。
+_Avoid_: L2+, L3, Full L2
+
 **Technical Design Review**:
 对技术方案的接口、数据、安全、性能、可测试性、回滚和替代方案进行批准或退回的评审门禁。
 _Avoid_: Visual review, Code review

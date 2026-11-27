@@ -10,6 +10,7 @@ import {
   isDrawerDismissKey,
   parseSidebarCollapsed,
   searchWorkbenchPages,
+  stockWorkspaceSymbolFromPath,
   WORKBENCH_NAV_GROUPS,
   WORKBENCH_ACTION_LINKS,
 } from "./workbench-navigation.ts";
@@ -80,10 +81,7 @@ test("page titles use stable generic names for detail routes", () => {
   assert.equal(getWorkbenchPageTitle("/home/data-management"), "数据管理");
   assert.equal(getWorkbenchPageTitle("/home/data-management/tables"), "数据表");
   assert.equal(getWorkbenchPageTitle("/home/data-management/governance"), "数据治理");
-  assert.equal(
-    getWorkbenchPageTitle("/home/data-management/governance/assets"),
-    "资产与契约",
-  );
+  assert.equal(getWorkbenchPageTitle("/home/data-management/governance/assets"), "资产与契约");
   assert.equal(
     getWorkbenchPageTitle("/home/data-management/governance/source-standards"),
     "来源标准",
@@ -97,6 +95,13 @@ test("market navigation distinguishes stock analysis from market center", () => 
   assert.equal(isWorkbenchNavSelected("/home/market/stock/002594.SZ", "/home/market"), true);
   assert.equal(isWorkbenchNavSelected("/home/market/boards/BK1036", "/home/market"), true);
   assert.equal(isWorkbenchNavSelected("/home", "/home"), true);
+});
+
+test("stock workspace extracts the symbol used for the current breadcrumb", () => {
+  assert.equal(stockWorkspaceSymbolFromPath("/home/market/stock/002594.SZ"), "002594.SZ");
+  assert.equal(stockWorkspaceSymbolFromPath("/home/market/stock/002594.SZ/"), "002594.SZ");
+  assert.equal(stockWorkspaceSymbolFromPath("/home/market/stock"), null);
+  assert.equal(stockWorkspaceSymbolFromPath("/home/market/analysis/002594.SZ"), null);
 });
 
 test("breadcrumbs use a clickable root and deterministic parent", () => {
@@ -173,13 +178,10 @@ test("page-level return uses deterministic parent routes", () => {
     href: "/home/data-center",
     label: "返回数据中心",
   });
-  assert.deepEqual(
-    getPageBackTarget("/home/data-management/governance/assets"),
-    {
-      href: "/home/data-management/governance",
-      label: "返回数据治理",
-    },
-  );
+  assert.deepEqual(getPageBackTarget("/home/data-management/governance/assets"), {
+    href: "/home/data-management/governance",
+    label: "返回数据治理",
+  });
   assert.equal(getPageBackTarget("/home/market/analysis"), null);
   assert.deepEqual(getPageBackTarget("/home/market/analysis/002594.SZ"), {
     href: "/home/market/analysis",

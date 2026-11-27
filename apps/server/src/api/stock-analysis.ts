@@ -17,6 +17,7 @@ import {
 } from "../db/schema";
 import { auth } from "../auth";
 import {
+  buildForecastPreviewResponse,
   buildRiskReferenceRange,
   buildScenarioForecasts,
   buildValuationRange,
@@ -221,6 +222,26 @@ stockAnalysisRoute.post("/:symbol/refresh", async (c) => {
     }
     console.error(`[stock-analysis] refresh ${symbol} failed:`, error);
     return serverError(c, "内容同步失败，请稍后重试。");
+  }
+});
+
+stockAnalysisRoute.get("/:symbol/forecast", async (c) => {
+  const symbol = normalizeStockSymbol(c.req.param("symbol"));
+  if (!symbol) return badRequest(c, "Unsupported A-share symbol");
+
+  try {
+    const gate = await assertResearchDataReady("stock_analysis");
+    const barsRead = await marketDataReader.readDailyBars(symbol, 320);
+    return ok(c, {
+      ...buildForecastPreviewResponse(symbol, barsRead.bars, barsRead.asOf),
+      ...governanceNotice(gate),
+    });
+  } catch (error) {
+    if (error instanceof DataGovernanceGateError) {
+      return c.json({ success: false, error: error.message, data: error.decision }, 409);
+    }
+    console.error(`[stock-analysis] forecast ${symbol} failed:`, error);
+    return serverError(c, "未来走势预测读取失败，请稍后重试。");
   }
 });
 

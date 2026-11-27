@@ -7,12 +7,15 @@ import { Heading } from "@preline-ui/Heading";
 import { Text } from "@preline-ui/Text";
 import { UnderConstructionPage } from "../../../../components/UnderConstructionPage";
 import { useSystemFeaturesQuery } from "../../../../hooks/useSystemFeatures";
-import {
-  MARKET_CENTER_TABS,
-  marketCenterTabForPath,
-} from "../../../../lib/market-center";
+import { MARKET_CENTER_TABS, marketCenterTabForPath } from "../../../../lib/market-center";
 
-export function MarketCenterShell({ children }: { children: ReactNode }) {
+export function MarketCenterShell({
+  children,
+  variant = "full",
+}: {
+  children: ReactNode;
+  variant?: "full" | "stock";
+}) {
   const location = useLocation();
   const features = useSystemFeaturesQuery();
   const active = marketCenterTabForPath(location.pathname);
@@ -35,6 +38,10 @@ export function MarketCenterShell({ children }: { children: ReactNode }) {
     );
   }
 
+  if (variant === "stock") {
+    return <div className="w-full space-y-4">{children}</div>;
+  }
+
   return (
     <div className="w-full space-y-4">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -43,7 +50,9 @@ export function MarketCenterShell({ children }: { children: ReactNode }) {
             <span className="h-0.5 w-[18px] rounded-full bg-current" />
             MARKET CENTER
           </p>
-          <Heading level={1} className="mt-1.5 text-[40px] tracking-[-0.055em]">行情中心</Heading>
+          <Heading level={1} className="mt-1.5 text-[40px] tracking-[-0.055em]">
+            行情中心
+          </Heading>
           <Text type="supporting" as="p" className="mt-1 text-xs">
             从市场风格与资产强弱下钻到板块、个股与资金结构
           </Text>
@@ -99,9 +108,17 @@ export function MarketCenterError({
     <Card className="flex min-h-[320px] items-center justify-center p-8 text-center">
       <div className="max-w-md">
         <strong className="text-base text-app-ink">{title}</strong>
-        <Text type="supporting" as="p" className="mt-2 text-xs leading-6">{message}</Text>
+        <Text type="supporting" as="p" className="mt-2 text-xs leading-6">
+          {message}
+        </Text>
         {onRetry ? (
-          <Button className="mt-4" variant="secondary" size="sm" label="重新加载" onClick={onRetry} />
+          <Button
+            className="mt-4"
+            variant="secondary"
+            size="sm"
+            label="重新加载"
+            onClick={onRetry}
+          />
         ) : null}
       </div>
     </Card>

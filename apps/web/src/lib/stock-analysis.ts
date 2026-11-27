@@ -24,7 +24,8 @@ export function normalizeCompareSymbols(input: readonly string[]): string[] {
 }
 
 export function stockAnalysisPath(symbol: string): string {
-  return `/home/market/analysis/${encodeURIComponent(symbol)}`;
+  const normalized = normalizeStockSymbol(symbol) ?? symbol.trim().toUpperCase();
+  return `/home/market/stock/${encodeURIComponent(normalized)}?mode=research`;
 }
 
 export function stockComparePath(symbols: readonly string[]): string {

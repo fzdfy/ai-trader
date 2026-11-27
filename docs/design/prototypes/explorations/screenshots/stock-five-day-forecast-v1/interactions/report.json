@@ -1,0 +1,42 @@
+[
+  {
+    "file": "model-day-detail-1440x900.png",
+    "state": "model",
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "day-detail",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "model-collapsed-1440x900.png",
+    "state": "model",
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "collapsed",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "model-day-detail-390x844.png",
+    "state": "model",
+    "size": "390x844",
+    "zoom": 1,
+    "group": "day-detail",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "model-collapsed-390x844.png",
+    "state": "model",
+    "size": "390x844",
+    "zoom": 1,
+    "group": "collapsed",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

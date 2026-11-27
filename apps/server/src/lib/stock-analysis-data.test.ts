@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildForecastPreviewResponse,
   buildRiskReferenceRange,
   buildScenarioForecasts,
   buildValuationRange,
@@ -42,6 +43,19 @@ test("builds ordered probability scenarios for all required horizons", () => {
     assert.ok(item.backtestHitRate! >= 0 && item.backtestHitRate! <= 1);
     assert.ok(item.backtestSampleCount > 0);
   }
+});
+
+test("builds a forecast-only response without an analysis aggregate", () => {
+  const payload = buildForecastPreviewResponse("002594.SZ", bars, "fallback");
+
+  assert.equal(payload.symbol, "002594.SZ");
+  assert.deepEqual(
+    payload.forecasts.map((forecast) => forecast.horizon),
+    ["5D", "20D", "60D"],
+  );
+  assert.equal("prices" in payload, false);
+  assert.equal("technicalSignals" in payload, false);
+  assert.equal("reports" in payload, false);
 });
 
 test("keeps forecast unavailable when history is insufficient", () => {

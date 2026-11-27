@@ -1,0 +1,78 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 41,
+        "examples": [
+          "p.font-mono.text-[10px]「STOCK WORKSPACE · 002594」（10px）",
+          "span.inline-flex.items-center「正常交易」（10px）",
+          "span「成交额 22.97亿」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 5,
+        "examples": [
+          "span.border.border-primary/30「未来 5D · 1 条 P50」（3.08:1）",
+          "span「MA10: 73.69」（2.38:1）",
+          "span「MA20: 75.77」（4.30:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「研 研究员 量化研究 · Pro」（首屏 9 块各自加框）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 41,
+        "examples": [
+          "p.font-mono.text-[10px]「STOCK WORKSPACE · 002594」（10px）",
+          "span.inline-flex.items-center「正常交易」（10px）",
+          "span「成交额 22.97亿」（10px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（14px 以下的小字和占位文字低于 4.5:1，其他文字低于 3:1，大字低于 2.5:1）",
+        "count": 5,
+        "examples": [
+          "span.border.border-primary/30「未来 5D · 1 条 P50」（3.08:1）",
+          "span「MA10: 73.69」（2.38:1）",
+          "span「MA20: 75.77」（4.30:1）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 1,
+        "examples": [
+          "div.border.border-app-line「实时行情 2026-11-26 07:00 · 」（首屏 6 块各自加框）"
+        ]
+      }
+    ]
+  }
+]

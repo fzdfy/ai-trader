@@ -5,12 +5,16 @@ context: |
   All artifacts must be written in zh-CN.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
   SDD authority:
-  - `docs/standards/sdd/v2.md` is the current complete workflow.
-  - `docs/standards/sdd/v1.md` is a frozen historical baseline.
-  - New changes use v2 metadata: type, risk, baseline and visual impact.
+  - `docs/standards/sdd/v3.md` is the current complete workflow.
+  - `docs/standards/sdd/v1.md` and `docs/standards/sdd/v2.md` are frozen historical baselines.
+  - New changes use v3 metadata: type, risk, assurance for L2, baseline and visual impact.
   - L0 changes do not create OpenSpec by default unless they affect a visible, API, data, security or shared constraint.
   - L1 changes use a compact proposal, capability delta, design, tasks and verification.
-  - L2 changes require complete design reasoning and independent review.
+  - L2 changes require complete design reasoning and declare `assurance: bounded | systemic`.
+  - `bounded` requires all five conditions: localized to one independently deployable service, Provider adapter or deployment-config boundary; no database schema, data semantics, PIT, adjustment or backtest-basis change; no permission model, public API or cross-service contract change; rollback by code or config without data repair, replay or manual migration; existing tests and verification cover the boundary.
+  - `bounded` requires post-implementation independent code and risk review, with the latest complete verification rerun after findings are fixed.
+  - `systemic` requires pre-implementation independent design review and post-implementation independent code and risk review.
+  - Any failed bounded condition or classification dispute MUST use `systemic`.
   - PRD-lite is required for new user features, multi-page flows, permissions or data-semantic changes.
   - `writing-plans` and `executing-plans` are optional L2 tools, not default L1 stages.
   - Planning approval may authorize continuous low-risk implementation; stop at hard risk or scope boundaries.
@@ -20,24 +24,34 @@ context: |
   - Reusing an existing visual direction does NOT exempt a change from visual design.
   - A change may mark visual design not applicable only when it has no externally visible UI behavior; the proposal MUST state `Visual design: not applicable` with a concrete reason.
   - For required visual design, the approved prototype MUST live under docs/design/prototypes/explorations/, screenshots MUST cover desktop/mobile and light/dark, and the user MUST confirm the design before production code.
+  Visual archive gate:
+  - A `visual: regression | new-design` change MUST promote the user-accepted final design to `docs/design/prototypes/initial/` and update the matching `docs/design/prototypes/atlas/index.html` entry before archive.
+  - The Atlas entry MUST identify the source change, link the final baseline and final screenshots or screenshot index, and be verified through the Atlas single entry in a real browser.
+  - Missing final baseline, Atlas entry or browser evidence MUST block archive. User confirmation to archive does not waive this gate.
+  - `visual: not-applicable` changes do not require an Atlas update but MUST record a concrete no-visible-UI reason.
 
 rules:
   proposal:
-    - "Declare `type`, `risk`, `baseline` and `visual` using the SDD v2 values."
+    - "Declare `type`, `risk`, `baseline` and `visual` using the SDD v3 values."
     - "Required fields are `type: feature | bug | ui | refactor | hotfix`, `risk: L0 | L1 | L2`, `baseline: spec | invariant | issue | confirmed-visual | none`, and `visual: not-applicable | regression | new-design`."
+    - "When `risk: L2`, also declare `assurance: bounded | systemic` at classification time; L0 and L1 MUST NOT require this field."
+    - "`bounded` must satisfy all five conditions in SDD v3; any failed condition or classification dispute MUST use `systemic`."
     - "Use stable `AC-*` IDs for observable acceptance criteria."
     - "Always include a `## Visual Design Impact` section."
     - "The section MUST declare `Visual design: required` or `Visual design: not applicable`; not-applicable MUST include a concrete no-visible-UI reason."
     - "State the affected screen, interaction, states, reference prototype and required review targets when visual design is required."
   design:
     - "For L1 without new technical decisions, record that conclusion and the implementation boundary instead of copying proposal goals or acceptance criteria."
-    - "For L2, include alternatives, failure modes, compatibility and rollback, and record independent review in `## Review Result`."
+    - "For L2, include alternatives, failure modes, compatibility, rollback and a point-by-point bounded-condition check."
+    - "For `assurance: systemic`, record the pre-implementation independent design review in `## Review Result`."
+    - "For `assurance: bounded`, do not require pre-implementation independent design review; record the post-implementation independent code and risk review in `verification.md`."
     - "When visual design is required, include a Visual Design section linking the exploration prototype and screenshot directory."
     - "Describe loading, empty, error, partial-success and success states plus desktop/mobile and light/dark coverage."
   tasks:
     - "`tasks.md` is the only implementation progress checklist; conditional Superpowers plans and ledgers MUST reference it rather than replace it."
     - "Behavior tasks MUST name the failing test, test file or command, and verification command."
-    - "L1 tasks may be executed continuously after planning approval; stop only at SDD v2 hard boundaries."
+    - "L1 tasks and approved L2 tasks may be executed continuously after planning approval; stop at SDD v3 hard boundaries."
+    - "For L2, review after implementation, fix findings, rerun the latest complete verification, and clear all `changes-required` before user acceptance."
     - "When visual design is required, create `## 0. Visual Design Gate` before every implementation group."
     - "Before user approval, tasks.md may contain only the visual design gate; do not add implementation tasks until the approved exploration and screenshots exist."
     - "The gate MUST require an exploration prototype, desktop/mobile light/dark screenshots, tool checks, and explicit user confirmation."
@@ -46,12 +60,15 @@ rules:
 operations:
   apply:
     guidance:
-      - "Follow the current SDD v2 change type, risk level and hard stops before applying tasks."
+      - "Follow the current SDD v3 change type, risk level, L2 assurance level and hard stops before applying tasks."
       - "Continue low-risk tasks after plan approval unless scope, risk, interfaces, data boundaries or visual direction change."
-      - "Use TDD for behavior changes and run the latest complete verification before completion claims."
+      - "Use TDD for behavior changes; after review fixes, rerun the latest complete verification before completion claims."
       - "Before changing production code, verify the visual design gate is confirmed whenever UI behavior is in scope."
   archive:
     guidance:
       - "Require user acceptance before archive and a separate explicit user confirmation to archive."
-      - "Verify `verification.md` maps acceptance criteria to current command and visual evidence."
+      - "Verify `verification.md` maps acceptance criteria to current command, L2 assurance review and visual evidence."
       - "Verify verification.md records the approved visual design and screenshot evidence when visual design was required."
+      - "Before moving a visual regression or new-design change, verify the final accepted baseline exists under docs/design/prototypes/initial/ and its Atlas entry links the source change, final baseline and screenshot evidence."
+      - "Open the Atlas single entry and verify the final baseline and evidence links; block archive when the baseline, Atlas entry, screenshots or browser evidence is missing."
+      - "Never treat a user's archive confirmation as a waiver of the visual Atlas synchronization gate; visual: not-applicable must still include a concrete no-visible-UI reason."

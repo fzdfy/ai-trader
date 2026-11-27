@@ -1,0 +1,586 @@
+.forecast-demo {
+  --forecast-band: color-mix(in srgb, var(--primary) 14%, transparent);
+  --forecast-band-strong: color-mix(in srgb, var(--primary) 26%, transparent);
+  --forecast-surface: color-mix(in srgb, var(--quote-canvas-surface) 84%, var(--panel));
+  --forecast-warning-surface: color-mix(in srgb, var(--warning) 15%, var(--quote-canvas));
+}
+
+.dark .forecast-demo {
+  --quote-canvas: var(--panel);
+  --quote-canvas-surface: var(--surface);
+  --quote-canvas-ink: var(--ink);
+  --quote-canvas-muted: var(--ink-muted);
+  --quote-canvas-line: var(--line);
+  --quote-canvas-grid: var(--line);
+  --quote-canvas-axis: var(--ink-muted);
+}
+
+.forecast-demo section[aria-label="快速行情详情"] {
+  border-color: transparent;
+  background: transparent;
+}
+
+.forecast-demo section[aria-label="快速行情详情"] > div:first-child {
+  border-radius: 12px 12px 0 0;
+  background: var(--panel);
+}
+
+.forecast-demo [aria-label$="K 线与资金结构"] span[style^="color: var(--quote-canvas-ma-"] {
+  color: var(--quote-canvas-ink) !important;
+  font-weight: 600;
+}
+
+.forecast-demo [data-forecast-panel] {
+  margin-bottom: 12px;
+  border-top: 1px solid var(--quote-canvas-line);
+  background:
+    linear-gradient(90deg, transparent 0 72%, color-mix(in srgb, var(--primary) 3%, transparent) 72%),
+    var(--quote-canvas);
+}
+
+.forecast-demo .sig-page.is-embedded {
+  margin-top: 80px !important;
+}
+
+.forecast-demo .forecast-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px 10px;
+}
+
+.forecast-demo .forecast-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.forecast-demo .forecast-title h3 {
+  color: var(--quote-canvas-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.forecast-demo .forecast-kicker {
+  color: var(--quote-canvas-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.forecast-demo .forecast-pill,
+.forecast-demo .forecast-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--quote-canvas-line));
+  border-radius: 999px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--quote-canvas));
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.forecast-demo .forecast-pill::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.forecast-demo .forecast-pill[data-tone="baseline"] {
+  color: var(--ink-secondary);
+  border-color: var(--quote-canvas-line);
+  background: var(--quote-canvas-surface);
+}
+
+.forecast-demo .forecast-pill[data-tone="warning"] {
+  color: color-mix(in srgb, var(--warning) 58%, var(--ink));
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--quote-canvas-line));
+  background: var(--forecast-warning-surface);
+}
+
+.forecast-demo .forecast-pill[data-tone="muted"] {
+  color: var(--quote-canvas-muted);
+  border-color: var(--quote-canvas-line);
+  background: var(--quote-canvas-surface);
+}
+
+.dark .forecast-demo .forecast-pill {
+  color: var(--quote-canvas-ink);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--quote-canvas-line));
+  background: color-mix(in srgb, var(--primary) 20%, var(--quote-canvas));
+}
+
+.dark .forecast-demo .forecast-pill[data-tone="baseline"],
+.dark .forecast-demo .forecast-pill[data-tone="muted"] {
+  color: var(--quote-canvas-ink);
+  border-color: var(--quote-canvas-axis);
+  background: var(--quote-canvas-surface);
+}
+
+.dark .forecast-demo .forecast-pill[data-tone="warning"] {
+  color: var(--quote-canvas-ink);
+  border-color: color-mix(in srgb, var(--warning) 62%, var(--quote-canvas-line));
+  background: color-mix(in srgb, var(--warning) 22%, var(--quote-canvas));
+}
+
+.dark .forecast-demo .forecast-chip {
+  color: var(--quote-canvas-ink);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--quote-canvas-line));
+  background: color-mix(in srgb, var(--primary) 16%, var(--quote-canvas));
+}
+
+.dark .forecast-demo .page-navigation-link,
+.dark .forecast-demo nav[aria-label="行情中心模块"] a,
+.dark .forecast-demo a[href="/home/market/stock"] {
+  color: var(--ink) !important;
+}
+
+.forecast-demo .forecast-toggle {
+  min-width: 84px;
+  min-height: 32px;
+  border: 1px solid var(--quote-canvas-line);
+  border-radius: 9px;
+  color: var(--quote-canvas-muted);
+  background: var(--quote-canvas-surface);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.forecast-demo .forecast-toggle:hover,
+.forecast-demo .forecast-toggle:focus-visible {
+  color: var(--quote-canvas-ink);
+  border-color: var(--quote-canvas-axis);
+  outline: 2px solid color-mix(in srgb, var(--primary) 38%, transparent);
+  outline-offset: 2px;
+}
+
+.forecast-demo .forecast-body {
+  padding: 0 18px 16px;
+}
+
+.forecast-demo .forecast-body[hidden] {
+  display: none;
+}
+
+.forecast-demo .forecast-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+  color: var(--quote-canvas-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.forecast-demo .forecast-chart-shell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--quote-canvas-line);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 92% 16%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 35%),
+    var(--quote-canvas-surface);
+}
+
+.forecast-demo .forecast-chart-shell svg {
+  display: block;
+  width: 100%;
+  height: 300px;
+}
+
+.forecast-demo .forecast-separator {
+  stroke: color-mix(in srgb, var(--primary) 60%, var(--quote-canvas-line));
+  stroke-width: 1.25;
+  stroke-dasharray: 5 5;
+}
+
+.forecast-demo .forecast-label {
+  fill: var(--quote-canvas-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-demo .forecast-label-strong {
+  fill: var(--quote-canvas-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-demo .forecast-band {
+  fill: var(--forecast-band);
+  stroke: color-mix(in srgb, var(--primary) 36%, transparent);
+  stroke-width: 1;
+}
+
+.forecast-demo .forecast-median {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.forecast-demo .forecast-path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+}
+
+.forecast-demo .forecast-path.strong {
+  stroke: color-mix(in srgb, var(--primary) 58%, var(--chart-up));
+  stroke-dasharray: 7 4;
+}
+
+.forecast-demo .forecast-path.base {
+  stroke: color-mix(in srgb, var(--primary) 62%, var(--quote-canvas-axis));
+  stroke-dasharray: 3 4;
+}
+
+.forecast-demo .forecast-path.weak {
+  stroke: color-mix(in srgb, var(--warning) 70%, var(--quote-canvas-axis));
+  stroke-dasharray: 7 4;
+}
+
+.forecast-demo .forecast-today {
+  fill: var(--primary);
+}
+
+.forecast-demo .forecast-session {
+  cursor: pointer;
+  outline: none;
+}
+
+.forecast-demo .forecast-session-focus {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 2;
+}
+
+.forecast-demo .forecast-session:focus-visible .forecast-session-focus {
+  fill: color-mix(in srgb, var(--primary) 12%, transparent);
+  stroke: var(--primary);
+}
+
+.forecast-demo .forecast-state-copy {
+  fill: var(--quote-canvas-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.forecast-demo .forecast-detail {
+  margin-top: 8px;
+  min-height: 22px;
+  color: var(--quote-canvas-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.forecast-demo .forecast-detail strong {
+  color: var(--quote-canvas-ink);
+  font-family: var(--font-mono);
+}
+
+.forecast-demo .forecast-metrics {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 0;
+  margin-top: 10px;
+  border-top: 1px solid var(--quote-canvas-line);
+  border-bottom: 1px solid var(--quote-canvas-line);
+}
+
+.forecast-demo .forecast-metric {
+  min-width: 0;
+  padding: 11px 12px 10px 0;
+}
+
+.forecast-demo .forecast-metric + .forecast-metric {
+  border-left: 1px solid var(--quote-canvas-line);
+  padding-left: 14px;
+}
+
+.forecast-demo .forecast-metric span {
+  display: block;
+  color: var(--quote-canvas-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.forecast-demo .forecast-metric strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--quote-canvas-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-demo .forecast-probabilities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.forecast-demo .forecast-probability {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  border-radius: 9px;
+  background: var(--quote-canvas);
+  padding: 9px 10px 10px;
+}
+
+.forecast-demo .forecast-probability::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--primary) var(--probability), transparent);
+  content: "";
+}
+
+.forecast-demo .forecast-probability span {
+  color: var(--quote-canvas-muted);
+  font-size: 11px;
+}
+
+.forecast-demo .forecast-probability strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--quote-canvas-ink);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-demo .forecast-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+  color: var(--quote-canvas-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.forecast-demo .forecast-note strong {
+  color: var(--quote-canvas-ink);
+}
+
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-band {
+  fill: color-mix(in srgb, var(--warning) 10%, transparent);
+  stroke: color-mix(in srgb, var(--warning) 42%, transparent);
+  stroke-dasharray: 4 4;
+}
+
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-median {
+  stroke: color-mix(in srgb, var(--primary) 64%, var(--quote-canvas-axis));
+  stroke-dasharray: 8 5;
+}
+
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-path {
+  display: none;
+}
+
+.forecast-demo .forecast-legend .forecast-low-legend {
+  display: none;
+}
+
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-path-legend {
+  display: none;
+}
+
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-legend .forecast-low-legend {
+  display: inline-flex;
+}
+
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-metrics strong,
+.forecast-demo [data-forecast-panel][data-quality="low"] .forecast-probability strong {
+  color: var(--quote-canvas-muted);
+}
+
+.forecast-demo .forecast-state-card {
+  display: flex;
+  min-height: 188px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  border: 1px dashed color-mix(in srgb, var(--quote-canvas-axis) 42%, transparent);
+  border-radius: 12px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 12px,
+      color-mix(in srgb, var(--quote-canvas-axis) 4%, transparent) 12px 24px
+    ),
+    var(--quote-canvas-surface);
+  padding: 24px;
+  text-align: center;
+}
+
+.forecast-demo .forecast-state-card strong {
+  color: var(--quote-canvas-ink);
+  font-size: 14px;
+}
+
+.forecast-demo .forecast-state-card p {
+  max-width: 460px;
+  color: var(--quote-canvas-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.forecast-demo .forecast-state-card[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--warning) 50%, transparent);
+  background: var(--forecast-warning-surface);
+}
+
+.forecast-demo .forecast-unavailable-row {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 10px;
+  border-radius: 10px;
+  background: var(--quote-canvas-surface);
+  padding: 10px 12px;
+}
+
+.forecast-demo .forecast-unavailable-row[data-tone="warning"] {
+  background: var(--forecast-warning-surface);
+}
+
+.forecast-demo .forecast-unavailable-row strong {
+  flex-shrink: 0;
+  color: var(--quote-canvas-ink);
+  font-size: 13px;
+}
+
+.forecast-demo .forecast-unavailable-row span {
+  min-width: 0;
+  color: var(--quote-canvas-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.forecast-demo .forecast-unavailable-row .forecast-toggle {
+  margin-left: auto;
+}
+
+.forecast-demo .forecast-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 8px;
+  color: var(--quote-canvas-muted);
+  font-size: 11px;
+}
+
+.forecast-demo .forecast-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forecast-demo .forecast-legend i {
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.forecast-demo .forecast-legend i.dashed {
+  height: 0;
+  border-top: 2px dashed color-mix(in srgb, var(--warning) 70%, var(--quote-canvas-axis));
+  background: transparent;
+}
+
+.forecast-demo .forecast-legend i.band {
+  height: 10px;
+  border-radius: 4px;
+  background: var(--forecast-band);
+}
+
+.forecast-demo .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .forecast-demo .forecast-head {
+    align-items: flex-start;
+    padding: 12px 12px 9px;
+  }
+
+  .forecast-demo .forecast-body {
+    padding: 0 12px 13px;
+  }
+
+  .forecast-demo .forecast-chart-shell svg {
+    width: 100%;
+    max-width: 100%;
+    height: 240px;
+  }
+
+  .forecast-demo .forecast-chart-shell {
+    overflow: hidden;
+  }
+
+  .forecast-demo .forecast-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .forecast-demo .forecast-metric:nth-child(3) {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--quote-canvas-line);
+    padding-left: 0;
+  }
+
+  .forecast-demo .forecast-note {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .forecast-demo .forecast-body:not([hidden]) {
+    animation: forecast-reveal 240ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+}
+
+@keyframes forecast-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

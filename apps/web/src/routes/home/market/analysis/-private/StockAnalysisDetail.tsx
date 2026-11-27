@@ -18,7 +18,7 @@ import { Text } from "@preline-ui/Text";
 import { TextInput } from "@preline-ui/TextInput";
 import { AddWorkTaskButton } from "../../../../../components/AddWorkTaskButton";
 import { PriceTrendChart } from "../../../../../components/charts/PriceTrendChart";
-import { SignalDiagnosis } from "../../../../../components/signals/SignalDiagnosis";
+import { SignalMatrixDiagnosis } from "../../../../../components/signals/SignalMatrixDiagnosis";
 import { groupSignalsByLayer } from "../../../../../components/signals/signal-utils";
 import {
   useAddWatchlist,
@@ -89,17 +89,17 @@ function compactSourceLabel(source: string): string {
 }
 
 function qualityMeta(quality: string): { label: string; variant: string } {
-  if (quality === "available") return { label: "可用", variant: "success" };
-  if (quality === "low") return { label: "低置信", variant: "warning" };
+  if (quality === "available") return { label: "可用", variant: "neutral" };
+  if (quality === "low") return { label: "低置信", variant: "neutral" };
   return { label: "待接入", variant: "neutral" };
 }
 
 function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="rounded-lg border border-app-line bg-app-panel px-3 py-2.5">
-      <span className="block text-[10px] text-app-muted">{label}</span>
+      <span className="block text-[11px] text-app-muted">{label}</span>
       <strong className="mt-1 block font-mono text-sm text-app-ink">{value}</strong>
-      {note ? <span className="mt-1 block text-[9px] text-app-faint">{note}</span> : null}
+      {note ? <span className="mt-1 block text-[11px] text-app-faint">{note}</span> : null}
     </div>
   );
 }
@@ -121,17 +121,17 @@ function TimelineRow({ item }: { item: StockContentTimelineItem }) {
   const content = (
     <>
       <span
-        className={`inline-flex w-fit rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${tone}`}
+        className={`inline-flex w-fit rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${tone}`}
       >
         {item.type === "news" ? "新闻" : item.type === "announcement" ? "公告" : "研报"}
       </span>
       <span className="min-w-0">
         <strong className="block truncate text-[11px] leading-relaxed">{item.title}</strong>
-        <span className="mt-0.5 block truncate text-[9px] text-app-muted">
+        <span className="mt-0.5 block truncate text-[11px] text-app-muted">
           {item.source} · {item.meta}
         </span>
       </span>
-      <span className="flex items-center gap-1 font-mono text-[9px] text-app-faint">
+      <span className="flex items-center gap-1 font-mono text-[11px] text-app-faint">
         {formatDate(item.publishedAt, item.type === "news")}
         {item.href ? <ExternalLink className="size-3" /> : null}
       </span>
@@ -158,7 +158,7 @@ function ForecastCard({ forecast }: { forecast: ScenarioForecast }) {
   return (
     <div className="rounded-xl bg-app-surface/70 p-3.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[9px] text-app-muted">
+        <span className="font-mono text-[11px] text-app-muted">
           {forecast.horizon} · P10 / P50 / P90
         </span>
         <Badge variant={qualityMeta(forecast.quality).variant}>
@@ -168,13 +168,13 @@ function ForecastCard({ forecast }: { forecast: ScenarioForecast }) {
       <strong className="mt-3 block font-mono text-lg tracking-tight text-app-ink">
         {missing ? "—" : `${formatPrice(forecast.p10)}–${formatPrice(forecast.p90)}`}
       </strong>
-      <p className="mt-1.5 text-[10px] text-app-muted">
+      <p className="mt-1.5 text-[11px] text-app-muted">
         {missing
           ? `样本 ${forecast.sampleCount} 个，暂不展示数值`
           : `中位 ${formatPrice(forecast.p50)} · 上涨概率 ${((forecast.upProbability ?? 0) * 100).toFixed(1)}%`}
       </p>
       {!missing ? (
-        <p className="mt-1 text-[8px] text-app-faint">
+        <p className="mt-1 text-[11px] text-app-faint">
           滚动样本外命中{" "}
           {forecast.backtestSampleCount > 0 && forecast.backtestHitRate != null
             ? `${(forecast.backtestHitRate * 100).toFixed(1)}% · ${forecast.backtestSampleCount} 次`
@@ -197,7 +197,15 @@ function ForecastCard({ forecast }: { forecast: ScenarioForecast }) {
   );
 }
 
-export function StockAnalysisDetail({ symbol }: { symbol: string }) {
+export function StockAnalysisDetail({
+  symbol,
+  embedded = false,
+  onReturnQuick,
+}: {
+  symbol: string;
+  embedded?: boolean;
+  onReturnQuick?: () => void;
+}) {
   const analysisQuery = useStockAnalysisQuery(symbol);
   const watchlistQuery = useWatchlistQuery();
   const addWatchlist = useAddWatchlist();
@@ -292,7 +300,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
   if (analysisQuery.isLoading) {
     return (
       <div className="mx-auto space-y-4" aria-label="正在加载个股分析">
-        <div className="h-28 animate-pulse rounded-2xl bg-app-surface" />
+        {embedded ? null : <div className="h-28 animate-pulse rounded-2xl bg-app-surface" />}
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
           <div className="h-80 animate-pulse rounded-2xl bg-app-surface" />
           <div className="h-80 animate-pulse rounded-2xl bg-app-surface" />
@@ -303,20 +311,27 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
 
   if (analysisQuery.isError || !data) {
     return (
-      <Card variant="detached" className="mx-auto max-w-xl p-8 text-center">
+      <Card
+        variant="detached"
+        className={embedded ? "mx-0 max-w-none p-6" : "mx-auto max-w-xl p-8 text-center"}
+      >
         <CircleAlert className="mx-auto size-5 text-destructive" />
         <Heading level={2} className="mt-3">
-          个股分析暂时无法读取
+          {embedded ? "深度研究暂时无法读取" : "个股分析暂时无法读取"}
         </Heading>
         <Text as="p" type="supporting" className="mt-1.5">
           {analysisQuery.error instanceof Error ? analysisQuery.error.message : "请稍后重试"}
         </Text>
-        <Button
-          className="mt-4"
-          label="重新加载"
-          variant="secondary"
-          onClick={() => void analysisQuery.refetch()}
-        />
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {onReturnQuick ? (
+            <Button label="返回快速看盘" variant="ghost" onClick={onReturnQuick} />
+          ) : null}
+          <Button
+            label="重新加载"
+            variant="secondary"
+            onClick={() => void analysisQuery.refetch()}
+          />
+        </div>
       </Card>
     );
   }
@@ -403,68 +418,95 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
 
   return (
     <div className="mx-auto space-y-4">
-      <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">
-            STOCK RESEARCH · {data.symbol}
-          </p>
-          <div className="mt-1 flex items-center gap-2.5">
-            <Heading level={1} className="text-4xl tracking-[-0.05em] md:text-[48px]">
-              {data.name}
+      {embedded ? (
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-mono text-[11px] font-semibold tracking-[0.12em] text-primary">
+              STOCK RESEARCH · {data.symbol}
+            </p>
+            <Heading level={2} className="mt-1 text-2xl tracking-[-0.035em]">
+              深度研究
             </Heading>
-            <Badge variant="neutral" className="font-mono">
-              {data.symbol}
-            </Badge>
+            <Text as="p" type="supporting" className="mt-1">
+              预测与风险、技术信号、财务、研报和事件按需加载
+            </Text>
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <Badge variant="neutral">{data.exchange} 交易所</Badge>
-            <Badge variant="neutral">{data.status === "listed" ? "正常交易" : data.status}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant={reportQuality.variant}>研报 {data.reportCount} 篇</Badge>
             <Badge variant={fundQuality.variant}>资金 {fundQuality.label}</Badge>
+            <Button
+              label="重新分析"
+              icon={<RefreshCw className="size-3.5" />}
+              variant="secondary"
+              isLoading={refreshAnalysis.isPending}
+              onClick={() => refreshAnalysis.mutate()}
+            />
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="mr-1 flex items-baseline gap-2">
-            <strong
-              className={`font-mono text-3xl tracking-tight ${change == null ? "text-app-ink" : change > 0 ? "text-chart-up" : "text-chart-down"}`}
-            >
-              {formatPrice(quote?.last)}
-            </strong>
-            <span
-              className={`font-mono text-[11px] ${change == null ? "text-app-muted" : change > 0 ? "text-chart-up" : "text-chart-down"}`}
-            >
-              {formatPercent(change)}
-            </span>
+        </header>
+      ) : (
+        <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] font-semibold tracking-[0.12em] text-primary">
+              STOCK RESEARCH · {data.symbol}
+            </p>
+            <div className="mt-1 flex items-center gap-2.5">
+              <Heading level={1} className="text-4xl tracking-[-0.05em] md:text-[48px]">
+                {data.name}
+              </Heading>
+              <Badge variant="neutral" className="font-mono">
+                {data.symbol}
+              </Badge>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge variant="neutral">{data.exchange} 交易所</Badge>
+              <Badge variant="neutral">{data.status === "listed" ? "正常交易" : data.status}</Badge>
+              <Badge variant={reportQuality.variant}>研报 {data.reportCount} 篇</Badge>
+              <Badge variant={fundQuality.variant}>资金 {fundQuality.label}</Badge>
+            </div>
           </div>
-          <Badge variant={qualityMeta(data.quote.quality).variant}>
-            {sourceLabel(data.quote.source)} · {formatDate(data.quote.asOf, true)}
-          </Badge>
-          <Button
-            label={watched ? "移出自选" : "加入自选"}
-            icon={watched ? <Minus className="size-3.5" /> : <Plus className="size-3.5" />}
-            variant="secondary"
-            isLoading={addWatchlist.isPending || removeWatchlist.isPending}
-            onClick={() => {
-              if (watched) removeWatchlist.mutate(symbol);
-              else addWatchlist.mutate(symbol);
-            }}
-          />
-          <Button
-            label="加入对比"
-            icon={<GitCompareArrows className="size-3.5" />}
-            variant="secondary"
-            href={stockComparePath(compareSymbols)}
-          />
-          <AddWorkTaskButton sourceType="stock" sourceId={symbol} label="加入工作任务" />
-          <Button
-            label="重新分析"
-            icon={<RefreshCw className="size-3.5" />}
-            variant="primary"
-            isLoading={refreshAnalysis.isPending}
-            onClick={() => refreshAnalysis.mutate()}
-          />
-        </div>
-      </header>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-1 flex items-baseline gap-2">
+              <strong
+                className={`font-mono text-3xl tracking-tight ${change == null ? "text-app-ink" : change > 0 ? "text-chart-up" : "text-chart-down"}`}
+              >
+                {formatPrice(quote?.last)}
+              </strong>
+              <span
+                className={`font-mono text-[11px] ${change == null ? "text-app-muted" : change > 0 ? "text-chart-up" : "text-chart-down"}`}
+              >
+                {formatPercent(change)}
+              </span>
+            </div>
+            <Badge variant={qualityMeta(data.quote.quality).variant}>
+              {sourceLabel(data.quote.source)} · {formatDate(data.quote.asOf, true)}
+            </Badge>
+            <Button
+              label={watched ? "移出自选" : "加入自选"}
+              icon={watched ? <Minus className="size-3.5" /> : <Plus className="size-3.5" />}
+              variant="secondary"
+              isLoading={addWatchlist.isPending || removeWatchlist.isPending}
+              onClick={() => {
+                if (watched) removeWatchlist.mutate(symbol);
+                else addWatchlist.mutate(symbol);
+              }}
+            />
+            <Button
+              label="加入对比"
+              icon={<GitCompareArrows className="size-3.5" />}
+              variant="secondary"
+              href={stockComparePath(compareSymbols)}
+            />
+            <AddWorkTaskButton sourceType="stock" sourceId={symbol} label="加入工作任务" />
+            <Button
+              label="重新分析"
+              icon={<RefreshCw className="size-3.5" />}
+              variant="primary"
+              isLoading={refreshAnalysis.isPending}
+              onClick={() => refreshAnalysis.mutate()}
+            />
+          </div>
+        </header>
+      )}
 
       <div
         className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5"
@@ -595,7 +637,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             </Badge>
           </div>
           <div className="p-4">
-            <p className="font-mono text-[9px] font-semibold tracking-[0.1em] text-primary">
+            <p className="font-mono text-[11px] font-semibold tracking-[0.1em] text-primary">
               DETERMINISTIC SYNTHESIS · EVIDENCE LINKED
             </p>
             <Heading level={2} className="mt-3 text-xl leading-snug">
@@ -611,16 +653,16 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                 </Badge>
               ))}
             </div>
-            <p className="mt-4 border-t border-app-line pt-3 text-[9px] leading-relaxed text-app-faint">
+            <p className="mt-4 border-t border-app-line pt-3 text-[11px] leading-relaxed text-app-faint">
               本页为研究辅助，不构成投资建议。预测数字来自历史统计模型，正式结论需通过滚动样本外验证。
             </p>
           </div>
         </Card>
       </div>
 
-      <SignalDiagnosis
+      <SignalMatrixDiagnosis
         title="技术信号诊断"
-        description="基础、K 线形态、高级模型与微观结构在同一模块内分层查看；证据按需展开。"
+        description="四组矩阵按目录展开全部信号；每项信号可继续展开证据、边界、参数和失效条件。"
         layers={signalLayers}
         judgment={data.technicalSignalMeta.summary}
         asOf={data.technicalSignals.asOf}
@@ -638,7 +680,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
           <div className="flex items-start justify-between gap-3 border-b border-app-line px-4 py-3.5">
             <div>
               <Heading level={2}>情景预测与风险参考区间</Heading>
-              <Text as="p" type="supporting">
+              <Text as="p" type="supporting" className="mt-1 leading-6">
                 5/20/60 日历史分布与技术、估值来源同卡展示；不生成目标价
               </Text>
             </div>
@@ -688,7 +730,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                   }
                 />
               </div>
-              <p className="mt-3 text-[9px] leading-relaxed text-app-muted">
+              <p className="mt-3 text-[11px] leading-relaxed text-app-muted">
                 风险参考区间不是保本价格。20D 情景与上方 P10/P50/P90 使用同一结果，不再重复展示。
               </p>
             </div>
@@ -785,10 +827,10 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                             : `p.${evidence.pageFrom}–${evidence.pageTo}`}
                         </Badge>
                       </div>
-                      <p className="mt-1 line-clamp-3 text-[9px] leading-relaxed text-app-muted">
+                      <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-app-muted">
                         {evidence.excerpt ?? "该研报仅完成元数据同步，暂无全文片段。"}
                       </p>
-                      <p className="mt-1 text-[8px] text-app-faint">
+                      <p className="mt-1 text-[11px] text-app-faint">
                         {evidence.institution ?? "机构未知"} · {evidence.publishDate}
                         {evidence.similarity == null
                           ? " · 关键词匹配"
@@ -825,11 +867,11 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                       <strong className="block truncate text-[11px] text-app-ink">
                         {report.title}
                       </strong>
-                      <span className="mt-0.5 block truncate text-[9px] text-app-muted">
+                      <span className="mt-0.5 block truncate text-[11px] text-app-muted">
                         {report.institution ?? "机构未知"} · {report.extractStatus ?? "元数据"}
                       </span>
                     </div>
-                    <span className="flex items-center gap-1.5 font-mono text-[9px] text-app-faint">
+                    <span className="flex items-center gap-1.5 font-mono text-[11px] text-app-faint">
                       {report.publishDate.slice(5)}
                       {report.storageKey || report.pdfUrl ? (
                         <a
@@ -849,7 +891,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
                       {report.pdfUrl && report.extractStatus !== "extracted" ? (
                         <button
                           type="button"
-                          className="focus-ring rounded text-[8px] text-primary hover:underline"
+                          className="focus-ring rounded text-[11px] text-primary hover:underline"
                           disabled={ingestReport.isPending && ingestReport.variables === report.id}
                           onClick={() => ingestReport.mutate(report.id)}
                         >
@@ -922,7 +964,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
             <Metric label="近 5 日" value={formatAnalysisMoney(data.fundSummary.fiveDay)} />
             <Metric label="近 20 日" value={formatAnalysisMoney(data.fundSummary.twentyDay)} />
           </div>
-          <div className="mx-4 mb-4 rounded-lg border border-dashed border-app-line-strong bg-app-surface/45 p-3 text-[9px] leading-relaxed text-app-muted">
+          <div className="mx-4 mb-4 rounded-lg border border-dashed border-app-line-strong bg-app-surface/45 p-3 text-[11px] leading-relaxed text-app-muted">
             筹码分布将在历史 OHLC 与换手率完整接入后推演，并明确标注为模型估算值。
           </div>
         </Card>

@@ -60,8 +60,9 @@ function StockRow({
   const change = quote?.changePct == null ? null : Number(quote.changePct);
   return (
     <Link
-      to="/home/market/analysis/$symbol"
+      to="/home/market/stock/$symbol"
       params={{ symbol: instrument.symbol }}
+      search={{ mode: "research" }}
       className="focus-ring grid grid-cols-[32px_minmax(0,1fr)_auto_16px] items-center gap-2.5 border-b border-app-line/60 px-4 py-3 transition last:border-b-0 hover:bg-primary/[0.035]"
     >
       <span className="grid size-8 place-items-center rounded-lg bg-primary/10 font-mono text-[10px] font-semibold text-primary">
@@ -170,8 +171,9 @@ export function StockAnalysisLanding() {
               searchResults.map((item) => (
                 <Link
                   key={item.symbol}
-                  to="/home/market/analysis/$symbol"
+                  to="/home/market/stock/$symbol"
                   params={{ symbol: item.symbol }}
+                  search={{ mode: "research" }}
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-app-line/60 px-3 py-2.5 last:border-b-0 hover:bg-app-surface"
                 >
                   <span className="min-w-0">
@@ -248,8 +250,9 @@ export function StockAnalysisLanding() {
                 {candidates.slice(0, 6).map((item, index) => (
                   <Link
                     key={item.symbol}
-                    to="/home/market/analysis/$symbol"
+                    to="/home/market/stock/$symbol"
                     params={{ symbol: item.symbol }}
+                    search={{ mode: "research" }}
                     className="grid grid-cols-[24px_minmax(0,1fr)_48px] items-center gap-2 border-b border-app-line/60 px-4 py-2.5 last:border-b-0 hover:bg-app-surface"
                   >
                     <span className="text-center font-mono text-[9px] text-app-faint">
@@ -294,8 +297,9 @@ export function StockAnalysisLanding() {
               recent.slice(0, 4).map((item) => (
                 <Link
                   key={item.symbol}
-                  to="/home/market/analysis/$symbol"
+                  to="/home/market/stock/$symbol"
                   params={{ symbol: item.symbol }}
+                  search={{ mode: "research" }}
                   className="flex items-center gap-3 border-b border-app-line/60 px-4 py-3 last:border-b-0 hover:bg-app-surface"
                 >
                   <BookOpenText className="size-3.5 text-primary" />

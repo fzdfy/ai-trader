@@ -92,6 +92,8 @@
   --quote-canvas-ma-60: #2f6fe0;
   --quote-canvas-ma-120: #808080;
   --quote-canvas-ma-250: #b42333;
+  --quote-canvas-forecast: #3157e8;
+  --quote-canvas-forecast-band: rgb(49 87 232 / 16%);
 
   --dashboard-a-wash: color-mix(in srgb, var(--primary) 7%, var(--panel));
   --dashboard-global-wash: color-mix(in srgb, var(--warning) 10%, var(--panel));
@@ -138,6 +140,8 @@
   --quote-canvas-ma-60: #2f6fe0;
   --quote-canvas-ma-120: #808080;
   --quote-canvas-ma-250: #b42333;
+  --quote-canvas-forecast: #3157e8;
+  --quote-canvas-forecast-band: rgb(49 87 232 / 16%);
 
   --background: var(--canvas);
   --background-plain: var(--panel);

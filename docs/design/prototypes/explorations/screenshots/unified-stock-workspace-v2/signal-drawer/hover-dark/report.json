@@ -1,0 +1,22 @@
+[
+  {
+    "file": "page-悬停第一项-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "悬停第一项",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-悬停第一项-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "悬停第一项",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

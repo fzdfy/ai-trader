@@ -1,0 +1,12 @@
+[
+  {
+    "file": "model-keyboard-focus.png",
+    "state": "model",
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "keyboard-focus",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

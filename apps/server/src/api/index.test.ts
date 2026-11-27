@@ -197,6 +197,42 @@ test("stock analysis returns the aggregate pending PDF count", async () => {
 });
 
 test(
+  "stock analysis exposes a lightweight forecast-only response",
+  { skip: process.env.ADMIN_DB_TESTS === "1" ? false : "set ADMIN_DB_TESTS=1 to run" },
+  async () => {
+    const response = await api.request("/stock-analysis/002594.SZ/forecast");
+    const body = (await response.json()) as {
+      data: {
+        symbol: string;
+        forecasts: Array<{
+          horizon: string;
+          p10: number | null;
+          p50: number | null;
+          p90: number | null;
+        }>;
+      };
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(body.data.symbol, "002594.SZ");
+    assert.deepEqual(
+      body.data.forecasts.map((forecast) => forecast.horizon),
+      ["5D", "20D", "60D"],
+    );
+    assert.ok(
+      body.data.forecasts.every(
+        (forecast) =>
+          forecast.p50 == null ||
+          (forecast.p10 != null &&
+            forecast.p90 != null &&
+            forecast.p10 <= forecast.p50 &&
+            forecast.p50 <= forecast.p90),
+      ),
+    );
+  },
+);
+
+test(
   "stock analysis uses the current fiscal year consensus before later estimates",
   { skip: process.env.ADMIN_DB_TESTS === "1" ? false : "set ADMIN_DB_TESTS=1 to run" },
   async (t) => {

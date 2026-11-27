@@ -22,6 +22,8 @@ export interface QuoteCanvasColors {
   ma60: string;
   ma120: string;
   ma250: string;
+  forecast: string;
+  forecastBand: string;
 }
 
 export function readQuoteCanvasColors(): QuoteCanvasColors {
@@ -46,12 +48,12 @@ export function readQuoteCanvasColors(): QuoteCanvasColors {
     ma60: cssVar("--quote-canvas-ma-60", "#2f6fe0"),
     ma120: cssVar("--quote-canvas-ma-120", "#808080"),
     ma250: cssVar("--quote-canvas-ma-250", "#b42333"),
+    forecast: cssVar("--quote-canvas-forecast", "#3157e8"),
+    forecastBand: cssVar("--quote-canvas-forecast-band", "rgba(49, 87, 232, 0.16)"),
   };
 }
 
-export function quoteCanvasChartStyles(
-  colors: QuoteCanvasColors,
-): DeepPartial<Styles> {
+export function quoteCanvasChartStyles(colors: QuoteCanvasColors): DeepPartial<Styles> {
   const maColors = [
     colors.ma5,
     colors.ma10,

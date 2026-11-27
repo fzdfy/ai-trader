@@ -1,0 +1,42 @@
+[
+  {
+    "file": "page-切换到深度研究-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "切换到深度研究",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-返回快速看盘-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "返回快速看盘",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-切换到深度研究-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "切换到深度研究",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-返回快速看盘-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "返回快速看盘",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

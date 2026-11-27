@@ -1,13 +1,20 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
-import { StockAnalysisDetail } from "./-private/StockAnalysisDetail";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { parseStockWorkspaceSearch, stockWorkspaceSearch } from "../../../../lib/stock-workspace";
 import { normalizeStockSymbol } from "../../../../lib/stock-analysis";
 
 export const Route = createFileRoute("/home/market/analysis/$symbol")({
-  component: StockAnalysisRoute,
+  beforeLoad: ({ location, params }) => {
+    const source = location.search as Record<string, unknown>;
+    const parsed = parseStockWorkspaceSearch(source);
+    throw redirect({
+      to: "/home/market/stock/$symbol",
+      params: { symbol: normalizeStockSymbol(params.symbol) ?? params.symbol },
+      search: stockWorkspaceSearch({
+        ...parsed,
+        mode: "research",
+        tf: source.tf ? parsed.tf : undefined,
+      }),
+      replace: true,
+    });
+  },
 });
-
-function StockAnalysisRoute() {
-  const { symbol } = useParams({ from: "/home/market/analysis/$symbol" });
-  const normalized = normalizeStockSymbol(symbol) ?? symbol;
-  return <StockAnalysisDetail key={normalized} symbol={normalized} />;
-}

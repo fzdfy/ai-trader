@@ -9,6 +9,7 @@
 5. 用真实样例、缺失态、错误态、部分成功态和过期态核对桌面、移动端、浅色和深色设计。
 6. 用户确认设计稿后，才创建实施计划和 OpenSpec 实现任务；确认前 `tasks.md` 只能包含视觉门禁。
 7. 使用 Preline UI + Preline Theme 实现，并用浏览器截图完成视觉 QA。
+8. 实施验收后、归档前，将最终稿提升到 `initial/`，更新并验证 Atlas。
 
 `oil-ui` 来源为 `oil-oil/oil-ui`，项目内固定在 `.agents/skills/oil-ui/`，所有视觉方向与视觉评审统一使用该 skill。
 
@@ -18,9 +19,31 @@
 - `initial/` 保存原始稿与当前默认参考稿。
 - `explorations/` 保存独立探索稿。
 - 不覆盖历史稿；确认并落地后先提升 `initial/` 基准，再回写 Atlas。
+- 有视觉影响的变更完成实施和用户验收后，归档前必须回写 Atlas；只更新探索稿不算完成。
 - `quant-workbench-assistant.html` 是原始资产，基准快照在 `docs/design/prototypes/initial/`，不得直接改写。
 - 当前全局工作台参考稿为 `docs/design/prototypes/initial/quant-workbench-assistant-v2.html`；局部页面设计先从 Atlas 找到该页当前基准再复制，原始稿仅用于追溯。
-- 当前个股分析基准为 `docs/design/prototypes/initial/quant-workbench-stock-analysis-v2.html`。
+- 当前每日看板生产对齐稿为
+  `docs/design/prototypes/explorations/quant-workbench-dashboard-market-radar-v6.html`。
+- 当前行情中心、板块、个股列表、快速行情、个股分析和黄金页的最新生产对齐来源以
+  [`atlas/README.md`](../design/prototypes/atlas/README.md) 的状态表为准。
+- `docs/design/prototypes/initial/quant-workbench-market-center-v1.html` 和
+  `initial/quant-workbench-stock-analysis-v2.html` 继续作为历史确认基准，不再代表当前
+  生产页面；下一轮视觉设计 MUST 从更新后的 Atlas 对应条目复制。
+
+## 归档同步
+
+`visual: regression | new-design` 的变更在用户验收后、归档前必须完成以下动作：
+
+1. 将用户最终验收的视觉稿保存为 `docs/design/prototypes/initial/` 下的稳定基准，
+   不覆盖原探索稿和历史版本；
+2. 在 `docs/design/prototypes/atlas/index.html` 的 `PAGES` 中新增或更新对应页面；
+3. 条目 `source` 指向最终 `initial/` 基准，`evidence` 指向最终实现截图或截图索引，
+   description 标明来源 change；
+4. 从 Atlas 单入口打开条目，验证基准页、关键截图和独立打开链接可用；
+5. 将 Atlas 条目、基准路径、截图索引和浏览器验证结果写入 `verification.md`。
+
+最终基准、Atlas 条目或验证证据缺任一项时，禁止归档。用户确认归档不能替代视觉同步。
+`visual: not-applicable` 的变更不更新 Atlas，但必须保留无可见 UI 影响的具体理由。
 
 ## 主题
 
@@ -57,3 +80,4 @@
 - Preline 交互在路由切换后正确初始化并在卸载时清理。
 - 图标、图表和状态语义一致。
 - 当前全量设计从 `docs/design/prototypes/atlas/index.html` 单入口可浏览。
+- 有视觉影响的变更归档时，Atlas 已包含用户最终验收的基准和截图证据。
