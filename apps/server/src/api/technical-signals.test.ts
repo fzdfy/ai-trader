@@ -52,7 +52,48 @@ const snapshot: StoredTechnicalSignalSnapshot = {
       definitionHash: "c".repeat(64),
     },
   ],
-  summary: { triggered: 0 },
+  summary: {
+    summaryVersion: "signal-judgment-1.0.0",
+    overall: {
+      verdict: "neutral",
+      verdictLabel: "中性",
+      headline: "核心层中性，等待方向确认",
+      rationale: "基础信号中性",
+      confidence: "low",
+      coreLayers: [],
+    },
+    layers: [
+      {
+        layer: "basic",
+        label: "基础信号",
+        verdict: "neutral",
+        verdictLabel: "中性",
+        rationale: "0 多 / 0 空 / 1 中性",
+        confidence: "low",
+        counts: {
+          total: 1,
+          bullish: 0,
+          bearish: 0,
+          neutral: 1,
+          lowConfidence: 0,
+          unavailable: 0,
+          notApplicable: 0,
+          usable: 1,
+          coverage: 1,
+        },
+      },
+    ],
+    counts: {
+      triggered: 0,
+      neutral: 1,
+      invalidated: 0,
+      "low-confidence": 0,
+      unavailable: 0,
+      "not-applicable": 0,
+    },
+    keySignals: [],
+    coverage: 1,
+  },
 };
 
 const app = new Hono();

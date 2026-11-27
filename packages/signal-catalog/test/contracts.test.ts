@@ -5,8 +5,10 @@ import {
   SIGNAL_RESULT_STATUSES,
   validateSignalResult,
   validateSignalSnapshot,
+  validateTechnicalSignalJudgmentSummary,
   type SignalResult,
   type SignalSnapshot,
+  type TechnicalSignalJudgmentSummary,
 } from "../src/contracts.ts";
 
 const result = (overrides: Partial<SignalResult> = {}): SignalResult => ({
@@ -71,6 +73,68 @@ const snapshot = (signals: SignalResult[] = [result()]): SignalSnapshot => ({
   ) as SignalSnapshot["counts"],
   summarySignalIds: signals.map((signal) => signal.signalId),
   signals,
+});
+
+const layerCounts = (
+  overrides: Partial<TechnicalSignalJudgmentSummary["layers"][number]["counts"]> = {},
+) => ({
+  total: 10,
+  bullish: 0,
+  bearish: 0,
+  neutral: 10,
+  lowConfidence: 0,
+  unavailable: 0,
+  notApplicable: 0,
+  usable: 10,
+  coverage: 1,
+  ...overrides,
+});
+
+const judgmentSummary = (
+  overrides: Partial<TechnicalSignalJudgmentSummary> = {},
+): TechnicalSignalJudgmentSummary => ({
+  summaryVersion: "signal-judgment-1.0.0",
+  overall: {
+    verdict: "neutral",
+    verdictLabel: "中性",
+    headline: "核心层中性，等待方向确认",
+    rationale: "基础信号、K 线形态和高级模型均未形成方向。",
+    confidence: "low",
+    coreLayers: ["basic", "pattern", "advanced"],
+  },
+  layers: [
+    {
+      layer: "basic",
+      label: "基础信号",
+      verdict: "neutral",
+      verdictLabel: "中性",
+      rationale: "10 项中性",
+      confidence: "low",
+      counts: layerCounts(),
+    },
+    {
+      layer: "pattern",
+      label: "K 线形态",
+      verdict: "neutral",
+      verdictLabel: "中性",
+      rationale: "10 项中性",
+      confidence: "low",
+      counts: layerCounts(),
+    },
+    {
+      layer: "advanced",
+      label: "高级模型",
+      verdict: "neutral",
+      verdictLabel: "中性",
+      rationale: "10 项中性",
+      confidence: "low",
+      counts: layerCounts(),
+    },
+  ],
+  counts: snapshot().counts,
+  keySignals: [],
+  coverage: 1,
+  ...overrides,
 });
 
 test("accepts a finite stock result and a consistent snapshot", () => {
@@ -141,5 +205,53 @@ test("snapshot summary IDs must reference its own results", () => {
         summarySignalIds: ["basic.stock.rsi_state"],
       }),
     /summary/i,
+  );
+});
+
+test("accepts a versioned layered judgment summary", () => {
+  const summary = validateTechnicalSignalJudgmentSummary(judgmentSummary());
+  assert.equal(summary.summaryVersion, "signal-judgment-1.0.0");
+  assert.equal(summary.layers.length, 3);
+});
+
+test("rejects unknown judgment versions", () => {
+  assert.throws(
+    () =>
+      validateTechnicalSignalJudgmentSummary({
+        ...judgmentSummary(),
+        summaryVersion: "signal-judgment-0.9.0",
+      }),
+    /summaryVersion/i,
+  );
+});
+
+test("rejects microstructure as a core voting layer", () => {
+  assert.throws(
+    () =>
+      validateTechnicalSignalJudgmentSummary({
+        ...judgmentSummary(),
+        overall: {
+          ...judgmentSummary().overall,
+          coreLayers: ["basic", "pattern", "micro"],
+        },
+      }),
+    /coreLayers/i,
+  );
+});
+
+test("rejects inconsistent layer counts", () => {
+  assert.throws(
+    () =>
+      validateTechnicalSignalJudgmentSummary({
+        ...judgmentSummary(),
+        layers: [
+          {
+            ...judgmentSummary().layers[0]!,
+            counts: layerCounts({ total: 11 }),
+          },
+          ...judgmentSummary().layers.slice(1),
+        ],
+      }),
+    /counts/i,
   );
 });

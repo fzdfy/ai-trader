@@ -69,6 +69,62 @@ export interface SignalResult {
 
 export type SignalStatusCounts = Record<SignalStatus, number>;
 
+export const SIGNAL_JUDGMENT_VERSION = "signal-judgment-1.0.0" as const;
+
+export const SIGNAL_JUDGMENT_VERDICTS = [
+  "bullish",
+  "bearish",
+  "neutral",
+  "mixed",
+  "insufficient",
+] as const;
+
+export const SIGNAL_JUDGMENT_CONFIDENCES = ["high", "medium", "low", "insufficient"] as const;
+
+export type SignalJudgmentVerdict = (typeof SIGNAL_JUDGMENT_VERDICTS)[number];
+export type SignalJudgmentConfidence = (typeof SIGNAL_JUDGMENT_CONFIDENCES)[number];
+export type SignalCoreLayer = Extract<SignalLayerName, "basic" | "pattern" | "advanced">;
+
+export interface SignalJudgmentCounts {
+  total: number;
+  bullish: number;
+  bearish: number;
+  neutral: number;
+  lowConfidence: number;
+  unavailable: number;
+  notApplicable: number;
+  usable: number;
+  coverage: number;
+}
+
+export interface SignalLayerJudgment {
+  layer: SignalLayerName;
+  label: string;
+  verdict: SignalJudgmentVerdict;
+  verdictLabel: string;
+  rationale: string;
+  confidence: SignalJudgmentConfidence;
+  counts: SignalJudgmentCounts;
+}
+
+export interface SignalOverallJudgment {
+  verdict: SignalJudgmentVerdict;
+  verdictLabel: string;
+  headline: string;
+  rationale: string;
+  confidence: SignalJudgmentConfidence;
+  coreLayers: SignalCoreLayer[];
+}
+
+export interface TechnicalSignalJudgmentSummary {
+  summaryVersion: typeof SIGNAL_JUDGMENT_VERSION;
+  overall: SignalOverallJudgment;
+  layers: SignalLayerJudgment[];
+  counts: SignalStatusCounts;
+  keySignals: string[];
+  coverage: number;
+}
+
 export interface SignalSnapshot {
   objectType: SignalScope;
   objectSubtype: ObjectSubtype | null;
@@ -332,6 +388,136 @@ const validateCounts = (value: unknown, path: string): SignalStatusCounts => {
       asNonNegativeInteger(counts[status], `${path}.${status}`),
     ]),
   ) as SignalStatusCounts;
+};
+
+const asJudgmentVerdict = (value: unknown, path: string): SignalJudgmentVerdict => {
+  if (!SIGNAL_JUDGMENT_VERDICTS.includes(value as SignalJudgmentVerdict)) {
+    return fail(path, `must be one of ${SIGNAL_JUDGMENT_VERDICTS.join(", ")}`);
+  }
+  return value as SignalJudgmentVerdict;
+};
+
+const asJudgmentConfidence = (value: unknown, path: string): SignalJudgmentConfidence => {
+  if (!SIGNAL_JUDGMENT_CONFIDENCES.includes(value as SignalJudgmentConfidence)) {
+    return fail(path, `must be one of ${SIGNAL_JUDGMENT_CONFIDENCES.join(", ")}`);
+  }
+  return value as SignalJudgmentConfidence;
+};
+
+const asSignalLayer = (value: unknown, path: string): SignalLayerName => {
+  if (!["basic", "pattern", "advanced", "micro"].includes(String(value))) {
+    return fail(path, "must be basic, pattern, advanced or micro");
+  }
+  return value as SignalLayerName;
+};
+
+const asCoreLayer = (value: unknown, path: string): SignalCoreLayer => {
+  const layer = asSignalLayer(value, path);
+  if (layer === "micro") {
+    return fail(path, "microstructure is auxiliary and cannot vote in the object total");
+  }
+  return layer;
+};
+
+const asCoverage = (value: unknown, path: string): number => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    return fail(path, "must be a finite number between 0 and 1");
+  }
+  return value;
+};
+
+const validateJudgmentCounts = (value: unknown, path: string): SignalJudgmentCounts => {
+  const counts = asRecord(value, path);
+  const total = asNonNegativeInteger(counts.total, `${path}.total`);
+  const bullish = asNonNegativeInteger(counts.bullish, `${path}.bullish`);
+  const bearish = asNonNegativeInteger(counts.bearish, `${path}.bearish`);
+  const neutral = asNonNegativeInteger(counts.neutral, `${path}.neutral`);
+  const lowConfidence = asNonNegativeInteger(counts.lowConfidence, `${path}.lowConfidence`);
+  const unavailable = asNonNegativeInteger(counts.unavailable, `${path}.unavailable`);
+  const notApplicable = asNonNegativeInteger(counts.notApplicable, `${path}.notApplicable`);
+  const usable = asNonNegativeInteger(counts.usable, `${path}.usable`);
+  const coverage = asCoverage(counts.coverage, `${path}.coverage`);
+  const classified = bullish + bearish + neutral + lowConfidence + unavailable + notApplicable;
+  if (classified !== total) {
+    return fail(path, "direction and availability counts must sum to total");
+  }
+  if (usable !== bullish + bearish + neutral) {
+    return fail(path, "usable must equal bullish + bearish + neutral");
+  }
+  const expectedCoverage = total === 0 ? 0 : usable / total;
+  if (Math.abs(expectedCoverage - coverage) > 1e-9) {
+    return fail(path, "coverage must equal usable / total");
+  }
+  return {
+    total,
+    bullish,
+    bearish,
+    neutral,
+    lowConfidence,
+    unavailable,
+    notApplicable,
+    usable,
+    coverage,
+  };
+};
+
+export const validateTechnicalSignalJudgmentSummary = (
+  input: unknown,
+): TechnicalSignalJudgmentSummary => {
+  const path = "technicalSignalJudgmentSummary";
+  const record = asRecord(input, path);
+  const summaryVersion = asString(record.summaryVersion, `${path}.summaryVersion`);
+  if (summaryVersion !== SIGNAL_JUDGMENT_VERSION) {
+    return fail(
+      `${path}.summaryVersion`,
+      `must equal ${SIGNAL_JUDGMENT_VERSION}; received ${summaryVersion}`,
+    );
+  }
+
+  const overallRecord = asRecord(record.overall, `${path}.overall`);
+  const coreLayers = asStringArray(overallRecord.coreLayers, `${path}.overall.coreLayers`).map(
+    (layer, index) => asCoreLayer(layer, `${path}.overall.coreLayers[${index}]`),
+  );
+  if (new Set(coreLayers).size !== coreLayers.length) {
+    return fail(`${path}.overall.coreLayers`, "must not contain duplicates");
+  }
+  const overall: SignalOverallJudgment = {
+    verdict: asJudgmentVerdict(overallRecord.verdict, `${path}.overall.verdict`),
+    verdictLabel: asString(overallRecord.verdictLabel, `${path}.overall.verdictLabel`),
+    headline: asString(overallRecord.headline, `${path}.overall.headline`),
+    rationale: asString(overallRecord.rationale, `${path}.overall.rationale`),
+    confidence: asJudgmentConfidence(overallRecord.confidence, `${path}.overall.confidence`),
+    coreLayers,
+  };
+
+  if (!Array.isArray(record.layers)) {
+    return fail(`${path}.layers`, "must be an array");
+  }
+  const layers = record.layers.map((item, index) => {
+    const layerPath = `${path}.layers[${index}]`;
+    const layerRecord = asRecord(item, layerPath);
+    return {
+      layer: asSignalLayer(layerRecord.layer, `${layerPath}.layer`),
+      label: asString(layerRecord.label, `${layerPath}.label`),
+      verdict: asJudgmentVerdict(layerRecord.verdict, `${layerPath}.verdict`),
+      verdictLabel: asString(layerRecord.verdictLabel, `${layerPath}.verdictLabel`),
+      rationale: asString(layerRecord.rationale, `${layerPath}.rationale`),
+      confidence: asJudgmentConfidence(layerRecord.confidence, `${layerPath}.confidence`),
+      counts: validateJudgmentCounts(layerRecord.counts, `${layerPath}.counts`),
+    } satisfies SignalLayerJudgment;
+  });
+  if (new Set(layers.map((layer) => layer.layer)).size !== layers.length) {
+    return fail(`${path}.layers`, "must not contain duplicate layers");
+  }
+
+  return {
+    summaryVersion: SIGNAL_JUDGMENT_VERSION,
+    overall,
+    layers,
+    counts: validateCounts(record.counts, `${path}.counts`),
+    keySignals: asUniqueStringArray(record.keySignals, `${path}.keySignals`),
+    coverage: asCoverage(record.coverage, `${path}.coverage`),
+  };
 };
 
 const sameNullableSubtype = (left: ObjectSubtype | null, right: ObjectSubtype | null): boolean =>

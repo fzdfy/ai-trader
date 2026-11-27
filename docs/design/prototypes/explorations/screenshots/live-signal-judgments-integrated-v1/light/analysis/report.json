@@ -1,0 +1,70 @@
+[
+  {
+    "file": "page-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 127,
+        "examples": [
+          "p.font-mono.text-[10px]「STOCK RESEARCH · 002594.」（10px）",
+          "p.font-mono.text-[9px]「DETERMINISTIC SYNTHESIS 」（9px）",
+          "p.mt-4.border-t「本页为研究辅助，不构成投资建议。预测数字来自历史」（9px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 5,
+        "examples": [
+          "button.hs-dropdown-toggle.focus-ring「a 研究员 量化研究 · Pro」（首屏 4 块各自加框）",
+          "div.rounded-xl.border「情景与风险区间 区间来源与技术、估值、情景解释合」（框里又有 3 个加框的块）",
+          "div.rounded-xl.border「机构预测 一致预期与研报样本 2026 EPS 」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "page-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "smallText",
+        "label": "文字小于 11px",
+        "count": 123,
+        "examples": [
+          "p.font-mono.text-[10px]「STOCK RESEARCH · 002594.」（10px）",
+          "p.font-mono.text-[9px]「DETERMINISTIC SYNTHESIS 」（9px）",
+          "p.mt-4.border-t「本页为研究辅助，不构成投资建议。预测数字来自历史」（9px）"
+        ]
+      },
+      {
+        "rule": "inputZoom",
+        "label": "手机上输入框字号小于 16px（聚焦时 iOS 会自动放大页面）",
+        "count": 1,
+        "examples": [
+          "input#_r_4_.focus-ring.h-9（14px）"
+        ]
+      },
+      {
+        "rule": "boxedGroups",
+        "label": "用边框分组过多（首屏多块各自加框，或框里又套着几个加框的小块）",
+        "count": 4,
+        "examples": [
+          "div.rounded-xl.border「情景与风险区间 区间来源与技术、估值、情景解释合」（框里又有 3 个加框的块）",
+          "div.rounded-xl.border「机构预测 一致预期与研报样本 2026 EPS 」（框里又有 4 个加框的块）",
+          "div.rounded-xl.border「财务与估值 最新快照与历史分位 PE TTM 2」（框里又有 4 个加框的块）"
+        ]
+      }
+    ]
+  }
+]

@@ -230,6 +230,28 @@ test("job orchestration runs market, gold, boards and stocks in dependency order
   assert.deepEqual(order, ["market:", "gold:", "sector:industry", "sector:concept", "stock:"]);
 });
 
+test("worker persists a versioned layered judgment summary", async () => {
+  let persistedSummary: unknown;
+  await processTechnicalSignalBatches(
+    [{ objectType: "stock", objectSubtype: null, objectCode: "600519.SH" }],
+    dependencies({
+      persist: async (write) => {
+        persistedSummary = write.summary;
+      },
+    }),
+  );
+
+  const summary = persistedSummary as {
+    summaryVersion?: string;
+    overall?: { verdict?: string; coreLayers?: string[] };
+    layers?: Array<{ layer: string; verdict: string }>;
+  };
+  assert.equal(summary.summaryVersion, "signal-judgment-1.0.0");
+  assert.equal(summary.overall?.verdict, "neutral");
+  assert.ok(!summary.overall?.coreLayers?.includes("micro"));
+  assert.ok(summary.layers?.some((layer) => layer.layer === "basic"));
+});
+
 test("cron graph places technical signals after their source domains", () => {
   const jobs = Object.fromEntries(CRON_JOBS.map((job) => [job.name, job]));
   assert.deepEqual(jobs["technical-signals-market"]?.dependsOn, [

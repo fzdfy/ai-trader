@@ -97,6 +97,9 @@ test("stock analyzer builds a 44-signal matrix from Quant plus server factors", 
   assert.equal(module.technical?.close, 80);
   assert.equal(module.technical?.ma20, 97);
   assert.equal(module.catalogVersion, "technical-signals-1.0.0");
+  assert.equal(module.summary.summaryVersion, "signal-judgment-1.0.0");
+  assert.ok(module.summary.layers.some((layer) => layer.layer === "micro"));
+  assert.ok(!module.summary.overall.coreLayers.some((layer) => String(layer) === "micro"));
 });
 
 test("missing Quant technical leaves technical null without hiding available signals", async () => {

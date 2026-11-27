@@ -192,32 +192,6 @@ export function formatExcessReturn(value: number | null): string {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}pct`;
 }
 
-export function marketBreadthNarrative(input: {
-  industry: { total: number; rising: number; falling: number };
-  growthRelative20d: number | null;
-  growthState: GrowthDefenseRotation["current"]["state"];
-}): string {
-  const breadth =
-    input.industry.total <= 0
-      ? "行业广度数据不足"
-      : input.industry.rising > input.industry.falling
-        ? "行业广度偏强"
-        : input.industry.rising < input.industry.falling
-          ? "行业广度偏弱"
-          : "行业广度均衡";
-  const style =
-    input.growthRelative20d != null && input.growthRelative20d > 0
-      ? "成长风格继续领先"
-      : input.growthRelative20d != null && input.growthRelative20d < 0
-        ? "防守风格继续领先"
-        : input.growthState === "低区"
-          ? "成长风格占优"
-          : input.growthState === "高区"
-            ? "防守风格占优"
-            : "风格轮动中性";
-  return `${breadth}，${style}`;
-}
-
 export function buildLimitUpConcentration(
   leaders: Array<{ industry: string | null; count: number }>,
   total: number,

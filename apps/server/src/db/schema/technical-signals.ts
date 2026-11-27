@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import type { TechnicalSignalJudgmentSummary } from "../../../../../packages/signal-catalog/src/contracts";
 
 export const technicalSignalSnapshot = pgTable(
   "technical_signal_snapshot",
@@ -30,7 +31,7 @@ export const technicalSignalSnapshot = pgTable(
       .default(sql`'[]'::jsonb`),
     signalsJson: jsonb("signals_json").$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
     summaryJson: jsonb("summary_json")
-      .$type<Record<string, unknown>>()
+      .$type<TechnicalSignalJudgmentSummary>()
       .notNull()
       .default(sql`'{}'::jsonb`),
   },

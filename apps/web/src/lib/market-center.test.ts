@@ -12,7 +12,6 @@ import {
   legacyMarketRedirect,
   MARKET_CAP_HEATMAP_LIMIT,
   MARKET_PAGE_SIZE,
-  marketBreadthNarrative,
   mainIndexSampleLabel,
   marketRotationRequestPath,
   marketCenterTabForPath,
@@ -133,25 +132,6 @@ test("main index relative values use percentage points and explicit sample label
   assert.equal(
     marketRotationRequestPath("main-benchmark", "20D"),
     "/api/v1/market-center/rotation?scope=main-benchmark&window=20D",
-  );
-});
-
-test("market breadth narrative combines industry breadth with the current style lead", () => {
-  assert.equal(
-    marketBreadthNarrative({
-      industry: { total: 496, rising: 445, falling: 51 },
-      growthRelative20d: 1.8,
-      growthState: "中间区",
-    }),
-    "行业广度偏强，成长风格继续领先",
-  );
-  assert.equal(
-    marketBreadthNarrative({
-      industry: { total: 496, rising: 191, falling: 304 },
-      growthRelative20d: -14.5,
-      growthState: "中间区",
-    }),
-    "行业广度偏弱，防守风格继续领先",
   );
 });
 

@@ -3,6 +3,7 @@ import type {
   ObjectSubtype,
   SignalResult,
   SignalStatus,
+  TechnicalSignalJudgmentSummary,
 } from "@ai-trader/signal-catalog/contracts";
 import type { SignalScope } from "@ai-trader/signal-catalog";
 
@@ -18,7 +19,7 @@ export interface StoredTechnicalSignalSnapshot {
   quality: "available" | "low" | "missing";
   dataSources: string[];
   signals: SignalResult[];
-  summary: Record<string, unknown>;
+  summary: TechnicalSignalJudgmentSummary | null;
 }
 
 export interface StockSignalSummary {

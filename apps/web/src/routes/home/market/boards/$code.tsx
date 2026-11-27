@@ -165,6 +165,7 @@ function BoardDetailContent() {
         title="板块技术诊断"
         description="板块指数、成分广度与高级轮动证据统一在一张卡内查看。"
         layers={groupSignalsByLayer(technical.data?.signals ?? [])}
+        judgment={technical.data?.summary}
         asOf={technical.data?.asOf}
         catalogVersion={technical.data?.catalogVersion}
         isLoading={technical.isLoading}

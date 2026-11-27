@@ -1,0 +1,102 @@
+[
+  {
+    "file": "page-大盘-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "大盘",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-板块-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-个股-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "个股",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-黄金-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "黄金",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-个股部分成功-1440x900.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "group": "个股部分成功",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-大盘-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "大盘",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-板块-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "板块",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-个股-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "个股",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-黄金-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "黄金",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "page-个股部分成功-390x844.png",
+    "state": null,
+    "size": "390x844",
+    "zoom": 1,
+    "group": "个股部分成功",
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  }
+]

@@ -67,7 +67,48 @@ const snapshot = (
     signal("basic.stock.price_vs_ma200", "triggered", 0.04),
     signal("basic.stock.rsi_state", "neutral", 55),
   ],
-  summary: { triggered: 1 },
+  summary: {
+    summaryVersion: "signal-judgment-1.0.0",
+    overall: {
+      verdict: "bullish",
+      verdictLabel: "偏强",
+      headline: "核心层偏强，等待更多层级确认",
+      rationale: "基础信号偏多",
+      confidence: "low",
+      coreLayers: ["basic"],
+    },
+    layers: [
+      {
+        layer: "basic",
+        label: "基础信号",
+        verdict: "bullish",
+        verdictLabel: "偏多",
+        rationale: "1 多 / 0 空 / 0 中性",
+        confidence: "low",
+        counts: {
+          total: 2,
+          bullish: 1,
+          bearish: 0,
+          neutral: 1,
+          lowConfidence: 0,
+          unavailable: 0,
+          notApplicable: 0,
+          usable: 2,
+          coverage: 1,
+        },
+      },
+    ],
+    counts: {
+      triggered: 1,
+      neutral: 1,
+      invalidated: 0,
+      "low-confidence": 0,
+      unavailable: 0,
+      "not-applicable": 0,
+    },
+    keySignals: ["basic.stock.price_vs_ma200"],
+    coverage: 1,
+  },
   ...overrides,
 });
 
@@ -161,4 +202,65 @@ test("historical mapping preserves stored catalog version and definition hash", 
   assert.equal(stored.definitionHash, "d".repeat(64));
   assert.equal(stored.inputHash, "e".repeat(64));
   assert.equal(stored.signals[0]?.catalogVersion, "technical-signals-1.0.0");
+  assert.equal(stored.summary, null);
+});
+
+test("historical mapping preserves a valid versioned judgment summary", () => {
+  const stored = mapStoredSnapshotRow({
+    objectType: "stock",
+    objectSubtype: "",
+    objectCode: "600519.SH",
+    asOf: "2026-11-25",
+    catalogVersion: "technical-signals-1.0.0",
+    computedAt: new Date("2026-11-26T08:00:00.000Z"),
+    definitionHash: "d".repeat(64),
+    inputHash: "e".repeat(64),
+    quality: "available",
+    dataSourcesJson: ["bar1d_hfq"],
+    signalsJson: [signal("basic.stock.price_vs_ma200", "triggered", 0.03)],
+    summaryJson: {
+      summaryVersion: "signal-judgment-1.0.0",
+      overall: {
+        verdict: "bullish",
+        verdictLabel: "偏强",
+        headline: "核心层偏强，等待更多层级确认",
+        rationale: "基础信号偏多",
+        confidence: "low",
+        coreLayers: ["basic"],
+      },
+      layers: [
+        {
+          layer: "basic",
+          label: "基础信号",
+          verdict: "bullish",
+          verdictLabel: "偏多",
+          rationale: "1 多 / 0 空 / 0 中性",
+          confidence: "low",
+          counts: {
+            total: 1,
+            bullish: 1,
+            bearish: 0,
+            neutral: 0,
+            lowConfidence: 0,
+            unavailable: 0,
+            notApplicable: 0,
+            usable: 1,
+            coverage: 1,
+          },
+        },
+      ],
+      counts: {
+        triggered: 1,
+        neutral: 0,
+        invalidated: 0,
+        "low-confidence": 0,
+        unavailable: 0,
+        "not-applicable": 0,
+      },
+      keySignals: ["basic.stock.price_vs_ma200"],
+      coverage: 1,
+    },
+  });
+  assert.equal(stored.summary?.summaryVersion, "signal-judgment-1.0.0");
+  assert.equal(stored.summary?.overall.verdict, "bullish");
 });

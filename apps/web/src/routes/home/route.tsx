@@ -438,7 +438,7 @@ function HomeLayout() {
           />
           <div
             ref={contentRef}
-            className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6"
           >
             <Outlet />
           </div>

@@ -622,6 +622,7 @@ export function StockAnalysisDetail({ symbol }: { symbol: string }) {
         title="技术信号诊断"
         description="基础、K 线形态、高级模型与微观结构在同一模块内分层查看；证据按需展开。"
         layers={signalLayers}
+        judgment={data.technicalSignalMeta.summary}
         asOf={data.technicalSignals.asOf}
         catalogVersion={data.technicalSignalMeta.catalogVersion}
         partialMessage={

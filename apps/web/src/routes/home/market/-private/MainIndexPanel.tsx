@@ -22,15 +22,9 @@ type MainIndexMode = "quote" | "benchmark";
 
 const BENCHMARK_SURFACE =
   "linear-gradient(110deg, color-mix(in srgb, var(--primary) 6%, var(--panel)) 0%, color-mix(in srgb, var(--primary) 3%, var(--panel)) 42%, var(--panel) 88%)";
-const MARKET_BREADTH_SURFACE = "color-mix(in srgb, var(--surface) 52%, var(--panel))";
 
 interface MainIndexPanelProps {
   data: MainIndexSection;
-  breadth: {
-    industry: { total: number; rising: number; falling: number; flat: number };
-    asOf: string | null;
-    narrative: string;
-  };
 }
 
 function sourceLabel(source: MainIndexItem["source"]): string {
@@ -306,46 +300,7 @@ function BenchmarkMode({
   );
 }
 
-function MarketBreadthFooter({ breadth }: { breadth: MainIndexPanelProps["breadth"] }) {
-  const risingRatio =
-    breadth.industry.total > 0 ? (breadth.industry.rising / breadth.industry.total) * 100 : 0;
-  return (
-    <div
-      className="grid gap-4 border-t border-app-line px-4 py-4 md:grid-cols-[minmax(0,1fr)_minmax(220px,.55fr)] md:items-end"
-      style={{ background: MARKET_BREADTH_SURFACE }}
-    >
-      <div>
-        <p className="font-mono text-[10px] font-semibold tracking-[0.12em] text-primary">
-          A-SHARE BREADTH
-        </p>
-        <strong className="mt-1.5 block text-sm text-app-ink">{breadth.narrative}</strong>
-        <p className="mt-1 text-[10px] text-app-muted">
-          {breadth.industry.rising} 上涨 / {breadth.industry.falling} 下跌 ·{" "}
-          {breadth.industry.total} 个行业 · 上涨占比 {risingRatio.toFixed(1)}%
-        </p>
-      </div>
-      <div>
-        <div
-          className="flex h-2.5 overflow-hidden rounded-full bg-chart-down/20"
-          role="img"
-          aria-label={`行业上涨 ${breadth.industry.rising} 个，下跌 ${breadth.industry.falling} 个`}
-        >
-          <div
-            className="h-full bg-chart-up"
-            style={{ width: `${Math.min(Math.max(risingRatio, 0), 100)}%` }}
-          />
-          <div className="h-full flex-1 bg-chart-down" />
-        </div>
-        <div className="mt-2 flex items-center justify-between font-mono text-[9px] text-app-muted">
-          <span className="text-chart-up-strong">上涨 {risingRatio.toFixed(1)}%</span>
-          <span className="text-chart-down-strong">下跌 {(100 - risingRatio).toFixed(1)}%</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function MainIndexPanel({ data, breadth }: MainIndexPanelProps) {
+export function MainIndexPanel({ data }: MainIndexPanelProps) {
   const [mode, setMode] = useState<MainIndexMode>("quote");
   const [window, setWindow] = useState<RotationWindow>("20D");
   const benchmark = useMainBenchmarkRotation(window, mode === "benchmark");
@@ -413,8 +368,6 @@ export function MainIndexPanel({ data, breadth }: MainIndexPanelProps) {
       ) : (
         <BenchmarkMode data={benchmark.data} window={window} />
       )}
-
-      <MarketBreadthFooter breadth={breadth} />
     </Card>
   );
 }

@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SignalResult, SignalStatus } from "@ai-trader/signal-catalog/contracts";
+import type {
+  SignalResult,
+  SignalStatus,
+  TechnicalSignalJudgmentSummary,
+} from "@ai-trader/signal-catalog/contracts";
 import {
   normalizeCompareSymbols,
   shouldPollResearchIndex,
@@ -88,6 +92,7 @@ export interface StockAnalysisResponse {
   technicalSignalMeta: {
     catalogVersion: string;
     counts: Record<SignalStatus, number>;
+    summary: TechnicalSignalJudgmentSummary;
     inputHash: string;
     computedAt: string;
   };

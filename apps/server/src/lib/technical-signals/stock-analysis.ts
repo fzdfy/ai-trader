@@ -1,6 +1,7 @@
 import type {
   SignalResult,
   SignalStatus,
+  TechnicalSignalJudgmentSummary,
 } from "../../../../../packages/signal-catalog/src/contracts.ts";
 import { CATALOG_VERSION } from "../../../../../packages/signal-catalog/src/index.ts";
 import type { TechnicalSnapshot } from "../stock-analysis-data";
@@ -8,6 +9,7 @@ import { quant } from "../quant";
 import { evaluateStockAdvancedModels } from "./advanced";
 import type { StockAdvancedContext } from "./advanced";
 import type { TechnicalSignalBar } from "./adapters";
+import { buildSignalJudgmentSummary } from "./judgment";
 
 type QuantTechnical = Omit<TechnicalSnapshot, "asOf"> & { asOf: string };
 
@@ -18,6 +20,7 @@ export interface StockTechnicalModule {
   inputHash: string;
   quality: "available" | "low" | "missing";
   counts: Record<SignalStatus, number>;
+  summary: TechnicalSignalJudgmentSummary;
   technical: TechnicalSnapshot | null;
   signals: SignalResult[];
 }
@@ -132,6 +135,10 @@ export async function buildStockTechnicalSignalModule(
     inputHash: response.inputHash,
     quality: technical == null ? "low" : "available",
     counts: countSignals(signals),
+    summary: buildSignalJudgmentSummary({
+      objectType: "stock",
+      signals,
+    }),
     technical,
     signals,
   };

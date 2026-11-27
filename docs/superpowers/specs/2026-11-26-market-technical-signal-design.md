@@ -316,6 +316,26 @@ Server 负责：
 - 生成 `summary_signals`，写入快照和触发索引。
 - 提供目录、摘要、详情和个股分析聚合数据。
 
+### Layered Judgment Summary
+
+Server 使用纯函数生成版本化 `judgment summary`，不调用 Agent 决定方向。摘要至少包含：
+
+- `summaryVersion`：固定版本，例如 `signal-judgment-1.0.0`。
+- `overall`：一个对象总判断，包含方向、标签、说明、置信度和参与投票的核心层。
+- `layers`：基础信号、K 线形态、高级模型和适用时微观结构各自的方向、标签、说明、置信度与计数。
+- `counts`、`keySignals` 和 `coverage`：供摘要与详情复用。
+
+投票规则：
+
+- 只有非低质量的 `triggered` 与 `invalidated` 结果参与方向计数。
+- `risk` 方向归入风险侧；`neutral` 只表示已评估但无方向。
+- `low-confidence`、`unavailable` 和 `not-applicable` 不计入方向票数，也不能补成中性或零值。
+- 对象总判断只使用基础信号、K 线形态和高级模型三个核心层。
+- 个股微观结构只可下调总判断置信度，不能覆盖核心层方向。
+- 两个及以上核心层同向时形成偏多或偏空；核心层方向冲突或覆盖不足时形成分歧或证据不足。
+
+摘要随 `summary_json` 持久化；Web 只展示 Server 返回的版本化结果。
+
 先进模型只使用 Server 已登记的数据域；不能因为某一因子缺失而把剩余因子重新归一化后仍标记为完整。
 
 ## Persistence
@@ -340,6 +360,7 @@ Server 负责：
 - `data_sources_json`
 - `signals_json`: 紧凑结果数组，包含 32 或 44 项完整结果
 - `summary_json`: 页面摘要、触发数量、关键信号和缺失域
+- `summary_json` 同时保存版本化对象总判断、分层判断和覆盖率；旧快照无合法摘要时不使用 Web 端推测值。
 
 ### `technical_signal_trigger`
 

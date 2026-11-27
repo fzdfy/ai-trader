@@ -1,4 +1,9 @@
-import type { SignalResult, SignalStatus } from "@ai-trader/signal-catalog/contracts";
+import type {
+  SignalJudgmentVerdict,
+  SignalResult,
+  SignalStatus,
+  TechnicalSignalJudgmentSummary,
+} from "@ai-trader/signal-catalog/contracts";
 
 export const SIGNAL_FILTERS = [
   { value: "all", label: "全部" },
@@ -16,8 +21,8 @@ const STATUS_META: Record<
 > = {
   triggered: {
     label: "已触发",
-    className: "border-app-success/25 bg-app-success/10 text-app-success",
-    dotClassName: "bg-app-success",
+    className: "border-primary/25 bg-primary/10 text-primary",
+    dotClassName: "bg-primary",
   },
   neutral: {
     label: "中性",
@@ -26,8 +31,8 @@ const STATUS_META: Record<
   },
   invalidated: {
     label: "已失效",
-    className: "border-destructive/25 bg-destructive/10 text-destructive",
-    dotClassName: "bg-destructive",
+    className: "border-app-line bg-app-surface text-app-ink",
+    dotClassName: "bg-app-ink",
   },
   "low-confidence": {
     label: "低置信",
@@ -47,6 +52,46 @@ const STATUS_META: Record<
 };
 
 export const signalStatusMeta = (status: SignalStatus) => STATUS_META[status];
+
+const JUDGMENT_META: Record<SignalJudgmentVerdict, { className: string; dotClassName: string }> = {
+  bullish: {
+    className: "border-primary/25 bg-primary/10 text-primary",
+    dotClassName: "bg-primary",
+  },
+  bearish: {
+    className: "border-app-line bg-app-surface text-app-ink",
+    dotClassName: "bg-app-ink",
+  },
+  neutral: {
+    className: "border-app-line bg-app-surface text-app-muted",
+    dotClassName: "bg-app-muted",
+  },
+  mixed: {
+    className: "border-app-warning/35 bg-app-warning/15 text-app-ink",
+    dotClassName: "bg-app-warning",
+  },
+  insufficient: {
+    className: "border-app-line bg-app-panel text-app-muted",
+    dotClassName: "border border-app-line bg-transparent",
+  },
+};
+
+export const judgmentVerdictMeta = (verdict: SignalJudgmentVerdict) => JUDGMENT_META[verdict];
+
+export const judgmentLayer = (
+  judgment: TechnicalSignalJudgmentSummary | null | undefined,
+  layer: string,
+) => judgment?.layers.find((item) => item.layer === layer) ?? null;
+
+export const judgmentConfidenceLabel = (
+  confidence: TechnicalSignalJudgmentSummary["overall"]["confidence"],
+): string =>
+  ({
+    high: "高",
+    medium: "中",
+    low: "低",
+    insufficient: "证据不足",
+  })[confidence];
 
 export function filterSignals(
   signals: readonly SignalResult[],

@@ -1,0 +1,1119 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apollo Quant · 分层技术判断确认稿</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --canvas: #f6f5f1;
+        --panel: #ffffff;
+        --surface: #f0f2f7;
+        --surface-strong: #e7ebf4;
+        --ink: #202a42;
+        --ink-secondary: #40506c;
+        --muted: #5f6d84;
+        --faint: #8793a7;
+        --line: #dce2ec;
+        --line-strong: #c9d1df;
+        --primary: #3157e8;
+        --primary-solid: #3157e8;
+        --primary-soft: #edf1ff;
+        --warning: #a66b00;
+        --warning-text: #704300;
+        --warning-soft: #fff4d6;
+        --shadow: 0 10px 28px rgba(32, 42, 66, 0.06);
+        --radius: 16px;
+      }
+
+      .dark {
+        color-scheme: dark;
+        --canvas: #101521;
+        --panel: #171e2d;
+        --surface: #20293a;
+        --surface-strong: #283348;
+        --ink: #edf2fb;
+        --ink-secondary: #c8d1e2;
+        --muted: #9ba9bf;
+        --faint: #74839a;
+        --line: #2b3548;
+        --line-strong: #3a465c;
+        --primary: #7f9cff;
+        --primary-solid: #3157e8;
+        --primary-soft: rgba(75, 105, 220, 0.17);
+        --warning: #f3c765;
+        --warning-text: #ffe39a;
+        --warning-soft: rgba(166, 107, 0, 0.16);
+        --shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        overflow: hidden;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .app {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        width: 236px;
+        flex: 0 0 236px;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: linear-gradient(175deg, #eef1f7, #f8f7f4);
+      }
+
+      .dark .sidebar {
+        background: linear-gradient(175deg, #1a2232, #121826);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 30px;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 11px;
+        background: var(--primary-solid);
+        color: white;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .brand strong,
+      .brand span {
+        display: block;
+      }
+
+      .brand strong {
+        font-size: 14px;
+      }
+
+      .brand span {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .nav-group {
+        margin: 19px 0;
+      }
+
+      .nav-label {
+        margin: 0 8px 7px;
+        color: var(--faint);
+        font-size: 11px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 34px;
+        margin: 2px 0;
+        padding: 0 10px;
+        border-radius: 9px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .nav-item.active {
+        background: var(--primary-solid);
+        color: white;
+        box-shadow: 0 8px 20px rgba(49, 87, 232, 0.2);
+      }
+
+      .nav-icon {
+        display: grid;
+        width: 15px;
+        place-items: center;
+        font-size: 12px;
+      }
+
+      .workspace {
+        min-width: 0;
+        flex: 1;
+        overflow: auto;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 2;
+        top: 0;
+        display: flex;
+        min-height: 60px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 26px;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in srgb, var(--canvas) 94%, transparent);
+        backdrop-filter: blur(14px);
+      }
+
+      .crumb {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .crumb strong {
+        color: var(--ink);
+      }
+
+      .demo-tools {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 8px;
+      }
+
+      .tool-button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--panel);
+        color: var(--ink-secondary);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .tool-button:focus-visible,
+      .layer-tab:focus-visible,
+      .filter-button:focus-visible,
+      .expand-button:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      .content {
+        width: min(100%, 1500px);
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      .page-kicker {
+        margin: 0 0 8px;
+        color: var(--primary);
+        font: 700 11px/1.2 "SFMono-Regular", Menlo, monospace;
+        letter-spacing: 0.12em;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(30px, 4vw, 44px);
+        letter-spacing: -0.045em;
+        line-height: 1;
+      }
+
+      .page-description {
+        margin: 10px 0 22px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .object-switch {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+
+      .object-switch button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--panel);
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .object-switch button[aria-pressed="true"] {
+        border-color: color-mix(in srgb, var(--primary) 32%, var(--line));
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .diagnosis {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px 20px 15px;
+      }
+
+      .title-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.025em;
+      }
+
+      .version {
+        padding: 3px 7px;
+        background: var(--surface);
+        border-radius: 999px;
+        color: var(--muted);
+        font: 600 11px/1.2 "SFMono-Regular", Menlo, monospace;
+      }
+
+      .card-description {
+        max-width: 760px;
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.65;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .meta span {
+        padding: 5px 9px;
+        background: var(--surface);
+        border-radius: 999px;
+        color: var(--muted);
+        font: 500 11px/1.2 "SFMono-Regular", Menlo, monospace;
+      }
+
+      .overall {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
+        gap: 18px;
+        padding: 18px 20px;
+        background:
+          radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 38%),
+          var(--panel);
+      }
+
+      .eyebrow {
+        color: var(--primary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      .overall-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 9px;
+        margin-top: 7px;
+      }
+
+      .judgment {
+        display: inline-flex;
+        min-height: 30px;
+        align-items: center;
+        gap: 7px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .judgment.weak {
+        background: color-mix(in srgb, var(--ink-secondary) 8%, var(--panel));
+      }
+
+      .judgment.strong {
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .judgment.mixed,
+      .judgment.low-confidence {
+        background: var(--warning-soft);
+        color: var(--warning-text);
+      }
+
+      .judgment.insufficient {
+        background: var(--surface);
+        color: var(--muted);
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .overall-headline {
+        margin: 10px 0 0;
+        font-size: 22px;
+        font-weight: 750;
+        letter-spacing: -0.025em;
+      }
+
+      .overall-copy {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .layer-matrix {
+        display: grid;
+        gap: 7px;
+        align-content: start;
+      }
+
+      .layer-judgment {
+        display: grid;
+        grid-template-columns: 94px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--surface) 62%, var(--panel));
+      }
+
+      .layer-judgment strong {
+        font-size: 12px;
+      }
+
+      .layer-judgment p {
+        margin: 0;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.5;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .quality {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        padding: 10px 20px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .quality strong {
+        color: var(--ink);
+        font-family: "SFMono-Regular", Menlo, monospace;
+      }
+
+      .partial-note {
+        display: flex;
+        gap: 8px;
+        margin: 12px 20px 0;
+        padding: 10px 11px;
+        border-radius: 9px;
+        background: var(--warning-soft);
+        color: var(--ink-secondary);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .partial-note[hidden] {
+        display: none;
+      }
+
+      .layer-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 20px;
+      }
+
+      .layer-tabs,
+      .filters {
+        display: flex;
+        gap: 5px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .layer-tabs::-webkit-scrollbar,
+      .filters::-webkit-scrollbar {
+        display: none;
+      }
+
+      .layer-tab,
+      .filter-button {
+        flex: 0 0 auto;
+        min-height: 32px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .layer-tab {
+        padding: 0 10px;
+      }
+
+      .layer-tab span {
+        margin-left: 5px;
+        font-family: "SFMono-Regular", Menlo, monospace;
+        font-size: 11px;
+      }
+
+      .layer-tab[aria-selected="true"] {
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .filter-button {
+        padding: 0 9px;
+        background: var(--surface);
+      }
+
+      .filter-button[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--panel);
+      }
+
+      .layer-summary {
+        display: grid;
+        grid-template-columns: minmax(160px, 0.55fr) minmax(0, 1.45fr);
+        gap: 16px;
+        margin: 14px 20px;
+        padding: 12px 14px;
+        border-radius: 11px;
+        background: var(--surface);
+      }
+
+      .layer-summary h3 {
+        margin: 0;
+        font-size: 13px;
+      }
+
+      .layer-summary p {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .counts {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: center;
+        justify-content: flex-end;
+        gap: 7px;
+      }
+
+      .counts span {
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .counts strong {
+        color: var(--ink);
+      }
+
+      .current-layer {
+        padding: 0 20px 10px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        min-width: 720px;
+        border-collapse: collapse;
+        table-layout: auto;
+      }
+
+      th {
+        padding: 9px 14px;
+        background: color-mix(in srgb, var(--surface) 72%, var(--panel));
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-align: left;
+        letter-spacing: 0.06em;
+      }
+
+      td {
+        padding: 11px 14px;
+        border-top: 1px solid var(--line);
+        color: var(--ink-secondary);
+        font-size: 11px;
+        vertical-align: top;
+      }
+
+      td strong {
+        display: block;
+        color: var(--ink);
+        font-size: 12px;
+      }
+
+      code {
+        color: var(--muted);
+        font: 500 11px/1.4 "SFMono-Regular", Menlo, monospace;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .status::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .status.triggered {
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+
+      .status.invalidated {
+        color: var(--ink);
+      }
+
+      .status.low-confidence {
+        background: var(--warning-soft);
+        color: var(--warning-text);
+      }
+
+      .value {
+        color: var(--ink);
+        font-family: "SFMono-Regular", Menlo, monospace;
+        font-weight: 700;
+      }
+
+      .expand-button {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .fact {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .fact strong {
+        color: var(--ink);
+      }
+
+      @media (max-width: 980px) {
+        .sidebar {
+          display: none;
+        }
+
+        .overall {
+          grid-template-columns: 1fr;
+        }
+
+        .layer-summary {
+          grid-template-columns: 1fr;
+        }
+
+        .counts {
+          justify-content: flex-start;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .topbar {
+          padding: 0 14px;
+        }
+
+        .content {
+          padding: 18px 14px 34px;
+        }
+
+        .card-head,
+        .overall,
+        .layer-bar {
+          padding-right: 14px;
+          padding-left: 14px;
+        }
+
+        .quality {
+          gap: 9px;
+          padding-right: 14px;
+          padding-left: 14px;
+        }
+
+        .partial-note,
+        .layer-summary {
+          margin-right: 14px;
+          margin-left: 14px;
+        }
+
+        .layer-judgment {
+          grid-template-columns: 82px minmax(0, 1fr) auto;
+        }
+
+        .overall-headline {
+          font-size: 19px;
+        }
+
+        table {
+          min-width: 600px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" aria-label="业务导航">
+        <div class="brand">
+          <div class="brand-mark">AQ</div>
+          <div><strong>Apollo Quant</strong><span>量化 AI 工作台</span></div>
+        </div>
+        <div class="nav-group">
+          <p class="nav-label">工作空间</p>
+          <div class="nav-item"><span class="nav-icon">▦</span>每日看板</div>
+          <div class="nav-item"><span class="nav-icon">✓</span>工作任务</div>
+          <div class="nav-item"><span class="nav-icon">◷</span>每日复盘</div>
+        </div>
+        <div class="nav-group">
+          <p class="nav-label">市场情报</p>
+          <div class="nav-item active"><span class="nav-icon">⌁</span>行情中心</div>
+          <div class="nav-item"><span class="nav-icon">⌕</span>个股分析</div>
+          <div class="nav-item"><span class="nav-icon">▤</span>研报洞察</div>
+        </div>
+        <div class="nav-group">
+          <p class="nav-label">量化研究</p>
+          <div class="nav-item"><span class="nav-icon">△</span>策略</div>
+          <div class="nav-item"><span class="nav-icon">≋</span>因子</div>
+          <div class="nav-item"><span class="nav-icon">↗</span>回测</div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="crumb">Apollo Quant / <strong id="crumb-current">行情中心</strong></div>
+          <div class="demo-tools">
+            <button class="tool-button" id="theme-toggle" type="button">切换深色</button>
+            <button class="tool-button" id="state-toggle" type="button">查看部分成功</button>
+          </div>
+        </header>
+
+        <div class="content">
+          <p class="page-kicker">TECHNICAL JUDGMENT · CONFIRMATION</p>
+          <h1>分层技术判断</h1>
+          <p class="page-description">
+            对象总判断由基础、K 线形态、高级模型三层共识产生；个股微观结构只调整置信度。
+            所有结论来自确定性规则，不使用 Agent 自行判断。
+          </p>
+          <nav class="object-switch" aria-label="切换对象">
+            <button type="button" data-object="market">大盘</button>
+            <button type="button" data-object="board">板块</button>
+            <button type="button" data-object="stock">个股</button>
+            <button type="button" data-object="gold">黄金</button>
+          </nav>
+
+          <section class="diagnosis" aria-label="分层技术信号确认稿">
+            <header class="card-head">
+              <div>
+                <div class="title-line">
+                  <h2 id="card-title">A 股宏观状态</h2>
+                  <span class="version">technical-signals-1.0.0</span>
+                </div>
+                <p class="card-description" id="card-description"></p>
+              </div>
+              <div class="meta">
+                <span id="meta-asof"></span>
+                <span id="meta-count"></span>
+              </div>
+            </header>
+
+            <div class="overall">
+              <div>
+                <div class="eyebrow">对象总判断 · 主层共识</div>
+                <div class="overall-title">
+                  <span class="judgment" id="overall-judgment"></span>
+                  <h3 class="overall-headline" id="overall-headline"></h3>
+                </div>
+                <p class="overall-copy" id="overall-copy"></p>
+              </div>
+              <div class="layer-matrix" id="layer-matrix"></div>
+            </div>
+
+            <div class="quality">
+              <span>可用 <strong id="quality-available"></strong></span>
+              <span>覆盖 <strong id="quality-coverage"></strong></span>
+              <span>已触发 <strong id="quality-triggered"></strong></span>
+              <span>低置信 <strong id="quality-low"></strong></span>
+              <span>不可用 <strong id="quality-unavailable"></strong></span>
+            </div>
+
+            <div class="partial-note" id="partial-note" role="status">
+              <span>!</span>
+              <span id="partial-copy"></span>
+            </div>
+
+            <div class="layer-bar">
+              <div class="layer-tabs" role="tablist" aria-label="技术判断层级" id="layer-tabs"></div>
+              <div class="filters" aria-label="状态筛选">
+                <button class="filter-button" type="button" data-filter="all" aria-pressed="true">全部</button>
+                <button class="filter-button" type="button" data-filter="triggered" aria-pressed="false">已触发</button>
+                <button class="filter-button" type="button" data-filter="risk" aria-pressed="false">风险</button>
+                <button class="filter-button" type="button" data-filter="low-confidence" aria-pressed="false">低置信</button>
+                <button class="filter-button" type="button" data-filter="unavailable" aria-pressed="false">不可用</button>
+              </div>
+            </div>
+
+            <section class="layer-summary" id="layer-summary" aria-live="polite"></section>
+            <p class="current-layer" id="current-layer"></p>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>信号</th>
+                    <th>状态</th>
+                    <th>当前值</th>
+                    <th>证据</th>
+                    <th>展开</th>
+                  </tr>
+                </thead>
+                <tbody id="signal-rows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="fact">
+            <span><strong>对象总判断</strong> 只消费主层判断</span>
+            <span><strong>微观结构</strong> 只调整置信度</span>
+            <span><strong>Agent</strong> 不参与评分与状态</span>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const datasets = {
+        market: {
+          crumb: "行情中心 · 大盘",
+          title: "A 股宏观状态",
+          description:
+            "基础、K 线形态和高级模型在同一模块内形成分层判断；行业广度与成长/防守仅作为市场背景。",
+          asOf: "2026-11-24",
+          overall: ["偏弱", "weak", "风险偏好收缩，等待广度确认"],
+          copy: "基础层偏空，形态层中性，高级层证据分歧；4 项宏观数据未接入，不参与方向投票。",
+          quality: [28, 32, 3, 7, 4],
+          layers: [
+            ["basic", "基础信号", "偏空", "weak", "4 项偏空证据占优，但 RSI 已进入超卖区", "4 空 / 3 多 / 3 中性"],
+            ["pattern", "K 线形态", "中性", "neutral", "未出现获得广度确认的突破或反转", "0 空 / 0 多 / 12 中性"],
+            ["advanced", "高级模型", "分歧", "mixed", "风险偏好偏弱，波动率仍未确认", "2 风险 / 1 多 / 3 不足"],
+          ],
+          rows: [
+            ["价格相对 MA200", "basic.market.price_vs_ma200", "invalidated", "已失效", "-10.25%", "MA200=3953.42"],
+            ["MACD 背离", "basic.market.macd_divergence", "triggered", "已触发", "-99.27", "底背离候选，等待价格确认"],
+            ["RSI 超买超卖与背离", "basic.market.rsi_state", "triggered", "已触发", "21.75", "RSI 低于 30"],
+            ["ATR 波动率状态", "basic.market.atr_regime", "neutral", "中性", "65%", "位于历史中位区间"],
+          ],
+        },
+        board: {
+          crumb: "行情中心 · 板块 · 元件",
+          title: "元件 · 板块技术诊断",
+          description: "基础与形态转强，高级模型仍需资金和龙头共振确认。",
+          asOf: "2026-11-26",
+          overall: ["偏强", "strong", "价格与形态改善，等待高级模型确认"],
+          copy: "基础层偏多，形态层偏多，高级层证据分歧；总判断为偏强，置信度中。",
+          quality: [30, 32, 2, 8, 1],
+          layers: [
+            ["basic", "基础信号", "偏多", "strong", "均线斜率与量价结构同步改善", "5 多 / 1 空 / 4 中性"],
+            ["pattern", "K 线形态", "偏多", "strong", "平台突破获得成交额和龙头共振", "2 多 / 0 空 / 10 中性"],
+            ["advanced", "高级模型", "分歧", "mixed", "动量扩散偏强，拥挤度提示短期风险", "2 多 / 1 风险 / 3 不足"],
+          ],
+          rows: [
+            ["价格相对 MA200", "basic.sector.price_vs_ma200", "invalidated", "已失效", "-18.40%", "MA200=51818.38"],
+            ["MA200 斜率", "basic.sector.ma200_slope_20", "triggered", "已触发", "+1.36%", "20 日斜率转正"],
+            ["平台突破", "pattern.sector.platform_breakout", "triggered", "已触发", "0.84", "成交量与龙头共振确认"],
+            ["行业动量扩散", "advanced.sector.momentum_diffusion", "triggered", "已触发", "0.67", "上涨行业占比继续扩大"],
+          ],
+        },
+        stock: {
+          crumb: "个股分析 · 比亚迪",
+          title: "比亚迪 · 技术信号总判断",
+          description:
+            "基础、K 线形态、高级模型三层投票；微观结构仅用于调整置信度，不覆盖主层方向。",
+          asOf: "2026-11-25",
+          overall: ["偏弱", "weak", "趋势与形态承压，微观证据只降低置信度"],
+          copy: "基础层偏空，形态层偏空，高级层分歧；微观结构提供辅助，不改变主结论。",
+          quality: [29, 44, 3, 9, 15],
+          layers: [
+            ["basic", "基础信号", "偏空", "weak", "价格低于 MA200，MACD 位于零轴下方", "5 空 / 2 多 / 3 中性"],
+            ["pattern", "K 线形态", "偏空", "weak", "空头破位和顶部反转确认", "3 空 / 1 多 / 8 中性"],
+            ["advanced", "高级模型", "分歧", "mixed", "Alpha 偏弱，但资金累积出现改善", "3 空 / 2 多 / 5 不足"],
+            ["micro", "微观结构（辅助）", "低置信", "low-confidence", "单日分笔样本偏少，只调整置信度", "2 多 / 2 空 / 8 不足"],
+          ],
+          rows: [
+            ["价格相对 MA200", "basic.stock.price_vs_ma200", "invalidated", "已失效", "-18.36%", "MA200=91.19"],
+            ["RSI 超买超卖与背离", "basic.stock.rsi_state", "triggered", "已触发", "5.51", "RSI 低于 10，进入极端区间"],
+            ["空头破位", "pattern.stock.bearish_breakdown", "triggered", "已触发", "1.00", "跌破 60 日低点并获得量能确认"],
+            ["Alpha 动量", "advanced.stock.alpha_momentum", "invalidated", "已失效", "-0.31", "行业相对收益为负"],
+          ],
+        },
+        gold: {
+          crumb: "行情中心 · 黄金分析",
+          title: "黄金技术诊断",
+          description: "价格与形态可计算，宏观和持仓模型尚未接入；无成交量信号不参与判断。",
+          asOf: "2026-11-26",
+          overall: ["证据不足", "insufficient", "技术偏弱，但高级模型覆盖不足"],
+          copy: "基础层偏空，形态层中性，高级层仅 20% 可用；不生成确定方向。",
+          quality: [20, 32, 3, 0, 10],
+          layers: [
+            ["basic", "基础信号", "偏空", "weak", "价格与均线结构转弱", "4 空 / 2 多 / 4 中性"],
+            ["pattern", "K 线形态", "中性", "neutral", "未形成带量确认的顶部或底部形态", "0 空 / 0 多 / 12 中性"],
+            ["advanced", "高级模型", "证据不足", "insufficient", "实际利率、美元和 ETF 数据未接入", "0 多 / 0 空 / 10 不足"],
+          ],
+          rows: [
+            ["价格相对 MA200", "basic.gold.price_vs_ma200", "invalidated", "已失效", "-18.60%", "MA200=4379.93"],
+            ["相对成交量 RVOL", "basic.gold.rvol", "unavailable", "不适用", "—", "XAU/USD 无可信成交量"],
+            ["OBV 趋势", "basic.gold.obv_trend", "unavailable", "不适用", "—", "XAU/USD 无可信成交量"],
+            ["黄金与实际利率", "advanced.gold.real_rate", "unavailable", "不可用", "—", "需要实际利率与通胀预期序列"],
+          ],
+        },
+      };
+
+      const params = new URLSearchParams(location.search);
+      let objectKey = datasets[params.get("object")] ? params.get("object") : "market";
+      let state = params.get("state") || "success";
+      if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
+
+      const $ = (selector) => document.querySelector(selector);
+      const judgmentClass = (tone) =>
+        tone === "low-confidence" ? "low-confidence" : tone || "neutral";
+
+      function render() {
+        const data = datasets[objectKey];
+        $("#crumb-current").textContent = data.crumb;
+        $("#card-title").textContent = data.title;
+        $("#card-description").textContent = data.description;
+        $("#meta-asof").textContent = `as-of ${data.asOf}`;
+        $("#meta-count").textContent = `${data.quality[1]} 项`;
+        $("#overall-judgment").className = `judgment ${judgmentClass(data.overall[1])}`;
+        $("#overall-judgment").innerHTML = `<span class="dot"></span>${data.overall[0]}`;
+        $("#overall-headline").textContent = data.overall[2];
+        $("#overall-copy").textContent = data.copy;
+        $("#quality-available").textContent = `${data.quality[0]}/${data.quality[1]}`;
+        $("#quality-coverage").textContent = `${Math.round((data.quality[0] / data.quality[1]) * 100)}%`;
+        $("#quality-triggered").textContent = String(data.quality[2]);
+        $("#quality-low").textContent = String(data.quality[3]);
+        $("#quality-unavailable").textContent = String(data.quality[4]);
+
+        $("#layer-matrix").innerHTML = data.layers
+          .map(
+            ([, label, verdict, tone, detail]) => `
+              <div class="layer-judgment">
+                <strong>${label}</strong>
+                <p>${detail}</p>
+                <span class="judgment ${judgmentClass(tone)}"><span class="dot"></span>${verdict}</span>
+              </div>`,
+          )
+          .join("");
+
+        $("#layer-tabs").innerHTML = data.layers
+          .map(
+            ([key, label, verdict], index) => `
+              <button class="layer-tab" type="button" role="tab"
+                data-layer="${key}" aria-selected="${index === 0 ? "true" : "false"}">
+                ${label}<span>${verdict}</span>
+              </button>`,
+          )
+          .join("");
+        bindLayerTabs();
+
+        const partial = state === "partial";
+        $("#partial-note").hidden = !partial;
+        $("#partial-copy").textContent = partial
+          ? "部分宏观模型尚未接入。可用信号继续参与分层判断，缺失项不计入方向得分。"
+          : "";
+        $("#state-toggle").textContent = partial ? "查看完整数据" : "查看部分成功";
+        $("#state-toggle").dataset.state = partial ? "success" : "partial";
+
+        document.querySelectorAll("[data-object]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.object === objectKey));
+        });
+        $("#theme-toggle").textContent = document.documentElement.classList.contains("dark")
+          ? "切换浅色"
+          : "切换深色";
+      }
+
+      function renderLayer(layerKey) {
+        const data = datasets[objectKey];
+        const layer = data.layers.find(([key]) => key === layerKey) || data.layers[0];
+        $("#layer-summary").innerHTML = `
+          <div>
+            <h3>${layer[1]}判断 · ${layer[2]}</h3>
+            <p>${layer[4]}</p>
+          </div>
+          <div class="counts">
+            <span>${layer[5]}</span>
+            <span><strong>${data.quality[0]}</strong> / ${data.quality[1]} 可用</span>
+          </div>`;
+        $("#current-layer").textContent = `当前层仅展示“${layer[1]}”；对象总判断仍使用三个主层共识。`;
+        document.querySelectorAll(".layer-tab").forEach((tab) => {
+          tab.setAttribute("aria-selected", String(tab.dataset.layer === layerKey));
+        });
+
+        const rows = layerKey === data.layers[0][0] ? data.rows : data.rows.slice(0, 3);
+        $("#signal-rows").innerHTML = rows
+          .map(
+            ([name, id, status, statusLabel, value, evidence]) => `
+              <tr>
+                <td><strong>${name}</strong><code>${id}</code></td>
+                <td><span class="status ${status}">${statusLabel}</span></td>
+                <td class="value">${value}</td>
+                <td>${evidence}</td>
+                <td><button class="expand-button" type="button" aria-label="展开${name}证据">⌄</button></td>
+              </tr>`,
+          )
+          .join("");
+        bindFilters();
+      }
+
+      function bindLayerTabs() {
+        document.querySelectorAll(".layer-tab").forEach((tab) => {
+          tab.addEventListener("click", () => renderLayer(tab.dataset.layer));
+          tab.addEventListener("keydown", (event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const tabs = [...document.querySelectorAll(".layer-tab")];
+            const current = tabs.indexOf(tab);
+            const next =
+              event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? tabs.length - 1
+                  : event.key === "ArrowLeft"
+                    ? (current - 1 + tabs.length) % tabs.length
+                    : (current + 1) % tabs.length;
+            tabs[next].focus();
+            renderLayer(tabs[next].dataset.layer);
+          });
+        });
+        renderLayer(dataFromFirstLayer());
+      }
+
+      function dataFromFirstLayer() {
+        return datasets[objectKey].layers[0][0];
+      }
+
+      function bindFilters() {
+        document.querySelectorAll(".filter-button").forEach((button) => {
+          button.addEventListener("click", () => {
+            document.querySelectorAll(".filter-button").forEach((item) => {
+              item.setAttribute("aria-pressed", String(item === button));
+            });
+          });
+        });
+      }
+
+      document.querySelectorAll("[data-object]").forEach((button) => {
+        button.addEventListener("click", () => {
+          objectKey = button.dataset.object;
+          render();
+        });
+      });
+
+      $("#theme-toggle").addEventListener("click", () => {
+        document.documentElement.classList.toggle("dark");
+        render();
+      });
+
+      $("#state-toggle").addEventListener("click", () => {
+        state = $("#state-toggle").dataset.state;
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

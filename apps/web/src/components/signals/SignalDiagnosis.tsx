@@ -1,5 +1,10 @@
 import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { SignalResult, SignalStatus } from "@ai-trader/signal-catalog/contracts";
+import type {
+  SignalLayerJudgment,
+  SignalResult,
+  SignalStatus,
+  TechnicalSignalJudgmentSummary,
+} from "@ai-trader/signal-catalog/contracts";
 import { AlertTriangle, ChevronDown, RotateCcw } from "lucide-react";
 import { Badge } from "@preline-ui/Badge";
 import { Button } from "@preline-ui/Button";
@@ -12,6 +17,9 @@ import {
   SIGNAL_FILTERS,
   filterSignals,
   formatSignalValue,
+  judgmentConfidenceLabel,
+  judgmentLayer,
+  judgmentVerdictMeta,
   signalCounts,
   signalStatusMeta,
   type SignalFilter,
@@ -34,7 +42,7 @@ export interface SignalDiagnosisProps {
   partialMessage?: string | null;
   defaultLayer?: string;
   onRetry?: () => void;
-  headerContent?: ReactNode;
+  judgment?: TechnicalSignalJudgmentSummary | null;
 }
 
 function StatusBadge({ signal }: { signal: SignalResult }) {
@@ -84,6 +92,116 @@ export function SignalQualityStrip({
   );
 }
 
+function JudgmentCounts({ judgment }: { judgment: SignalLayerJudgment }) {
+  const { counts } = judgment;
+  return (
+    <div className="flex flex-wrap justify-end gap-1.5 text-[10px] text-app-muted">
+      <span className="rounded-full bg-app-panel px-2 py-1">
+        {counts.bullish} 多 / {counts.bearish} 空 / {counts.neutral} 中性
+      </span>
+      <span className="rounded-full bg-app-panel px-2 py-1">{counts.total} 项本层</span>
+      <span className="rounded-full bg-app-panel px-2 py-1">
+        覆盖 {Math.round(counts.coverage * 100)}%
+      </span>
+    </div>
+  );
+}
+
+function LayerJudgment({ judgment }: { judgment: SignalLayerJudgment }) {
+  const meta = judgmentVerdictMeta(judgment.verdict);
+  return (
+    <section
+      className="border-b border-app-line bg-app-panel px-4 py-3 sm:px-5"
+      aria-label={`${judgment.label}判断`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="text-xs text-app-ink">
+              {judgment.label}判断 · {judgment.verdictLabel}
+            </strong>
+            <span
+              className={`inline-flex min-h-5 items-center gap-1 rounded-full border px-2 text-[10px] font-semibold ${meta.className}`}
+            >
+              <span className={`size-1.5 rounded-full ${meta.dotClassName}`} />
+              {judgment.verdictLabel}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] leading-5 text-app-muted">{judgment.rationale}</p>
+        </div>
+        <JudgmentCounts judgment={judgment} />
+      </div>
+    </section>
+  );
+}
+
+function OverallJudgment({
+  judgment,
+  layers,
+  onJump,
+}: {
+  judgment: TechnicalSignalJudgmentSummary;
+  layers: readonly SignalLayer[];
+  onJump: (layer: string) => void;
+}) {
+  const meta = judgmentVerdictMeta(judgment.overall.verdict);
+  return (
+    <section
+      className="border-b border-app-line bg-app-surface/45 px-4 py-4 sm:px-5"
+      aria-label="对象总判断"
+    >
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,.72fr)]">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] font-semibold tracking-[0.1em] text-primary">
+            对象总判断 · 主层共识
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2.5">
+            <span
+              className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold ${meta.className}`}
+            >
+              <span className={`size-1.5 rounded-full ${meta.dotClassName}`} />
+              {judgment.overall.verdictLabel}
+            </span>
+            <h4 className="text-lg font-semibold tracking-tight text-app-ink sm:text-xl">
+              {judgment.overall.headline}
+            </h4>
+          </div>
+          <p className="mt-2 text-[11px] leading-6 text-app-muted">{judgment.overall.rationale}</p>
+          <p className="mt-1 font-mono text-[9px] text-app-faint">
+            {judgment.summaryVersion} · 置信度{" "}
+            {judgmentConfidenceLabel(judgment.overall.confidence)}
+          </p>
+        </div>
+        <div className="grid content-start gap-1.5">
+          {judgment.layers.map((layer) => {
+            const layerMeta = judgmentVerdictMeta(layer.verdict);
+            const available = layers.some((item) => item.key === layer.layer);
+            return (
+              <button
+                key={layer.layer}
+                type="button"
+                disabled={!available}
+                onClick={() => onJump(layer.layer)}
+                className="focus-ring grid min-h-10 grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-app-panel px-2.5 text-left transition hover:bg-app-panel/75 disabled:cursor-default"
+                aria-label={`查看${layer.label}判断`}
+              >
+                <strong className="text-[11px] text-app-ink">{layer.label}</strong>
+                <span className="truncate text-[10px] text-app-muted">{layer.rationale}</span>
+                <span
+                  className={`inline-flex items-center gap-1 text-[10px] font-semibold ${layerMeta.className.split(" ").at(-1)}`}
+                >
+                  <span className={`size-1 rounded-full ${layerMeta.dotClassName}`} />
+                  {layer.verdictLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function SignalDiagnosis({
   title,
   description,
@@ -95,7 +213,7 @@ export function SignalDiagnosis({
   partialMessage = null,
   defaultLayer,
   onRetry,
-  headerContent,
+  judgment = null,
 }: SignalDiagnosisProps) {
   const id = useId();
   const [activeLayer, setActiveLayer] = useState(defaultLayer ?? layers[0]?.key ?? "");
@@ -108,6 +226,7 @@ export function SignalDiagnosis({
   );
   const allSignals = useMemo(() => layers.flatMap((layer) => layer.signals), [layers]);
   const counts = useMemo(() => signalCounts(allSignals), [allSignals]);
+  const selectedJudgment = judgmentLayer(judgment, selectedLayer?.key ?? "");
 
   const changeLayer = (key: string) => {
     setActiveLayer(key);
@@ -167,8 +286,8 @@ export function SignalDiagnosis({
         </div>
       </div>
 
-      {headerContent ? (
-        <div className="border-b border-app-line px-4 py-4 sm:px-5">{headerContent}</div>
+      {judgment && !isLoading && !error ? (
+        <OverallJudgment judgment={judgment} layers={layers} onJump={changeLayer} />
       ) : null}
 
       <SignalQualityStrip counts={counts} total={allSignals.length} />
@@ -264,6 +383,7 @@ export function SignalDiagnosis({
           </div>
 
           <div id={`${id}-${selectedLayer?.key ?? "empty"}`} role="tabpanel" className="min-w-0">
+            {selectedJudgment ? <LayerJudgment judgment={selectedJudgment} /> : null}
             <Text
               as="p"
               type="supporting"
@@ -277,15 +397,20 @@ export function SignalDiagnosis({
                 当前筛选下没有信号，清除筛选可恢复完整分组。
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[680px] border-collapse text-left">
+              <div
+                className="overflow-x-auto"
+                role="region"
+                aria-label={`${title}信号列表，可横向滚动`}
+                tabIndex={0}
+              >
+                <table className="w-full table-fixed border-collapse text-left sm:min-w-[680px] sm:table-auto">
                   <thead>
                     <tr className="border-b border-app-line text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">
-                      <th className="w-[27%] px-4 py-2.5 sm:px-5">信号</th>
-                      <th className="w-[13%] px-3 py-2.5">状态</th>
-                      <th className="w-[16%] px-3 py-2.5">当前值</th>
-                      <th className="w-[38%] px-3 py-2.5">证据</th>
-                      <th className="w-[6%] px-3 py-2.5">
+                      <th className="w-[40%] px-3 py-2.5 sm:w-[27%] sm:px-5">信号</th>
+                      <th className="w-[23%] px-2 py-2.5 sm:w-[13%] sm:px-3">状态</th>
+                      <th className="w-[27%] px-2 py-2.5 sm:w-[16%] sm:px-3">当前值</th>
+                      <th className="hidden w-[38%] px-3 py-2.5 sm:table-cell">证据</th>
+                      <th className="w-[10%] px-2 py-2.5 sm:w-[6%] sm:px-3">
                         <span className="sr-only">展开证据</span>
                       </th>
                     </tr>
@@ -329,7 +454,7 @@ function SignalRows({
   return (
     <>
       <tr className="border-b border-app-line/80 align-top hover:bg-app-surface/60">
-        <td className="px-4 py-3 sm:px-5">
+        <td className="px-3 py-3 sm:px-5">
           <strong className="block text-xs font-semibold text-app-ink">
             {signal.displayName ?? displaySignalName(signal.signalId)}
           </strong>
@@ -337,16 +462,16 @@ function SignalRows({
             {signal.signalId}
           </span>
         </td>
-        <td className="px-3 py-3">
+        <td className="px-2 py-3 sm:px-3">
           <StatusBadge signal={signal} />
         </td>
-        <td className="px-3 py-3 font-mono text-xs font-semibold tabular-nums text-app-ink">
+        <td className="px-2 py-3 font-mono text-xs font-semibold tabular-nums text-app-ink sm:px-3">
           {formatSignalValue(signal)}
         </td>
-        <td className="px-3 py-3 text-[11px] leading-5 text-app-muted">
+        <td className="hidden px-3 py-3 text-[11px] leading-5 text-app-muted sm:table-cell">
           {signal.evidence.notes[0] ?? signalEvidenceFallback(signal)}
         </td>
-        <td className="px-3 py-3 text-right">
+        <td className="px-2 py-3 text-right sm:px-3">
           <button
             type="button"
             className="focus-ring inline-flex size-8 items-center justify-center rounded-md border border-app-line text-app-muted hover:text-app-ink"

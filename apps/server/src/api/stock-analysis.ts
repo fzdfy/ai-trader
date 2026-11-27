@@ -33,6 +33,7 @@ import {
 import { marketDataReader } from "../lib/market-data-read";
 import { technicalObjectAdapter } from "../lib/technical-signals/adapters";
 import { buildStockTechnicalSignalModule } from "../lib/technical-signals/stock-analysis";
+import { buildSignalJudgmentSummary } from "../lib/technical-signals/judgment";
 import type { StockTechnicalModule } from "../lib/technical-signals/stock-analysis";
 import { loadStockAdvancedContext } from "../lib/technical-signals/contexts";
 
@@ -93,6 +94,7 @@ async function loadStockTechnicalSignals({
       inputHash: "",
       quality: "missing",
       counts: { ...emptyTechnicalSignalCounts },
+      summary: buildSignalJudgmentSummary({ objectType: "stock", signals: [] }),
       technical: null,
       signals: [],
     };
@@ -487,6 +489,7 @@ stockAnalysisRoute.get("/:symbol", async (c) => {
       technicalSignalMeta: {
         catalogVersion: technicalSignals.catalogVersion,
         counts: technicalSignals.counts,
+        summary: technicalSignals.summary,
         inputHash: technicalSignals.inputHash,
         computedAt: technicalSignals.computedAt,
       },

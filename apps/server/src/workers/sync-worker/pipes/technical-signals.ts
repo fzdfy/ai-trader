@@ -4,7 +4,6 @@ import { db } from "../../../db";
 import { board, instrument } from "../../../db/schema";
 import { catalogHash } from "../../../../../../packages/signal-catalog/src/hash.ts";
 import { CATALOG_VERSION } from "../../../../../../packages/signal-catalog/src/index.ts";
-import type { SignalStatus } from "../../../../../../packages/signal-catalog/src/contracts.ts";
 import {
   quant,
   type QuantTechnicalEvaluationResponse,
@@ -35,6 +34,7 @@ import {
   loadSectorAdvancedContext,
   loadStockAdvancedContext,
 } from "../../../lib/technical-signals/contexts";
+import { buildSignalJudgmentSummary } from "../../../lib/technical-signals/judgment";
 import {
   upsertTechnicalSignalSnapshot,
   type TechnicalSignalSnapshotWrite,
@@ -53,12 +53,7 @@ export interface TechnicalPipelineDependencies {
   loadAdvancedContext?(
     object: TechnicalPipelineObject,
     read: TechnicalObjectRead,
-  ): Promise<
-    | MarketAdvancedContext
-    | SectorAdvancedContext
-    | StockAdvancedContext
-    | null
-  >;
+  ): Promise<MarketAdvancedContext | SectorAdvancedContext | StockAdvancedContext | null>;
   evaluateQuant(input: {
     catalog_version: "technical-signals-1.0.0";
     computed_at: string;
@@ -101,26 +96,16 @@ async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(values.length);
   let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(concurrency, values.length) },
-    async () => {
-      while (nextIndex < values.length) {
-        const index = nextIndex;
-        nextIndex += 1;
-        results[index] = await operation(values[index]!);
-      }
-    },
-  );
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await operation(values[index]!);
+    }
+  });
   await Promise.all(workers);
   return results;
 }
-
-const countSignals = (signals: readonly { status: SignalStatus }[]) =>
-  Object.fromEntries(
-    ["triggered", "neutral", "invalidated", "low-confidence", "unavailable", "not-applicable"].map(
-      (status) => [status, signals.filter((signal) => signal.status === status).length],
-    ),
-  ) as Record<SignalStatus, number>;
 
 async function evaluateWithRetry(
   dependencies: TechnicalPipelineDependencies,
@@ -169,11 +154,8 @@ export async function processTechnicalSignalBatches(
       object: TechnicalPipelineObject;
       read: TechnicalObjectRead;
     }> = [];
-    const readResults = await mapWithConcurrency(
-      batch,
-      20,
-      async (object) => {
-        try {
+    const readResults = await mapWithConcurrency(batch, 20, async (object) => {
+      try {
         const read = await dependencies.readObject(object);
         if (read.bars.length === 0) {
           return {
@@ -194,8 +176,7 @@ export async function processTechnicalSignalBatches(
           },
         };
       }
-      },
-    );
+    });
     for (const result of readResults) {
       if ("read" in result && result.read) {
         reads.push({ object: result.object, read: result.read });
@@ -260,23 +241,19 @@ export async function processTechnicalSignalBatches(
         const context = (await dependencies.loadAdvancedContext?.(object, read)) ?? null;
         const advanced =
           object.objectType === "market"
-            ? evaluateMarketAdvancedModels(
-                  context as MarketAdvancedContext | null,
-                advancedOptions,
-              )
+            ? evaluateMarketAdvancedModels(context as MarketAdvancedContext | null, advancedOptions)
             : object.objectType === "sector"
               ? evaluateSectorAdvancedModels(
-                    context as SectorAdvancedContext | null,
+                  context as SectorAdvancedContext | null,
                   advancedOptions,
                 )
               : object.objectType === "stock"
                 ? evaluateStockAdvancedModels(
-                      context as StockAdvancedContext | null,
+                    context as StockAdvancedContext | null,
                     advancedOptions,
                   )
                 : evaluateGoldAdvancedModels(advancedOptions);
         const signals = [...confirmed, ...advanced];
-        const counts = countSignals(signals);
         const quality = signals.every((signal) => signal.status === "unavailable")
           ? "missing"
           : signals.some(
@@ -299,22 +276,10 @@ export async function processTechnicalSignalBatches(
           quality,
           dataSources: read.dataSources,
           signals,
-          summary: {
-            counts,
-            keySignals: signals
-              .filter(
-                (signal) =>
-                  signal.status === "triggered" ||
-                  signal.status === "invalidated" ||
-                  signal.status === "low-confidence",
-              )
-              .slice(0, 4)
-              .map((signal) => signal.signalId),
-            coverage:
-              signals.filter(
-                (signal) => signal.status !== "unavailable" && signal.status !== "not-applicable",
-              ).length / Math.max(signals.length, 1),
-          },
+          summary: buildSignalJudgmentSummary({
+            objectType: object.objectType,
+            signals,
+          }),
         });
         metrics.succeeded += 1;
         if (quality !== "available") metrics.lowQuality += 1;

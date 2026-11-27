@@ -244,6 +244,10 @@
     sans-serif;
 }
 
+body:has(.app-shell) {
+  overflow: hidden;
+}
+
 .preline-app .tabular-nums,
 .preline-app .font-mono {
   font-variant-numeric: tabular-nums;

@@ -319,7 +319,7 @@ function insertBeforeHeading(text, markup) {
 }
 
 function insertTechnicalDiagnosisAfterTrend() {
-  const heading = findHeading("情景预测");
+  const heading = findHeading("情景预测") || findHeading("情景与风险区间");
   if (!heading) return false;
   const card = heading.closest("article, .rounded-xl.border");
   if (!card?.parentElement) return false;

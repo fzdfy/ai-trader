@@ -95,6 +95,7 @@ function GoldAnalysisPage() {
           title="黄金技术诊断"
           description="价格结构、形态和宏观模型在同一张卡内分层查看；未接入数据不生成代理结论。"
           layers={groupSignalsByLayer(technical.data?.signals ?? [])}
+          judgment={technical.data?.summary}
           asOf={technical.data?.asOf}
           catalogVersion={technical.data?.catalogVersion}
           isLoading={technical.isLoading}

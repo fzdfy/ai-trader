@@ -6,7 +6,9 @@ import type {
   SignalQuality,
   SignalResult,
   SignalStatus,
+  TechnicalSignalJudgmentSummary,
 } from "../../../../../packages/signal-catalog/src/contracts.ts";
+import { validateTechnicalSignalJudgmentSummary } from "../../../../../packages/signal-catalog/src/contracts.ts";
 import type { SignalLayer } from "../../../../../packages/signal-catalog/src/index.ts";
 
 export interface SignalObjectIdentity {
@@ -33,7 +35,7 @@ export interface TechnicalSignalSnapshotWrite {
   quality: "available" | "low" | "missing";
   dataSources: string[];
   signals: SignalResult[];
-  summary: Record<string, unknown>;
+  summary: TechnicalSignalJudgmentSummary;
 }
 
 export interface StoredTechnicalSignalSnapshot {
@@ -48,7 +50,7 @@ export interface StoredTechnicalSignalSnapshot {
   quality: "available" | "low" | "missing";
   dataSources: string[];
   signals: SignalResult[];
-  summary: Record<string, unknown>;
+  summary: TechnicalSignalJudgmentSummary | null;
 }
 
 export interface TechnicalSignalTriggerRow {
@@ -80,7 +82,7 @@ export interface StoredTechnicalSignalSnapshotRow {
   quality: string;
   dataSourcesJson: string[];
   signalsJson: unknown;
-  summaryJson: Record<string, unknown>;
+  summaryJson: unknown;
 }
 
 export interface StockTechnicalSignalSummary {
@@ -279,6 +281,12 @@ export async function readTechnicalSignalSnapshot(
 export function mapStoredSnapshotRow(
   row: StoredTechnicalSignalSnapshotRow,
 ): StoredTechnicalSignalSnapshot {
+  let summary: TechnicalSignalJudgmentSummary | null = null;
+  try {
+    summary = validateTechnicalSignalJudgmentSummary(row.summaryJson);
+  } catch {
+    summary = null;
+  }
   return {
     objectType: row.objectType as StoredTechnicalSignalSnapshot["objectType"],
     objectSubtype: row.objectSubtype ? (row.objectSubtype as ObjectSubtype) : null,
@@ -291,7 +299,7 @@ export function mapStoredSnapshotRow(
     quality: row.quality as StoredTechnicalSignalSnapshot["quality"],
     dataSources: row.dataSourcesJson,
     signals: row.signalsJson as SignalResult[],
-    summary: row.summaryJson,
+    summary,
   };
 }
 
